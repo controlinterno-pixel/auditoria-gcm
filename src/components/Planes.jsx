@@ -217,6 +217,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
       idInforme: hallazgo.idInforme,
       proceso: hallazgo.proceso || 'General',
       subproceso: hallazgo.subproceso || 'General',
+      subprocesos: Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso || 'General'],
       sede: hallazgo.sede || 'Hotel',
       severidad: hallazgo.severidad || 'Medio',
       esVencido,
@@ -275,7 +276,7 @@ const handleNotificarPlan = (planId) => {
   const planesFiltradosBase = useMemo(() => planesEnriquecidos.filter(p => {
     if (dashFiltroAnio !== 'Todos' && p.anioTexto !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && p.proceso !== dashFiltroProceso) return false;
-    if (dashFiltroSubproceso !== 'Todos' && p.subproceso !== dashFiltroSubproceso) return false; 
+    if (dashFiltroSubproceso !== 'Todos' && !(p.subprocesos || [p.subproceso]).includes(dashFiltroSubproceso)) return false;
     if (dashFiltroPrioridad !== 'Todos' && p.severidad !== dashFiltroPrioridad) return false;
     if (dashFiltroResponsable !== 'Todos' && p.responsable !== dashFiltroResponsable) return false;
     return true;
@@ -313,7 +314,7 @@ const handleNotificarPlan = (planId) => {
       let key = 'Sin clasificar';
       if (agruparPor === 'Año') key = p.anioTexto;
       if (agruparPor === 'Proceso') key = p.proceso;
-      if (agruparPor === 'Subproceso') key = p.subproceso;
+      if (agruparPor === 'Subproceso') key = (p.subprocesos || [p.subproceso]).join(', ');
       if (agruparPor === 'Estado') key = p.progreso === 100 ? 'Cerrados' : p.esVencido ? 'Vencidos' : 'En Proceso';
       if (agruparPor === 'Responsable') key = p.responsable;
       if (agruparPor === 'Prioridad') key = p.severidad;
@@ -1170,14 +1171,18 @@ if (existingActivities.length > 0) {
 
         const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
         const macroHallazgo = String(hallazgo?.macroproceso || hallazgo?.proceso || '').split('/')[0].trim().toLowerCase();
-        const subprocesoHallazgo = String(hallazgo?.subproceso || String(hallazgo?.proceso || '').split('/')[1] || '').trim().toLowerCase();
+        const subprocesosHallazgo = (
+          Array.isArray(hallazgo?.subprocesos)
+            ? hallazgo.subprocesos
+            : [hallazgo?.subproceso || String(hallazgo?.proceso || '').split('/')[1] || '']
+        ).map(subproceso => String(subproceso || '').trim().toLowerCase());
         const candidatos = catalogoCargos.filter(registro => (
           registro?.activo !== false && String(registro?.cargo || '').trim().toLowerCase() === String(value || '').trim().toLowerCase()
         ));
         const asignacion = candidatos.find(registro => (
           String(registro.macroproceso || '').trim().toLowerCase() === macroHallazgo &&
           (Array.isArray(registro.subprocesos) ? registro.subprocesos : [registro.subproceso])
-            .some(subproceso => String(subproceso || '').trim().toLowerCase() === subprocesoHallazgo)
+            .some(subproceso => subprocesosHallazgo.includes(String(subproceso || '').trim().toLowerCase()))
         )) || candidatos.find(registro => (
           String(registro.macroproceso || '').trim().toLowerCase() === macroHallazgo
         )) || candidatos[0];

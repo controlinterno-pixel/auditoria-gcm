@@ -95,11 +95,12 @@ export default async function handler(req, res) {
           }
 
           const procesoHallazgo = normalizar(hallazgo.macroproceso || String(hallazgo.proceso || '').split('/')[0]);
-          const subprocesoHallazgo = normalizar(hallazgo.subproceso);
+          const subprocesosHallazgo = (Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso])
+            .map(normalizar);
           const creadoPorUsuario = normalizar(hallazgo.correoCreador || hallazgo.creadoPor) === email;
           const perteneceAlAlcance = Boolean(
             procesoPerfil && procesoHallazgo === procesoPerfil &&
-            (!subprocesoPerfil || subprocesoHallazgo === subprocesoPerfil)
+            (!subprocesoPerfil || subprocesosHallazgo.includes(subprocesoPerfil))
           );
           if (!admin && !creadoPorUsuario && !perteneceAlAlcance) {
             return { error: 'hallazgo-forbidden' };

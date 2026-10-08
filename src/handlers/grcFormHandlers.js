@@ -1,6 +1,12 @@
 // src/handlers/grcFormHandlers.js
 import { buildHistorialDetalle } from '../utils/historialCambios.js';
 
+const convertirListaSubprocesos = valores => (
+  Array.isArray(valores)
+    ? valores.map(valor => String(valor || '').trim()).filter(Boolean)
+    : String(valores || '').split(',').map(valor => valor.trim()).filter(Boolean)
+);
+
 export const createFormHandlers = ({
   user,
   isAdmin,
@@ -135,7 +141,15 @@ export const createFormHandlers = ({
     }
     const normaReferenciaOut = formData.get('normaReferencia') || editHallazgo?.normaReferencia || '';
     const procesoVal = formData.get('proceso') || formData.get('Proceso') || 'Sin proceso';
-    const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || 'General';
+    let subprocesosVal = [];
+    try {
+      const subprocesosRaw = JSON.parse(String(formData.get('subprocesos') || '[]'));
+      if (Array.isArray(subprocesosRaw)) subprocesosVal = convertirListaSubprocesos(subprocesosRaw);
+    } catch {
+      subprocesosVal = [];
+    }
+    const subprocesoVal = subprocesosVal[0] || formData.get('subproceso') || formData.get('Subproceso') || 'General';
+    if (subprocesosVal.length === 0 && subprocesoVal) subprocesosVal = convertirListaSubprocesos(subprocesoVal);
     const metodologiaCausaVal = formData.get('metodologiaCausa') || editHallazgo?.metodologiaCausa || '5 Porqués';
     const analisisCausaVal = formData.get('analisisCausa') ?? editHallazgo?.analisisCausa ?? '';
     
@@ -153,6 +167,7 @@ export const createFormHandlers = ({
         ref: formData.get('ref'), 
         proceso: procesoVal,
         subproceso: subprocesoVal,
+        subprocesos: subprocesosVal,
         responsable: formData.get('responsable'), 
         auditor: formData.get('auditor') || editHallazgo?.auditor || '', 
         normaReferencia: normaReferenciaOut,
@@ -177,6 +192,7 @@ export const createFormHandlers = ({
         ref: formData.get('ref'), 
         proceso: procesoVal,
         subproceso: subprocesoVal,
+        subprocesos: subprocesosVal,
         responsable: formData.get('responsable'), 
         auditor: formData.get('auditor') || '', 
         normaReferencia: normaReferenciaOut,

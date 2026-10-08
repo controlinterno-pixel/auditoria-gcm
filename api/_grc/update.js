@@ -181,11 +181,12 @@ export default async function handler(req, res) {
           const hallazgo = hallazgos.find(candidate => String(candidate.id) === String(item.idHallazgo));
           if (!hallazgo || String(hallazgo.idInforme) !== idInforme) return { error: 'hallazgo-not-found' };
           const procesoHallazgo = normalizar(hallazgo.macroproceso || String(hallazgo.proceso || '').split('/')[0]);
-          const subprocesoHallazgo = normalizar(hallazgo.subproceso);
+          const subprocesosHallazgo = (Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso])
+            .map(normalizar);
           const esCreadorHallazgo = normalizar(hallazgo.correoCreador || hallazgo.creadoPor) === usuarioEmail;
           const perteneceProcesoAsignado = Boolean(
             procesoPerfil && procesoHallazgo === procesoPerfil &&
-            (!subprocesoPerfil || subprocesoHallazgo === subprocesoPerfil)
+            (!subprocesoPerfil || subprocesosHallazgo.includes(subprocesoPerfil))
           );
           if (!admin && !esCreadorHallazgo && !perteneceProcesoAsignado) return { error: 'hallazgo-forbidden' };
 

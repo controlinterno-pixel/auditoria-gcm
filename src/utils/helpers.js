@@ -92,9 +92,12 @@ export const applyFilters = (dataArray, query, columnFilters = {}) => {
       const filterValue = columnFilters[key];
       if (filterValue && String(filterValue).trim() !== "") {
         const lowFilter = String(filterValue).toLowerCase().trim();
-        result = result.filter(item => 
-          item[key] !== null && item[key] !== undefined && String(item[key]).toLowerCase().includes(lowFilter)
-        );
+        result = result.filter(item => {
+          const valor = key === 'subproceso' && Array.isArray(item.subprocesos)
+            ? [...item.subprocesos, item.subproceso].filter(Boolean).join(', ')
+            : item[key];
+          return valor !== null && valor !== undefined && String(valor).toLowerCase().includes(lowFilter);
+        });
       }
     });
   }
