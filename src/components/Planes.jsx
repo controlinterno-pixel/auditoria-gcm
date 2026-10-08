@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
-import { CARGOS_POR_SEDE, CARGOS_EMPRESA } from '../constants/diccionariosGRC';
+import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 
@@ -77,6 +78,7 @@ export default function Planes({
   handleColFilterChange = () => {},
   informesAuditoria = []
 }) {
+  const { catalogoCargos = [], cargosEmpresa: CARGOS_EMPRESA } = useCatalogos();
 
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
@@ -1184,7 +1186,34 @@ if (existingActivities.length > 0) {
 
   const handleUpdateActivityField = (hallazgoId, index, field, value) => {
     setMatrixState(prev => {
-      const currentActividades = prev[hallazgoId].actividades.map((act, idx) => idx === index ? { ...act, [field]: value } : act);
+      const currentActividades = prev[hallazgoId].actividades.map((act, idx) => {
+        if (idx !== index) return act;
+        const actualizado = { ...act, [field]: value };
+        if (field !== 'responsable' && field !== 'revisor') return actualizado;
+
+        const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
+        const macroHallazgo = String(hallazgo?.macroproceso || hallazgo?.proceso || '').split('/')[0].trim().toLowerCase();
+        const subprocesoHallazgo = String(hallazgo?.subproceso || String(hallazgo?.proceso || '').split('/')[1] || '').trim().toLowerCase();
+        const candidatos = catalogoCargos.filter(registro => (
+          registro?.activo !== false && String(registro?.cargo || '').trim().toLowerCase() === String(value || '').trim().toLowerCase()
+        ));
+        const asignacion = candidatos.find(registro => (
+          String(registro.macroproceso || '').trim().toLowerCase() === macroHallazgo &&
+          String(registro.subproceso || '').trim().toLowerCase() === subprocesoHallazgo
+        )) || candidatos.find(registro => (
+          String(registro.macroproceso || '').trim().toLowerCase() === macroHallazgo
+        )) || candidatos[0];
+        const correo = asignacion?.correoCorporativo || '';
+
+        if (field === 'responsable') {
+          actualizado.correoResponsable = correo;
+          actualizado.correoConfirmacion = correo;
+        } else {
+          actualizado.correoRevisor = correo;
+          actualizado.correoRevisorConfirmacion = correo;
+        }
+        return actualizado;
+      });
       return { ...prev, [hallazgoId]: { ...prev[hallazgoId], actividades: currentActividades } };
     });
   };

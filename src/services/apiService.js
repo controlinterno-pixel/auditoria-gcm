@@ -226,6 +226,8 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
 };
 
 export const apiService = {
+  getCatalogosPublicos: () => request('/api/public/catalogos', { cache: 'no-store' }),
+
   // 🔑 AUTENTICACIÓN Y SESIÓN
   checkSession: () => request('/api/auth/me'),
   

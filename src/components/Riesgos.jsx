@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { 
-  MAPA_PROCESOS, 
   CARGOS_POR_SEDE, 
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 import { analizarRiesgoConIA } from '../services/aiEngine';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
@@ -194,6 +194,7 @@ export default function Riesgos({
 }) {
    // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen
   const safeRiesgos = Array.isArray(rawRiesgos) ? rawRiesgos : [];
+  const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
 
   // 🤖 ESTADOS PARA EL DICTAMEN DE INTELIGENCIA ARTIFICIAL EN EL DASHBOARD
   const [dictamenIA, setDictamenIA] = useState(null);

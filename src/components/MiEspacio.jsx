@@ -1,19 +1,5 @@
 import { useMemo, useRef, useEffect } from 'react';
-import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
-
-// 🧠 Lista oficial de procesos
-const PROCESOS_OFICIALES = MAPA_PROCESOS ? Object.keys(MAPA_PROCESOS).reduce((acc, macro) => {
-  acc.push(macro);
-  const subs = MAPA_PROCESOS[macro];
-  if (Array.isArray(subs)) {
-    subs.forEach(sub => {
-      if (sub !== 'General' && !acc.includes(sub)) {
-        acc.push(`Subproceso ${sub.toLowerCase()}`);
-      }
-    });
-  }
-  return acc;
-}, []).sort() : [];
+import { useCatalogos } from '../context/useCatalogos';
 
 // 🧹 Normalizador estricto
 const normalizeStr = (str) => {
@@ -68,6 +54,18 @@ export default function MiEspacio({
   setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm,
   selectedProceso, setSelectedProceso
 }) {
+  const { mapaProcesos } = useCatalogos();
+  const procesosOficiales = useMemo(() => Object.keys(mapaProcesos).reduce((acumulado, macro) => {
+    acumulado.push(macro);
+    const subprocesos = mapaProcesos[macro];
+    if (Array.isArray(subprocesos)) {
+      subprocesos.forEach(subproceso => {
+        if (subproceso !== 'General' && !acumulado.includes(subproceso)) acumulado.push(`Subproceso ${subproceso.toLowerCase()}`);
+      });
+    }
+    return acumulado;
+  }, []).sort(), [mapaProcesos]);
+
   // Lógica inteligente para mostrar el nombre ("Primer Nombre + Primer Apellido")
   const getNombreFormateado = () => {
     // 1. Si el usuario ya configuró su nombre en "Mi Perfil" (displayName), lo usamos
@@ -113,8 +111,8 @@ export default function MiEspacio({
   const expedienteRef = useRef(null);
 
   const procesoHomologado = useMemo(() => {
-    return homologarProcesoUniversal(selectedProceso, PROCESOS_OFICIALES);
-  }, [selectedProceso]);
+    return homologarProcesoUniversal(selectedProceso, procesosOficiales);
+  }, [selectedProceso, procesosOficiales]);
 
 // 🎯 MANTENER Y ENFOCAR EN EL EXPEDIENTE 360° AL CAMBIAR DE PROCESO
   useEffect(() => {
@@ -330,7 +328,7 @@ export default function MiEspacio({
             className="bg-[#060b16] border border-blue-500/30 rounded-xl text-xs font-black py-3.5 px-4 text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-96 shadow-inner cursor-pointer"
           >
             <option value="">-- Seleccionar Proceso --</option>
-            {PROCESOS_OFICIALES.map((proc, idx) => (
+            {procesosOficiales.map((proc, idx) => (
               <option key={`opt-${idx}`} value={proc}>📁 {proc}</option>
             ))}
           </select>

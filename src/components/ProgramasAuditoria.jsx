@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
 import { useDataFetching } from '../hooks/useDataFetching';
@@ -13,6 +13,7 @@ export default function ProgramasAuditoria({
   user, 
   handleDeleteItem 
 }) {
+  const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
   const [vistaActiva, setVistaActiva] = useState('kanban'); // 'kanban' o 'formulario'
   const [step, setStep] = useState(1);
   const [editPrograma, setEditPrograma] = useState(null);

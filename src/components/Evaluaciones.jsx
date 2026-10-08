@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
 import { useDataFetching } from '../hooks/useDataFetching';
@@ -44,6 +44,7 @@ export default function Evaluaciones({
   scrollToForm,
   handleDeleteItem
 }) {
+  const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
   // 🌟 ESTADOS DE SELECCIÓN EN CASCADA
   const listadoMacros = Object.keys(MAPA_PROCESOS);
   const [procesoSel, setProcesoSel] = useState('');

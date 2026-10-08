@@ -14,6 +14,14 @@ function esRolAdministrador(rol) {
   return normalizado === 'admin' || normalizado === 'administrador' || normalizado === 'auditor';
 }
 
+function normalizarProceso(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 /**
  * Motor ABAC / RLS Avanzado: Filtra colecciones garantizando que el usuario solo vea
  * lo que le corresponde por Correo, Cargo o Proceso.
@@ -116,6 +124,14 @@ export default async function handler(req, res) {
       const userEmail = String(user.email || '').toLowerCase().trim();
       const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
       const userProcess = String(user.procesoAsignado || user.proceso || user.area || '').toLowerCase().trim();
+      const procesoUsuarioNormalizado = normalizarProceso(userProcess);
+      const catalogoCargosSeguro = (Array.isArray(data.catalogoCargos) ? data.catalogoCargos : []).map(registro => {
+        if (isAdmin) return registro;
+        const procesoCargo = normalizarProceso(registro?.macroproceso);
+        return procesoCargo && procesoCargo === procesoUsuarioNormalizado
+          ? registro
+          : { ...registro, correoCorporativo: '' };
+      });
 
       // ============================================================================
       // 🛡️ HERENCIA DE PERMISOS RLS RELACIONAL (Bottom-Up)
@@ -144,6 +160,7 @@ export default async function handler(req, res) {
       // ============================================================================
       const filteredData = {
         ...data,
+        catalogoCargos: catalogoCargosSeguro,
         
         // Colecciones con Herencia Relacional
         informesAuditoria: informesPermitidos,

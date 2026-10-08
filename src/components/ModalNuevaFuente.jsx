@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CARGOS_EMPRESA, MAPA_PROCESOS } from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 
 const NORMAS_PREDETERMINADAS = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
 
@@ -14,6 +14,7 @@ export default function ModalNuevaFuente({
   fuenteEdicion = null,
   isReadOnly = false,
 }) {
+  const { cargosEmpresa: CARGOS_EMPRESA, mapaProcesos: MAPA_PROCESOS } = useCatalogos();
   const [step, setStep] = useState(1);
   const [nuevaNorma, setNuevaNorma] = useState('');
   const [isDirty, setIsDirty] = useState(false);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 
 export default function Configuracion({
   forceUpdateCronograma,
@@ -9,6 +9,7 @@ export default function Configuracion({
   exportToJSON,
   handleImportJSON
 }) {
+  const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   

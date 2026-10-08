@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { renderHistorialSummary } from '../utils/historialCambios.js';
-import { 
-  MAPA_PROCESOS, 
-  CARGOS_EMPRESA 
-} from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 
 import { apiService } from '../services/apiService';
 
@@ -39,6 +36,7 @@ export default function InformesAuditoria({
   FilterInput,
   fuentesMejora = []
 }) {
+  const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA } = useCatalogos();
 
   // 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
   const [participantesMultiples, setParticipantesMultiples] = useState([]);

@@ -1,8 +1,5 @@
 import { useMemo } from 'react';
-import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
-
-// Generador de lista de procesos a monitorear
-const LISTA_PROCESOS_OFICIALES = Object.keys(MAPA_PROCESOS).sort();
+import { useCatalogos } from '../context/useCatalogos';
 
 export default function TableroCentroControl({
   safeHallazgos = [],
@@ -12,6 +9,8 @@ export default function TableroCentroControl({
   setActiveTab,
   setSelectedProcesoExpediente // Callback para precargar el proceso en MiEspacio
 }) {
+  const { mapaProcesos } = useCatalogos();
+  const listaProcesosOficiales = Object.keys(mapaProcesos).sort();
 
   // 🧹 Normalizador estricto de texto (idéntico al de MiEspacio)
   const normalizeStr = (str) => {
@@ -25,7 +24,7 @@ export default function TableroCentroControl({
 
   // 📊 Mapeo y cálculo de KPIs en tiempo real por cada proceso
   const saludPorProceso = useMemo(() => {
-    return LISTA_PROCESOS_OFICIALES.map(proceso => {
+    return listaProcesosOficiales.map(proceso => {
       const target = normalizeStr(proceso);
 
       // 1. Filtrado de entidades vinculadas
@@ -67,7 +66,7 @@ export default function TableroCentroControl({
         totalRiesgos: riesgos.length
       };
     });
-  }, [safeHallazgos, safePlanes, safeRiesgos, safeEvaluaciones]);
+  }, [listaProcesosOficiales, safeHallazgos, safePlanes, safeRiesgos, safeEvaluaciones]);
 
   // Handler para navegar directamente al Expediente 360°
   const handleAbrirExpediente = (procesoNombre) => {

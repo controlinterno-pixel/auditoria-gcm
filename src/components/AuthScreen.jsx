@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { MAPA_PROCESOS, CARGOS_SOCIALIZACION } from '../constants/diccionariosGRC';
+import { apiService } from '../services/apiService';
 
 export default function AuthScreen() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -33,6 +34,8 @@ export default function AuthScreen() {
   const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
   const [area, setArea] = useState('');
+  const [cargosOpciones, setCargosOpciones] = useState(CARGOS_SOCIALIZACION);
+  const [areasOpciones, setAreasOpciones] = useState(() => Object.keys(MAPA_PROCESOS));
 
   // 🛡️ Nuevos Estados para Mejoras de UX/Seguridad
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -44,9 +47,17 @@ export default function AuthScreen() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockTimer, setLockTimer] = useState(0);
 
-  // 📋 Extraemos las áreas principales del MAPA_PROCESOS
-  const AREAS_OPCIONES = Object.keys(MAPA_PROCESOS);
-  const CARGOS_OPCIONES = CARGOS_SOCIALIZACION;
+  useEffect(() => {
+    let activo = true;
+    apiService.getCatalogosPublicos()
+      .then(catalogos => {
+        if (!activo || !catalogos?.catalogosInicializados) return;
+        setCargosOpciones(Array.isArray(catalogos.cargos) ? catalogos.cargos : []);
+        setAreasOpciones(Object.keys(catalogos.mapaProcesos || {}));
+      })
+      .catch(() => {});
+    return () => { activo = false; };
+  }, []);
 
   // 🛡️ Helper para medir la fortaleza de la contraseña
   const getPasswordStrength = (pass) => {
@@ -396,7 +407,7 @@ export default function AuthScreen() {
                     className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
                   >
                     <option value="">-- Seleccionar --</option>
-                    {CARGOS_OPCIONES.map((item, idx) => (
+                    {cargosOpciones.map((item, idx) => (
                       <option key={`cargo-${idx}`} value={item}>{item}</option>
                     ))}
                   </select>
@@ -411,7 +422,7 @@ export default function AuthScreen() {
                     className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
                   >
                     <option value="">-- Proceso --</option>
-                    {AREAS_OPCIONES.map((item, idx) => (
+                    {areasOpciones.map((item, idx) => (
                       <option key={`area-${idx}`} value={item}>{item}</option>
                     ))}
                   </select>

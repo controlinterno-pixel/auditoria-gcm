@@ -6,6 +6,11 @@ export default async function handler(req, res) {
   const path = req.url.split('?')[0];
 
   try {
+    if (path === '/api/public/catalogos') {
+      const module = await import('./_public/catalogos.js');
+      return await module.default(req, res);
+    }
+
     // --- RUTAS DE AUTH ---
     if (path === '/api/auth/login') {
       const module = await import('./_auth/login.js');

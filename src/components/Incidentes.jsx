@@ -1,18 +1,7 @@
 import { useState, useEffect } from 'react';
-import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 // 1. Importamos el componente reutilizable
 import FileUploader from '../components/FileUploader';
-
-// 🧠 Generador Automático: Construye la lista unificada leyendo el diccionario central
-const PROCESOS_OFICIALES = Object.keys(MAPA_PROCESOS).reduce((acc, macro) => {
-  acc.push(macro); // Añade el Macroproceso
-  MAPA_PROCESOS[macro].forEach(sub => {
-    if (sub !== 'General' && !acc.includes(sub)) {
-      acc.push(`Subproceso ${sub.toLowerCase()}`); // Añade los Subprocesos formateados
-    }
-  });
-  return acc;
-}, []).sort();
 
 export default function Incidentes({
   incFiltrados,
@@ -31,6 +20,14 @@ export default function Incidentes({
   FilterInput,
   safeRiesgos = [] // Recibimos los riesgos desde el Dashboard (Main)
 }) {
+  const { mapaProcesos } = useCatalogos();
+  const procesosOficiales = Object.keys(mapaProcesos).reduce((acumulado, macro) => {
+    acumulado.push(macro);
+    (mapaProcesos[macro] || []).forEach(subproceso => {
+      if (subproceso !== 'General' && !acumulado.includes(subproceso)) acumulado.push(`Subproceso ${subproceso.toLowerCase()}`);
+    });
+    return acumulado;
+  }, []).sort();
 
  // ☁️ URL del archivo subido
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
@@ -66,7 +63,7 @@ export default function Incidentes({
               <label className="font-bold text-gray-600 block mb-1">🏛️ Proceso Afectado</label>
               <select name="proceso" defaultValue={editIncidente?.proceso || ''} required className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-800">
                 <option value="">-- Seleccione un Proceso --</option>
-                {PROCESOS_OFICIALES.map(p => (
+                {procesosOficiales.map(p => (
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>

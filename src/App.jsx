@@ -40,6 +40,7 @@ const lazyWithReload = (importFn) =>
 
 // 🚀 Carga perezosa (Lazy Loading) de módulos secundarios/pesados
 const FuentesDeMejora = lazyWithReload(() => import('./components/FuentesDeMejora'));
+const CargosProcesos = lazyWithReload(() => import('./components/CargosProcesos'));
 const Comites = lazyWithReload(() => import('./components/Comites'));
 const ConceptMapper = lazyWithReload(() => import('./components/AuditoriaAutomatizada/ConceptMapper'));
 const DashboardEjecutivo = lazyWithReload(() => import('./components/DashboardEjecutivo'));
@@ -65,6 +66,7 @@ import { processExcelRiesgos } from './utils/excelImporter';
 import { analizarEvidenciaDocumento } from './services/copilotService';
 import { apiService } from './services/apiService';
 import { defaultCronograma } from './constants/defaultData';
+import { CatalogosProvider } from './context/CatalogosContext.jsx';
 
 
 // =====================================================================
@@ -140,6 +142,8 @@ export default function App() {
     cronograma, setCronograma, setMonitoreo,
     informesAuditoria, setInformesAuditoria, setComites,
     setProgramas, fuentesMejora, setFuentesMejora,
+    catalogoCargos, setCatalogoCargos, mapaProcesos, setMapaProcesos,
+    catalogosInicializados, setCatalogosInicializados,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();
@@ -163,6 +167,23 @@ export default function App() {
   });
 
 const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, showNotification), [showNotification]);
+
+  const guardarCatalogos = async (cargos, procesos) => {
+    if (!isAdmin) return false;
+    const guardado = await saveToCloud({
+      catalogoCargos: cargos,
+      mapaProcesos: procesos,
+      catalogosInicializados: true,
+    });
+    if (!guardado) {
+      showNotification('No se pudo guardar el catálogo de cargos y procesos.', 'error');
+      return false;
+    }
+    setCatalogoCargos(cargos);
+    setMapaProcesos(procesos);
+    setCatalogosInicializados(true);
+    return true;
+  };
   
 
   const handleDeleteItem = async (listType, id) => {
@@ -332,6 +353,11 @@ if (showWelcome) {
   );
 }
 return (
+  <CatalogosProvider
+    catalogoCargos={catalogoCargos}
+    mapaProcesos={mapaProcesos}
+    catalogosInicializados={catalogosInicializados}
+  >
     <div className="flex h-screen bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
       {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
       {isPresentationMode && (
@@ -574,6 +600,16 @@ return (
                     formatSafeDate={formatSafeDate}
                   />
                 )}
+              {subTabResultados === 'cargos_procesos' && isAdmin && (
+                <CargosProcesos
+                  isAdmin={isAdmin}
+                  catalogoCargos={catalogoCargos}
+                  mapaProcesos={mapaProcesos}
+                  catalogosInicializados={catalogosInicializados}
+                  onSaveCatalogos={guardarCatalogos}
+                  showNotification={showNotification}
+                />
+              )}
               {/* ✨ PANTALLA DE FUENTE DE MEJORA */}
               {subTabResultados === 'fuentes_mejora' && puedeVerFuentesMejora && (
                   <FuentesDeMejora
@@ -733,5 +769,6 @@ return (
       <ModalDetalleGrafico chartDetail={chartDetail} setChartDetail={setChartDetail} />      
       {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
+  </CatalogosProvider>
   );
 }

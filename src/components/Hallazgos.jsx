@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
-import { 
-  MAPA_PROCESOS, 
-  CARGOS_POR_SEDE,
-  CARGOS_EMPRESA
-} from '../constants/diccionariosGRC';
+import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
+import { useCatalogos } from '../context/useCatalogos';
 
 export default function Hallazgos({
   isAdmin,
@@ -27,6 +24,7 @@ export default function Hallazgos({
   FilterInput,
   exportToExcel
 }) {
+  const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA } = useCatalogos();
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');

@@ -29,6 +29,9 @@ export function useGrcData() {
   const [programas, setProgramas] = useState([]);
   const [auditoresLista, setAuditoresLista] = useState([]);
   const [fuentesMejora, setFuentesMejora] = useState([]);
+  const [catalogoCargos, setCatalogoCargos] = useState([]);
+  const [mapaProcesos, setMapaProcesos] = useState({});
+  const [catalogosInicializados, setCatalogosInicializados] = useState(false);
 
   // 1. Estado y validación de perfil/rol de usuario
   useEffect(() => {
@@ -123,6 +126,9 @@ const data = await apiService.getGrcData();
         setProgramas(data.programas || []);
         setAuditoresLista(data.auditoresLista || []);
         setFuentesMejora(data.fuentesMejora || []);
+        setCatalogoCargos(Array.isArray(data.catalogoCargos) ? data.catalogoCargos : []);
+        setMapaProcesos(data.mapaProcesos && typeof data.mapaProcesos === 'object' ? data.mapaProcesos : {});
+        setCatalogosInicializados(data.catalogosInicializados === true);
         
       } catch (error) {
         console.error("🔥 Error de seguridad/red obteniendo datos:", error);
@@ -179,6 +185,9 @@ const data = await apiService.getGrcData();
     programas, setProgramas,
     auditoresLista, setAuditoresLista,
     fuentesMejora, setFuentesMejora,
+    catalogoCargos, setCatalogoCargos,
+    mapaProcesos, setMapaProcesos,
+    catalogosInicializados, setCatalogosInicializados,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   };
