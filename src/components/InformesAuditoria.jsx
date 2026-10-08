@@ -64,7 +64,7 @@ export default function InformesAuditoria({
   // 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
   const [participanteTemp, setParticipanteTemp] = useState('');
-
+const [subprocesosAbiertos, setSubprocesosAbiertos] = useState(false); // ✨ NUEVO ESTADO PARA EL DROPDOWN
   // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
   // (Eliminamos estados redundantes que causaban desfases en los selects)
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
@@ -1568,41 +1568,67 @@ const handleFileUpload = async (e, type) => {
                  <input type="hidden" name="proceso" value={draftInforme.proceso || macroprocesoForm || ''} />
               </div>
 
-              <fieldset disabled={!macroprocesoForm || modoVistaCompleta} className="rounded-xl border border-slate-200 bg-white p-3 disabled:bg-slate-100">
-                <legend className="px-1 font-bold text-gray-600">↳ Subprocesos</legend>
-                <p className="mb-2 text-[10px] text-slate-500">{draftInforme.subprocesos?.length || 0} seleccionados</p>
-                <div className="max-h-32 space-y-1 overflow-y-auto">
-                  {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(subproceso => (
-                    <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50">
-                      <input
-                        type="checkbox"
-                        checked={(draftInforme.subprocesos || []).includes(subproceso)}
-                        onChange={event => {
-                          const subprocesos = event.target.checked
-                            ? [...new Set([...(draftInforme.subprocesos || []), subproceso])]
-                            : (draftInforme.subprocesos || []).filter(valor => valor !== subproceso);
-                          const subprocesoPrincipal = subprocesos[0] || '';
-                          const siguiente = {
-                            ...draftInforme,
-                            subprocesos,
-                            subproceso: subprocesoPrincipal,
-                            correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, draftInforme.proceso || macroprocesoForm, subprocesos),
-                          };
-                          setDraftInforme(siguiente);
-                          registrarCambioBorrador(siguiente);
-                          setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesoPrincipal }));
-                          setIsDirty(true);
-                        }}
-                        className="mt-0.5 accent-emerald-700"
-                      />
-                      <span>{subproceso}</span>
-                    </label>
-                  ))}
-                  {macroprocesoForm && (MAPA_PROCESOS[macroprocesoForm] || []).length === 0 && <p className="text-[10px] text-amber-700">Este macroproceso no tiene subprocesos configurados.</p>}
-                </div>
+<div className="md:col-span-1 relative">
+                <label className="font-bold text-gray-600 block mb-1.5">↳ Subprocesos</label>
+                
+                {/* Botón visual que imita un campo select */}
+                <button
+                  type="button"
+                  onClick={() => setSubprocesosAbiertos(!subprocesosAbiertos)}
+                  disabled={!macroprocesoForm || modoVistaCompleta}
+                  className="w-full flex items-center justify-between border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 bg-white shadow-sm disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed text-left"
+                >
+                  <span className="truncate">
+                    {(draftInforme.subprocesos || []).length > 0 
+                      ? `${draftInforme.subprocesos.length} seleccionado(s)` 
+                      : '-- Seleccionar --'}
+                  </span>
+                  
+                  {/* Flechita SVG (Chevron) que rota al abrirse */}
+                  <svg className={`w-4 h-4 shrink-0 transition-transform duration-200 text-slate-500 ${subprocesosAbiertos ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Lista desplegable flotante */}
+                {subprocesosAbiertos && !modoVistaCompleta && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-2">
+                    {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(subproceso => (
+                      <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50">
+                        <input
+                          type="checkbox"
+                          checked={(draftInforme.subprocesos || []).includes(subproceso)}
+                          onChange={event => {
+                            const subprocesos = event.target.checked
+                              ? [...new Set([...(draftInforme.subprocesos || []), subproceso])]
+                              : (draftInforme.subprocesos || []).filter(valor => valor !== subproceso);
+                            const subprocesoPrincipal = subprocesos[0] || '';
+                            const siguiente = {
+                              ...draftInforme,
+                              subprocesos,
+                              subproceso: subprocesoPrincipal,
+                              correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, draftInforme.proceso || macroprocesoForm, subprocesos),
+                            };
+                            setDraftInforme(siguiente);
+                            registrarCambioBorrador(siguiente);
+                            setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesoPrincipal }));
+                            setIsDirty(true);
+                          }}
+                          className="mt-0.5 accent-emerald-700"
+                        />
+                        <span className="leading-tight">{subproceso}</span>
+                      </label>
+                    ))}
+                    {macroprocesoForm && (MAPA_PROCESOS[macroprocesoForm] || []).length === 0 && (
+                      <p className="text-[10px] text-amber-700 p-2 text-center">Este macroproceso no tiene subprocesos configurados.</p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Inputs ocultos para mantener la compatibilidad con el backend */}
                 <input type="hidden" name="subproceso" value={draftInforme.subprocesos?.[0] || draftInforme.subproceso || 'General'} />
                 <input type="hidden" name="subprocesos" value={JSON.stringify(draftInforme.subprocesos || [])} />
-              </fieldset>
+              </div>
 
                 <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>
