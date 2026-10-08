@@ -119,6 +119,11 @@ export default function Hallazgos({
     : []);
 
   const setSedesMultiples = (newSedes) => setSedesState(prev => ({ ...prev, [idEdicion]: newSedes }));
+  const agregarSedeAfectada = () => {
+    if (!sedeTemp || sedesMultiples.includes(sedeTemp)) return;
+    setSedesMultiples([...sedesMultiples, sedeTemp]);
+    setSedeTemp('');
+  };
 
  const subprocesosDisponibles = procesoForm ? MAPA_PROCESOS[procesoForm] || [] : [];
   const subprocesoDeshabilitado = !procesoForm || subprocesosDisponibles.length === 0;
@@ -934,27 +939,27 @@ export default function Hallazgos({
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
               <div className="flex gap-2 mb-2">
-                <select 
+                <select
                   value={sedeTemp} 
-                  onChange={(e) => setSedeTemp(e.target.value)} 
+                  onChange={(e) => setSedeTemp(e.target.value)}
                   disabled={esSoloLectura || sedesEmpresa.length === 0}
                   className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                 >
                   <option value="">-- Escoger Sede --</option>
-                  {sedesEmpresa.map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
+                  {sedesEmpresa.filter(sede => !sedesMultiples.includes(sede)).map(sede => <option key={sede} value={sede}>{sede}</option>)}
                 </select>
                 <button 
                   type="button" 
-                  onClick={() => { if (sedeTemp && !sedesMultiples.includes(sedeTemp)) setSedesMultiples([...sedesMultiples, sedeTemp]); setSedeTemp(''); }} 
+                  onClick={agregarSedeAfectada} 
                   disabled={esSoloLectura || sedesEmpresa.length === 0 || !sedeTemp}
                   className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ➕ Añadir
                 </button>
               </div>
-              {sedesEmpresa.length === 0 && (
+              {sedesEmpresa.length === 0 && !esSoloLectura && (
                 <p role="status" className="mt-2 text-[10px] font-medium text-amber-800">
-                  No hay sedes cargadas en el catálogo. Un administrador debe completarlas en Cargos y Procesos.
+                  No hay sedes registradas. Un administrador debe crearlas en la pestaña Sedes de Cargos y Procesos.
                 </p>
               )}
               
