@@ -1811,7 +1811,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             </div>
 
             {/* 3. Columna derecha: detalle de alertas o distribución del portafolio */}
-            <div className={`lg:col-span-1 rounded-2xl border bg-white p-5 h-fit sticky top-24 transition-all duration-300 ${detallePanelPlanes === 'revision' ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-100' : detallePanelPlanes === 'ejecucion' ? 'border-blue-300 ring-1 ring-blue-200 shadow-md' : 'border-slate-200 shadow-sm'}`}>
+            <div className={`lg:col-span-1 rounded-2xl border bg-white p-5 h-fit sticky top-24 transition-all duration-300 ${detallePanelPlanes === 'revision' ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-100' : detallePanelPlanes === 'ejecucion' ? 'border-rose-400 ring-2 ring-rose-300 shadow-lg shadow-rose-100' : 'border-slate-200 shadow-sm'}`}>
 {detallePanelPlanes ? (() => {
                 const esEjecucion = detallePanelPlanes === 'ejecucion';
                 const esRevision = detallePanelPlanes === 'revision';
@@ -1838,9 +1838,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 
                 return (
                   <>
-                    <div className={`flex items-start justify-between gap-3 border-b pb-3 mb-3 ${esVencido ? 'border-red-100' : esEjecucion ? 'border-blue-100' : esRevision ? 'border-amber-100' : esAprobacion ? 'border-emerald-100' : 'border-orange-100'}`}>
+                    <div className={`flex items-start justify-between gap-3 border-b pb-3 mb-3 ${esVencido || esEjecucion ? 'border-rose-100' : esRevision ? 'border-amber-100' : esAprobacion ? 'border-emerald-100' : 'border-orange-100'}`}>
                       <div>
-                        <h3 className={`text-xs font-black uppercase tracking-wide ${esVencido ? 'text-red-800' : esEjecucion ? 'text-blue-800' : esRevision ? 'text-amber-800' : esAprobacion ? 'text-emerald-800' : 'text-orange-800'}`}>
+                        <h3 className={`text-xs font-black uppercase tracking-wide ${esVencido || esEjecucion ? 'text-rose-800' : esRevision ? 'text-amber-800' : esAprobacion ? 'text-emerald-800' : 'text-orange-800'}`}>
                           {esEjecucion ? 'Planes por ejecutar' : esRevision ? 'Planes por revisar' : esAprobacion ? 'Planes por aprobar' : esVencido ? 'Planes vencidos' : 'Próximos a vencer'}
                         </h3>
                         <p className="text-[10px] text-slate-500 mt-1">
@@ -1851,10 +1851,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     </div>
                     <div className="max-h-[62vh] overflow-y-auto space-y-2 pr-1">
                       {planesDetalle.map(plan => (
-                        <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido ? 'border-red-100 bg-red-50/40' : esEjecucion ? 'border-blue-100 bg-blue-50/40' : esRevision ? 'border-amber-100 bg-amber-50/40' : esAprobacion ? 'border-emerald-100 bg-emerald-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
+                        <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido || esEjecucion ? 'border-rose-100 bg-rose-50/40' : esRevision ? 'border-amber-100 bg-amber-50/40' : esAprobacion ? 'border-emerald-100 bg-emerald-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
                           <div className="flex justify-between items-start gap-2">
                             <span className="font-mono text-[9px] font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>
-                            <span className={`text-[9px] font-black ${esVencido ? 'text-red-700' : esEjecucion ? 'text-blue-700' : esRevision ? 'text-amber-700' : esAprobacion ? 'text-emerald-700' : 'text-orange-700'}`}>
+                            <span className={`text-[9px] font-black ${esVencido || esEjecucion ? 'text-rose-700' : esRevision ? 'text-amber-700' : esAprobacion ? 'text-emerald-700' : 'text-orange-700'}`}>
                               {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : esEjecucion || esRevision || esAprobacion ? plan.estadoWorkflow : `Vence ${plan.fecha || 'sin fecha'}`}
                             </span>
                           </div>
@@ -1875,7 +1875,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             window.setTimeout(() => {
                               document.getElementById(`plan-completo-${informeId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }, 80);
-                          }} className="mt-2 text-[10px] font-black text-blue-700 hover:text-blue-900 underline underline-offset-2">
+                          }} className={`mt-2 text-[10px] font-black underline underline-offset-2 ${esEjecucion ? 'text-rose-700 hover:text-rose-900' : 'text-blue-700 hover:text-blue-900'}`}>
                             Abrir matriz
                           </button>
                         </article>

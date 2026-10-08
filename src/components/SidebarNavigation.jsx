@@ -32,9 +32,7 @@ export default function SidebarNavigation({
   const totalMisTareas = misTareasEjecucion + misTareasRevision + misTareasAprobacion;
   const tieneAlertas = totalMisTareas > 0;
   
-  // Si tengo tareas de ejecución (rojo, urgente), si son solo de revisión/aprobación (ámbar)
   const colorAlerta = misTareasEjecucion > 0 ? 'bg-rose-500' : 'bg-amber-500';
-  const colorTexto = misTareasEjecucion > 0 ? 'text-rose-400' : 'text-amber-400';
   return (
     <div 
       className={`text-[#a3c2e0] flex flex-col shadow-[10px_0_20px_rgba(0,0,0,0.15)] z-50 border-r border-slate-800/80 ${isPresentationMode ? 'hidden' : 'flex'} relative transition-all duration-300 ease-in-out overflow-visible ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}
@@ -243,15 +241,16 @@ export default function SidebarNavigation({
                     setSubTabPlanes('planes');
                     onSelectExecutionTasks();
                   }}
-                  className={`ml-4 flex items-center justify-between rounded-r-lg border-l-2 border-rose-500/60 px-3 py-2 text-[10px] font-bold transition-colors ${colorTexto} hover:bg-rose-950/30`}
+                  className="group relative isolate ml-4 flex items-center justify-between gap-2 rounded-lg border border-rose-300/40 bg-rose-500/10 px-3 py-1.5 text-[10px] font-extrabold text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-500/20 hover:text-rose-100 hover:shadow-[0_0_18px_rgba(244,63,94,0.4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-300"
                   aria-label={`Mostrar ${misTareasEjecucion} planes pendientes de ejecutar`}
                 >
-                  <span>▶ Ejecutar</span>
-                  <span className={`${colorAlerta} rounded-full px-1.5 py-0.5 text-[9px] font-black text-white`}>{misTareasEjecucion}</span>
+                  <span aria-hidden="true" className="absolute -inset-1 -z-10 rounded-xl bg-rose-400/15 blur-md animate-pulse" />
+                  <span className="flex items-center gap-2"><span aria-hidden="true" className="text-sm transition-transform duration-300 group-hover:scale-110">▶</span>Ejecutar</span>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm">{misTareasEjecucion}</span>
                 </button>
               )}
               {!isCollapsed && (misTareasRevision > 0 || misTareasAprobacion > 0) && (
-                <div className={`ml-4 flex flex-wrap items-center gap-2 px-3 text-[10px] font-bold ${colorTexto}`}>
+                <div className="ml-4 flex flex-wrap items-center gap-2 px-3 text-[10px] font-bold text-amber-400">
                   {misTareasRevision > 0 && (
                     <button 
                       type="button" 
