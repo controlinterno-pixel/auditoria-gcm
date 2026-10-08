@@ -1896,7 +1896,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             </div>
 
             {/* 3. Columna derecha: detalle de alertas o distribución del portafolio */}
-            <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 h-fit sticky top-24">
+            <div className={`lg:col-span-1 rounded-2xl border bg-white p-5 h-fit sticky top-24 transition-all duration-300 ${detallePanelPlanes === 'revision' ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-100' : detallePanelPlanes === 'ejecucion' ? 'border-blue-300 ring-1 ring-blue-200 shadow-md' : 'border-slate-200 shadow-sm'}`}>
 {detallePanelPlanes ? (() => {
                 const esEjecucion = detallePanelPlanes === 'ejecucion';
                 const esRevision = detallePanelPlanes === 'revision';
@@ -1951,10 +1951,15 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             <dt className="font-bold">Avance</dt><dd>{Number(plan.progreso) || 0}%</dd>
                           </dl>
                           <button type="button" onClick={() => {
+                            const hallazgo = safeHallazgos.find(item => String(item.id) === String(plan.idHallazgo));
+                            const informeId = String(plan.idInforme || hallazgo?.idInforme || '');
+                            setEditPlan(null);
+                            setVistaActiva('historial');
+                            setInformePlanesExpandido(informeId);
                             setDetallePanelPlanes(null);
-                            setEditPlan(plan);
-                            setVistaActiva('nuevo');
-                            scrollToForm();
+                            window.setTimeout(() => {
+                              document.getElementById(`plan-completo-${informeId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 80);
                           }} className="mt-2 text-[10px] font-black text-blue-700 hover:text-blue-900 underline underline-offset-2">
                             Abrir matriz
                           </button>
