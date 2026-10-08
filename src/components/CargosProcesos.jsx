@@ -77,7 +77,7 @@ export default function CargosProcesos({
   const mapaSeguro = mapaProcesos && typeof mapaProcesos === 'object' ? mapaProcesos : {};
   const macrosDisponibles = Object.keys(mapaSeguro).sort((a, b) => a.localeCompare(b, 'es'));
   const sedesDisponibles = [...new Set(listaCargos.flatMap(sedesDelCargo))].sort((a, b) => a.localeCompare(b, 'es'));
-  const requiereCompletarCatalogo = cargosIniciales.some(cargo => {
+  const requiereCompletarCatalogo = sedesDisponibles.length === 0 || cargosIniciales.some(cargo => {
     const registrosCargo = listaCargos.filter(registro => nombreCargoNormalizado(registro.cargo) === nombreCargoNormalizado(cargo));
     if (registrosCargo.length === 0) return true;
     const sedesEsperadas = sedesInicialesPorCargo.get(nombreCargoNormalizado(cargo)) || [];

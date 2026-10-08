@@ -815,6 +815,14 @@ export default function Hallazgos({
                   + Añadir
                 </button>
               </div>
+              {!esSoloLectura && CARGOS_EMPRESA.length === 0 && (
+                <p role="status" className="mt-2 text-[10px] font-medium text-amber-800">
+                  No hay cargos cargados en el catálogo. Un administrador debe completarlos en Cargos y Procesos.
+                </p>
+              )}
+              {!esSoloLectura && CARGOS_EMPRESA.length > 0 && !responsableTemp && (
+                <p className="mt-2 text-[10px] text-slate-500">Selecciona un cargo para habilitar Añadir.</p>
+              )}
               <div className="mt-2 flex min-h-9 flex-wrap items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-2">
                 {responsablesMultiples.length === 0 && <span className="w-full text-center text-[10px] italic text-slate-400">Ningún responsable añadido...</span>}
                 {responsablesMultiples.map(responsable => (
