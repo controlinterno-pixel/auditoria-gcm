@@ -1014,7 +1014,7 @@ export default function Hallazgos({
                 <label className="font-bold text-amber-900 block mb-1">Desarrollo del Análisis *</label>
                  <textarea 
   name="analisisCausa" 
-  disabled={esSoloLectura}
+  disabled={metodologiaCausaDeshabilitada}
   defaultValue={editHallazgo?.analisisCausa || autoFillData?.analisisCausa || ''} 
   required 
   rows="6" 
