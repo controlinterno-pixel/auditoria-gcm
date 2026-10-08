@@ -188,7 +188,9 @@ export default function CargosProcesos({
     });
 
     if (await guardarCatalogos(cargosSiguientes, mapaSiguiente) !== false) {
-      seleccionarMacro(nombreNuevo);
+      setMacroSeleccionado(nombreNuevo);
+      setMacroNombre(nombreNuevo);
+      setSubprocesosTexto(subprocesos.join('\n'));
       showNotification('Estructura de procesos guardada.', 'success');
     }
   };
