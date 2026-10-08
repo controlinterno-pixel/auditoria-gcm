@@ -77,9 +77,14 @@ export default function CargosProcesos({
   const mapaSeguro = mapaProcesos && typeof mapaProcesos === 'object' ? mapaProcesos : {};
   const macrosDisponibles = Object.keys(mapaSeguro).sort((a, b) => a.localeCompare(b, 'es'));
   const sedesDisponibles = [...new Set(listaCargos.flatMap(sedesDelCargo))].sort((a, b) => a.localeCompare(b, 'es'));
-  const requiereCompletarCatalogo = listaCargos.some(registro => !Array.isArray(registro.sedes)) || cargosIniciales.some(cargo => (
-    !listaCargos.some(registro => nombreCargoNormalizado(registro.cargo) === nombreCargoNormalizado(cargo))
-  ));
+  const requiereCompletarCatalogo = cargosIniciales.some(cargo => {
+    const registrosCargo = listaCargos.filter(registro => nombreCargoNormalizado(registro.cargo) === nombreCargoNormalizado(cargo));
+    if (registrosCargo.length === 0) return true;
+    const sedesEsperadas = sedesInicialesPorCargo.get(nombreCargoNormalizado(cargo)) || [];
+    return registrosCargo.some(registro => !Array.isArray(registro.sedes)) || sedesEsperadas.some(sede => (
+      !registrosCargo.some(registro => sedesDelCargo(registro).includes(sede))
+    ));
+  });
   const filasFiltradas = useMemo(() => {
     const busquedaLimpia = busqueda.trim().toLowerCase();
     return listaCargos
