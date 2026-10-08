@@ -19,8 +19,9 @@ export default function SidebarNavigation({
   misTareasEjecucion = 0,
   misTareasRevision = 0,
   misTareasAprobacion = 0,
-  onSelectExecutionTasks = () => {},
+ onSelectExecutionTasks = () => {},
   onSelectRevisionTasks = () => {},
+  onSelectAprobacionTasks = () => {},
   isAdmin,
   puedeVerFuentesMejora = false,
   user,
@@ -264,7 +265,19 @@ export default function SidebarNavigation({
                       👀 Revisar: {misTareasRevision}
                     </button>
                   )}
-                  {misTareasAprobacion > 0 && <span>✓ Aprobar: {misTareasAprobacion}</span>}
+                  {misTareasAprobacion > 0 && (
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setActiveTab('planes_tab');
+                        setSubTabPlanes('planes');
+                        onSelectAprobacionTasks();
+                      }}
+                      className="hover:underline hover:text-emerald-500 cursor-pointer transition-all"
+                    >
+                      ✓ Aprobar: {misTareasAprobacion}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

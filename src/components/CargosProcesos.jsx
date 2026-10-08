@@ -18,6 +18,7 @@ export default function CargosProcesos({
   mapaProcesos = {},
   catalogosInicializados = false,
   onSaveCatalogos,
+  onDeleteCargo,
   showNotification = () => {},
 }) {
   const [vistaActiva, setVistaActiva] = useState('cargos');
@@ -136,6 +137,15 @@ export default function CargosProcesos({
 
   const eliminarCargo = async registro => {
     if (!window.confirm(`¿Eliminar la asignación de ${registro.cargo} (${registro.correoCorporativo || 'sin correo'})?`)) return;
+    if (typeof onDeleteCargo === 'function') {
+      try {
+        const eliminado = await onDeleteCargo(registro.id);
+        if (eliminado) showNotification('Asignación eliminada del catálogo.', 'success');
+      } catch (error) {
+        showNotification(error.message || 'No se pudo eliminar la asignación.', 'error');
+      }
+      return;
+    }
     const cargosSiguientes = listaCargos.filter(item => item.id !== registro.id);
     if (await guardarCatalogos(cargosSiguientes, mapaSeguro) !== false) {
       showNotification('Asignación eliminada del catálogo.', 'success');

@@ -184,6 +184,16 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     setCatalogosInicializados(true);
     return true;
   };
+
+  const eliminarCargoCatalogo = async id => {
+    if (!isAdmin) return false;
+    const respuesta = await apiService.eliminarCargoCatalogo(id);
+    if (!Array.isArray(respuesta?.catalogoCargos)) {
+      throw new Error('El servidor no devolvió el catálogo actualizado.');
+    }
+    setCatalogoCargos(respuesta.catalogoCargos);
+    return true;
+  };
   
 
   const handleDeleteItem = async (listType, id) => {
@@ -385,11 +395,18 @@ return (
         setSubTabPlanes={setSubTabPlanes}
         subTabGobernanza={subTabGobernanza}
         setSubTabGobernanza={setSubTabGobernanza}
-        misTareasEjecucion={misTareasEjecucion}
-        misTareasRevision={misTareasRevision}
-        misTareasAprobacion={misTareasAprobacion}
-        onSelectExecutionTasks={() => setDetallePanelPlanes('ejecucion')}
-        onSelectRevisionTasks={() => setDetallePanelPlanes('revision')} // ✨ LÍNEA NUEVA
+        misTareasEjecucion={misTareasEjecucion} 
+        misTareasRevision={misTareasRevision}   
+        misTareasAprobacion={misTareasAprobacion} 
+        onSelectExecutionTasks={() => {
+          if (misPlanesEjecucion.length > 0) setEditPlan(misPlanesEjecucion[0]);
+        }}
+        onSelectRevisionTasks={() => {
+          if (misPlanesRevision.length > 0) setEditPlan(misPlanesRevision[0]);
+        }}
+        onSelectAprobacionTasks={() => {
+          if (misPlanesAprobacion.length > 0) setEditPlan(misPlanesAprobacion[0]);
+        }}
         isAdmin={isAdmin}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
         user={user}
@@ -608,6 +625,7 @@ return (
                   mapaProcesos={mapaProcesos}
                   catalogosInicializados={catalogosInicializados}
                   onSaveCatalogos={guardarCatalogos}
+                  onDeleteCargo={eliminarCargoCatalogo}
                   showNotification={showNotification}
                 />
               )}

@@ -228,6 +228,11 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
 export const apiService = {
   getCatalogosPublicos: () => request('/api/public/catalogos', { cache: 'no-store' }),
 
+  eliminarCargoCatalogo: (id) => request('/api/grc/catalogo-cargos', {
+    method: 'DELETE',
+    body: { id },
+  }),
+
   // 🔑 AUTENTICACIÓN Y SESIÓN
   checkSession: () => request('/api/auth/me'),
   

@@ -34,6 +34,10 @@ export default async function handler(req, res) {
       const module = await import('./_grc/audit.js');
       return await module.default(req, res);
     }
+    if (path === '/api/grc/catalogo-cargos') {
+      const module = await import('./_grc/catalogo-cargos.js');
+      return await module.default(req, res);
+    }
     if (path === '/api/grc/create') {
       const module = await import('./_grc/create.js');
       return await module.default(req, res);
