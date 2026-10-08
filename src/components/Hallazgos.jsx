@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
 
+const convertirResponsablesEnLista = responsables => (
+  Array.isArray(responsables)
+    ? responsables.map(responsable => String(responsable || '').trim()).filter(Boolean)
+    : String(responsables || '').split(',').map(responsable => responsable.trim()).filter(Boolean)
+);
+
 export default function Hallazgos({
   isAdmin,
   puedeCrearHallazgos = false,
@@ -63,6 +69,8 @@ export default function Hallazgos({
   // 🏢 ESTADOS Y LÓGICA DERIVADA PARA FORMULARIO DE EDICIÓN
   const [sedeTemp, setSedeTemp] = useState('');
   const [sedesState, setSedesState] = useState({});
+  const [responsableTemp, setResponsableTemp] = useState('');
+  const [responsablesState, setResponsablesState] = useState({});
 
   // 👁️ ESTADO DE MODO SOLO LECTURA (VISTA CONSULTA)
   const [esSoloLectura, setEsSoloLectura] = useState(false);
@@ -89,6 +97,12 @@ export default function Hallazgos({
   }, []);
 
   const idEdicion = editHallazgo?.id || 'nuevo';
+  const responsablesMultiples = responsablesState[idEdicion] ?? convertirResponsablesEnLista(editHallazgo?.responsable);
+  const setResponsablesMultiples = responsables => setResponsablesState(prev => ({ ...prev, [idEdicion]: responsables }));
+  const limpiarResponsablesNuevo = () => {
+    setResponsablesState(prev => ({ ...prev, nuevo: [] }));
+    setResponsableTemp('');
+  };
 
   const fuentesMejoraDisponibles = Array.isArray(fuentesMejora) ? fuentesMejora : [];
   const informeOrigenSeleccionado = informeOrigenState[idEdicion] ?? String(editHallazgo?.idInforme || autoFillData?.idInforme || '');
@@ -198,7 +212,7 @@ export default function Hallazgos({
     if (dashFiltroSubproceso !== 'Todos' && h.subproceso !== dashFiltroSubproceso) return false; 
     if (dashFiltroSeveridad !== 'Todos' && h.severidad !== dashFiltroSeveridad) return false;
     if (dashFiltroEstado !== 'Todos' && h.estado !== dashFiltroEstado) return false;
-    if (dashFiltroResponsable !== 'Todos' && h.responsable !== dashFiltroResponsable) return false;
+    if (dashFiltroResponsable !== 'Todos' && !convertirResponsablesEnLista(h.responsable).includes(dashFiltroResponsable)) return false;
     return true;
   });
 
@@ -336,10 +350,12 @@ export default function Hallazgos({
                   if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Perderás los datos de este hallazgo para crear uno nuevo.")) {
                     setEditHallazgo(null); 
                     setEsSoloLectura(false); 
+                    limpiarResponsablesNuevo();
                   }
                 } else {
                   setEditHallazgo(null); 
                   setEsSoloLectura(false); 
+                  limpiarResponsablesNuevo();
                   setVistaActiva('nuevo'); 
                 }
               }} 
@@ -644,7 +660,7 @@ export default function Hallazgos({
                                          {h.estado || 'Abierto'}
                                        </span>
                                      </td>
-                                     <td className="py-2.5 font-bold text-slate-500 truncate max-w-[80px]" title={h.responsable}>{h.responsable}</td>
+                                     <td className="py-2.5 font-bold text-slate-500 truncate max-w-[120px]" title={convertirResponsablesEnLista(h.responsable).join(', ')}>{convertirResponsablesEnLista(h.responsable).join(', ') || 'Sin asignar'}</td>
                                      <td className="py-2.5 font-bold text-slate-400 text-right flex items-center justify-end space-x-2">
                                        <span>{h.fechaReal}</span>
                                        <span className="text-[10px] opacity-0 group-hover/row:opacity-100 text-red-600 transition-all font-bold">⚙️</span>
@@ -743,7 +759,15 @@ export default function Hallazgos({
             )}
           </div>
 
-          <form onSubmit={async (e) => { const guardado = await handleHallazgoSubmit(e); if (guardado) setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+          <form onSubmit={async (e) => {
+            if (!esSoloLectura && responsablesMultiples.length === 0) {
+              e.preventDefault();
+              window.alert('Añade al menos un responsable antes de guardar el hallazgo.');
+              return;
+            }
+            const guardado = await handleHallazgoSubmit(e);
+            if (guardado) setVistaActiva('dashboard');
+          }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
             {/* Input Oculto de Compatibilidad (Legacy) */}
             <input type="hidden" name="proceso" value={procesoForm} />
@@ -764,12 +788,42 @@ export default function Hallazgos({
               </select>
             </div>
 
-            <div className="md:col-span-2">
-              <label className="font-bold text-gray-600 block mb-1">Responsable</label>
-<select name="responsable" disabled={esSoloLectura} defaultValue={editHallazgo?.responsable || ''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed">
-                <option value="">-- Seleccione un Cargo --</option>
-                {CARGOS_EMPRESA.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
-              </select>
+            <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <label className="font-bold text-gray-600 block mb-1">Responsables</label>
+              <div className="flex gap-2">
+                <select
+                  value={responsableTemp}
+                  onChange={event => setResponsableTemp(event.target.value)}
+                  disabled={esSoloLectura}
+                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                >
+                  <option value="">-- Seleccione un Cargo --</option>
+                  {CARGOS_EMPRESA.map(cargo => <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>)}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (responsableTemp && !responsablesMultiples.includes(responsableTemp)) {
+                      setResponsablesMultiples([...responsablesMultiples, responsableTemp]);
+                    }
+                    setResponsableTemp('');
+                  }}
+                  disabled={esSoloLectura || !responsableTemp}
+                  className="shrink-0 rounded-lg bg-[#0A3B32] px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#062620] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  + Añadir
+                </button>
+              </div>
+              <div className="mt-2 flex min-h-9 flex-wrap items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-2">
+                {responsablesMultiples.length === 0 && <span className="w-full text-center text-[10px] italic text-slate-400">Ningún responsable añadido...</span>}
+                {responsablesMultiples.map(responsable => (
+                  <span key={responsable} className="flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800">
+                    {responsable}
+                    {!esSoloLectura && <button type="button" onClick={() => setResponsablesMultiples(responsablesMultiples.filter(item => item !== responsable))} aria-label={`Quitar ${responsable}`} className="ml-1.5 font-black text-rose-500 hover:text-rose-700">×</button>}
+                  </span>
+                ))}
+              </div>
+              <input type="hidden" name="responsable" value={responsablesMultiples.join(', ')} />
             </div>
             
 {/* ================= FILA 2: ORIGEN Y CONTEXTO JERÁRQUICO ================= */}
@@ -1057,6 +1111,7 @@ export default function Hallazgos({
                     onClick={() => {
                       if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Perderás todos los datos ingresados en el hallazgo.")) {
                         setEditHallazgo(null);
+                        limpiarResponsablesNuevo();
                         setVistaActiva('dashboard');
                       }
                     }}
