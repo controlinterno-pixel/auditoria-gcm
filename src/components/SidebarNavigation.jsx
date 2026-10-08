@@ -251,7 +251,7 @@ export default function SidebarNavigation({
                 </button>
               )}
               {!isCollapsed && (misTareasRevision > 0 || misTareasAprobacion > 0) && (
-                <div className={`ml-4 flex gap-2 px-3 text-[9px] font-bold ${colorTexto}`}>
+                <div className={`ml-4 flex flex-wrap items-center gap-2 px-3 text-[10px] font-bold ${colorTexto}`}>
                   {misTareasRevision > 0 && (
                     <button 
                       type="button" 
@@ -260,9 +260,12 @@ export default function SidebarNavigation({
                         setSubTabPlanes('planes');
                         onSelectRevisionTasks();
                       }}
-                      className="hover:underline hover:text-amber-500 cursor-pointer transition-all"
+                      className="group relative isolate flex items-center gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 px-3 py-1.5 font-extrabold text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-400/20 hover:text-amber-100 hover:shadow-[0_0_18px_rgba(251,191,36,0.38)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300"
                     >
-                      👀 Revisar: {misTareasRevision}
+                      <span aria-hidden="true" className="absolute -inset-1 -z-10 rounded-xl bg-amber-300/15 blur-md animate-pulse" />
+                      <span aria-hidden="true" className="text-sm transition-transform duration-300 group-hover:scale-110">👀</span>
+                      <span>Revisar</span>
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[10px] font-black text-slate-950 shadow-sm">{misTareasRevision}</span>
                     </button>
                   )}
                   {misTareasAprobacion > 0 && (
