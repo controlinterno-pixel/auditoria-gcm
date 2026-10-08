@@ -135,7 +135,8 @@ export default function Hallazgos({
 
   // ✨ NUEVO: Extracción de la Fuente de Mejora y su Detalle desde el Informe Origen
   const tipoFuenteHallazgo = informeOrigen?.tipoFuente || editHallazgo?.tipoFuente || autoFillData?.tipoFuente || '';
-  const metodologiaCausaDeshabilitada = esSoloLectura;
+  const fuenteNormalizada = String(tipoFuenteHallazgo).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const metodologiaCausaDeshabilitada = esSoloLectura || fuenteNormalizada === 'programa de auditoria';
   const detalleFuenteHallazgo = informeOrigen?.detalleFuente || editHallazgo?.detalleFuente || '';
 
   // 🧠 GENERADOR DE ID AUTOMÁTICO
