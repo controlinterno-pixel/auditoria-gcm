@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 import { CatalogosContext } from './catalogosContextValue';
+
+const MAPA_PROCESOS_VACIO = {};
 
 export function CatalogosProvider({
   catalogoCargos = [],
@@ -37,7 +38,7 @@ export function CatalogosProvider({
     [cargosPorSede]
   );
 
-  const mapaProcesosActivo = catalogosInicializados ? mapaProcesos : MAPA_PROCESOS;
+  const mapaProcesosActivo = catalogosInicializados ? mapaProcesos : MAPA_PROCESOS_VACIO;
 
   const value = useMemo(() => ({
     catalogoCargos,

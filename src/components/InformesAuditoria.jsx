@@ -14,6 +14,24 @@ const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
   return [...map.values()];
 };
 
+const normalizarCatalogo = valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const obtenerCorreoCargoCatalogo = (catalogoCargos, cargo, macroproceso, subproceso) => {
+  const cargoNormalizado = normalizarCatalogo(cargo);
+  const macroNormalizado = normalizarCatalogo(macroproceso);
+  const subprocesoNormalizado = normalizarCatalogo(subproceso);
+  const candidatos = catalogoCargos.filter(registro => (
+    registro?.activo !== false && normalizarCatalogo(registro?.cargo) === cargoNormalizado
+  ));
+  const delMacroproceso = candidatos.filter(registro => normalizarCatalogo(registro.macroproceso) === macroNormalizado);
+  const asignacion = delMacroproceso.find(registro => {
+    const subprocesos = Array.isArray(registro.subprocesos)
+      ? registro.subprocesos
+      : registro.subproceso ? [registro.subproceso] : [];
+    return subprocesos.some(valor => normalizarCatalogo(valor) === subprocesoNormalizado);
+  }) || delMacroproceso[0] || candidatos[0];
+  return String(asignacion?.correoCorporativo || '').trim();
+};
+
 export default function InformesAuditoria({ 
   informesAuditoria, 
   safeProgramas = [],
@@ -36,7 +54,7 @@ export default function InformesAuditoria({
   FilterInput,
   fuentesMejora = []
 }) {
-  const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA } = useCatalogos();
+  const { catalogoCargos = [], mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA } = useCatalogos();
 
   // 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
@@ -1504,24 +1522,19 @@ const handleFileUpload = async (e, type) => {
                    value={draftInforme.proceso || macroprocesoForm}
                    onChange={(e) => {
                      const nuevoMacro = e.target.value;
-                     const siguiente = { ...draftInforme, proceso: nuevoMacro };
+                     const subprocesosAsociados = MAPA_PROCESOS[nuevoMacro] || [];
+                     const nuevoSubproceso = subprocesosAsociados.length === 1 ? subprocesosAsociados[0] : '';
+                     const siguiente = {
+                       ...draftInforme,
+                       proceso: nuevoMacro,
+                       subproceso: nuevoSubproceso,
+                       correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, nuevoSubproceso),
+                     };
                      setDraftInforme(siguiente);
                      registrarCambioBorrador(siguiente);
                      setIsDirty(true);
                      setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
-                     
-                     const subprocesosAsociados = MAPA_PROCESOS[nuevoMacro] || [];
-                     if (subprocesosAsociados.length === 1) {
-                       const siguienteSub = { ...siguiente, subproceso: subprocesosAsociados[0] };
-                       setDraftInforme(siguienteSub);
-                       registrarCambioBorrador(siguienteSub);
-                       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesosAsociados[0] }));
-                     } else {
-                       const siguienteSub = { ...siguiente, subproceso: '' };
-                       setDraftInforme(siguienteSub);
-                       registrarCambioBorrador(siguienteSub);
-                       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
-                     }
+                     setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoSubproceso }));
                    }}
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                    disabled={draftInforme.tipoFuente !== '' || modoVistaCompleta}
@@ -1539,7 +1552,12 @@ const handleFileUpload = async (e, type) => {
                    name="subproceso_select" 
                    value={draftInforme.subproceso || subprocesoForm || 'General'} 
                    onChange={(e) => {
-                     const siguiente = { ...draftInforme, subproceso: e.target.value };
+                     const nuevoSubproceso = e.target.value;
+                     const siguiente = {
+                       ...draftInforme,
+                       subproceso: nuevoSubproceso,
+                       correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, draftInforme.proceso || macroprocesoForm, nuevoSubproceso),
+                     };
                      setDraftInforme(siguiente);
                      registrarCambioBorrador(siguiente);
                      setIsDirty(true);
@@ -1647,7 +1665,11 @@ const handleFileUpload = async (e, type) => {
                   value={draftInforme.auditorResponsable || ''} 
                   onChange={(e) => {
                     const valor = e.target.value;
-                    const siguiente = { ...draftInforme, auditorResponsable: valor };
+                    const siguiente = {
+                      ...draftInforme,
+                      auditorResponsable: valor,
+                      correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, valor, draftInforme.proceso || macroprocesoForm, draftInforme.subproceso || subprocesoForm),
+                    };
                     setDraftInforme(siguiente);
                     registrarCambioBorrador(siguiente);
                     setIsDirty(true);
@@ -1676,9 +1698,10 @@ const handleFileUpload = async (e, type) => {
                     registrarCambioBorrador(siguiente);
                     setIsDirty(true);
                   }}
-                  required 
-                  placeholder="auditoria@empresa.com"
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 bg-white shadow-sm disabled:bg-slate-100 disabled:text-slate-500"
+                  required
+                  readOnly
+                  placeholder="Correo definido en Cargos y Procesos"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 bg-white shadow-sm read-only:bg-slate-50 read-only:text-slate-600 read-only:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                   disabled={modoVistaCompleta}
                 />
                 <input type="hidden" name="correoAuditorResponsable" value={draftInforme.correoAuditor || ''} />

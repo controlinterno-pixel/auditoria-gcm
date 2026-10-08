@@ -20,7 +20,6 @@ import {
   UserCheck
 } from 'lucide-react';
 
-import { MAPA_PROCESOS, CARGOS_SOCIALIZACION } from '../constants/diccionariosGRC';
 import { apiService } from '../services/apiService';
 
 export default function AuthScreen() {
@@ -34,8 +33,8 @@ export default function AuthScreen() {
   const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
   const [area, setArea] = useState('');
-  const [cargosOpciones, setCargosOpciones] = useState(CARGOS_SOCIALIZACION);
-  const [areasOpciones, setAreasOpciones] = useState(() => Object.keys(MAPA_PROCESOS));
+  const [cargosOpciones, setCargosOpciones] = useState([]);
+  const [areasOpciones, setAreasOpciones] = useState([]);
 
   // 🛡️ Nuevos Estados para Mejoras de UX/Seguridad
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -48,6 +47,7 @@ export default function AuthScreen() {
   const [lockTimer, setLockTimer] = useState(0);
 
   useEffect(() => {
+    if (!isRegistering) return undefined;
     let activo = true;
     apiService.getCatalogosPublicos()
       .then(catalogos => {
@@ -57,7 +57,7 @@ export default function AuthScreen() {
       })
       .catch(() => {});
     return () => { activo = false; };
-  }, []);
+  }, [isRegistering]);
 
   // 🛡️ Helper para medir la fortaleza de la contraseña
   const getPasswordStrength = (pass) => {

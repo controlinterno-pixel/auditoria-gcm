@@ -265,8 +265,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   };
   // 🌟 NUEVOS ESTADOS EN CASCADA PARA PROCESOS
   const listadoMacros = Object.keys(MAPA_PROCESOS);
-  const [macroproceso, setMacroproceso] = useState(listadoMacros[0]);
-  const [subproceso, setSubproceso] = useState(MAPA_PROCESOS[listadoMacros[0]][0]);
+  const [macroproceso, setMacroproceso] = useState(listadoMacros[0] || '');
+  const [subproceso, setSubproceso] = useState(MAPA_PROCESOS[listadoMacros[0]]?.[0] || '');
 
   // Función inteligente para manejar el cambio del proceso
   const handleMacroprocesoChange = (e) => {
@@ -287,7 +287,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   const [clasificacionRiesgo, setClasificacionRiesgo] = useState(CLASIFICACIONES_MANUAL[0]);
   const [normativa, setNormativa] = useState('');
   // Modificamos sedeForm para que sea un arreglo (Array) y añadimos sedeTemp
-  const [sedeForm, setSedeForm] = useState(['Administrativos']);
+  const [sedeForm, setSedeForm] = useState([]);
   const [sedeTemp, setSedeTemp] = useState('');
   const [responsablesMultiples, setResponsablesMultiples] = useState([]);
   const [responsableTemp, setResponsableTemp] = useState('');  
