@@ -398,15 +398,9 @@ return (
         misTareasEjecucion={misTareasEjecucion} 
         misTareasRevision={misTareasRevision}   
         misTareasAprobacion={misTareasAprobacion} 
-        onSelectExecutionTasks={() => {
-          if (misPlanesEjecucion.length > 0) setEditPlan(misPlanesEjecucion[0]);
-        }}
-        onSelectRevisionTasks={() => {
-          if (misPlanesRevision.length > 0) setEditPlan(misPlanesRevision[0]);
-        }}
-        onSelectAprobacionTasks={() => {
-          if (misPlanesAprobacion.length > 0) setEditPlan(misPlanesAprobacion[0]);
-        }}
+        onSelectExecutionTasks={() => setDetallePanelPlanes('ejecucion')}
+        onSelectRevisionTasks={() => setDetallePanelPlanes('revision')}
+        onSelectAprobacionTasks={() => setDetallePanelPlanes('aprobacion')}
         isAdmin={isAdmin}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
         user={user}
