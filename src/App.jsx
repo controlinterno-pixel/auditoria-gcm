@@ -143,6 +143,7 @@ export default function App() {
     informesAuditoria, setInformesAuditoria, setComites,
     setProgramas, fuentesMejora, setFuentesMejora,
     catalogoCargos, setCatalogoCargos, mapaProcesos, setMapaProcesos,
+    sedesEmpresa, setSedesEmpresa,
     catalogosInicializados, setCatalogosInicializados,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
@@ -168,11 +169,12 @@ export default function App() {
 
 const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, showNotification), [showNotification]);
 
-  const guardarCatalogos = async (cargos, procesos) => {
+  const guardarCatalogos = async (cargos, procesos, sedes = sedesEmpresa) => {
     if (!isAdmin) return false;
     const guardado = await saveToCloud({
       catalogoCargos: cargos,
       mapaProcesos: procesos,
+      sedesEmpresa: sedes,
       catalogosInicializados: true,
     });
     if (!guardado) {
@@ -181,6 +183,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     }
     setCatalogoCargos(cargos);
     setMapaProcesos(procesos);
+    setSedesEmpresa(sedes);
     setCatalogosInicializados(true);
     return true;
   };
@@ -366,6 +369,7 @@ return (
   <CatalogosProvider
     catalogoCargos={catalogoCargos}
     mapaProcesos={mapaProcesos}
+    sedesEmpresa={sedesEmpresa}
     catalogosInicializados={catalogosInicializados}
   >
     <div className="flex h-screen bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">

@@ -193,7 +193,7 @@ export default function Riesgos({
 }) {
    // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen
   const safeRiesgos = Array.isArray(rawRiesgos) ? rawRiesgos : [];
-  const { mapaProcesos: MAPA_PROCESOS, cargosPorSede, sedesEmpresa } = useCatalogos();
+  const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
 
   // 🤖 ESTADOS PARA EL DICTAMEN DE INTELIGENCIA ARTIFICIAL EN EL DASHBOARD
   const [dictamenIA, setDictamenIA] = useState(null);
@@ -580,7 +580,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         "Subproceso": r.subproceso || "General",
         "Categoría ISO 31000": r.categoria || "N/A",
         "Clasificación": r.clasificacionRiesgo || "N/A",
-        "Sedes Afectadas": Array.isArray(r.sede) ? r.sede.join(', ') : (r.sede || "Administrativos"),
+        "Sedes Afectadas": Array.isArray(r.sede) ? r.sede.join(', ') : (r.sede || "Sin sede"),
         "Responsable(s)": Array.isArray(r.responsable) ? r.responsable.join(', ') : (r.responsable || "Sin Asignar"),
         "Tipo de Afectación": r.afectacion || "N/A",
         "Causa Inmediata": r.causaInmediata || "N/A",
@@ -768,7 +768,7 @@ FORMATO DE SALIDA JSON EXACTO:
     setCustomId(riesgo.id); // 🔥 RECUPERAMOS EL ID PARA EL FORMULARIO
       
 // 🏢 Recuperar Sede (Soporta versiones viejas de texto único y versiones nuevas de selección múltiple)
-    setSedeForm(Array.isArray(riesgo.sede) ? riesgo.sede : (riesgo.sede ? [riesgo.sede] : ['Administrativos']));
+    setSedeForm(Array.isArray(riesgo.sede) ? riesgo.sede : (riesgo.sede ? [riesgo.sede] : []));
     
     // 🌟 Recuperar proceso y Subproceso (Manteniendo compatibilidad con datos viejos)
     setMacroproceso(riesgo.macroproceso || riesgo.proceso || listadoMacros[0]);
@@ -1927,15 +1927,8 @@ const renderMatriz = () => {
                 <div className="flex gap-2 mb-2 md:w-1/2">
                   <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white">
                     <option value="">-- Escoger Líder --</option>
-                    {/* Iteramos sobre TODAS las sedes seleccionadas para extraer sus líderes */}
-                    {sedeForm.map(sedeSeleccionada => (
-                      <optgroup key={sedeSeleccionada} label={`📍 ${sedeSeleccionada}`}>
-                        {(cargosPorSede[sedeSeleccionada] || []).map(cargo => (
-                          <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>
-                            {cargo}
-                          </option>
-                        ))}
-                      </optgroup>
+                    {CARGOS_EMPRESA.map(cargo => (
+                      <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>
                     ))}
                   </select>
                   <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setResponsablesMultiples([...responsablesMultiples, responsableTemp]); setResponsableTemp(''); }} className="bg-[#0A3B32] text-white px-4 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm">➕ Añadir</button>

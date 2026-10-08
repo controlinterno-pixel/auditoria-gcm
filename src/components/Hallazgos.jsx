@@ -116,7 +116,7 @@ export default function Hallazgos({
 
   const sedesMultiples = sedesState[idEdicion] ?? (editHallazgo?.sede
     ? (editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede])
-    : ['Administrativos']);
+    : []);
 
   const setSedesMultiples = (newSedes) => setSedesState(prev => ({ ...prev, [idEdicion]: newSedes }));
 

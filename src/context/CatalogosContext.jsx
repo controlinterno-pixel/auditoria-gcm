@@ -6,6 +6,7 @@ const MAPA_PROCESOS_VACIO = {};
 export function CatalogosProvider({
   catalogoCargos = [],
   mapaProcesos = {},
+  sedesEmpresa = [],
   catalogosInicializados = false,
   children,
 }) {
@@ -19,23 +20,11 @@ export function CatalogosProvider({
     )].sort((a, b) => a.localeCompare(b, 'es'));
   }, [catalogoCargos, catalogosInicializados]);
 
-  const cargosPorSede = useMemo(() => {
-    const agrupados = {};
-    catalogoCargos
-      .filter(registro => registro?.activo !== false)
-      .forEach(registro => {
-        const sedes = Array.isArray(registro?.sedes) ? registro.sedes : [];
-        sedes.forEach(sede => {
-          if (!agrupados[sede]) agrupados[sede] = [];
-          if (registro.cargo && !agrupados[sede].includes(registro.cargo)) agrupados[sede].push(registro.cargo);
-        });
-      });
-    Object.values(agrupados).forEach(cargos => cargos.sort((a, b) => a.localeCompare(b, 'es')));
-    return agrupados;
-  }, [catalogoCargos]);
-  const sedesEmpresa = useMemo(
-    () => Object.keys(cargosPorSede).sort((a, b) => a.localeCompare(b, 'es')),
-    [cargosPorSede]
+  const sedesEmpresaActivas = useMemo(
+    () => catalogosInicializados && Array.isArray(sedesEmpresa)
+      ? [...new Set(sedesEmpresa.map(sede => String(sede || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'))
+      : [],
+    [sedesEmpresa, catalogosInicializados]
   );
 
   const mapaProcesosActivo = catalogosInicializados ? mapaProcesos : MAPA_PROCESOS_VACIO;
@@ -43,11 +32,10 @@ export function CatalogosProvider({
   const value = useMemo(() => ({
     catalogoCargos,
     cargosEmpresa,
-    cargosPorSede,
-    sedesEmpresa,
+    sedesEmpresa: sedesEmpresaActivas,
     mapaProcesos: mapaProcesosActivo,
     catalogosInicializados,
-  }), [catalogoCargos, cargosEmpresa, cargosPorSede, sedesEmpresa, mapaProcesosActivo, catalogosInicializados]);
+  }), [catalogoCargos, cargosEmpresa, sedesEmpresaActivas, mapaProcesosActivo, catalogosInicializados]);
 
   return <CatalogosContext.Provider value={value}>{children}</CatalogosContext.Provider>;
 }

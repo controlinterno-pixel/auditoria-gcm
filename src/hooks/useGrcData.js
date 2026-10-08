@@ -31,6 +31,7 @@ export function useGrcData() {
   const [fuentesMejora, setFuentesMejora] = useState([]);
   const [catalogoCargos, setCatalogoCargos] = useState([]);
   const [mapaProcesos, setMapaProcesos] = useState({});
+  const [sedesEmpresa, setSedesEmpresa] = useState([]);
   const [catalogosInicializados, setCatalogosInicializados] = useState(false);
 
   // 1. Estado y validación de perfil/rol de usuario
@@ -128,6 +129,7 @@ const data = await apiService.getGrcData();
         setFuentesMejora(data.fuentesMejora || []);
         setCatalogoCargos(Array.isArray(data.catalogoCargos) ? data.catalogoCargos : []);
         setMapaProcesos(data.mapaProcesos && typeof data.mapaProcesos === 'object' ? data.mapaProcesos : {});
+        setSedesEmpresa(Array.isArray(data.sedesEmpresa) ? data.sedesEmpresa : []);
         setCatalogosInicializados(data.catalogosInicializados === true);
         
       } catch (error) {
@@ -187,6 +189,7 @@ const data = await apiService.getGrcData();
     fuentesMejora, setFuentesMejora,
     catalogoCargos, setCatalogoCargos,
     mapaProcesos, setMapaProcesos,
+    sedesEmpresa, setSedesEmpresa,
     catalogosInicializados, setCatalogosInicializados,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites

@@ -11,24 +11,16 @@ const subprocesosDelCargo = registro => (
 );
 const sedesDelCargo = registro => Array.isArray(registro?.sedes) ? registro.sedes : [];
 const nombreCargoNormalizado = cargo => String(cargo || '').trim().toLowerCase();
+const nombreSedeNormalizado = sede => String(sede || '').trim().toLowerCase();
 const cargosIniciales = [...new Set([...CARGOS_EMPRESA, ...Object.values(CARGOS_POR_SEDE).flat()])];
-const sedesInicialesPorCargo = Object.entries(CARGOS_POR_SEDE).reduce((acumulado, [sede, cargos]) => {
-  cargos.forEach(cargo => {
-    const clave = nombreCargoNormalizado(cargo);
-    acumulado.set(clave, [...new Set([...(acumulado.get(clave) || []), sede])]);
-  });
-  return acumulado;
-}, new Map());
+const sedesIniciales = Object.keys(CARGOS_POR_SEDE);
 
 const completarCatalogoInicial = registros => {
   const existentes = new Set(registros.map(registro => nombreCargoNormalizado(registro.cargo)));
-  const actualizados = registros.map(registro => ({
-    ...registro,
-    sedes: [...new Set([
-      ...sedesDelCargo(registro),
-      ...(sedesInicialesPorCargo.get(nombreCargoNormalizado(registro.cargo)) || []),
-    ])],
-  }));
+  const actualizados = registros.map(registro => {
+    const { sedes: _sedesLegacy, ...cargo } = registro;
+    return cargo;
+  });
   const faltantes = cargosIniciales
     .filter(cargo => !existentes.has(nombreCargoNormalizado(cargo)))
     .map(cargo => ({
@@ -38,7 +30,6 @@ const completarCatalogoInicial = registros => {
       macroproceso: '',
       subproceso: '',
       subprocesos: [],
-      sedes: sedesInicialesPorCargo.get(nombreCargoNormalizado(cargo)) || [],
       activo: true,
     }));
 
@@ -50,13 +41,13 @@ const formularioVacio = {
   correoCorporativo: '',
   macroproceso: '',
   subprocesos: [],
-  sedes: [],
 };
 
 export default function CargosProcesos({
   isAdmin = false,
   catalogoCargos = [],
   mapaProcesos = {},
+  sedesEmpresa = [],
   catalogosInicializados = false,
   onSaveCatalogos,
   onDeleteCargo,
@@ -71,20 +62,16 @@ export default function CargosProcesos({
   const [macroSeleccionado, setMacroSeleccionado] = useState('');
   const [macroNombre, setMacroNombre] = useState('');
   const [subprocesosTexto, setSubprocesosTexto] = useState('');
+  const [sedeNueva, setSedeNueva] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   const listaCargos = Array.isArray(catalogoCargos) ? catalogoCargos : CARGOS_VACIOS;
   const mapaSeguro = mapaProcesos && typeof mapaProcesos === 'object' ? mapaProcesos : {};
   const macrosDisponibles = Object.keys(mapaSeguro).sort((a, b) => a.localeCompare(b, 'es'));
-  const sedesDisponibles = [...new Set(listaCargos.flatMap(sedesDelCargo))].sort((a, b) => a.localeCompare(b, 'es'));
-  const requiereCompletarCatalogo = sedesDisponibles.length === 0 || cargosIniciales.some(cargo => {
-    const registrosCargo = listaCargos.filter(registro => nombreCargoNormalizado(registro.cargo) === nombreCargoNormalizado(cargo));
-    if (registrosCargo.length === 0) return true;
-    const sedesEsperadas = sedesInicialesPorCargo.get(nombreCargoNormalizado(cargo)) || [];
-    return registrosCargo.some(registro => !Array.isArray(registro.sedes)) || sedesEsperadas.some(sede => (
-      !registrosCargo.some(registro => sedesDelCargo(registro).includes(sede))
-    ));
-  });
+  const sedesDisponibles = Array.isArray(sedesEmpresa) ? sedesEmpresa : [];
+  const requiereCompletarCatalogo = sedesDisponibles.length === 0 || cargosIniciales.some(cargo => (
+    !listaCargos.some(registro => nombreCargoNormalizado(registro.cargo) === nombreCargoNormalizado(cargo))
+  ));
   const filasFiltradas = useMemo(() => {
     const busquedaLimpia = busqueda.trim().toLowerCase();
     return listaCargos
@@ -112,16 +99,49 @@ export default function CargosProcesos({
   };
 
   const inicializarCatalogos = async () => {
+    const sedesCatalogo = [...new Set([
+      ...sedesDisponibles,
+      ...listaCargos.flatMap(sedesDelCargo),
+      ...sedesIniciales,
+    ])];
     const resultado = await guardarCatalogos(
       completarCatalogoInicial(listaCargos),
-      Object.keys(mapaSeguro).length ? mapaSeguro : MAPA_PROCESOS
+      Object.keys(mapaSeguro).length ? mapaSeguro : MAPA_PROCESOS,
+      sedesCatalogo
     );
     if (resultado !== false) showNotification('Catálogo inicial importado.', 'success');
   };
 
   const completarCatalogo = async () => {
-    if (await guardarCatalogos(completarCatalogoInicial(listaCargos), mapaSeguro) !== false) {
-      showNotification('Cargos y sedes base incorporados al catálogo.', 'success');
+    const sedesCatalogo = [...new Set([
+      ...sedesDisponibles,
+      ...listaCargos.flatMap(sedesDelCargo),
+      ...sedesIniciales,
+    ])];
+    if (await guardarCatalogos(completarCatalogoInicial(listaCargos), mapaSeguro, sedesCatalogo) !== false) {
+      showNotification('Catálogos base de cargos y sedes incorporados.', 'success');
+    }
+  };
+
+  const agregarSede = async event => {
+    event.preventDefault();
+    const nombre = sedeNueva.trim();
+    if (!nombre) return;
+    if (sedesDisponibles.some(sede => nombreSedeNormalizado(sede) === nombreSedeNormalizado(nombre))) {
+      showNotification('Esa sede ya está registrada.', 'error');
+      return;
+    }
+    if (await guardarCatalogos(listaCargos, mapaSeguro, [...sedesDisponibles, nombre]) !== false) {
+      setSedeNueva('');
+      showNotification('Sede agregada al catálogo.', 'success');
+    }
+  };
+
+  const eliminarSede = async sede => {
+    if (!window.confirm(`¿Quitar ${sede} de las opciones de sedes? Los hallazgos existentes conservarán su valor.`)) return;
+    const sedesSiguientes = sedesDisponibles.filter(item => item !== sede);
+    if (await guardarCatalogos(listaCargos, mapaSeguro, sedesSiguientes) !== false) {
+      showNotification('Sede eliminada del catálogo de opciones.', 'success');
     }
   };
 
@@ -138,7 +158,6 @@ export default function CargosProcesos({
       correoCorporativo: registro.correoCorporativo || '',
       macroproceso: registro.macroproceso || '',
       subprocesos: subprocesosDelCargo(registro),
-      sedes: sedesDelCargo(registro),
     });
     setModalAbierto(true);
   };
@@ -152,15 +171,15 @@ export default function CargosProcesos({
       return;
     }
 
+    const { sedes: _sedesLegacy, ...datosCargoEditando } = cargoEditando || {};
     const actualizado = {
-      ...(cargoEditando || {}),
+      ...datosCargoEditando,
       id: cargoEditando?.id || nuevoId(),
       cargo: cargoLimpio,
       correoCorporativo: correoLimpio,
       macroproceso: formulario.macroproceso,
       subproceso: formulario.subprocesos[0] || '',
       subprocesos: formulario.subprocesos,
-      sedes: formulario.sedes,
       activo: true,
       actualizadoEn: new Date().toISOString(),
     };
@@ -279,6 +298,7 @@ export default function CargosProcesos({
           <div className="flex border-b border-slate-200">
             <button type="button" onClick={() => setVistaActiva('cargos')} className={`border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'cargos' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Cargos y correos</button>
             <button type="button" onClick={() => setVistaActiva('procesos')} className={`border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'procesos' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Macroprocesos y subprocesos</button>
+            <button type="button" onClick={() => setVistaActiva('sedes')} className={`border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'sedes' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Sedes</button>
           </div>
 
           {vistaActiva === 'cargos' ? (
@@ -297,9 +317,9 @@ export default function CargosProcesos({
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] text-left text-xs">
+                <table className="w-full min-w-[760px] text-left text-xs">
                   <thead className="bg-slate-900 text-[10px] uppercase text-white">
-                    <tr><th className="px-4 py-3">Cargo</th><th className="px-4 py-3">Correo corporativo</th><th className="px-4 py-3">Macroproceso</th><th className="px-4 py-3">Subprocesos</th><th className="px-4 py-3">Sedes</th><th className="px-4 py-3 text-right">Acciones</th></tr>
+                    <tr><th className="px-4 py-3">Cargo</th><th className="px-4 py-3">Correo corporativo</th><th className="px-4 py-3">Macroproceso</th><th className="px-4 py-3">Subprocesos</th><th className="px-4 py-3 text-right">Acciones</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filasFiltradas.map(registro => (
@@ -308,7 +328,6 @@ export default function CargosProcesos({
                         <td className="px-4 py-3 text-slate-600">{registro.correoCorporativo || <span className="text-amber-700">Pendiente de asignar</span>}</td>
                         <td className="px-4 py-3 text-slate-600">{registro.macroproceso || 'Sin asignar'}</td>
                         <td className="px-4 py-3 text-slate-600">{subprocesosDelCargo(registro).join(', ') || 'Sin asignar'}</td>
-                        <td className="px-4 py-3 text-slate-600">{sedesDelCargo(registro).join(', ') || 'Sin asignar'}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             <button type="button" onClick={() => abrirEdicionCargo(registro)} className="rounded border border-slate-300 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">Editar</button>
@@ -317,12 +336,12 @@ export default function CargosProcesos({
                         </td>
                       </tr>
                     ))}
-                    {filasFiltradas.length === 0 && <tr><td colSpan="6" className="px-4 py-10 text-center text-xs text-slate-500">No hay asignaciones que coincidan con la búsqueda.</td></tr>}
+                    {filasFiltradas.length === 0 && <tr><td colSpan="5" className="px-4 py-10 text-center text-xs text-slate-500">No hay asignaciones que coincidan con la búsqueda.</td></tr>}
                   </tbody>
                 </table>
               </div>
             </section>
-          ) : (
+          ) : vistaActiva === 'procesos' ? (
             <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-700">Macroprocesos registrados</h2>
@@ -348,6 +367,32 @@ export default function CargosProcesos({
                   <button type="submit" disabled={guardando} className="ml-auto rounded-lg bg-[#0a3b32] px-4 py-2 text-[10px] font-black text-white disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar estructura'}</button>
                 </div>
               </form>
+            </section>
+          ) : (
+            <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+              <form onSubmit={agregarSede} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="text-xs font-black uppercase tracking-wide text-slate-700">Registrar una sede</h2>
+                <p className="text-[10px] text-slate-500">Las sedes son opciones independientes y no se asignan a cargos ni procesos.</p>
+                <label className="block text-[10px] font-bold text-slate-600">Nombre de la sede
+                  <input required maxLength="100" value={sedeNueva} onChange={event => setSedeNueva(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs" placeholder="Ej. Hotel" />
+                </label>
+                <button type="submit" disabled={guardando || !sedeNueva.trim()} className="rounded-lg bg-[#0a3b32] px-4 py-2 text-[10px] font-black text-white disabled:opacity-50">{guardando ? 'Guardando…' : 'Agregar sede'}</button>
+              </form>
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-700">Sedes disponibles</h2>
+                {sedesDisponibles.length === 0 ? (
+                  <p className="text-xs text-slate-500">Aún no hay sedes registradas.</p>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {sedesDisponibles.map(sede => (
+                      <li key={sede} className="flex items-center justify-between gap-3 py-2 text-xs">
+                        <span className="font-semibold text-slate-700">{sede}</span>
+                        <button type="button" disabled={guardando} onClick={() => eliminarSede(sede)} className="rounded border border-red-200 px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">Eliminar</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </section>
           )}
         </>
@@ -395,24 +440,6 @@ export default function CargosProcesos({
                     <p className="text-[10px] text-amber-700">Este macroproceso aún no tiene subprocesos.</p>
                   )}
                 </div>
-              </fieldset>
-              <fieldset className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
-                <legend className="px-1 text-[10px] font-bold text-slate-600">Sedes donde aplica el cargo</legend>
-                {sedesDisponibles.length > 0 ? (
-                  <div className="grid max-h-32 gap-1 overflow-y-auto sm:grid-cols-2">
-                    {sedesDisponibles.map(sede => (
-                      <label key={sede} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:bg-blue-50">
-                        <input type="checkbox" checked={formulario.sedes.includes(sede)} onChange={event => setFormulario(prev => ({
-                          ...prev,
-                          sedes: event.target.checked
-                            ? [...new Set([...prev.sedes, sede])]
-                            : prev.sedes.filter(valor => valor !== sede),
-                        }))} className="accent-blue-700" />
-                        <span>{sede}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : <p className="text-[10px] text-amber-700">Completa primero las sedes del catálogo base.</p>}
               </fieldset>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
