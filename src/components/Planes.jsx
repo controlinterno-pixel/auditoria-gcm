@@ -86,7 +86,6 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [generandoPdfId, setGenerandoPdfId] = useState(null); // 👈 ¡Faltaba declarar este estado!
   const [evalDetalleModal, setEvalDetalleModal] = useState(null);
   const [historialModal, setHistorialModal] = useState({ activo: false, plan: null });
-  const [modalCambioRapido, setModalCambioRapido] = useState({ activo: false, plan: null, nuevoAvance: 0, nuevaFecha: '', motivo: '' });
   const [revisionInformeId, setRevisionInformeId] = useState(reviewReportId);
   const [mostrarMotivoCorreccion, setMostrarMotivoCorreccion] = useState(false);
   const [motivoCorreccion, setMotivoCorreccion] = useState('');
@@ -1230,58 +1229,6 @@ if (existingActivities.length > 0) {
     });
   };
 const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).filter(a => a !== 'Sin Fecha'))].sort().reverse();
-
-  // ⚡ NUEVA FUNCIÓN: CONTROL DE CAMBIOS RÁPIDO DESDE EL LISTADO
-  const confirmarCambioRapido = async () => {
-    if (!modalCambioRapido.motivo.trim()) return alert("❌ El motivo del cambio es obligatorio para el Audit Trail.");
-    
-    const ts = new Date().toLocaleString();
-    const planOriginal = modalCambioRapido.plan;
-    const avanceNum = Math.min(Math.max(parseInt(modalCambioRapido.nuevoAvance || 0), 0), 100);
-    const detalleCambios = [];
-    
-    // Comparador Inteligente
-    if (planOriginal.progreso !== avanceNum) detalleCambios.push({ campo: 'Avance', antes: `${planOriginal.progreso}%`, despues: `${avanceNum}%` });
-    if (planOriginal.fecha !== modalCambioRapido.nuevaFecha) detalleCambios.push({ campo: 'Fecha Límite', antes: planOriginal.fecha || 'N/A', despues: modalCambioRapido.nuevaFecha || 'N/A' });
-
-    if (detalleCambios.length === 0) return alert("⚠️ No has modificado ni el avance ni la fecha. No hay cambios que registrar.");
-
-    // Cálculo automático de estados
-    let nuevoEstado = planOriginal.estadoWorkflow;
-    if (avanceNum === 100 && planOriginal.progreso < 100) nuevoEstado = 'En Revisión (100%)';
-    else if (avanceNum < 100 && planOriginal.estadoWorkflow === 'En Revisión (100%)') nuevoEstado = 'En Ejecución';
-
-    if (planOriginal.estadoWorkflow !== nuevoEstado) detalleCambios.push({ campo: 'Fase/Estado', antes: planOriginal.estadoWorkflow, despues: nuevoEstado });
-
-    // Armar el Historial
-    const nuevoHistorial = [...(planOriginal.historialCambios || []), {
-      fecha: ts,
-      usuario: 'Gestor/Auditor',
-      accion: 'Control de Cambios Rápido',
-      motivo: modalCambioRapido.motivo,
-      detalleCambios
-    }];
-
-    const planActualizado = { ...planOriginal, progreso: avanceNum, fecha: modalCambioRapido.nuevaFecha, estadoWorkflow: nuevoEstado, historialCambios: nuevoHistorial };
-    const updatedPlanes = safePlanes.map(p => p.id === planOriginal.id ? planActualizado : p);
-    
-    setPlanes(updatedPlanes);
-    await saveToCloud({ planes: updatedPlanes });
-    
-    // Notificación automática si llegó al 100%
-    if (avanceNum === 100 && enviarNotificaciones && ejecutarDespachoGmailApi && planOriginal.correoAuditor) {
-      await ejecutarDespachoGmailApi({
-        ref_consecutivo: `PLA-${String(planOriginal.id).slice(-4)}`,
-        titulo_informe: `Verificar evidencias al 100% para cierre`,
-        proceso_auditado: `El plan de acción completó su avance al 100% mediante Control de Cambios.`,
-        enlace_pdf: planOriginal.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
-        destinatarios: planOriginal.correoAuditor
-      });
-    }
-
-    alert("✅ Cambio registrado exitosamente en el historial.");
-    setModalCambioRapido({ activo: false, plan: null, nuevoAvance: 0, nuevaFecha: '', motivo: '' });
-  };
 
   const resolverDecisionRevision = async (decision) => {
     if (!revisionInforme || guardandoDecisionRevision) return;
@@ -2682,18 +2629,24 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
                                       return (
                                         <>
-                                          {/* BOTONES DEL EJECUTOR (Y Admin) - Pueden gestionar mientras no esté cerrado */}
+                                         {/* BOTONES DEL EJECUTOR (Y Admin) - Pueden gestionar mientras no esté cerrado */}
                                           {(esEjecutor || isAdmin) && p.estadoWorkflow !== 'Cerrado' && (
                                             <>
                                               <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-200 transition-colors shadow-sm">✏️ Modificar Matriz</button>
                                               
-                                              <button 
-                                                onClick={() => setModalCambioRapido({ activo: true, plan: p, nuevoAvance: p.progreso, nuevaFecha: p.fecha || '', motivo: '' })} 
-                                                className="bg-orange-50 text-orange-700 border border-orange-200 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-orange-100 transition-colors shadow-sm flex items-center justify-center gap-1"
-                                                title="Actualizar Avance o Fecha rápidamente"
-                                              >
-                                                <span>📝</span> Cambio Rápido
-                                              </button>
+                                              {/* NUEVO BOTÓN: Evaluar / Modo Lectura para Revisor o Auditor */}
+                                              {(esRevisor || esAuditor || isAdmin) && (
+                                                <button 
+                                                  onClick={() => {
+                                                    // Usamos tu modal de revisión de diseño existente
+                                                    setRevisionInformeId(p.idInforme);
+                                                  }} 
+                                                  className="bg-sky-50 text-sky-700 border border-sky-200 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-sky-100 transition-colors shadow-sm flex items-center justify-center gap-1"
+                                                  title="Abrir en Modo Lectura para evaluar soportes"
+                                                >
+                                                  <span>👁️</span> Evaluar / Ver
+                                                </button>
+                                              )}
                                             </>
                                           )}
 
@@ -3493,81 +3446,6 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           </div>
         </div>
       )}  
-
-      {/* 📝 MODAL SUTIL: CONTROL DE CAMBIOS RÁPIDO */}
-      {modalCambioRapido.activo && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95">
-            <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-5 flex justify-between items-center text-white shrink-0">
-              <div>
-                <h4 className="font-black text-sm flex items-center gap-2 uppercase tracking-widest">
-                  <span>📝</span> Registrar Cambio
-                </h4>
-                <p className="text-orange-100 text-[10px] font-bold mt-1">
-                  PLA-{modalCambioRapido.plan?.id?.toString().slice(-4)} | Actualización de Avance o Fecha
-                </p>
-              </div>
-              <button onClick={() => setModalCambioRapido({ activo: false, plan: null, nuevoAvance: 0, nuevaFecha: '', motivo: '' })} className="text-orange-100 hover:text-white font-black text-xl px-2 cursor-pointer">✕</button>
-            </div>
-
-            <div className="p-6 space-y-5 bg-slate-50">
-              <div className="bg-white border border-slate-200 p-3.5 rounded-xl shadow-sm">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Acción / Tarea Actual</p>
-                <p className="text-xs font-bold text-slate-700 leading-snug">{modalCambioRapido.plan?.accion}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-sm">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Nuevo % Avance</label>
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="number" min="0" max="100" 
-                      value={modalCambioRapido.nuevoAvance} 
-                      onChange={(e) => setModalCambioRapido(prev => ({ ...prev, nuevoAvance: e.target.value }))}
-                      className="w-full border border-slate-300 rounded-lg p-2 text-xs font-black text-blue-700 bg-blue-50 focus:ring-2 focus:ring-orange-500 outline-none"
-                    />
-                    <span className="text-slate-400 font-black text-xs">%</span>
-                  </div>
-                  <span className="text-[9px] text-slate-400 font-bold block mt-1">Anterior: {modalCambioRapido.plan?.progreso}%</span>
-                </div>
-
-                <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-sm">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Nueva Fecha Límite</label>
-                  <input 
-                    type="date" 
-                    value={modalCambioRapido.nuevaFecha} 
-                    onChange={(e) => setModalCambioRapido(prev => ({ ...prev, nuevaFecha: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-black text-slate-700 focus:ring-2 focus:ring-orange-500 outline-none cursor-pointer"
-                  />
-                  <span className="text-[9px] text-slate-400 font-bold block mt-1">Anterior: {modalCambioRapido.plan?.fecha || 'N/A'}</span>
-                </div>
-              </div>
-
-              <div className="bg-white border border-orange-200 p-4 rounded-xl shadow-sm relative overflow-hidden">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-400"></div>
-                <label className="text-[10px] font-black text-orange-800 uppercase tracking-widest block mb-2">Motivo / Justificación (Obligatorio)</label>
-                <textarea 
-                  value={modalCambioRapido.motivo}
-                  onChange={(e) => setModalCambioRapido(prev => ({ ...prev, motivo: e.target.value }))}
-                  placeholder="Explique la razón de este cambio para el Audit Trail..."
-                  className="w-full border border-slate-200 rounded-lg p-3 text-xs font-medium text-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none bg-slate-50 focus:bg-white transition-all shadow-inner"
-                  rows="3"
-                />
-              </div>
-            </div>
-
-            <div className="bg-white p-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={() => setModalCambioRapido({ activo: false, plan: null, nuevoAvance: 0, nuevaFecha: '', motivo: '' })} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all">Cancelar</button>
-              
-              {/* AQUÍ ESTÁ LA FUNCIÓN FALTANTE QUE RESUELVE EL ERROR */}
-              <button type="button" onClick={confirmarCambioRapido} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-2">
-                <span>💾</span> Guardar Cambio
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 📜 MODAL DE HISTORIAL DE CAMBIOS (ESTILO AUDIT TRAIL) */}
       {historialModal.activo && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
