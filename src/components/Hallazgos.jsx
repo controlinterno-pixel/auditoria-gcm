@@ -129,7 +129,8 @@ export default function Hallazgos({
   const normaReferencia = fuenteOrigen?.norma || fuenteOrigen?.tipoNorma || informeOrigen?.norma || '';
 
   // ✨ NUEVO: Extracción de la Fuente de Mejora y su Detalle desde el Informe Origen
-  const tipoFuenteHallazgo = informeOrigen?.tipoFuente || editHallazgo?.tipoFuente || '';
+  const tipoFuenteHallazgo = informeOrigen?.tipoFuente || editHallazgo?.tipoFuente || autoFillData?.tipoFuente || '';
+  const metodologiaCausaDeshabilitada = esSoloLectura || tipoFuenteHallazgo === 'Programa de Auditoría';
   const detalleFuenteHallazgo = informeOrigen?.detalleFuente || editHallazgo?.detalleFuente || '';
 
   // 🧠 GENERADOR DE ID AUTOMÁTICO
@@ -986,7 +987,7 @@ export default function Hallazgos({
                   </label>
                   <select 
   name="metodologiaCausa" 
-  disabled={esSoloLectura}
+  disabled={metodologiaCausaDeshabilitada}
   value={metodologiaCausa}
   onChange={(e) => setMetodologiaCausaState(prev => ({ ...prev, [idEdicion]: e.target.value }))}
   className="w-full border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-amber-600 outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
