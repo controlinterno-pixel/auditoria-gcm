@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { 
-  CARGOS_POR_SEDE, 
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
 import { useCatalogos } from '../context/useCatalogos';
@@ -194,7 +193,7 @@ export default function Riesgos({
 }) {
    // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen
   const safeRiesgos = Array.isArray(rawRiesgos) ? rawRiesgos : [];
-  const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
+  const { mapaProcesos: MAPA_PROCESOS, cargosPorSede, sedesEmpresa } = useCatalogos();
 
   // 🤖 ESTADOS PARA EL DICTAMEN DE INTELIGENCIA ARTIFICIAL EN EL DASHBOARD
   const [dictamenIA, setDictamenIA] = useState(null);
@@ -1903,7 +1902,7 @@ const renderMatriz = () => {
                   className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 bg-white mb-2"
                 >
                   <option value="">-- Añadir Sede --</option>
-                  {Object.keys(CARGOS_POR_SEDE).map(s => (
+                  {sedesEmpresa.map(s => (
                     <option key={s} value={s} disabled={sedeForm.includes(s)}>{s}</option>
                   ))}
                 </select>
@@ -1931,7 +1930,7 @@ const renderMatriz = () => {
                     {/* Iteramos sobre TODAS las sedes seleccionadas para extraer sus líderes */}
                     {sedeForm.map(sedeSeleccionada => (
                       <optgroup key={sedeSeleccionada} label={`📍 ${sedeSeleccionada}`}>
-                        {(CARGOS_POR_SEDE[sedeSeleccionada] || []).map(cargo => (
+                        {(cargosPorSede[sedeSeleccionada] || []).map(cargo => (
                           <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>
                             {cargo}
                           </option>

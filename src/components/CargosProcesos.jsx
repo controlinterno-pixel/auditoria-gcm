@@ -9,12 +9,48 @@ const subprocesosDelCargo = registro => (
     ? registro.subprocesos
     : registro?.subproceso ? [registro.subproceso] : []
 );
+const sedesDelCargo = registro => Array.isArray(registro?.sedes) ? registro.sedes : [];
+const nombreCargoNormalizado = cargo => String(cargo || '').trim().toLowerCase();
+const cargosIniciales = [...new Set([...CARGOS_EMPRESA, ...Object.values(CARGOS_POR_SEDE).flat()])];
+const sedesInicialesPorCargo = Object.entries(CARGOS_POR_SEDE).reduce((acumulado, [sede, cargos]) => {
+  cargos.forEach(cargo => {
+    const clave = nombreCargoNormalizado(cargo);
+    acumulado.set(clave, [...new Set([...(acumulado.get(clave) || []), sede])]);
+  });
+  return acumulado;
+}, new Map());
+
+const completarCatalogoInicial = registros => {
+  const existentes = new Set(registros.map(registro => nombreCargoNormalizado(registro.cargo)));
+  const actualizados = registros.map(registro => ({
+    ...registro,
+    sedes: [...new Set([
+      ...sedesDelCargo(registro),
+      ...(sedesInicialesPorCargo.get(nombreCargoNormalizado(registro.cargo)) || []),
+    ])],
+  }));
+  const faltantes = cargosIniciales
+    .filter(cargo => !existentes.has(nombreCargoNormalizado(cargo)))
+    .map(cargo => ({
+      id: nuevoId(),
+      cargo,
+      correoCorporativo: '',
+      macroproceso: '',
+      subproceso: '',
+      subprocesos: [],
+      sedes: sedesInicialesPorCargo.get(nombreCargoNormalizado(cargo)) || [],
+      activo: true,
+    }));
+
+  return [...actualizados, ...faltantes];
+};
 
 const formularioVacio = {
   cargo: '',
   correoCorporativo: '',
   macroproceso: '',
   subprocesos: [],
+  sedes: [],
 };
 
 export default function CargosProcesos({
@@ -40,6 +76,10 @@ export default function CargosProcesos({
   const listaCargos = Array.isArray(catalogoCargos) ? catalogoCargos : CARGOS_VACIOS;
   const mapaSeguro = mapaProcesos && typeof mapaProcesos === 'object' ? mapaProcesos : {};
   const macrosDisponibles = Object.keys(mapaSeguro).sort((a, b) => a.localeCompare(b, 'es'));
+  const sedesDisponibles = [...new Set(listaCargos.flatMap(sedesDelCargo))].sort((a, b) => a.localeCompare(b, 'es'));
+  const requiereCompletarCatalogo = listaCargos.some(registro => !Array.isArray(registro.sedes)) || cargosIniciales.some(cargo => (
+    !listaCargos.some(registro => nombreCargoNormalizado(registro.cargo) === nombreCargoNormalizado(cargo))
+  ));
   const filasFiltradas = useMemo(() => {
     const busquedaLimpia = busqueda.trim().toLowerCase();
     return listaCargos
@@ -67,32 +107,17 @@ export default function CargosProcesos({
   };
 
   const inicializarCatalogos = async () => {
-    const nombresExistentes = new Set(listaCargos.map(registro => String(registro.cargo || '').trim().toLowerCase()));
-    const cargosLegacy = [...new Set([
-      ...CARGOS_EMPRESA,
-      ...Object.values(CARGOS_POR_SEDE).flat(),
-    ])]
-      .map(cargo => String(cargo || '').trim())
-      .filter(cargo => {
-        const nombreNormalizado = cargo.toLowerCase();
-        if (!cargo || nombresExistentes.has(nombreNormalizado)) return false;
-        nombresExistentes.add(nombreNormalizado);
-        return true;
-      })
-      .map(cargo => ({
-        id: nuevoId(),
-        cargo,
-        correoCorporativo: '',
-        macroproceso: '',
-        subproceso: '',
-        subprocesos: [],
-        activo: true,
-      }));
     const resultado = await guardarCatalogos(
-      [...listaCargos, ...cargosLegacy],
+      completarCatalogoInicial(listaCargos),
       Object.keys(mapaSeguro).length ? mapaSeguro : MAPA_PROCESOS
     );
     if (resultado !== false) showNotification('Catálogo inicial importado.', 'success');
+  };
+
+  const completarCatalogo = async () => {
+    if (await guardarCatalogos(completarCatalogoInicial(listaCargos), mapaSeguro) !== false) {
+      showNotification('Cargos y sedes base incorporados al catálogo.', 'success');
+    }
   };
 
   const abrirNuevoCargo = () => {
@@ -108,6 +133,7 @@ export default function CargosProcesos({
       correoCorporativo: registro.correoCorporativo || '',
       macroproceso: registro.macroproceso || '',
       subprocesos: subprocesosDelCargo(registro),
+      sedes: sedesDelCargo(registro),
     });
     setModalAbierto(true);
   };
@@ -129,6 +155,7 @@ export default function CargosProcesos({
       macroproceso: formulario.macroproceso,
       subproceso: formulario.subprocesos[0] || '',
       subprocesos: formulario.subprocesos,
+      sedes: formulario.sedes,
       activo: true,
       actualizadoEn: new Date().toISOString(),
     };
@@ -259,12 +286,15 @@ export default function CargosProcesos({
                     {macrosDisponibles.map(macro => <option key={macro} value={macro}>{macro}</option>)}
                   </select>
                 </div>
-                <span className="text-[10px] font-bold text-slate-500">{filasFiltradas.length} asignaciones</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold text-slate-500">{filasFiltradas.length} asignaciones</span>
+                  {requiereCompletarCatalogo && <button type="button" disabled={guardando} onClick={completarCatalogo} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[10px] font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50">{guardando ? 'Actualizando…' : 'Completar cargos y sedes base'}</button>}
+                </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-xs">
+                <table className="w-full min-w-[900px] text-left text-xs">
                   <thead className="bg-slate-900 text-[10px] uppercase text-white">
-                    <tr><th className="px-4 py-3">Cargo</th><th className="px-4 py-3">Correo corporativo</th><th className="px-4 py-3">Macroproceso</th><th className="px-4 py-3">Subproceso</th><th className="px-4 py-3 text-right">Acciones</th></tr>
+                    <tr><th className="px-4 py-3">Cargo</th><th className="px-4 py-3">Correo corporativo</th><th className="px-4 py-3">Macroproceso</th><th className="px-4 py-3">Subprocesos</th><th className="px-4 py-3">Sedes</th><th className="px-4 py-3 text-right">Acciones</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filasFiltradas.map(registro => (
@@ -273,6 +303,7 @@ export default function CargosProcesos({
                         <td className="px-4 py-3 text-slate-600">{registro.correoCorporativo || <span className="text-amber-700">Pendiente de asignar</span>}</td>
                         <td className="px-4 py-3 text-slate-600">{registro.macroproceso || 'Sin asignar'}</td>
                         <td className="px-4 py-3 text-slate-600">{subprocesosDelCargo(registro).join(', ') || 'Sin asignar'}</td>
+                        <td className="px-4 py-3 text-slate-600">{sedesDelCargo(registro).join(', ') || 'Sin asignar'}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             <button type="button" onClick={() => abrirEdicionCargo(registro)} className="rounded border border-slate-300 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">Editar</button>
@@ -281,7 +312,7 @@ export default function CargosProcesos({
                         </td>
                       </tr>
                     ))}
-                    {filasFiltradas.length === 0 && <tr><td colSpan="5" className="px-4 py-10 text-center text-xs text-slate-500">No hay asignaciones que coincidan con la búsqueda.</td></tr>}
+                    {filasFiltradas.length === 0 && <tr><td colSpan="6" className="px-4 py-10 text-center text-xs text-slate-500">No hay asignaciones que coincidan con la búsqueda.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -359,6 +390,24 @@ export default function CargosProcesos({
                     <p className="text-[10px] text-amber-700">Este macroproceso aún no tiene subprocesos.</p>
                   )}
                 </div>
+              </fieldset>
+              <fieldset className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
+                <legend className="px-1 text-[10px] font-bold text-slate-600">Sedes donde aplica el cargo</legend>
+                {sedesDisponibles.length > 0 ? (
+                  <div className="grid max-h-32 gap-1 overflow-y-auto sm:grid-cols-2">
+                    {sedesDisponibles.map(sede => (
+                      <label key={sede} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:bg-blue-50">
+                        <input type="checkbox" checked={formulario.sedes.includes(sede)} onChange={event => setFormulario(prev => ({
+                          ...prev,
+                          sedes: event.target.checked
+                            ? [...new Set([...prev.sedes, sede])]
+                            : prev.sedes.filter(valor => valor !== sede),
+                        }))} className="accent-blue-700" />
+                        <span>{sede}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : <p className="text-[10px] text-amber-700">Completa primero las sedes del catálogo base.</p>}
               </fieldset>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">

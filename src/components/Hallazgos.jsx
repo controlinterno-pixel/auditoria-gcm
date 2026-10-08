@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
-import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
 import { useCatalogos } from '../context/useCatalogos';
 
 export default function Hallazgos({
@@ -24,7 +23,7 @@ export default function Hallazgos({
   FilterInput,
   exportToExcel
 }) {
-  const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA } = useCatalogos();
+  const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
@@ -879,7 +878,7 @@ export default function Hallazgos({
                   className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                 >
                   <option value="">-- Escoger Sede --</option>
-                  {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
+                  {sedesEmpresa.map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
                 </select>
                 <button 
                   type="button" 

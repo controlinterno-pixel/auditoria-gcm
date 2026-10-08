@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
-import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
 import { useCatalogos } from '../context/useCatalogos';
 import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
@@ -53,7 +52,7 @@ export default function Planes({
   handleColFilterChange = () => {},
   informesAuditoria = []
 }) {
-  const { catalogoCargos = [], cargosEmpresa: CARGOS_EMPRESA } = useCatalogos();
+  const { catalogoCargos = [], cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
 
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
@@ -2101,7 +2100,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         className="w-full border border-slate-300 p-1.5 rounded bg-white font-bold text-slate-700 cursor-pointer shadow-sm text-[10px] outline-none"
                                       >
                                         <option value="">-- Añadir Sede --</option>
-                                        {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesActuales.includes(s)}>{s}</option>)}
+                                        {sedesEmpresa.map(s => <option key={s} value={s} disabled={sedesActuales.includes(s)}>{s}</option>)}
                                       </select>
                                       <div className="flex flex-wrap gap-1 mt-1.5">
                                         {sedesActuales.length === 0 && <span className="text-[9px] text-slate-400 italic">Ninguna...</span>}

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CARGOS_EMPRESA, MAPA_PROCESOS } from '../constants/diccionariosGRC';
+import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 import { CatalogosContext } from './catalogosContextValue';
 
 export function CatalogosProvider({
@@ -9,7 +9,7 @@ export function CatalogosProvider({
   children,
 }) {
   const cargosEmpresa = useMemo(() => {
-    if (!catalogosInicializados) return CARGOS_EMPRESA;
+    if (!catalogosInicializados) return [];
     return [...new Set(
       catalogoCargos
         .filter(registro => registro?.activo !== false)
@@ -18,14 +18,35 @@ export function CatalogosProvider({
     )].sort((a, b) => a.localeCompare(b, 'es'));
   }, [catalogoCargos, catalogosInicializados]);
 
+  const cargosPorSede = useMemo(() => {
+    const agrupados = {};
+    catalogoCargos
+      .filter(registro => registro?.activo !== false)
+      .forEach(registro => {
+        const sedes = Array.isArray(registro?.sedes) ? registro.sedes : [];
+        sedes.forEach(sede => {
+          if (!agrupados[sede]) agrupados[sede] = [];
+          if (registro.cargo && !agrupados[sede].includes(registro.cargo)) agrupados[sede].push(registro.cargo);
+        });
+      });
+    Object.values(agrupados).forEach(cargos => cargos.sort((a, b) => a.localeCompare(b, 'es')));
+    return agrupados;
+  }, [catalogoCargos]);
+  const sedesEmpresa = useMemo(
+    () => Object.keys(cargosPorSede).sort((a, b) => a.localeCompare(b, 'es')),
+    [cargosPorSede]
+  );
+
   const mapaProcesosActivo = catalogosInicializados ? mapaProcesos : MAPA_PROCESOS;
 
   const value = useMemo(() => ({
     catalogoCargos,
     cargosEmpresa,
+    cargosPorSede,
+    sedesEmpresa,
     mapaProcesos: mapaProcesosActivo,
     catalogosInicializados,
-  }), [catalogoCargos, cargosEmpresa, mapaProcesosActivo, catalogosInicializados]);
+  }), [catalogoCargos, cargosEmpresa, cargosPorSede, sedesEmpresa, mapaProcesosActivo, catalogosInicializados]);
 
   return <CatalogosContext.Provider value={value}>{children}</CatalogosContext.Provider>;
 }
