@@ -85,11 +85,11 @@ export default function CargosProcesos({
       .sort((a, b) => String(a.cargo || '').localeCompare(String(b.cargo || ''), 'es'));
   }, [listaCargos, busqueda, filtroMacro]);
 
-  const guardarCatalogos = async (cargos, procesos) => {
+  const guardarCatalogos = async (cargos, procesos, sedes = sedesDisponibles) => {
     if (typeof onSaveCatalogos !== 'function') return false;
     setGuardando(true);
     try {
-      return await onSaveCatalogos(cargos, procesos);
+      return await onSaveCatalogos(cargos, procesos, sedes);
     } catch (error) {
       showNotification(error.message || 'No se pudo guardar el catálogo.', 'error');
       return false;
