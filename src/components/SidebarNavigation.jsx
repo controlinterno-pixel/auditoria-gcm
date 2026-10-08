@@ -20,6 +20,7 @@ export default function SidebarNavigation({
   misTareasRevision = 0,
   misTareasAprobacion = 0,
   onSelectExecutionTasks = () => {},
+  onSelectRevisionTasks = () => {},
   isAdmin,
   puedeVerFuentesMejora = false,
   user,
@@ -250,7 +251,19 @@ export default function SidebarNavigation({
               )}
               {!isCollapsed && (misTareasRevision > 0 || misTareasAprobacion > 0) && (
                 <div className={`ml-4 flex gap-2 px-3 text-[9px] font-bold ${colorTexto}`}>
-                  {misTareasRevision > 0 && <span>👀 Revisar: {misTareasRevision}</span>}
+                  {misTareasRevision > 0 && (
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setActiveTab('planes_tab');
+                        setSubTabPlanes('planes');
+                        onSelectRevisionTasks();
+                      }}
+                      className="hover:underline hover:text-amber-500 cursor-pointer transition-all"
+                    >
+                      👀 Revisar: {misTareasRevision}
+                    </button>
+                  )}
                   {misTareasAprobacion > 0 && <span>✓ Aprobar: {misTareasAprobacion}</span>}
                 </div>
               )}

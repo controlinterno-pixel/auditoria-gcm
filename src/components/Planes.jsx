@@ -58,6 +58,7 @@ export default function Planes({
   detallePanelPlanes = null,
   setDetallePanelPlanes = () => {},
   misPlanesEjecucion = [],
+  userEmailLower = '',
   user = null,
   editPlan,
   setEditPlan,
@@ -1887,30 +1888,39 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 h-fit sticky top-24">
               {detallePanelPlanes ? (() => {
                 const esEjecucion = detallePanelPlanes === 'ejecucion';
+                const esRevision = detallePanelPlanes === 'revision';
                 const esVencido = detallePanelPlanes === 'vencidos';
+                
+                const planesRevisionFiltrados = esRevision ? planesEnriquecidos.filter(p => {
+                    const correoRevisor = String(p.correoRevisor || '').toLowerCase().trim();
+                    return correoRevisor === userEmailLower && (p.estadoWorkflow === 'Pendiente Revisión Jefatura' || p.estadoWorkflow === 'En Revisión (100%)');
+                }) : [];
+
                 const planesDetalle = esEjecucion
                   ? misPlanesEjecucion.map(plan => planesEnriquecidos.find(enriquecido => String(enriquecido.id) === String(plan.id)) || plan)
-                  : esVencido ? planesVencidosNotificables : planesEnAlerta;
+                  : esRevision
+                    ? planesRevisionFiltrados
+                    : esVencido ? planesVencidosNotificables : planesEnAlerta;
                 return (
                   <>
-                    <div className={`flex items-start justify-between gap-3 border-b pb-3 mb-3 ${esVencido ? 'border-red-100' : esEjecucion ? 'border-blue-100' : 'border-orange-100'}`}>
+                    <div className={`flex items-start justify-between gap-3 border-b pb-3 mb-3 ${esVencido ? 'border-red-100' : esEjecucion ? 'border-blue-100' : esRevision ? 'border-amber-100' : 'border-orange-100'}`}>
                       <div>
-                        <h3 className={`text-xs font-black uppercase tracking-wide ${esVencido ? 'text-red-800' : esEjecucion ? 'text-blue-800' : 'text-orange-800'}`}>
-                          {esEjecucion ? 'Planes por ejecutar' : esVencido ? 'Planes vencidos' : 'Próximos a vencer'}
+                        <h3 className={`text-xs font-black uppercase tracking-wide ${esVencido ? 'text-red-800' : esEjecucion ? 'text-blue-800' : esRevision ? 'text-amber-800' : 'text-orange-800'}`}>
+                          {esEjecucion ? 'Planes por ejecutar' : esRevision ? 'Planes por revisar' : esVencido ? 'Planes vencidos' : 'Próximos a vencer'}
                         </h3>
                         <p className="text-[10px] text-slate-500 mt-1">
-                          {planesDetalle.length} {esEjecucion ? 'tareas por ejecutar' : 'casos para revisar'}
+                          {planesDetalle.length} {esEjecucion ? 'tareas por ejecutar' : esRevision ? 'planes esperando tu Visto Bueno' : 'casos para verificar'}
                         </p>
                       </div>
                       <button type="button" onClick={() => setDetallePanelPlanes(null)} aria-label="Cerrar detalle de planes" className="text-slate-400 hover:text-slate-800 text-lg leading-none">×</button>
                     </div>
                     <div className="max-h-[62vh] overflow-y-auto space-y-2 pr-1">
                       {planesDetalle.map(plan => (
-                        <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido ? 'border-red-100 bg-red-50/40' : esEjecucion ? 'border-blue-100 bg-blue-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
+                        <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido ? 'border-red-100 bg-red-50/40' : esEjecucion ? 'border-blue-100 bg-blue-50/40' : esRevision ? 'border-amber-100 bg-amber-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
                           <div className="flex justify-between items-start gap-2">
                             <span className="font-mono text-[9px] font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>
-                            <span className={`text-[9px] font-black ${esVencido ? 'text-red-700' : esEjecucion ? 'text-blue-700' : 'text-orange-700'}`}>
-                              {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : esEjecucion ? plan.estadoWorkflow : `Vence ${plan.fecha || 'sin fecha'}`}
+                            <span className={`text-[9px] font-black ${esVencido ? 'text-red-700' : esEjecucion ? 'text-blue-700' : esRevision ? 'text-amber-700' : 'text-orange-700'}`}>
+                              {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : esEjecucion || esRevision ? plan.estadoWorkflow : `Vence ${plan.fecha || 'sin fecha'}`}
                             </span>
                           </div>
                           <h4 className="text-xs font-black text-slate-800 mt-1.5 break-words">{plan.accion || 'Acción sin descripción'}</h4>
