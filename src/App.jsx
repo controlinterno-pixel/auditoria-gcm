@@ -621,6 +621,7 @@ return (
                   isAdmin={isAdmin}
                   catalogoCargos={catalogoCargos}
                   mapaProcesos={mapaProcesos}
+                  sedesEmpresa={sedesEmpresa}
                   catalogosInicializados={catalogosInicializados}
                   onSaveCatalogos={guardarCatalogos}
                   onDeleteCargo={eliminarCargoCatalogo}
