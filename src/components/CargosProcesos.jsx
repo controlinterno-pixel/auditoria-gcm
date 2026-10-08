@@ -4,12 +4,17 @@ import { CARGOS_EMPRESA, CARGOS_POR_SEDE, MAPA_PROCESOS } from '../constants/dic
 const correoValido = valor => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim()) && String(valor || '').trim().toLowerCase().endsWith('@termales.com.co');
 const nuevoId = () => globalThis.crypto?.randomUUID?.() || `cargo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const CARGOS_VACIOS = [];
+const subprocesosDelCargo = registro => (
+  Array.isArray(registro?.subprocesos)
+    ? registro.subprocesos
+    : registro?.subproceso ? [registro.subproceso] : []
+);
 
 const formularioVacio = {
   cargo: '',
   correoCorporativo: '',
   macroproceso: '',
-  subproceso: '',
+  subprocesos: [],
 };
 
 export default function CargosProcesos({
@@ -43,7 +48,7 @@ export default function CargosProcesos({
         registro.cargo,
         registro.correoCorporativo,
         registro.macroproceso,
-        registro.subproceso,
+        subprocesosDelCargo(registro).join(' '),
       ].some(valor => String(valor || '').toLowerCase().includes(busquedaLimpia)))
       .sort((a, b) => String(a.cargo || '').localeCompare(String(b.cargo || ''), 'es'));
   }, [listaCargos, busqueda, filtroMacro]);
@@ -80,6 +85,7 @@ export default function CargosProcesos({
         correoCorporativo: '',
         macroproceso: '',
         subproceso: '',
+        subprocesos: [],
         activo: true,
       }));
     const resultado = await guardarCatalogos(
@@ -101,7 +107,7 @@ export default function CargosProcesos({
       cargo: registro.cargo || '',
       correoCorporativo: registro.correoCorporativo || '',
       macroproceso: registro.macroproceso || '',
-      subproceso: registro.subproceso || '',
+      subprocesos: subprocesosDelCargo(registro),
     });
     setModalAbierto(true);
   };
@@ -110,8 +116,8 @@ export default function CargosProcesos({
     event.preventDefault();
     const cargoLimpio = formulario.cargo.trim();
     const correoLimpio = formulario.correoCorporativo.trim().toLowerCase();
-    if (!cargoLimpio || !correoValido(correoLimpio) || !formulario.macroproceso || !formulario.subproceso) {
-      showNotification('Completa cargo, correo corporativo, macroproceso y subproceso.', 'error');
+    if (!cargoLimpio || !correoValido(correoLimpio) || !formulario.macroproceso || formulario.subprocesos.length === 0) {
+      showNotification('Completa cargo, correo corporativo, macroproceso y al menos un subproceso.', 'error');
       return;
     }
 
@@ -121,7 +127,8 @@ export default function CargosProcesos({
       cargo: cargoLimpio,
       correoCorporativo: correoLimpio,
       macroproceso: formulario.macroproceso,
-      subproceso: formulario.subproceso,
+      subproceso: formulario.subprocesos[0] || '',
+      subprocesos: formulario.subprocesos,
       activo: true,
       actualizadoEn: new Date().toISOString(),
     };
@@ -175,7 +182,8 @@ export default function CargosProcesos({
       return {
         ...registro,
         macroproceso: nombreNuevo,
-        subproceso: subprocesos.includes(registro.subproceso) ? registro.subproceso : '',
+        subproceso: subprocesosDelCargo(registro).find(subproceso => subprocesos.includes(subproceso)) || '',
+        subprocesos: subprocesosDelCargo(registro).filter(subproceso => subprocesos.includes(subproceso)),
       };
     });
 
@@ -262,7 +270,7 @@ export default function CargosProcesos({
                         <td className="px-4 py-3 font-bold text-slate-800">{registro.cargo}</td>
                         <td className="px-4 py-3 text-slate-600">{registro.correoCorporativo || <span className="text-amber-700">Pendiente de asignar</span>}</td>
                         <td className="px-4 py-3 text-slate-600">{registro.macroproceso || 'Sin asignar'}</td>
-                        <td className="px-4 py-3 text-slate-600">{registro.subproceso || 'Sin asignar'}</td>
+                        <td className="px-4 py-3 text-slate-600">{subprocesosDelCargo(registro).join(', ') || 'Sin asignar'}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             <button type="button" onClick={() => abrirEdicionCargo(registro)} className="rounded border border-slate-300 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">Editar</button>
@@ -322,17 +330,34 @@ export default function CargosProcesos({
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-[10px] font-bold text-slate-600">Macroproceso
-                <select required value={formulario.macroproceso} onChange={event => setFormulario(prev => ({ ...prev, macroproceso: event.target.value, subproceso: '' }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs">
+                <select required value={formulario.macroproceso} onChange={event => setFormulario(prev => ({ ...prev, macroproceso: event.target.value, subprocesos: [] }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs">
                   <option value="">Seleccionar…</option>
                   {macrosDisponibles.map(macro => <option key={macro} value={macro}>{macro}</option>)}
                 </select>
               </label>
-              <label className="block text-[10px] font-bold text-slate-600">Subproceso
-                <select required disabled={!formulario.macroproceso} value={formulario.subproceso} onChange={event => setFormulario(prev => ({ ...prev, subproceso: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:bg-slate-100">
-                  <option value="">Seleccionar…</option>
-                  {(mapaSeguro[formulario.macroproceso] || []).map(subproceso => <option key={subproceso} value={subproceso}>{subproceso}</option>)}
-                </select>
-              </label>
+              <fieldset disabled={!formulario.macroproceso} className="rounded-lg border border-slate-200 p-3 disabled:bg-slate-100 sm:col-span-2">
+                <legend className="px-1 text-[10px] font-bold text-slate-600">Subprocesos vinculados</legend>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-slate-500">{formulario.subprocesos.length} seleccionados</span>
+                  <button type="button" disabled={!formulario.macroproceso} onClick={() => setFormulario(prev => ({ ...prev, subprocesos: [...(mapaSeguro[prev.macroproceso] || [])] }))} className="text-[10px] font-bold text-blue-700 hover:text-blue-900 disabled:opacity-50">Seleccionar todos</button>
+                </div>
+                <div className="grid max-h-40 gap-1 overflow-y-auto sm:grid-cols-2">
+                  {(mapaSeguro[formulario.macroproceso] || []).map(subproceso => (
+                    <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-[10px] font-medium text-slate-700 hover:bg-blue-50">
+                      <input type="checkbox" checked={formulario.subprocesos.includes(subproceso)} onChange={event => setFormulario(prev => ({
+                        ...prev,
+                        subprocesos: event.target.checked
+                          ? [...new Set([...prev.subprocesos, subproceso])]
+                          : prev.subprocesos.filter(valor => valor !== subproceso),
+                      }))} className="mt-0.5 accent-blue-700" />
+                      <span>{subproceso}</span>
+                    </label>
+                  ))}
+                  {formulario.macroproceso && (mapaSeguro[formulario.macroproceso] || []).length === 0 && (
+                    <p className="text-[10px] text-amber-700">Este macroproceso aún no tiene subprocesos.</p>
+                  )}
+                </div>
+              </fieldset>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
               <button type="button" onClick={() => setModalAbierto(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700">Cancelar</button>

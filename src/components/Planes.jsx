@@ -25,32 +25,6 @@ const ProgressBar = ({ progress }) => {
   );
 };
 
-const obtenerAdjuntosRevision = (...registros) => {
-  const adjuntos = new Map();
-  const visitar = (valor, clave = '', campoAdjunto = '') => {
-    if (!valor) return;
-    const nombreCampo = /(archivo|adjunto|evidencia|soporte|documento)/i.test(clave) ? clave : campoAdjunto;
-    if (Array.isArray(valor)) {
-      valor.forEach(elemento => visitar(elemento, clave, nombreCampo));
-      return;
-    }
-    if (typeof valor === 'object') {
-      Object.entries(valor).forEach(([nombre, contenido]) => visitar(contenido, nombre, nombreCampo));
-      return;
-    }
-    if (typeof valor !== 'string' || !nombreCampo) return;
-    try {
-      const url = new URL(valor.trim());
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-      adjuntos.set(url.href, { url: url.href, nombre: nombreCampo });
-    } catch {
-      return;
-    }
-  };
-  registros.forEach(registro => visitar(registro));
-  return [...adjuntos.values()];
-};
-
 export default function Planes({
   isAdmin,
   puedeCrearPlanes = false,
@@ -251,27 +225,14 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     };
   }), [safePlanes, hallazgosPorId, timestampInicioDia]);
 
-  const revisionInforme = useMemo(() => {
-    if (!revisionInformeId) return null;
-    const informe = informesAuditoria.find(item => String(item.id) === String(revisionInformeId));
-    if (!informe) return null;
-    const correoSesion = String(user?.email || '').trim().toLowerCase();
-    const puedeRevisarInforme = isAdmin || planesEnriquecidos.some(plan => (
-      String(plan.idInforme) === String(revisionInformeId) &&
-      plan.estadoWorkflow === 'Pendiente Revisión Jefatura' &&
-      String(plan.correoRevisor || '').trim().toLowerCase() === correoSesion
-    ));
-    return puedeRevisarInforme ? informe : null;
-  }, [revisionInformeId, informesAuditoria, isAdmin, planesEnriquecidos, user?.email]);
-
   useEffect(() => {
-    if (!revisionInforme || String(revisionInformeId) !== String(reviewReportId)) return;
+    if (String(revisionInformeId) !== String(reviewReportId)) return;
     const params = new URLSearchParams(window.location.search);
     if (!params.has('reviewReportId')) return;
     params.delete('reviewReportId');
     const query = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-  }, [revisionInforme, revisionInformeId, reviewReportId]);
+  }, [revisionInformeId, reviewReportId]);
 // 🚨 Filtros para Banners de Alerta (Preventivos y Vencidos)
   const planesEnAlerta = useMemo(() => planesEnriquecidos.filter(p => {
     if (p.progreso === 100 || !p.fecha) return false;
@@ -1216,7 +1177,8 @@ if (existingActivities.length > 0) {
         ));
         const asignacion = candidatos.find(registro => (
           String(registro.macroproceso || '').trim().toLowerCase() === macroHallazgo &&
-          String(registro.subproceso || '').trim().toLowerCase() === subprocesoHallazgo
+          (Array.isArray(registro.subprocesos) ? registro.subprocesos : [registro.subproceso])
+            .some(subproceso => String(subproceso || '').trim().toLowerCase() === subprocesoHallazgo)
         )) || candidatos.find(registro => (
           String(registro.macroproceso || '').trim().toLowerCase() === macroHallazgo
         )) || candidatos[0];
@@ -1237,7 +1199,7 @@ if (existingActivities.length > 0) {
 const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).filter(a => a !== 'Sin Fecha'))].sort().reverse();
 
   const resolverDecisionRevision = async (decision) => {
-    if (!revisionInforme || guardandoDecisionRevision) return;
+    if (!revisionInformeId || guardandoDecisionRevision) return;
     if (decision === 'corregir' && !motivoCorreccion.trim()) {
       alert('Escribe el motivo de la corrección solicitada.');
       return;
@@ -1245,7 +1207,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
     const correoSesion = String(user?.email || '').trim().toLowerCase();
     const planesPendientes = planesEnriquecidos.filter(plan => (
-      String(plan.idInforme) === String(revisionInforme.id) &&
+      String(plan.idInforme) === String(revisionInformeId) &&
       plan.estadoWorkflow === 'Pendiente Revisión Jefatura' &&
       (isAdmin || String(plan.correoRevisor || '').trim().toLowerCase() === correoSesion)
     ));
@@ -1266,7 +1228,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
         }
       }
       const respuesta = await apiService.decidirRevisionPlanes(
-        revisionInforme.id,
+        revisionInformeId,
         decision,
         motivoCorreccion.trim()
       );
@@ -3608,127 +3570,6 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           </div>
         </div>
       )}
-
-      {revisionInforme && (() => {
-        const correoSesion = String(user?.email || '').trim().toLowerCase();
-        const planesRevision = planesEnriquecidos.filter(plan => (
-          String(plan.idInforme) === String(revisionInforme.id) &&
-          plan.estadoWorkflow === 'Pendiente Revisión Jefatura' &&
-          (isAdmin || String(plan.correoRevisor || '').trim().toLowerCase() === correoSesion)
-        ));
-        const idsHallazgos = new Set(planesRevision.map(plan => String(plan.idHallazgo)));
-        const hallazgosRevision = safeHallazgos.filter(hallazgo => (
-          String(hallazgo.idInforme) === String(revisionInforme.id) || idsHallazgos.has(String(hallazgo.id))
-        ));
-        const adjuntos = obtenerAdjuntosRevision(revisionInforme, hallazgosRevision, planesRevision);
-
-        return (
-          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[11000] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="revision-plan-titulo">
-            <div className="bg-white w-full max-w-5xl max-h-[92vh] rounded-xl shadow-2xl overflow-hidden flex flex-col">
-              <header className="bg-slate-900 text-white px-5 py-4 flex items-start justify-between gap-4 shrink-0">
-                <div>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-amber-300">Revisión de diseño · Solo lectura</p>
-                  <h2 id="revision-plan-titulo" className="text-lg font-black mt-1">{revisionInforme.ref || `Informe ${revisionInforme.id}`}: {revisionInforme.titulo || 'Informe de auditoría'}</h2>
-                  <p className="text-xs text-slate-300 mt-1">{revisionInforme.proceso || ''} {revisionInforme.sede ? `· ${revisionInforme.sede}` : ''}</p>
-                </div>
-                <button type="button" aria-label="Cerrar revisión" onClick={() => setRevisionInformeId(null)} className="text-white/80 hover:text-white text-2xl leading-none px-1">×</button>
-              </header>
-
-              <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 bg-slate-50">
-                <section className="grid sm:grid-cols-2 gap-3">
-                  <div className="bg-white border border-slate-200 rounded-lg p-4">
-                    <h3 className="text-[10px] uppercase tracking-widest font-black text-slate-500 mb-2">Contexto del informe</h3>
-                    <dl className="text-xs text-slate-700 space-y-1">
-                      <div><dt className="inline font-bold">Referencia: </dt><dd className="inline">{revisionInforme.ref || revisionInforme.id}</dd></div>
-                      <div><dt className="inline font-bold">Proceso: </dt><dd className="inline">{revisionInforme.proceso || 'No especificado'}</dd></div>
-                      <div><dt className="inline font-bold">Auditor: </dt><dd className="inline">{revisionInforme.auditorResponsable || revisionInforme.auditor || 'No especificado'}</dd></div>
-                      <div><dt className="inline font-bold">Descripción: </dt><dd className="inline whitespace-pre-wrap">{revisionInforme.descripcion || revisionInforme.objetivo || 'Sin descripción registrada.'}</dd></div>
-                    </dl>
-                  </div>
-                  <div className="bg-white border border-slate-200 rounded-lg p-4">
-                    <h3 className="text-[10px] uppercase tracking-widest font-black text-slate-500 mb-2">Hallazgos relacionados</h3>
-                    {hallazgosRevision.length === 0 ? <p className="text-xs text-slate-500">No hay hallazgos relacionados cargados.</p> : (
-                      <ul className="space-y-2">
-                        {hallazgosRevision.map(hallazgo => (
-                          <li key={hallazgo.id} className="border-b border-slate-100 pb-2 last:border-0">
-                            <p className="text-xs font-bold text-slate-800">{hallazgo.titulo || hallazgo.hallazgo || hallazgo.descripcion || `Hallazgo ${hallazgo.id}`}</p>
-                            <p className="text-[10px] text-slate-500 mt-1">{hallazgo.proceso || ''}{hallazgo.sede ? ` · ${hallazgo.sede}` : ''}{hallazgo.riesgo ? ` · Riesgo: ${hallazgo.riesgo}` : ''}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </section>
-
-                <section className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-200 flex justify-between items-center gap-3">
-                    <h3 className="text-[10px] uppercase tracking-widest font-black text-slate-600">Matriz pendiente de revisión</h3>
-                    <span className="text-[10px] font-bold text-slate-500">{planesRevision.length} {planesRevision.length === 1 ? 'acción' : 'acciones'}</span>
-                  </div>
-                  {planesRevision.length === 0 ? <p className="p-4 text-xs text-slate-500">No quedan acciones pendientes asignadas a este aprobador.</p> : (
-                    <div className="divide-y divide-slate-100">
-                      {planesRevision.map(plan => (
-                        <article key={plan.id} className="p-4 grid md:grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <p className="text-[9px] uppercase font-black text-slate-400">Hallazgo · {plan.proceso || 'Proceso no especificado'}</p>
-                            <h4 className="font-black text-slate-900 mt-1">{plan.accion || 'Acción sin descripción'}</h4>
-                            <p className="text-slate-600 mt-2 whitespace-pre-wrap">{plan.descripcion || plan.justificacion || ''}</p>
-                          </div>
-                          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-600 content-start">
-                            <dt className="font-bold">Ejecutor</dt><dd>{plan.responsable || 'No asignado'}</dd>
-                            <dt className="font-bold">Correo</dt><dd className="break-all">{plan.correoResponsable || 'No registrado'}</dd>
-                            <dt className="font-bold">Revisor</dt><dd>{plan.revisor || plan.correoRevisor || 'No asignado'}</dd>
-                            <dt className="font-bold">Fecha límite</dt><dd>{plan.fecha || 'No definida'}</dd>
-                            <dt className="font-bold">Proceso / sede</dt><dd>{[plan.proceso, plan.sede].filter(Boolean).join(' · ') || 'No especificado'}</dd>
-                          </dl>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                <section className="bg-white border border-slate-200 rounded-lg p-4">
-                  <h3 className="text-[10px] uppercase tracking-widest font-black text-slate-600 mb-2">Archivos y evidencias</h3>
-                  {adjuntos.length === 0 ? <p className="text-xs text-slate-500">No se encontraron enlaces de archivos asociados.</p> : (
-                    <ul className="flex flex-wrap gap-2">
-                      {adjuntos.map(adjunto => (
-                        <li key={adjunto.url}>
-                          <a href={adjunto.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 border border-slate-300 rounded px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
-                            <span aria-hidden="true">↗</span>{adjunto.nombre} · Abrir / descargar
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-
-                {mostrarMotivoCorreccion && (
-                  <section className="bg-white border border-orange-200 rounded-lg p-4">
-                    <label htmlFor="motivo-correccion-diseno" className="text-[10px] uppercase tracking-widest font-black text-orange-800 block mb-2">Motivo de corrección · Obligatorio</label>
-                    <textarea id="motivo-correccion-diseno" autoFocus rows="3" maxLength={2000} value={motivoCorreccion} onChange={event => setMotivoCorreccion(event.target.value)} className="w-full border border-slate-300 rounded p-3 text-sm text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Indique qué debe corregirse en el diseño." />
-                  </section>
-                )}
-              </div>
-
-              <footer className="bg-white border-t border-slate-200 p-4 flex flex-wrap justify-end gap-2 shrink-0">
-                <button type="button" disabled={guardandoDecisionRevision} onClick={() => setRevisionInformeId(null)} className="px-4 py-2 border border-slate-300 rounded text-xs font-bold text-slate-700 disabled:opacity-50">Cerrar</button>
-                {!mostrarMotivoCorreccion ? (
-                  <>
-                    <button type="button" disabled={guardandoDecisionRevision || planesRevision.length === 0} onClick={() => setMostrarMotivoCorreccion(true)} className="px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-900 rounded text-xs font-black disabled:opacity-50">Solicitar corrección</button>
-                    <button type="button" disabled={guardandoDecisionRevision || planesRevision.length === 0} onClick={() => resolverDecisionRevision('aprobar')} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-black disabled:opacity-50">{guardandoDecisionRevision ? 'Guardando…' : 'Aprobar diseño'}</button>
-                  </>
-                ) : (
-                  <>
-                    <button type="button" disabled={guardandoDecisionRevision} onClick={() => setMostrarMotivoCorreccion(false)} className="px-4 py-2 border border-slate-300 rounded text-xs font-bold text-slate-700 disabled:opacity-50">Volver</button>
-                    <button type="button" disabled={guardandoDecisionRevision || !motivoCorreccion.trim() || planesRevision.length === 0} onClick={() => resolverDecisionRevision('corregir')} className="px-4 py-2 bg-orange-700 hover:bg-orange-800 text-white rounded text-xs font-black disabled:opacity-50">{guardandoDecisionRevision ? 'Guardando…' : 'Enviar corrección'}</button>
-                  </>
-                )}
-              </footer>
-            </div>
-          </div>
-        );
-      })()}
-
     </div>
   );
 }
