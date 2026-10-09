@@ -24,8 +24,10 @@ const obtenerCorreoCargoCatalogo = (catalogoCargos, cargo, macroproceso, subproc
   const cargoNormalizado = normalizarCatalogo(cargo);
   const macroNormalizado = normalizarCatalogo(macroproceso);
   const subprocesosNormalizados = convertirSubprocesosLista(subproceso).map(normalizarCatalogo);
-  const candidatos = catalogoCargos.filter(registro => (
-    registro?.activo !== false && normalizarCatalogo(registro?.cargo) === cargoNormalizado
+  const candidatos = (Array.isArray(catalogoCargos) ? catalogoCargos : []).filter(registro => (
+    registro?.activo !== false &&
+    normalizarCatalogo(registro?.cargo) === cargoNormalizado &&
+    String(registro?.correoCorporativo || '').trim()
   ));
   const delMacroproceso = candidatos.filter(registro => normalizarCatalogo(registro.macroproceso) === macroNormalizado);
   const asignacion = delMacroproceso.find(registro => {
@@ -720,6 +722,7 @@ const handleFileUpload = async (e, type) => {
       macroproceso: nuevoMacro,
       subproceso: nuevosSubprocesos[0] || nuevoSub,
       subprocesos: nuevosSubprocesos,
+      correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, nuevosSubprocesos),
     };
 
     setDraftInforme(siguienteDraft);
@@ -734,6 +737,49 @@ const handleFileUpload = async (e, type) => {
       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
     }
   };
+
+  useEffect(() => {
+    if (editInformeAuditoria || !draftInforme.auditorResponsable) return;
+    const correo = obtenerCorreoCargoCatalogo(
+      catalogoCargos,
+      draftInforme.auditorResponsable,
+      draftInforme.proceso || macroprocesoForm,
+      draftInforme.subprocesos ?? draftInforme.subproceso
+    );
+    if (correo === draftInforme.correoAuditor) return;
+
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setDraftInforme(prev => prev.correoAuditor === correo ? prev : { ...prev, correoAuditor: correo });
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [catalogoCargos, draftInforme.auditorResponsable, draftInforme.correoAuditor, draftInforme.proceso, draftInforme.subproceso, draftInforme.subprocesos, editInformeAuditoria, macroprocesoForm]);
+
+  useEffect(() => {
+    if (editInformeAuditoria || participantesMultiples.length === 0) return;
+    const correosParticipantes = [...new Set(participantesMultiples.map(cargo => (
+      obtenerCorreoCargoCatalogo(
+        catalogoCargos,
+        cargo,
+        draftInforme.proceso || macroprocesoForm,
+        draftInforme.subprocesos ?? draftInforme.subproceso
+      )
+    )).filter(Boolean))];
+    if (correosParticipantes.length === 0) return;
+
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setDraftInforme(prev => {
+      const correosActuales = String(prev.correosNotificacionInput || '')
+        .split(/[;,\n]/)
+        .map(correo => correo.trim())
+        .filter(Boolean);
+      const correosNuevos = correosParticipantes.filter(correo => (
+        !correosActuales.some(actual => actual.toLowerCase() === correo.toLowerCase())
+      ));
+      return correosNuevos.length > 0
+        ? { ...prev, correosNotificacionInput: [...correosActuales, ...correosNuevos].join(', ') }
+        : prev;
+    });
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [catalogoCargos, draftInforme.proceso, draftInforme.subproceso, draftInforme.subprocesos, editInformeAuditoria, macroprocesoForm, participantesMultiples]);
 
   const agregarParticipanteSocializacion = () => {
     if (!participanteTemp || participantesMultiples.includes(participanteTemp)) {
@@ -768,6 +814,12 @@ const handleFileUpload = async (e, type) => {
     setIsDirty(true);
     setParticipanteTemp('');
   };
+  const participantesSinCorreo = participantesMultiples.filter(cargo => !obtenerCorreoCargoCatalogo(
+    catalogoCargos,
+    cargo,
+    draftInforme.proceso || macroprocesoForm,
+    draftInforme.subprocesos ?? draftInforme.subproceso
+  ));
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1509,7 +1561,14 @@ const handleFileUpload = async (e, type) => {
                            setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoSub }));
                         }
                         
-                        const siguiente = { ...draftInforme, programaId: val, proceso: nuevoMacro, subproceso: nuevoSub, subprocesos: nuevosSubprocesos };
+                        const siguiente = {
+                          ...draftInforme,
+                          programaId: val,
+                          proceso: nuevoMacro,
+                          subproceso: nuevoSub,
+                          subprocesos: nuevosSubprocesos,
+                          correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, nuevosSubprocesos),
+                        };
                         setDraftInforme(siguiente);
                         registrarCambioBorrador(siguiente);
                       }}
@@ -1791,6 +1850,9 @@ const handleFileUpload = async (e, type) => {
                 />
                 <input type="hidden" name="correoAuditorResponsable" value={draftInforme.correoAuditor || ''} />
                 <input type="hidden" name="correo_auditor" value={draftInforme.correoAuditor || ''} />
+                {draftInforme.auditorResponsable && !draftInforme.correoAuditor && (
+                  <p className="mt-1.5 text-[10px] font-medium text-amber-700">Este cargo no tiene un correo activo en Cargos y Procesos. Configúralo allí para completar este campo automáticamente.</p>
+                )}
               </div>
 
               <div className="md:col-span-1">
@@ -1880,6 +1942,9 @@ const handleFileUpload = async (e, type) => {
              </div>
                 <input type="hidden" name="participantes" value={participantesMultiples.join(', ')} />
                 <input type="hidden" name="socializadoCon" value={participantesMultiples.join(', ')} />
+                {participantesSinCorreo.length > 0 && (
+                  <p className="w-full text-[10px] font-medium text-amber-700">Sin correo activo en Cargos y Procesos: {participantesSinCorreo.join(', ')}.</p>
+                )}
               </div>   
             </div>            
             
