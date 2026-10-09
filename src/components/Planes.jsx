@@ -60,6 +60,15 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [generandoPdfId, setGenerandoPdfId] = useState(null); // 👈 ¡Faltaba declarar este estado!
   const [evalDetalleModal, setEvalDetalleModal] = useState(null);
   const [historialModal, setHistorialModal] = useState({ activo: false, plan: null });
+  const [modalEficaciaCierre, setModalEficaciaCierre] = useState({
+    activo: false,
+    plan: null,
+    conclusion: '',
+    fueEficaz: '',
+    requiereAcciones: 'no',
+    observaciones: '',
+  });
+  const [guardandoEficaciaCierre, setGuardandoEficaciaCierre] = useState(false);
   const [revisionInformeId, setRevisionInformeId] = useState(reviewReportId);
   const [mostrarMotivoCorreccion, setMostrarMotivoCorreccion] = useState(false);
   const [motivoCorreccion, setMotivoCorreccion] = useState('');
@@ -210,6 +219,13 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const esFuenteProgramaAuditoria = informe => (
     informe?.tipoFuente === 'Programa de Auditoría' && Boolean(informe?.programaId)
   );
+
+  const esPlanProgramaAuditoria = plan => {
+    const hallazgo = hallazgosPorId.get(String(plan?.idHallazgo));
+    const idInforme = hallazgo?.idInforme || plan?.idInforme;
+    const informe = informesAuditoria.find(item => String(item.id) === String(idInforme));
+    return esFuenteProgramaAuditoria(informe);
+  };
 
   const esAuditorAsignadoEvaluador = (informe, planes = []) => {
     const correoActual = String(user?.email || '').trim().toLowerCase();
@@ -1273,6 +1289,84 @@ if (existingActivities.length > 0) {
     });
   };
 const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).filter(a => a !== 'Sin Fecha'))].sort().reverse();
+
+  const guardarEvaluacionEficaciaCierre = async () => {
+    const { plan, conclusion, fueEficaz, requiereAcciones, observaciones } = modalEficaciaCierre;
+    if (!plan || !conclusion.trim() || !fueEficaz) {
+      showNotification('Completa la conclusión y selecciona si la acción fue eficaz.', 'error');
+      return;
+    }
+    if (fueEficaz === 'no' && !observaciones.trim()) {
+      showNotification('Describe la observación para devolver la acción al ejecutor.', 'error');
+      return;
+    }
+
+    setGuardandoEficaciaCierre(true);
+    const ts = new Date().toLocaleString();
+    const planActual = safePlanes.find(item => String(item.id) === String(plan.id)) || plan;
+    const eficaz = fueEficaz === 'si';
+    const evaluacionEficacia = {
+      fecha: ts,
+      usuario: user?.email || 'Auditor',
+      conclusion: conclusion.trim(),
+      fueEficaz: eficaz,
+      requiereAccionesAdicionales: requiereAcciones === 'si',
+      observaciones: observaciones.trim(),
+    };
+    const planActualizado = {
+      ...planActual,
+      estadoWorkflow: eficaz ? 'Cerrado' : 'En Ejecución',
+      estado: eficaz ? 'Cerrado' : 'En Ejecución',
+      progreso: eficaz ? 100 : 90,
+      evaluacionEficaciaCierre: evaluacionEficacia,
+      historialCambios: [
+        ...(planActual.historialCambios || []),
+        {
+          fecha: ts,
+          usuario: user?.email || 'Auditor',
+          accion: eficaz
+            ? '✅ Eficacia confirmada. Acción cerrada.'
+            : `❌ Eficacia no demostrada. Acción devuelta al ejecutor. Observación: ${observaciones.trim()}`,
+          motivo: conclusion.trim(),
+        },
+      ],
+    };
+    const planesActualizados = safePlanes.map(item => (
+      String(item.id) === String(plan.id) ? planActualizado : item
+    ));
+
+    try {
+      const guardado = await saveToCloud({ planes: planesActualizados });
+      if (!guardado) {
+        showNotification('No se pudo guardar la evaluación de eficacia. Intenta de nuevo.', 'error');
+        return;
+      }
+
+      setPlanes(planesActualizados);
+      setModalEficaciaCierre({ activo: false, plan: null, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '' });
+      showNotification(
+        eficaz ? 'Eficacia registrada. La acción quedó cerrada.' : 'Evaluación guardada. La acción volvió a ejecución para su ajuste.',
+        'success'
+      );
+
+      if (ejecutarDespachoGmailApi) {
+        const notificado = await ejecutarDespachoGmailApi({
+          ref_consecutivo: `PLA-${String(planActualizado.id).slice(-4)}`,
+          titulo_informe: eficaz ? 'Plan de acción cerrado' : 'Evidencia rechazada: requiere ajustes',
+          proceso_auditado: eficaz
+            ? `La eficacia de la acción "${planActualizado.accion}" fue confirmada. Conclusión: ${conclusion.trim()}`
+            : `La eficacia de la acción "${planActualizado.accion}" no fue demostrada. La acción vuelve a ejecución (90%). Observación: ${observaciones.trim()}`,
+          enlace_pdf: window.location.origin,
+          destinatarios: [planActualizado.correoResponsable, planActualizado.correoRevisor].filter(Boolean).join(', '),
+        });
+        if (!notificado) showNotification('La evaluación se guardó, pero no se pudo notificar a los responsables.', 'error');
+      }
+    } catch (error) {
+      showNotification(error.message || 'No se pudo guardar la evaluación de eficacia.', 'error');
+    } finally {
+      setGuardandoEficaciaCierre(false);
+    }
+  };
 
   const resolverDecisionRevision = async (decision) => {
     if (!revisionInformeId || guardandoDecisionRevision) return;
@@ -2844,6 +2938,18 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {p.estadoWorkflow === 'En Revisión (100%)' && esAuditor && (
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
                                               <button type="button" onClick={async () => {
+                                                if (!esPlanProgramaAuditoria(p)) {
+                                                  setModalEficaciaCierre({
+                                                    activo: true,
+                                                    plan: p,
+                                                    conclusion: '',
+                                                    fueEficaz: '',
+                                                    requiereAcciones: 'no',
+                                                    observaciones: '',
+                                                  });
+                                                  return;
+                                                }
+
                                                 if(window.confirm("¿Aprobar las evidencias cargadas y CERRAR este plan de acción definitivamente?")) {
                                                   const ts = new Date().toLocaleString();
                                                   const mod = { ...p, estadoWorkflow: 'Cerrado', estado: 'Cerrado', progreso: 100, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Evidencias aprobadas. Plan CERRADO.' }] };
@@ -3612,6 +3718,149 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           </div>
         </div>
       )}  
+      {modalEficaciaCierre.activo && (
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="evaluacion-eficacia-titulo"
+            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-2xl animate-in zoom-in-95 duration-200"
+          >
+            <header className="flex items-start justify-between gap-4 bg-[#0A3B32] px-5 py-4 text-white sm:px-7">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-200">Cierre del plan · Verificación final</p>
+                <h2 id="evaluacion-eficacia-titulo" className="mt-1 text-lg font-black sm:text-xl">Evaluación de eficacia</h2>
+                <p className="mt-1 text-[11px] font-medium text-emerald-100">
+                  PLA-{String(modalEficaciaCierre.plan?.id || '').slice(-4)} · {modalEficaciaCierre.plan?.responsable || 'Responsable no asignado'}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={guardandoEficaciaCierre}
+                onClick={() => setModalEficaciaCierre({ activo: false, plan: null, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '' })}
+                aria-label="Cerrar evaluación de eficacia"
+                className="rounded-lg px-2 text-xl font-bold text-emerald-100 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="space-y-5 overflow-y-auto p-5 sm:p-7">
+              <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
+                <span className="text-lg" aria-hidden="true">✓</span>
+                <div>
+                  <p className="text-xs font-black text-emerald-900">La acción llegó al 100% de avance</p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-emerald-800">Registra la conclusión de la verificación antes de cerrar el ciclo de mejora.</p>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="conclusion-eficacia" className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                  Conclusión de eficacia <span className="text-rose-600">· Obligatoria</span>
+                </label>
+                <textarea
+                  id="conclusion-eficacia"
+                  rows="3"
+                  maxLength={2000}
+                  value={modalEficaciaCierre.conclusion}
+                  onChange={event => setModalEficaciaCierre(prev => ({ ...prev, conclusion: event.target.value }))}
+                  placeholder="Resume la evidencia revisada y cómo demuestra el resultado de la acción..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-slate-50 p-3 text-xs font-medium text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+
+              <fieldset>
+                <legend className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-600">¿La acción fue eficaz?</legend>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {[
+                    { value: 'si', title: 'Sí, fue eficaz', detail: 'Se confirma el resultado y se cierra la acción.', selected: 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-100' },
+                    { value: 'no', title: 'No fue eficaz', detail: 'Se devuelve al ejecutor para realizar ajustes.', selected: 'border-rose-400 bg-rose-50 text-rose-950 ring-2 ring-rose-100' },
+                  ].map(option => (
+                    <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${modalEficaciaCierre.fueEficaz === option.value ? option.selected : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                      <input
+                        type="radio"
+                        name="fue-eficaz"
+                        value={option.value}
+                        checked={modalEficaciaCierre.fueEficaz === option.value}
+                        onChange={event => setModalEficaciaCierre(prev => ({ ...prev, fueEficaz: event.target.value }))}
+                        className="mt-0.5 h-4 w-4 accent-emerald-700"
+                      />
+                      <span>
+                        <span className="block text-xs font-black">{option.title}</span>
+                        <span className="mt-0.5 block text-[10px] leading-relaxed opacity-75">{option.detail}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-600">¿Requiere acciones adicionales?</legend>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'si', label: 'Sí, requiere acciones' },
+                    { value: 'no', label: 'No requiere acciones' },
+                  ].map(option => (
+                    <label key={option.value} className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-[10px] font-bold transition-colors ${modalEficaciaCierre.requiereAcciones === option.value ? 'border-slate-700 bg-slate-100 text-slate-900' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
+                      <input
+                        type="radio"
+                        name="requiere-acciones-adicionales"
+                        value={option.value}
+                        checked={modalEficaciaCierre.requiereAcciones === option.value}
+                        onChange={event => setModalEficaciaCierre(prev => ({ ...prev, requiereAcciones: event.target.value }))}
+                        className="h-3.5 w-3.5 accent-slate-700"
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <div>
+                <label htmlFor="observaciones-eficacia" className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                  Observaciones {modalEficaciaCierre.fueEficaz === 'no' && <span className="text-rose-600">· Obligatoria para devolver la acción</span>}
+                </label>
+                <textarea
+                  id="observaciones-eficacia"
+                  rows="2"
+                  maxLength={2000}
+                  value={modalEficaciaCierre.observaciones}
+                  onChange={event => setModalEficaciaCierre(prev => ({ ...prev, observaciones: event.target.value }))}
+                  placeholder="Indica qué debe corregirse o agrega una observación de cierre..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white p-3 text-xs font-medium text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+
+              {modalEficaciaCierre.fueEficaz && (
+                <p className={`rounded-lg px-3 py-2.5 text-[10px] font-bold ${modalEficaciaCierre.fueEficaz === 'si' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
+                  {modalEficaciaCierre.fueEficaz === 'si'
+                    ? 'Al guardar, quedará registrada la conclusión y la acción pasará a estado Cerrado.'
+                    : 'Al guardar, la acción volverá a Ejecución (90%) y se notificará al responsable para su ajuste.'}
+                </p>
+              )}
+            </div>
+
+            <footer className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+              <button
+                type="button"
+                disabled={guardandoEficaciaCierre}
+                onClick={() => setModalEficaciaCierre({ activo: false, plan: null, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '' })}
+                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={guardandoEficaciaCierre || !modalEficaciaCierre.conclusion.trim() || !modalEficaciaCierre.fueEficaz || (modalEficaciaCierre.fueEficaz === 'no' && !modalEficaciaCierre.observaciones.trim())}
+                onClick={guardarEvaluacionEficaciaCierre}
+                className={`rounded-lg px-5 py-2.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${modalEficaciaCierre.fueEficaz === 'no' ? 'bg-rose-700 hover:bg-rose-800' : 'bg-emerald-700 hover:bg-emerald-800'}`}
+              >
+                {guardandoEficaciaCierre ? 'Guardando...' : modalEficaciaCierre.fueEficaz === 'no' ? 'Guardar y devolver al ejecutor' : 'Guardar eficacia y cerrar'}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
       {/* 📜 MODAL DE HISTORIAL DE CAMBIOS (ESTILO AUDIT TRAIL) */}
       {historialModal.activo && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
