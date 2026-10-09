@@ -797,16 +797,14 @@ const handleFileUpload = async (e, type) => {
       .then(respuesta => {
         if (!activo) return;
         const asignaciones = Array.isArray(respuesta?.asignaciones) ? respuesta.asignaciones : [];
-        const correosNuevos = [];
-        setCorreosCargosResueltos(prev => {
-          const siguientes = { ...prev };
-          asignaciones.forEach(asignacion => {
-            const correo = String(asignacion?.correoCorporativo || '').trim();
-            siguientes[claveCorreoCargo(asignacion.cargo, asignacion.macroproceso, asignacion.subprocesos)] = correo;
-            if (correo) correosNuevos.push(correo);
-          });
-          return siguientes;
-        });
+        const resoluciones = Object.fromEntries(asignaciones.map(asignacion => ([
+          claveCorreoCargo(asignacion.cargo, asignacion.macroproceso, asignacion.subprocesos),
+          String(asignacion?.correoCorporativo || '').trim(),
+        ])));
+        const correosNuevos = asignaciones
+          .map(asignacion => String(asignacion?.correoCorporativo || '').trim())
+          .filter(Boolean);
+        setCorreosCargosResueltos(prev => ({ ...prev, ...resoluciones }));
         if (correosNuevos.length > 0) {
           setDraftInforme(prev => {
             const correosActuales = String(prev.correosNotificacionInput || '')
@@ -873,6 +871,17 @@ const handleFileUpload = async (e, type) => {
     draftInforme.proceso || macroprocesoForm,
     draftInforme.subprocesos ?? draftInforme.subproceso
   )]);
+  const claveAuditorCorreo = claveCorreoCargo(
+    draftInforme.auditorResponsable,
+    draftInforme.proceso || macroprocesoForm,
+    draftInforme.subprocesos ?? draftInforme.subproceso
+  );
+  const auditorCorreoNoDisponible = Boolean(
+    draftInforme.auditorResponsable &&
+    !draftInforme.correoAuditor &&
+    Object.prototype.hasOwnProperty.call(correosCargosResueltos, claveAuditorCorreo) &&
+    !correosCargosResueltos[claveAuditorCorreo]
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1903,7 +1912,7 @@ const handleFileUpload = async (e, type) => {
                 />
                 <input type="hidden" name="correoAuditorResponsable" value={draftInforme.correoAuditor || ''} />
                 <input type="hidden" name="correo_auditor" value={draftInforme.correoAuditor || ''} />
-                {draftInforme.auditorResponsable && !draftInforme.correoAuditor && (
+                {auditorCorreoNoDisponible && (
                   <p className="mt-1.5 text-[10px] font-medium text-amber-700">Este cargo no tiene un correo activo en Cargos y Procesos. Configúralo allí para completar este campo automáticamente.</p>
                 )}
               </div>
