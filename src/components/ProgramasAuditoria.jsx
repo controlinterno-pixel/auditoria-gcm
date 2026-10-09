@@ -374,152 +374,155 @@ const handleGuardarPrograma = async () => {
             </div>
           </div>
 
-          {/* 2. TABLERO KANBAN ESTILO TARJETAS */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-            <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-200 flex flex-col min-h-[300px]">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> EN DISEÑO / BORRADOR</span>
-                <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center">{programasBorrador.length}</span>
-              </h3>
-              <div className="space-y-3 flex-1">
-              {programasBorrador.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
-                {programasBorrador.length === 0 && <div className="text-center text-slate-400 text-xs py-8 italic font-bold">Sin programas</div>}
-              </div>
-              {programasBorrador.length > 0 && <button className="text-blue-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasBorrador.length})</button>}
-            </div>
-
-            <div className="bg-orange-50/30 rounded-2xl p-4 border border-orange-100 flex flex-col min-h-[300px]">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-orange-600 mb-4 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> EN REVISIÓN (GERENCIA)</span>
-                <span className="bg-orange-100 text-orange-700 w-5 h-5 rounded-full flex items-center justify-center">{programasRevision.length}</span>
-              </h3>
-              <div className="space-y-3 flex-1">
-              {programasRevision.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
-                {programasRevision.length === 0 && <div className="text-center text-orange-300 text-xs py-8 italic font-bold">Sin programas</div>}
-              </div>
-              {programasRevision.length > 0 && <button className="text-orange-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasRevision.length})</button>}
-            </div>
-
-            <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-100 flex flex-col min-h-[300px]">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-4 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> APROBADOS (LISTOS)</span>
-                <span className="bg-emerald-100 text-emerald-700 w-5 h-5 rounded-full flex items-center justify-center">{programasAprobados.length}</span>
-              </h3>
-              <div className="space-y-3 flex-1">
-              {programasAprobados.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
-                {programasAprobados.length === 0 && <div className="text-center text-emerald-300 text-xs py-8 italic font-bold">Sin programas</div>}
-              </div>
-              {programasAprobados.length > 0 && <button className="text-emerald-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasAprobados.length})</button>}
-            </div>
-          </div>
-
-  {/* 3. TABLA INFERIOR DE PROGRAMAS Y FILTROS */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
+        {/* ESTRUCTURA UNIFICADA: KANBAN + TABLA */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             
-            {/* BARRA DE BÚSQUEDA Y FILTROS DINÁMICOS */}
-            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
-              <h3 className="font-extrabold text-slate-800 text-sm w-full md:w-auto">Todos los Programas</h3>
+            {/* COLUMNA IZQUIERDA (2/3 del espacio): Borradores, Revisión y la Tabla Centralizada */}
+            <div className="lg:col-span-2 space-y-6">
               
-              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-                {/* Selector Proceso */}
-                <select 
-                  value={filtroProceso} 
-                  onChange={(e) => { setFiltroProceso(e.target.value); setFiltroSubproceso(''); }}
-                  className="px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 bg-white cursor-pointer text-slate-600 font-medium"
-                >
-                  <option value="">Todos los Procesos</option>
-                  {listadoMacros.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+              {/* 2. TABLERO KANBAN ESTILO TARJETAS (Solo Borrador y Revisión) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-200 flex flex-col min-h-[300px]">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> EN DISEÑO / BORRADOR</span>
+                    <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center">{programasBorrador.length}</span>
+                  </h3>
+                  <div className="space-y-3 flex-1">
+                  {programasBorrador.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
+                    {programasBorrador.length === 0 && <div className="text-center text-slate-400 text-xs py-8 italic font-bold">Sin programas</div>}
+                  </div>
+                  {programasBorrador.length > 0 && <button className="text-blue-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasBorrador.length})</button>}
+                </div>
 
-                {/* Selector Subproceso (dependiente) */}
-                <select 
-                  value={filtroSubproceso} 
-                  onChange={(e) => setFiltroSubproceso(e.target.value)}
-                  disabled={!filtroProceso}
-                  className={`px-3 py-2 border rounded-xl text-xs outline-none transition-colors font-medium ${!filtroProceso ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200 text-slate-600 cursor-pointer focus:border-blue-500'}`}
-                >
-                  <option value="">Todos los Subprocesos</option>
-                  {subprocesosFiltro.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-
-                {/* Buscador de Texto */}
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-slate-400">🔍</span>
-                  <input 
-                    type="text" 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar programa..." 
-                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 w-full md:w-48 lg:w-64 font-medium" 
-                  />
+                <div className="bg-orange-50/30 rounded-2xl p-4 border border-orange-100 flex flex-col min-h-[300px]">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-orange-600 mb-4 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> EN REVISIÓN (GERENCIA)</span>
+                    <span className="bg-orange-100 text-orange-700 w-5 h-5 rounded-full flex items-center justify-center">{programasRevision.length}</span>
+                  </h3>
+                  <div className="space-y-3 flex-1">
+                  {programasRevision.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
+                    {programasRevision.length === 0 && <div className="text-center text-orange-300 text-xs py-8 italic font-bold">Sin programas</div>}
+                  </div>
+                  {programasRevision.length > 0 && <button className="text-orange-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasRevision.length})</button>}
                 </div>
               </div>
+
+              {/* 3. TABLA INFERIOR DE PROGRAMAS Y FILTROS (Centralizada bajo las dos primeras columnas) */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                
+                {/* BARRA DE BÚSQUEDA Y FILTROS DINÁMICOS */}
+                <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
+                  <h3 className="font-extrabold text-slate-800 text-sm w-full md:w-auto">Todos los Programas</h3>
+                  
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                    {/* Selector Proceso */}
+                    <select 
+                      value={filtroProceso} 
+                      onChange={(e) => { setFiltroProceso(e.target.value); setFiltroSubproceso(''); }}
+                      className="px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 bg-white cursor-pointer text-slate-600 font-medium"
+                    >
+                      <option value="">Todos los Procesos</option>
+                      {listadoMacros.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+
+                    {/* Selector Subproceso (dependiente) */}
+                    <select 
+                      value={filtroSubproceso} 
+                      onChange={(e) => setFiltroSubproceso(e.target.value)}
+                      disabled={!filtroProceso}
+                      className={`px-3 py-2 border rounded-xl text-xs outline-none transition-colors font-medium ${!filtroProceso ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200 text-slate-600 cursor-pointer focus:border-blue-500'}`}
+                    >
+                      <option value="">Todos los Subprocesos</option>
+                      {subprocesosFiltro.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+
+                    {/* Buscador de Texto */}
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+                      <input 
+                        type="text" 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Buscar programa..." 
+                        className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 w-full md:w-48 font-medium" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* TABLA DE RESULTADOS */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-500 border-b border-slate-100">
+                      <tr>
+                        <th className="p-4">Programa</th>
+                        <th className="p-4">Proceso / Subproceso</th>
+                        <th className="p-4">Responsable</th>
+                        <th className="p-4">Estado</th>
+                        <th className="p-4 text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {programasFiltrados.length === 0 ? (
+                        <tr><td colSpan="5" className="text-center p-8 italic text-slate-500 font-bold bg-white">No hay programas que coincidan con la búsqueda.</td></tr>
+                      ) : (
+                        programasFiltrados.map(p => (
+                          <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
+                            <td className="p-4 font-bold text-slate-800 flex items-center gap-2">
+                              <span className="text-blue-500 text-lg bg-blue-50 p-1.5 rounded-lg">📄</span>
+                              <div>
+                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 font-mono font-black rounded text-[9px] mr-2">
+                                  {p.ref || `PRG-2026-${String(safeProgramas.findIndex(x => x.id === p.id) + 1).padStart(3, '0')}`}
+                                </span>
+                                {p.proceso ? `Auditoría a ${p.proceso}` : 'Programa sin título'}
+                              </div>
+                            </td>
+                            <td className="p-4 text-slate-500">{p.proceso || '-'} <br/> <span className="text-[9px] font-bold text-slate-400">{p.subproceso}</span></td>
+                            <td className="p-4 font-medium">{p.elaboradoPor?.split('@')[0] || 'Auditor Líder'}</td>
+                            <td className="p-4">
+                              <span className={`px-2.5 py-1 rounded-full text-[9px] font-black tracking-wider border ${
+                                p.estado === 'Aprobado' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                p.estado === 'En Revisión' ? 'bg-orange-50 text-orange-600 border-orange-200' :
+                                'bg-blue-50 text-blue-600 border-blue-200'
+                              }`}>
+                                {p.estado || 'Borrador'}
+                              </span>
+                            </td>
+                            <td className="p-4 flex items-center justify-center gap-2">
+                              <button onClick={() => handleEditarPrograma(p)} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors shadow-sm" title="Editar">✏️</button>
+                              {isAdmin && (
+                                <button onClick={(e) => { e.stopPropagation(); handleDeleteItem('programas', p.id); }} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors shadow-sm" title="Eliminar">🗑️</button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="p-4 flex justify-between items-center text-xs text-slate-500 bg-white">
+                  <span className="font-medium">Mostrando {programasFiltrados.length} programas</span>
+                </div>
+              </div>
+
             </div>
 
-            {/* TABLA DE RESULTADOS */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-500 border-b border-slate-100">
-                  <tr>
-                    <th className="p-4">Programa</th>
-                    <th className="p-4">Proceso / Subproceso</th>
-                    <th className="p-4">Responsable</th>
-                    <th className="p-4">Vigencia</th>
-                    <th className="p-4">Estado</th>
-                    <th className="p-4">Última actualización</th>
-                    <th className="p-4 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {programasFiltrados.length === 0 ? (
-                    <tr><td colSpan="7" className="text-center p-8 italic text-slate-500 font-bold bg-white">No hay programas que coincidan con la búsqueda.</td></tr>
-                  ) : (
-                    programasFiltrados.map(p => (
-                      <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
-                        <td className="p-4 font-bold text-slate-800 flex items-center gap-2">
-                          <span className="text-blue-500 text-lg bg-blue-50 p-1.5 rounded-lg">📄</span>
-                          <div>
-                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 font-mono font-black rounded text-[9px] mr-2">
-                              {p.ref || `PRG-2026-${String(safeProgramas.findIndex(x => x.id === p.id) + 1).padStart(3, '0')}`}
-                            </span>
-                            {p.proceso ? `Auditoría al Proceso de ${p.proceso}` : 'Programa sin título'}
-                          </div>
-                        </td>
-                        <td className="p-4 text-slate-500">{p.proceso || '-'} <br/> <span className="text-[9px] font-bold text-slate-400">{p.subproceso}</span></td>
-                        <td className="p-4 font-medium">{p.elaboradoPor?.split('@')[0] || 'Auditor Líder'}</td>
-                        <td className="p-4">{p.vigencia || '2025'}</td>
-                        <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-full text-[9px] font-black tracking-wider border ${
-                            p.estado === 'Aprobado' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                            p.estado === 'En Revisión' ? 'bg-orange-50 text-orange-600 border-orange-200' :
-                            'bg-blue-50 text-blue-600 border-blue-200'
-                          }`}>
-                            {p.estado || 'Borrador'}
-                          </span>
-                        </td>
-                        <td className="p-4 font-medium">{p.fechaCreacion || '12/05/2025'}</td>
-                        <td className="p-4 flex items-center justify-center gap-2">
-                          <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition-colors shadow-sm">👁️</button>
-                          <button onClick={() => handleEditarPrograma(p)} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors shadow-sm">✏️</button>
-                          {isAdmin && (
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteItem('programas', p.id); }} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors shadow-sm">⋯</button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            
-            <div className="p-4 flex justify-between items-center text-xs text-slate-500 bg-white">
-              <span className="font-medium">Mostrando {programasFiltrados.length} programas filtrados (Total: {safeProgramas.length})</span>
-              <div className="flex gap-1">
-                <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 flex items-center justify-center">&lt;</button>
-                <button className="w-7 h-7 rounded-lg bg-[#0A3B32] text-white font-bold flex items-center justify-center shadow-md">1</button>
-                <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center">&gt;</button>
+            {/* COLUMNA DERECHA (1/3 del espacio): Aprobados */}
+            <div className="lg:col-span-1">
+              <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-100 flex flex-col min-h-[300px] h-full">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-4 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> APROBADOS (LISTOS)</span>
+                  <span className="bg-emerald-100 text-emerald-700 w-5 h-5 rounded-full flex items-center justify-center">{programasAprobados.length}</span>
+                </h3>
+                <div className="space-y-3 flex-1">
+                {programasAprobados.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
+                  {programasAprobados.length === 0 && <div className="text-center text-emerald-300 text-xs py-8 italic font-bold">Sin programas</div>}
+                </div>
+                {programasAprobados.length > 0 && <button className="text-emerald-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasAprobados.length})</button>}
               </div>
             </div>
+
           </div>
         </div>
       )}
