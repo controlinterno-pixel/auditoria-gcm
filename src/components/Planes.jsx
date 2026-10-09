@@ -238,10 +238,10 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
   }, [revisionInformeId, reviewReportId]);
   const correoUsuarioActual = String(user?.email || '').trim().toLowerCase();
-  const puedeReclamarPlan = useCallback(plan => Boolean(
+  const puedeReclamarPlan = useCallback(plan => isAdmin || Boolean(
     correoUsuarioActual && [plan?.correoRevisor, plan?.correoAuditor]
       .some(correo => String(correo || '').trim().toLowerCase() === correoUsuarioActual)
-  ), [correoUsuarioActual]);
+  ), [correoUsuarioActual, isAdmin]);
 
 // 🚨 Filtros para Banners de Alerta (Preventivos y Vencidos)
   const planesEnAlerta = useMemo(() => planesEnriquecidos.filter(p => {

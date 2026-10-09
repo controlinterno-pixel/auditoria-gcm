@@ -21,6 +21,7 @@ export const AuditDiagnosticView = ({ auditData }) => {
   };
 
   return (
+    
     <div className="w-full space-y-6 text-slate-100 font-sans">
       
       {/* 1. ENCABEZADO Y RESUMEN EJECUTIVO */}
