@@ -68,6 +68,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     requiereAcciones: 'no',
     observaciones: '',
   });
+  const [confirmacionCierreEficaz, setConfirmacionCierreEficaz] = useState(null);
   const [guardandoEficaciaCierre, setGuardandoEficaciaCierre] = useState(false);
   const [revisionInformeId, setRevisionInformeId] = useState(reviewReportId);
   const [mostrarMotivoCorreccion, setMostrarMotivoCorreccion] = useState(false);
@@ -1138,7 +1139,7 @@ if (existingActivities.length > 0) {
             id: 'new-' + Math.random(), 
             accion: '', 
             sede: h.sede || '', 
-            responsable: h.responsable || '',
+            responsable: '',
             revisor: '',
             correoRevisor: '',
             auditorAsignado: auditorHeredado || h.auditor || '', 
@@ -1222,7 +1223,7 @@ if (existingActivities.length > 0) {
           id: 'new-' + Math.random(), 
           accion: '', 
           sede: hallazgoBase?.sede || '', 
-          responsable: hallazgoBase?.responsable || '',
+          responsable: '',
           revisor: '',
           correoRevisor: '',
           auditorAsignado: informeBase?.auditorResponsable || hallazgoBase?.auditor || '',
@@ -1344,6 +1345,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
       setPlanes(planesActualizados);
       setModalEficaciaCierre({ activo: false, plan: null, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '' });
+      if (eficaz) {
+        setConfirmacionCierreEficaz({ id: planActualizado.id, accion: planActualizado.accion });
+      }
       showNotification(
         eficaz ? 'Eficacia registrada. La acción quedó cerrada.' : 'Evaluación guardada. La acción volvió a ejecución para su ajuste.',
         'success'
@@ -3858,6 +3862,47 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 {guardandoEficaciaCierre ? 'Guardando...' : modalEficaciaCierre.fueEficaz === 'no' ? 'Guardar y devolver al ejecutor' : 'Guardar eficacia y cerrar'}
               </button>
             </footer>
+          </section>
+        </div>
+      )}
+      {confirmacionCierreEficaz && (
+        <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="cierre-eficaz-confirmado-titulo"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl animate-in zoom-in-95 duration-200"
+          >
+            <div className="bg-emerald-700 px-6 py-5 text-white">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-2xl font-black" aria-hidden="true">✓</span>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-emerald-100">Evaluación guardada</p>
+                  <h2 id="cierre-eficaz-confirmado-titulo" className="mt-0.5 text-base font-black">Cierre confirmado</h2>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3 p-6">
+              <p className="text-xs leading-relaxed text-slate-700">
+                La eficacia quedó registrada para <strong>PLA-{String(confirmacionCierreEficaz.id).slice(-4)}</strong>
+                {confirmacionCierreEficaz.accion ? ` · ${confirmacionCierreEficaz.accion}` : ''}.
+              </p>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900">Estado de la acción</span>
+                <span className="rounded-full bg-emerald-700 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white">Cerrado</span>
+              </div>
+              <p className="text-[10px] text-slate-500">La acción ya aparece como cerrada en el Historial Matriz.</p>
+            </div>
+            <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setConfirmacionCierreEficaz(null)}
+                className="rounded-lg bg-emerald-700 px-5 py-2.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+              >
+                Entendido
+              </button>
+            </div>
           </section>
         </div>
       )}
