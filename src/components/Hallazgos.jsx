@@ -1357,7 +1357,6 @@ export default function Hallazgos({
                                 <tr key={`h-child-${h.id}-${hIdx}`} className="hover:bg-slate-50/60 transition-colors">
                                   <td className="p-3 font-mono">
                                     <div className="font-black text-slate-800">{h.ref}</div>
-                                    <div className="text-[9px] text-slate-400 mt-0.5">INT-#{h.id}</div>
                                   </td>
                                   <td className="p-3">
                                     <div className="font-bold text-slate-700 truncate max-w-[150px]" title={h.proceso || h.proceso}>{h.proceso || h.proceso}</div>
