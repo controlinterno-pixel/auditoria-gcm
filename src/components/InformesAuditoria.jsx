@@ -735,6 +735,40 @@ const handleFileUpload = async (e, type) => {
     }
   };
 
+  const agregarParticipanteSocializacion = () => {
+    if (!participanteTemp || participantesMultiples.includes(participanteTemp)) {
+      setParticipanteTemp('');
+      return;
+    }
+
+    const correoParticipante = obtenerCorreoCargoCatalogo(
+      catalogoCargos,
+      participanteTemp,
+      draftInforme.proceso || macroprocesoForm,
+      draftInforme.subprocesos ?? draftInforme.subproceso
+    );
+    const correosActuales = String(draftInforme.correosNotificacionInput || '')
+      .split(/[;,\n]/)
+      .map(correo => correo.trim())
+      .filter(Boolean);
+    const correoYaIncluido = correosActuales.some(
+      correo => correo.toLowerCase() === correoParticipante.toLowerCase()
+    );
+    const correosActualizados = correoParticipante && !correoYaIncluido
+      ? [...correosActuales, correoParticipante]
+      : correosActuales;
+    const siguienteDraft = {
+      ...draftInforme,
+      correosNotificacionInput: correosActualizados.join(', '),
+    };
+
+    setParticipantesMultiples(prev => [...prev, participanteTemp]);
+    setDraftInforme(siguienteDraft);
+    registrarCambioBorrador(siguienteDraft);
+    setIsDirty(true);
+    setParticipanteTemp('');
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {restoreConfirm && (
@@ -1820,13 +1854,7 @@ const handleFileUpload = async (e, type) => {
                   </select>
                   <button 
                     type="button" 
-                    onClick={() => { 
-                      if(participanteTemp && !participantesMultiples.includes(participanteTemp)) {
-  setParticipantesMultiples([...participantesMultiples, participanteTemp]); 
-  setIsDirty(true);
-}
-                      setParticipanteTemp(''); 
-                    }} 
+                    onClick={agregarParticipanteSocializacion} 
                     className="bg-[#0A3B32] text-white px-5 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={modoVistaCompleta}
                   >
@@ -1871,6 +1899,7 @@ const handleFileUpload = async (e, type) => {
   className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
   disabled={modoVistaCompleta}
 />
+              <p className="text-[10px] text-blue-600 mt-2 font-medium">Al añadir cargos de socialización se agregan sus correos del catálogo. Puedes editar esta lista libremente.</p>
               <p className="text-[10px] text-blue-600 mt-2 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
             </div>
 
