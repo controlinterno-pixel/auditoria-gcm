@@ -31,7 +31,8 @@ export default function Planes({
   detallePanelPlanes = null,
   setDetallePanelPlanes = () => {},
   misPlanesEjecucion = [],
-  userEmailLower = '',
+  misPlanesRevision = [],
+  misPlanesAprobacion = [],
   user = null,
   editPlan,
   setEditPlan,
@@ -1825,15 +1826,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 const esAprobacion = detallePanelPlanes === 'aprobacion';
                 const esVencido = detallePanelPlanes === 'vencidos';
                 
-                const planesRevisionFiltrados = esRevision ? planesEnriquecidos.filter(p => {
-                    const correoRevisor = String(p.correoRevisor || '').toLowerCase().trim();
-                    return correoRevisor === userEmailLower && (p.estadoWorkflow === 'Pendiente Revisión Jefatura' || p.estadoWorkflow === 'En Revisión (100%)');
-                }) : [];
+                const planesRevisionFiltrados = esRevision
+                  ? misPlanesRevision.map(plan => planesEnriquecidos.find(enriquecido => String(enriquecido.id) === String(plan.id)) || plan)
+                  : [];
 
-                const planesAprobacionFiltrados = esAprobacion ? planesEnriquecidos.filter(p => {
-                    const correoAuditor = String(p.correoAuditor || '').toLowerCase().trim();
-                    return correoAuditor === userEmailLower && p.estadoWorkflow === 'Pendiente Aprobación Auditor';
-                }) : [];
+                const planesAprobacionFiltrados = esAprobacion
+                  ? misPlanesAprobacion.map(plan => planesEnriquecidos.find(enriquecido => String(enriquecido.id) === String(plan.id)) || plan)
+                  : [];
 
                 const planesDetalle = esEjecucion
                   ? misPlanesEjecucion.map(plan => planesEnriquecidos.find(enriquecido => String(enriquecido.id) === String(plan.id)) || plan)
