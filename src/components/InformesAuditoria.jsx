@@ -831,12 +831,15 @@ const handleFileUpload = async (e, type) => {
       return;
     }
 
+    const macroproceso = draftInforme.proceso || macroprocesoForm;
+    const subprocesos = draftInforme.subprocesos ?? draftInforme.subproceso;
+    const claveCorreo = claveCorreoCargo(participanteTemp, macroproceso, subprocesos);
     const correoParticipante = obtenerCorreoCargoCatalogo(
       catalogoCargos,
       participanteTemp,
-      draftInforme.proceso || macroprocesoForm,
-      draftInforme.subprocesos ?? draftInforme.subproceso
-    );
+      macroproceso,
+      subprocesos
+    ) || correosCargosResueltos[claveCorreo] || '';
     const correosActuales = String(draftInforme.correosNotificacionInput || '')
       .split(/[;,\n]/)
       .map(correo => correo.trim())
