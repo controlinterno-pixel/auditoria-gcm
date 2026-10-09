@@ -1040,8 +1040,8 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
 
     // ✨ ARQUITECTURA: Extraemos los datos del auditor directamente del Informe Padre
     const informeBase = informesAuditoria.find(inf => String(inf.id) === String(informeId));
-    const auditorHeredado = informeBase?.auditorResponsable || '';
-    const correoAuditorHeredado = informeBase?.correoAuditor || '';
+    const auditorHeredado = informeBase?.auditorResponsable || informeBase?.auditor || informeBase?.auditorLider || '';
+    const correoAuditorHeredado = informeBase?.correoAuditor || informeBase?.correoAuditorResponsable || informeBase?.correo_auditor || '';
 
     const reportFindings = currentHallazgos.filter(h => String(h.idInforme) === String(informeId));
     const newState = {};
@@ -1057,8 +1057,8 @@ if (existingActivities.length > 0) {
             revisor: p.revisor || '',
             correoRevisor: p.correoRevisor || '',
             correoRevisorConfirmacion: p.correoRevisor || '',
-            auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
-            correoAuditor: p.correoAuditor || correoAuditorHeredado,
+            auditorAsignado: informeBase ? auditorHeredado : (p.auditorAsignado || h.auditor || ''),
+            correoAuditor: informeBase ? correoAuditorHeredado : (p.correoAuditor || ''),
           })) 
         };
       } else {
