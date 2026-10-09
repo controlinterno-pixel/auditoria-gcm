@@ -34,6 +34,12 @@ const correoValido = valor => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || 
 const obtenerProceso = registro => normalizar(
   registro?.macroproceso || String(registro?.proceso || '').split('/')[0]
 );
+const obtenerAuditor = informe => String(
+  informe?.auditorResponsable || informe?.auditor || informe?.auditorLider || ''
+).trim();
+const obtenerCorreoAuditor = informe => String(
+  informe?.correoAuditor || informe?.correoAuditorResponsable || informe?.correo_auditor || ''
+).trim();
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -418,19 +424,68 @@ export default async function handler(req, res) {
         ] : historial,
       };
 
+      const cambiaAuditor = camposCambiados.some(campo => [
+        'auditorResponsable', 'auditor', 'correoAuditor', 'correoAuditorResponsable',
+      ].includes(campo));
+      const planes = Array.isArray(data.planes) ? data.planes : [];
+      const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+      const idsHallazgosInforme = new Set(
+        hallazgos
+          .filter(hallazgo => String(hallazgo.idInforme) === String(id))
+          .map(hallazgo => String(hallazgo.id))
+      );
+      const planesActualizados = cambiaAuditor ? planes.flatMap(plan => {
+        const perteneceAlInforme = String(plan.idInforme || '') === String(id) ||
+          idsHallazgosInforme.has(String(plan.idHallazgo));
+        if (!perteneceAlInforme) return [];
+
+        const cambiosAuditor = {
+          auditorAsignado: obtenerAuditor(actualizado),
+          correoAuditor: obtenerCorreoAuditor(actualizado),
+        };
+        if (
+          plan.auditorAsignado === cambiosAuditor.auditorAsignado &&
+          plan.correoAuditor === cambiosAuditor.correoAuditor
+        ) return [];
+
+        const historialPlan = Array.isArray(plan.historialCambios) ? plan.historialCambios : [];
+        return [{
+          ...plan,
+          ...cambiosAuditor,
+          historialCambios: [
+            ...historialPlan,
+            {
+              fecha: ahora.toLocaleString('es-CO'),
+              timestamp: ahora.toISOString(),
+              usuario: user.email,
+              accion: 'Auditor de seguimiento sincronizado desde el informe de auditoría',
+              detalleCambios: Object.entries(cambiosAuditor)
+                .filter(([campo, valor]) => plan[campo] !== valor)
+                .map(([campo, valor]) => ({ campo, antes: plan[campo] ?? '', despues: valor })),
+            },
+          ],
+        }];
+      }) : [];
+
       guardarInformesGrc(
         transaction,
         workspace,
         informes.map(informe => String(informe.id) === String(id) ? actualizado : informe)
       );
-      return { informe: actualizado };
+      if (planesActualizados.length > 0) {
+        const planesPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
+        transaction.set(workspace.workspaceRef, {
+          planes: planes.map(plan => planesPorId.get(String(plan.id)) || plan),
+        }, { merge: true });
+      }
+      return { informe: actualizado, planesActualizados };
     });
 
     if (resultado.error === 'not-found') return sendError(res, 'No se encontró el informe.', 404);
     if (resultado.error === 'forbidden') return sendError(res, 'No tiene permiso para editar este informe.', 403);
 
     logger.info('Informe actualizado con permiso de módulo', { id, usuario: user.email });
-    return sendSuccess(res, { registro: resultado.informe });
+    return sendSuccess(res, { registro: resultado.informe, planesActualizados: resultado.planesActualizados });
   } catch (error) {
     logger.error('Error actualizando informe GRC', error, { endpoint: req.url });
     return sendError(res, 'No se pudo actualizar el informe.', 500);

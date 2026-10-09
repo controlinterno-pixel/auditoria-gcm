@@ -778,11 +778,16 @@ const handleInformeAuditoriaSubmit = async (e) => {
       if (correosNotificacionOut && prepararEnvioGmail && !(await prepararEnvioGmail())) return false;
 
       let guardado;
-      if (!isAdmin && editInformeAuditoria) {
+      if (editInformeAuditoria) {
         if (!registroEditado || typeof actualizarInformeGrc !== 'function') return false;
         const respuesta = await actualizarInformeGrc(editInformeAuditoria.id, registroEditado, String(formData.get('motivoCambio') || '').trim());
         if (!respuesta?.registro) return false;
         updated = safeInformes.map(informe => String(informe.id) === String(editInformeAuditoria.id) ? respuesta.registro : informe);
+        const planesActualizados = Array.isArray(respuesta.planesActualizados) ? respuesta.planesActualizados : [];
+        if (planesActualizados.length > 0) {
+          const planesPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
+          setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => planesPorId.get(String(plan.id)) || plan));
+        }
         guardado = true;
       } else if (!isAdmin) {
         if (!registroNuevo || typeof crearRegistroGrc !== 'function') return false;
