@@ -1320,6 +1320,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       setRevisionInformeId(null);
       setMostrarMotivoCorreccion(false);
       setMotivoCorreccion('');
+      setModoRevisionMatriz(false);
+      setEditPlan(null);
+      setFormInformeId('');
+      setMatrixState({});
+      setVistaActiva('historial');
       setGuardandoDecisionRevision(false);
       showNotification('Decisión guardada. Preparando notificación al ejecutor…', 'success');
       void (async () => {
@@ -2817,9 +2822,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {p.estadoWorkflow === 'Pendiente Revisión Jefatura' && (esRevisor || isAdmin) && (
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
                                               <button type="button" onClick={() => {
+                                                setEditPlan(null);
+                                                setModoRevisionMatriz(true);
                                                 setRevisionInformeId(p.idInforme);
                                                 setMostrarMotivoCorreccion(false);
                                                 setMotivoCorreccion('');
+                                                handleInformeChange(String(p.idInforme));
+                                                setVistaActiva('nuevo');
+                                                requestAnimationFrame(() => {
+                                                  if (typeof scrollToForm === 'function') scrollToForm();
+                                                });
                                               }} className="bg-amber-500 hover:bg-amber-600 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all shadow-amber-500/30">
                                                 👀 Revisar Diseño
                                               </button>
