@@ -320,17 +320,24 @@ const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.ema
   ]);
 
 // 🔔 Calculador de notificaciones personalizadas para la barra lateral
-  const userEmailLower = user?.email?.toLowerCase() || '';
+  const userEmailLower = String(user?.email || '').trim().toLowerCase();
+  const informesIds = new Set(informesAuditoria.map(informe => String(informe.id)));
+  const hallazgosPorId = new Map(safeHallazgos.map(hallazgo => [String(hallazgo.id), hallazgo]));
+  const planesConOrigen = safePlanes.filter(plan => {
+    const hallazgo = hallazgosPorId.get(String(plan.idHallazgo));
+    const idInforme = hallazgo?.idInforme || plan.idInforme;
+    return Boolean(hallazgo && idInforme && informesIds.has(String(idInforme)));
+  });
 
   // 1. Tareas que el usuario debe EJECUTAR (Subir evidencias y avance)
-  const misPlanesEjecucion = safePlanes.filter(p => {
+  const misPlanesEjecucion = planesConOrigen.filter(p => {
     const correoEjecutor = (p.correoResponsable || '').trim().toLowerCase();
     return correoEjecutor === userEmailLower.trim() && p.estadoWorkflow === 'En Ejecución';
   });
   const misTareasEjecucion = misPlanesEjecucion.length;
 
   // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
-  const misPlanesRevision = safePlanes.filter(p => {
+  const misPlanesRevision = planesConOrigen.filter(p => {
     const correoRevisor = (p.correoRevisor || '').trim().toLowerCase();
     return correoRevisor === userEmailLower.trim() && 
            (p.estadoWorkflow === 'Pendiente Revisión Jefatura' || p.estadoWorkflow === 'En Revisión (100%)');
@@ -338,7 +345,7 @@ const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.ema
   const misTareasRevision = misPlanesRevision.length;
 
   // 3. Tareas que el usuario debe APROBAR (Como Auditor)
-  const misPlanesAprobacion = safePlanes.filter(p => {
+  const misPlanesAprobacion = planesConOrigen.filter(p => {
     const correoAuditor = (p.correoAuditor || '').trim().toLowerCase();
     return correoAuditor === userEmailLower.trim() && p.estadoWorkflow === 'Pendiente Aprobación Auditor';
   });
