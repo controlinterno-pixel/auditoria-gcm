@@ -842,6 +842,11 @@ const diccionarioCorreos = {
       ? "🎉 ¡Matriz guardada y notificaciones enviadas!"
       : "La matriz se guardó, pero no se pudieron enviar todas las notificaciones.");
     handleInformeChange(formInformeId, updatedPlanesList, updatedHallazgos);
+    setEditPlan(null);
+    setFormInformeId('');
+    setMatrixState({});
+    setModoRevisionMatriz(false);
+    setVistaActiva('historial');
   };
 
  // 🛡️ NUEVA FUNCIÓN: EVALUACIÓN HOLÍSTICA Y PONDERADA DEL PLAN DE ACCIÓN
@@ -2433,7 +2438,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           setEditPlan(null);
                           setFormInformeId(''); // Limpia la selección del informe
                           setMatrixState({}); // Limpia los datos digitados
-                          setVistaActiva('dashboard'); // Regresa al inicio
+                          setModoRevisionMatriz(false);
+                          setVistaActiva('historial');
                         }
                       }}
                       className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all w-full md:w-auto"
