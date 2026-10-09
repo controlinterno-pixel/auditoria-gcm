@@ -4,6 +4,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
+import { obtenerProcesosAsignados, normalizarProcesoAlcance } from '../_lib/assignmentScope.js';
 
 // 📊 Tabla 4 del Manual: Matriz de Calor Oficial
 const MATRIZ_CALOR_MANUAL = {
@@ -89,19 +90,25 @@ export default async function handler(req, res) {
     // 🔍 LECTURA CON RLS (GET)
     if (method === 'GET') {
       const isGlobalUser = ['admin', 'auditor', 'gerente'].includes(user.rol?.toLowerCase());
-      let query = adminDb.collection('riesgos');
+      const procesosAsignados = obtenerProcesosAsignados(user, user);
+      const procesosAsignadosOriginales = Array.isArray(user.procesosAsignados)
+        ? user.procesosAsignados.filter(Boolean)
+        : user.procesoAsignado ? [user.procesoAsignado] : [];
 
-      if (!isGlobalUser && !user.procesoAsignado) {
+      if (!isGlobalUser && procesosAsignados.length === 0) {
         return sendSuccess(res, { riesgos: [] });
       }
 
-      if (!isGlobalUser) {
-        query = query.where('proceso', '==', user.procesoAsignado);
-      }
-
-      const snapshot = await query.get();
-      const riesgos = [];
-      snapshot.forEach(doc => riesgos.push({ docId: doc.id, ...doc.data() }));
+      const snapshots = isGlobalUser
+        ? [await adminDb.collection('riesgos').get()]
+        : await Promise.all(procesosAsignadosOriginales.map(proceso => (
+          adminDb.collection('riesgos').where('proceso', '==', proceso).get()
+        )));
+      const riesgosPorId = new Map();
+      snapshots.forEach(snapshot => snapshot.forEach(documento => {
+        riesgosPorId.set(documento.id, { docId: documento.id, ...documento.data() });
+      }));
+      const riesgos = [...riesgosPorId.values()];
 
       return sendSuccess(res, { riesgos });
     }
@@ -117,10 +124,12 @@ export default async function handler(req, res) {
 
       // Validación RLS para usuarios no administradores
       const isAdmin = ['admin', 'auditor'].includes(user.rol?.toLowerCase());
-      if (!isAdmin && !user.procesoAsignado) {
+      const procesosAsignados = obtenerProcesosAsignados(user, user);
+      if (!isAdmin && procesosAsignados.length === 0) {
         return sendError(res, 'No tiene un proceso asignado para modificar riesgos.', 403);
       }
-      if (!isAdmin && proceso !== user.procesoAsignado) {
+      const procesoNormalizado = normalizarProcesoAlcance(proceso);
+      if (!isAdmin && !procesosAsignados.includes(procesoNormalizado)) {
         return sendError(res, 'No tiene permisos para modificar riesgos de otro proceso.', 403);
       }
 
@@ -141,7 +150,9 @@ export default async function handler(req, res) {
       const riesgoRef = adminDb.collection('riesgos').doc(String(id));
       const guardado = await adminDb.runTransaction(async (transaction) => {
         const riesgoExistente = await transaction.get(riesgoRef);
-        if (!isAdmin && riesgoExistente.exists && riesgoExistente.data()?.proceso !== user.procesoAsignado) {
+        if (!isAdmin && riesgoExistente.exists && !procesosAsignados.includes(
+          normalizarProcesoAlcance(riesgoExistente.data()?.proceso)
+        )) {
           return false;
         }
 

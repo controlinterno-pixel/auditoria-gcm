@@ -4,6 +4,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const CAMPOS_EDITABLES = [
   'titulo', 'proceso', 'macroproceso', 'subproceso', 'subprocesos', 'programaId',
@@ -181,8 +182,8 @@ export default async function handler(req, res) {
           });
         }
 
-        const procesoPerfil = normalizar(perfil.procesoAsignado || user.procesoAsignado);
-        const subprocesoPerfil = normalizar(perfil.subprocesoAsignado);
+        const procesosPerfil = obtenerProcesosAsignados(perfil, user);
+        const subprocesosPerfil = obtenerSubprocesosAsignados(perfil);
         const planesNuevos = [];
         let siguienteId = planes.reduce((maximo, plan) => Math.max(maximo, Number(plan?.id) || 0), 0) + 1;
 
@@ -193,9 +194,11 @@ export default async function handler(req, res) {
           const subprocesosHallazgo = (Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso])
             .map(normalizar);
           const esCreadorHallazgo = normalizar(hallazgo.correoCreador || hallazgo.creadoPor) === usuarioEmail;
-          const perteneceProcesoAsignado = Boolean(
-            procesoPerfil && procesoHallazgo === procesoPerfil &&
-            (!subprocesoPerfil || subprocesosHallazgo.includes(subprocesoPerfil))
+          const perteneceProcesoAsignado = procesosPerfil.length > 0 && registroDentroDelAlcance(
+            procesosPerfil,
+            subprocesosPerfil,
+            procesoHallazgo,
+            subprocesosHallazgo
           );
           if (!admin && !esCreadorHallazgo && !perteneceProcesoAsignado) return { error: 'hallazgo-forbidden' };
 
@@ -353,8 +356,8 @@ export default async function handler(req, res) {
       return sendError(res, 'No tiene permiso para editar informes.', 403);
     }
 
-    const procesoAsignado = normalizar(perfil.procesoAsignado || user.procesoAsignado);
-    const subprocesoAsignado = normalizar(perfil.subprocesoAsignado);
+    const procesosAsignados = obtenerProcesosAsignados(perfil, user);
+    const subprocesosAsignados = obtenerSubprocesosAsignados(perfil);
     const cambios = Object.fromEntries(
       CAMPOS_EDITABLES.filter(campo => Object.hasOwn(registro, campo))
         .map(campo => [campo, registro[campo]])
@@ -363,11 +366,13 @@ export default async function handler(req, res) {
     if (!normalizar(nuevoRegistro.titulo) || !obtenerProceso(nuevoRegistro)) {
       return sendError(res, 'El título y el proceso son obligatorios.', 400);
     }
-    if (!admin && procesoAsignado && obtenerProceso(nuevoRegistro) !== procesoAsignado) {
-      return sendError(res, 'Solo puede editar informes de su proceso asignado.', 403);
-    }
-    if (!admin && subprocesoAsignado && !subprocesosDe(nuevoRegistro).includes(subprocesoAsignado)) {
-      return sendError(res, 'Solo puede editar informes de su subproceso asignado.', 403);
+    if (!admin && !registroDentroDelAlcance(
+      procesosAsignados,
+      subprocesosAsignados,
+      obtenerProceso(nuevoRegistro),
+      subprocesosDe(nuevoRegistro)
+    )) {
+      return sendError(res, 'El informe debe pertenecer a un proceso y subproceso asignados.', 403);
     }
 
     const resultado = await adminDb.runTransaction(async transaction => {
@@ -378,9 +383,11 @@ export default async function handler(req, res) {
       const anterior = informes.find(informe => String(informe.id) === String(id));
       if (!anterior) return { error: 'not-found' };
 
-      if (!admin && (
-        (procesoAsignado && obtenerProceso(anterior) !== procesoAsignado) ||
-        (subprocesoAsignado && !subprocesosDe(anterior).includes(subprocesoAsignado))
+      if (!admin && !registroDentroDelAlcance(
+        procesosAsignados,
+        subprocesosAsignados,
+        obtenerProceso(anterior),
+        subprocesosDe(anterior)
       )) return { error: 'forbidden' };
 
       const camposCambiados = Object.keys(cambios).filter(campo => (

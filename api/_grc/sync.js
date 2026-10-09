@@ -4,6 +4,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { obtenerProcesosAsignados } from '../_lib/assignmentScope.js';
 
 /**
  * Valida de forma estricta si el usuario posee rol administrativo o de auditoría.
@@ -31,7 +32,9 @@ function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
 
   const emailSafe = String(userEmail || '').toLowerCase().trim();
   const cargoSafe = String(userCargo || '').toLowerCase().trim();
-  const processSafe = String(userProcess || '').toLowerCase().trim();
+  const processSafe = (Array.isArray(userProcess) ? userProcess : [userProcess])
+    .map(valor => String(valor || '').toLowerCase().trim())
+    .filter(Boolean);
 
   return lista.filter(item => {
     if (!item || typeof item !== 'object') return false;
@@ -55,18 +58,18 @@ function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
     // REGLA 2: Estructural (Proceso / Subproceso)
     // Si yo pertenezco a este proceso, veo todo lo que sucede aquí.
     // =========================================================
-    if (processSafe) {
+    if (processSafe.length > 0) {
       const procesoRegistro = String(item.proceso || item.macroproceso || '').toLowerCase();
       const subprocesoRegistro = [
         item.subproceso,
         ...(Array.isArray(item.subprocesos) ? item.subprocesos : []),
       ].filter(Boolean).join(' ').toLowerCase();
       
-      if (procesoRegistro && (
-        procesoRegistro.includes(processSafe) ||
-        subprocesoRegistro.includes(processSafe) ||
-        processSafe.includes(procesoRegistro)
-      )) {
+      if (procesoRegistro && processSafe.some(proceso => (
+        procesoRegistro.includes(proceso) ||
+        subprocesoRegistro.includes(proceso) ||
+        proceso.includes(procesoRegistro)
+      ))) {
         return true;
       }
     }
@@ -120,12 +123,11 @@ export default async function handler(req, res) {
       // Extracción segura del contexto del usuario autenticado
       const userEmail = String(user.email || '').toLowerCase().trim();
       const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
-      const userProcess = String(user.procesoAsignado || user.proceso || user.area || '').toLowerCase().trim();
-      const procesoUsuarioNormalizado = normalizarProceso(userProcess);
+      const userProcesses = obtenerProcesosAsignados(user, user);
       const catalogoCargosSeguro = (Array.isArray(data.catalogoCargos) ? data.catalogoCargos : []).map(registro => {
         if (isAdmin) return registro;
         const procesoCargo = normalizarProceso(registro?.macroproceso);
-        return procesoCargo && procesoCargo === procesoUsuarioNormalizado
+        return procesoCargo && userProcesses.includes(procesoCargo)
           ? registro
           : { ...registro, correoCorporativo: '' };
       });
@@ -136,20 +138,20 @@ export default async function handler(req, res) {
       // ============================================================================
       
       // 1. Filtramos los Planes de Acción (Nivel más bajo)
-      const planesPermitidos = aplicarRLS(data.planes, userEmail, userCargo, userProcess);
+      const planesPermitidos = aplicarRLS(data.planes, userEmail, userCargo, userProcesses);
       const idsHallazgosDesdePlanes = new Set(planesPermitidos.map(p => String(p.idHallazgo)));
 
       // 2. Filtramos Hallazgos (Pasan si cumplen RLS directo O si tienen un Plan permitido)
       const hallazgosPermitidos = (data.hallazgos || []).filter(h => {
         if (idsHallazgosDesdePlanes.has(String(h.id))) return true; // Herencia del Plan
-        return aplicarRLS([h], userEmail, userCargo, userProcess).length > 0; // Acceso Directo
+        return aplicarRLS([h], userEmail, userCargo, userProcesses).length > 0; // Acceso Directo
       });
       const idsInformesDesdeHallazgos = new Set(hallazgosPermitidos.map(h => String(h.idInforme)));
 
       // 3. Filtramos Informes (Pasan si cumplen RLS directo O si tienen un Hallazgo permitido)
       const informesPermitidos = (data.informesAuditoria || []).filter(inf => {
         if (idsInformesDesdeHallazgos.has(String(inf.id))) return true; // Herencia del Hallazgo
-        return aplicarRLS([inf], userEmail, userCargo, userProcess).length > 0; // Acceso Directo
+        return aplicarRLS([inf], userEmail, userCargo, userProcesses).length > 0; // Acceso Directo
       });
 
       // ============================================================================
@@ -165,9 +167,9 @@ export default async function handler(req, res) {
         planes: planesPermitidos,
         
         // Colecciones con RLS Estándar
-        riesgos: aplicarRLS(data.riesgos, userEmail, userCargo, userProcess),
-        evaluaciones: aplicarRLS(data.evaluaciones, userEmail, userCargo, userProcess),
-        incidentes: aplicarRLS(data.incidentes, userEmail, userCargo, userProcess),
+        riesgos: aplicarRLS(data.riesgos, userEmail, userCargo, userProcesses),
+        evaluaciones: aplicarRLS(data.evaluaciones, userEmail, userCargo, userProcesses),
+        incidentes: aplicarRLS(data.incidentes, userEmail, userCargo, userProcesses),
         
         // Colecciones Públicas o de Configuración
         fuentesMejora: data.fuentesMejora || [],

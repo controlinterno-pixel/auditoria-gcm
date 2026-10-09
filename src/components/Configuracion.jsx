@@ -55,6 +55,29 @@ export default function Configuracion({
     }
   };
 
+  const guardarAlcanceUsuario = async (usuario, procesosSeleccionados, subprocesosSeleccionados) => {
+    const procesos = [...new Set(procesosSeleccionados)];
+    const subprocesosDisponibles = new Set(
+      procesos.flatMap(proceso => MAPA_PROCESOS[proceso] || [])
+    );
+    const subprocesos = [...new Set(subprocesosSeleccionados.filter(subproceso => subprocesosDisponibles.has(subproceso)))];
+    const cambios = {
+      procesosAsignados: procesos,
+      subprocesosAsignados: subprocesos,
+      procesoAsignado: procesos.length === 1 ? procesos[0] : '',
+      subprocesoAsignado: subprocesos.length === 1 ? subprocesos[0] : '',
+    };
+
+    setUsuarios(prev => prev.map(item => item.id === usuario.id ? { ...item, ...cambios } : item));
+    try {
+      await updateDoc(doc(db, 'usuarios', usuario.id), cambios);
+    } catch (error) {
+      console.error('Error guardando el alcance del usuario:', error);
+      alert('No se pudieron guardar los macroprocesos y subprocesos asignados.');
+      await cargarUsuarios();
+    }
+  };
+
  // 🧮 LÓGICA DEL BUSCADOR (Soporta nombreResponsable/nombre y correo/email)
   const usuariosFiltrados = usuarios.filter(u => {
     const termino = busquedaUsuario.toLowerCase();
@@ -115,6 +138,15 @@ export default function Configuracion({
             ) : (
               usuariosFiltrados.map((u) => {
                 const isExpanded = usuarioExpandido === u.id;
+                const procesosAsignados = Array.isArray(u.procesosAsignados)
+                  ? u.procesosAsignados
+                  : u.procesoAsignado ? [u.procesoAsignado] : [];
+                const subprocesosAsignados = Array.isArray(u.subprocesosAsignados)
+                  ? u.subprocesosAsignados
+                  : u.subprocesoAsignado ? [u.subprocesoAsignado] : [];
+                const subprocesosDisponibles = [...new Set(
+                  procesosAsignados.flatMap(proceso => MAPA_PROCESOS[proceso] || [])
+                )].sort((a, b) => a.localeCompare(b, 'es'));
                 
                 return (
                 <div key={u.id} className={`border rounded-2xl bg-slate-50 hover:bg-white transition-all duration-300 ${isExpanded ? 'border-[#0A3B32] shadow-md ring-1 ring-[#0A3B32]/10' : 'border-slate-200 hover:shadow-md'}`}>
@@ -200,49 +232,50 @@ export default function Configuracion({
                               className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm bg-white"
                             />
                           </div>
-                          <div>
-                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Macroproceso / Área</label>
-                            <select 
-                              value={u.procesoAsignado || ''} 
-                              onChange={async (e) => {
-                                const val = e.target.value;
-                                setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, procesoAsignado: val, subprocesoAsignado: '' } : usr));
-                                try {
-                                  await updateDoc(doc(db, 'usuarios', u.id), { procesoAsignado: val, subprocesoAsignado: '' });
-                                } catch {
-                                  // Ignoramos fallo silencioso
-                                }
-                              }} 
-                              className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 bg-white cursor-pointer shadow-sm"
-                            >
-                              <option value="">-- Acceso Global / Sin área --</option>
-                              {Object.keys(MAPA_PROCESOS || {}).sort().map(p => (
-                                <option key={p} value={p}>{p}</option>
+                          <fieldset className="rounded-lg border border-slate-200 bg-white p-2.5">
+                            <legend className="px-1 text-[10px] font-bold text-slate-500">Macroprocesos / Áreas</legend>
+                            <p className="mb-2 text-[9px] text-slate-400">Sin selección: acceso global.</p>
+                            <div className="max-h-32 space-y-1 overflow-y-auto">
+                              {Object.keys(MAPA_PROCESOS || {}).sort((a, b) => a.localeCompare(b, 'es')).map(proceso => (
+                                <label key={proceso} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-medium text-slate-700 hover:bg-emerald-50">
+                                  <input
+                                    type="checkbox"
+                                    checked={procesosAsignados.includes(proceso)}
+                                    onChange={event => {
+                                      const procesos = event.target.checked
+                                        ? [...procesosAsignados, proceso]
+                                        : procesosAsignados.filter(valor => valor !== proceso);
+                                      void guardarAlcanceUsuario(u, procesos, subprocesosAsignados);
+                                    }}
+                                    className="mt-0.5 accent-emerald-700"
+                                  />
+                                  <span>{proceso}</span>
+                                </label>
                               ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Subproceso (Nivel Quirúrgico)</label>
-                            <select 
-                              value={u.subprocesoAsignado || ''} 
-                              disabled={!u.procesoAsignado}
-                            onChange={async (e) => {
-                                const val = e.target.value;
-                                setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, subprocesoAsignado: val } : usr));
-                                try {
-                                  await updateDoc(doc(db, 'usuarios', u.id), { subprocesoAsignado: val });
-                                } catch {
-                                  // Ignoramos fallo silencioso
-                                }
-                              }}  
-                              className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 truncate bg-white"
-                            >
-                              <option value="">-- Ver todo el Macroproceso --</option>
-                              {((MAPA_PROCESOS || {})[u.procesoAsignado] || []).sort().map(sp => (
-                                <option key={sp} value={sp}>{sp}</option>
+                            </div>
+                          </fieldset>
+                          <fieldset disabled={procesosAsignados.length === 0} className="rounded-lg border border-slate-200 bg-white p-2.5 disabled:bg-slate-100">
+                            <legend className="px-1 text-[10px] font-bold text-slate-500">Subprocesos</legend>
+                            <p className="mb-2 text-[9px] text-slate-400">Sin selección: todos los de las áreas elegidas.</p>
+                            <div className="max-h-32 space-y-1 overflow-y-auto">
+                              {subprocesosDisponibles.map(subproceso => (
+                                <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-medium text-slate-700 hover:bg-emerald-50">
+                                  <input
+                                    type="checkbox"
+                                    checked={subprocesosAsignados.includes(subproceso)}
+                                    onChange={event => {
+                                      const subprocesos = event.target.checked
+                                        ? [...subprocesosAsignados, subproceso]
+                                        : subprocesosAsignados.filter(valor => valor !== subproceso);
+                                      void guardarAlcanceUsuario(u, procesosAsignados, subprocesos);
+                                    }}
+                                    className="mt-0.5 accent-emerald-700"
+                                  />
+                                  <span>{subproceso}</span>
+                                </label>
                               ))}
-                            </select>
-                          </div>
+                            </div>
+                          </fieldset>
                         </div>
                       </div>
 

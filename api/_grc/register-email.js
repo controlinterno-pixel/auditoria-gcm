@@ -4,6 +4,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
   String(rol || '').toLowerCase().trim()
@@ -29,21 +30,20 @@ export default async function handler(req, res) {
     if (!admin && !permisos.includes('sub_informes')) {
       return sendError(res, 'No tiene permiso para registrar el envío de informes.', 403);
     }
-    const procesoAsignado = String(perfil.procesoAsignado || '').trim().toLowerCase();
-    const subprocesoAsignado = String(perfil.subprocesoAsignado || '').trim().toLowerCase();
+    const procesosAsignados = obtenerProcesosAsignados(perfil, user);
+    const subprocesosAsignados = obtenerSubprocesosAsignados(perfil);
 
     const informeActualizado = await adminDb.runTransaction(async (transaction) => {
       const workspace = await leerWorkspaceGrc(transaction);
       const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
       const informe = informes.find(item => String(item.id) === String(id));
-      const procesoInforme = String(informe?.macroproceso || String(informe?.proceso || '').split('/')[0]).trim().toLowerCase();
+      const procesoInforme = informe?.macroproceso || String(informe?.proceso || '').split('/')[0];
       const subprocesosInforme = (
         Array.isArray(informe?.subprocesos) ? informe.subprocesos : [informe?.subproceso]
-      ).map(subproceso => String(subproceso || '').trim().toLowerCase());
+      );
       if (!informe || (!admin && (
-        (procesoAsignado && procesoInforme !== procesoAsignado) ||
-        (subprocesoAsignado && !subprocesosInforme.includes(subprocesoAsignado))
+        !registroDentroDelAlcance(procesosAsignados, subprocesosAsignados, procesoInforme, subprocesosInforme)
       ))) {
         return null;
       }

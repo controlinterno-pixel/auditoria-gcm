@@ -5,6 +5,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const COLECCIONES_PERMITIDAS = {
   informesAuditoria: 'sub_informes',
@@ -46,15 +47,17 @@ export default async function handler(req, res) {
       return sendError(res, 'No tiene permiso para crear este tipo de registro.', 403);
     }
 
-    const procesoAsignado = normalizar(perfil.procesoAsignado || user.procesoAsignado);
-    const subprocesoAsignado = normalizar(perfil.subprocesoAsignado);
+    const procesosAsignados = obtenerProcesosAsignados(perfil, user);
+    const subprocesosAsignados = obtenerSubprocesosAsignados(perfil);
     const procesoRegistro = normalizar(registro.macroproceso || String(registro.proceso || '').split('/')[0]);
     const subprocesosRegistro = (Array.isArray(registro.subprocesos) ? registro.subprocesos : [registro.subproceso]).map(normalizar);
-    if (!admin && coleccion !== 'hallazgos' && coleccion !== 'planes' && procesoAsignado && procesoRegistro !== procesoAsignado) {
-      return sendError(res, 'El registro debe pertenecer al proceso asignado.', 403);
-    }
-    if (!admin && coleccion !== 'hallazgos' && coleccion !== 'planes' && subprocesoAsignado && !subprocesosRegistro.includes(subprocesoAsignado)) {
-      return sendError(res, 'El registro debe pertenecer al subproceso asignado.', 403);
+    if (!admin && coleccion !== 'hallazgos' && coleccion !== 'planes' && !registroDentroDelAlcance(
+      procesosAsignados,
+      subprocesosAsignados,
+      procesoRegistro,
+      subprocesosRegistro
+    )) {
+      return sendError(res, 'El registro debe pertenecer a un proceso y subproceso asignados.', 403);
     }
 
     if (coleccion === 'hallazgos' && (!normalizar(registro.titulo) || !normalizar(registro.idInforme) || !procesoRegistro)) {
@@ -86,8 +89,6 @@ export default async function handler(req, res) {
         const items = [];
         let siguienteId = registrosActuales.reduce((maximo, item) => Math.max(maximo, Number(item?.id) || 0), 0) + 1;
         const email = normalizar(user.email);
-        const procesoPerfil = normalizar(perfil.procesoAsignado || user.procesoAsignado);
-        const subprocesoPerfil = normalizar(perfil.subprocesoAsignado);
 
         for (const item of registro.items) {
           const hallazgo = hallazgos.find(candidate => String(candidate.id) === String(item.idHallazgo));
@@ -99,11 +100,13 @@ export default async function handler(req, res) {
           const subprocesosHallazgo = (Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso])
             .map(normalizar);
           const creadoPorUsuario = normalizar(hallazgo.correoCreador || hallazgo.creadoPor) === email;
-          const perteneceAlAlcance = Boolean(
-            procesoPerfil && procesoHallazgo === procesoPerfil &&
-            (!subprocesoPerfil || subprocesosHallazgo.includes(subprocesoPerfil))
+          const perteneceProcesoAsignado = procesosAsignados.length > 0 && registroDentroDelAlcance(
+            procesosAsignados,
+            subprocesosAsignados,
+            procesoHallazgo,
+            subprocesosHallazgo
           );
-          if (!admin && !creadoPorUsuario && !perteneceAlAlcance) {
+          if (!admin && !creadoPorUsuario && !perteneceProcesoAsignado) {
             return { error: 'hallazgo-forbidden' };
           }
           if (!normalizar(item.accion)) return { error: 'invalid-action' };
@@ -119,7 +122,6 @@ export default async function handler(req, res) {
           ) return { error: 'invalid-email-confirmation' };
 
           const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
-
           items.push({
             ...datosPlan,
             id: siguienteId++,
@@ -150,7 +152,7 @@ export default async function handler(req, res) {
         }, 0) + 1;
         nuevoRegistro = {
           ...registro,
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           ref: `${prefijo}${String(consecutivo).padStart(3, '0')}`,
           correoCreador: user.email,
           creadoPor: user.email,
