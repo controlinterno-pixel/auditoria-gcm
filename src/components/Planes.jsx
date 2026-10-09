@@ -87,7 +87,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
 
   // Calculamos las coincidencias en tiempo real
   const hallazgosPorId = useMemo(
-    () => new Map(safeHallazgos.map(hallazgo => [hallazgo.id, hallazgo])),
+    () => new Map(safeHallazgos.map(hallazgo => [String(hallazgo.id), hallazgo])),
     [safeHallazgos]
   );
 
@@ -108,7 +108,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const planesMatch = useMemo(() => {
     if (textoBuscado.length === 0) return [];
     return safePlanes.filter(p => {
-      const procesoPlan = hallazgosPorId.get(p.idHallazgo)?.proceso || '';
+      const procesoPlan = hallazgosPorId.get(String(p.idHallazgo))?.proceso || '';
       const strId = p.id.toString();
       if (digitosBuscados && strId.endsWith(digitosBuscados)) return true;
       if (numBuscado !== null && strId.length >= 4) {
@@ -207,14 +207,17 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const fechaActualInicioDia = new Date();
   fechaActualInicioDia.setHours(0, 0, 0, 0);
   const timestampInicioDia = fechaActualInicioDia.getTime();
-  const planesEnriquecidos = useMemo(() => safePlanes.map(p => {
-    const hallazgo = hallazgosPorId.get(p.idHallazgo) || {};
+  const planesEnriquecidos = useMemo(() => safePlanes.flatMap(p => {
+    const hallazgo = hallazgosPorId.get(String(p.idHallazgo));
+    const idInforme = hallazgo?.idInforme || p.idInforme;
+    const informeExiste = idInforme && informesAuditoria.some(informe => String(informe.id) === String(idInforme));
+    if (!hallazgo || !informeExiste) return [];
     const limite = p.fecha ? new Date(`${p.fecha}T00:00:00`) : null;
     const esVencido = p.progreso < 100 && limite && limite.getTime() < timestampInicioDia;
 
-    return {
+    return [{
       ...p,
-      idInforme: hallazgo.idInforme,
+      idInforme,
       proceso: hallazgo.proceso || 'General',
       subproceso: hallazgo.subproceso || 'General',
       subprocesos: Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso || 'General'],
@@ -222,8 +225,8 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
       severidad: hallazgo.severidad || 'Medio',
       esVencido,
       anioTexto: p.fecha ? p.fecha.split('-')[0] : 'Sin Fecha'
-    };
-  }), [safePlanes, hallazgosPorId, timestampInicioDia]);
+    }];
+  }), [safePlanes, hallazgosPorId, informesAuditoria, timestampInicioDia]);
 
   useEffect(() => {
     if (String(revisionInformeId) !== String(reviewReportId)) return;

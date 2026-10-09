@@ -4,8 +4,8 @@ import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
 
 import Configuracion from './components/Configuracion';
-import Incidentes from './components/Incidentes';
 import Hallazgos from './components/Hallazgos';
+import Incidentes from './components/Incidentes';
 import Planes from './components/Planes';
 import Trazabilidad from './components/Trazabilidad';
 import Evaluaciones from './components/Evaluaciones';
@@ -211,9 +211,38 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     const [targetList, setTarget] = mapLists[listType] || [];
     if (targetList && setTarget) {
       const updated = targetList.filter(item => item.id !== id);
+      if (listType === 'hallazgos' || listType === 'informesAuditoria') {
+        const hallazgosEliminados = listType === 'informesAuditoria'
+          ? safeHallazgos.filter(hallazgo => String(hallazgo.idInforme) === String(id))
+          : safeHallazgos.filter(hallazgo => String(hallazgo.id) === String(id));
+        const idsHallazgosEliminados = new Set(hallazgosEliminados.map(hallazgo => String(hallazgo.id)));
+        const hallazgosActualizados = listType === 'informesAuditoria'
+          ? safeHallazgos.filter(hallazgo => String(hallazgo.idInforme) !== String(id))
+          : safeHallazgos;
+        const planesActualizados = safePlanes.filter(plan => (
+          listType === 'informesAuditoria'
+            ? String(plan.idInforme || '') !== String(id) && !idsHallazgosEliminados.has(String(plan.idHallazgo))
+            : String(plan.idHallazgo) !== String(id)
+        ));
+        const guardado = await saveToCloud({
+          [listType]: updated,
+          ...(listType === 'informesAuditoria' ? { hallazgos: hallazgosActualizados } : {}),
+          planes: planesActualizados,
+        });
+        if (!guardado) {
+          showNotification('No se pudo eliminar el registro y sus planes vinculados.', 'error');
+          return;
+        }
+        setTarget(updated);
+        if (listType === 'informesAuditoria') setHallazgos(hallazgosActualizados);
+        setPlanes(planesActualizados);
+        showNotification(`Registro eliminado. ${safePlanes.length - planesActualizados.length} plan(es) vinculado(s) eliminado(s).`, 'success');
+        return;
+      }
+
       setTarget(updated);
       await saveToCloud({ [listType]: updated });
-      showNotification("Registro eliminado.", "success");
+      showNotification('Registro eliminado.', 'success');
     }
   };
 
