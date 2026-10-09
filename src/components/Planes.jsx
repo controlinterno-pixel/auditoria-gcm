@@ -237,8 +237,15 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     const query = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
   }, [revisionInformeId, reviewReportId]);
+  const correoUsuarioActual = String(user?.email || '').trim().toLowerCase();
+  const puedeReclamarPlan = useCallback(plan => Boolean(
+    correoUsuarioActual && [plan?.correoRevisor, plan?.correoAuditor]
+      .some(correo => String(correo || '').trim().toLowerCase() === correoUsuarioActual)
+  ), [correoUsuarioActual]);
+
 // 🚨 Filtros para Banners de Alerta (Preventivos y Vencidos)
   const planesEnAlerta = useMemo(() => planesEnriquecidos.filter(p => {
+    if (!puedeReclamarPlan(p)) return false;
     if (p.progreso === 100 || !p.fecha) return false;
     if (p.esVencido) return false; 
     const hoy = new Date(timestampInicioDia);
@@ -250,15 +257,17 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
       if (tempDate.getDay() !== 0 && tempDate.getDay() !== 6) diasFaltantes++;
     }
     return diasFaltantes >= 0 && diasFaltantes <= 2;
-  }), [planesEnriquecidos, timestampInicioDia]);
+  }), [planesEnriquecidos, timestampInicioDia, puedeReclamarPlan]);
 
   const planesVencidosNotificables = useMemo(
-    () => planesEnriquecidos.filter(p => p.esVencido),
-    [planesEnriquecidos]
+    () => planesEnriquecidos.filter(p => p.esVencido && puedeReclamarPlan(p)),
+    [planesEnriquecidos, puedeReclamarPlan]
   );
 
 // 🕒 Registrar envío de recordatorio en la trazabilidad del plan
 const handleNotificarPlan = (planId) => {
+  const planNotificable = safePlanes.find(plan => String(plan.id) === String(planId));
+  if (!puedeReclamarPlan(planNotificable)) return;
   const ts = new Date().toLocaleString();
   const updated = safePlanes.map(p => {
     if (p.id === planId) {
@@ -267,7 +276,7 @@ const handleNotificarPlan = (planId) => {
         ultimoRecordatorio: ts,
         historialCambios: [
           ...(p.historialCambios || []), 
-          { fecha: ts, usuario: 'Auditor', accion: 'Recordatorio de vencimiento enviado por correo' }
+          { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Recordatorio de vencimiento enviado por correo' }
         ]
       };
     }
@@ -1791,7 +1800,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             {/* 📧 ACCIÓN: BOTÓN DE RECLAMO Y AVANCE */}
             <td className="py-2.5 text-right font-black flex items-center justify-end space-x-2">
               <span>{p.progreso}%</span>
-              {p.esVencido && (
+              {p.esVencido && puedeReclamarPlan(p) && (
                 <a 
                   href={`https://mail.google.com/mail/?view=cm&fs=1&to=${p.correoResponsable || ''}&su=${asuntoReclamo}&body=${cuerpoReclamo}`}
                   target="_blank"
