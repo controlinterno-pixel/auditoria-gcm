@@ -233,6 +233,11 @@ export const apiService = {
     body: { id },
   }),
 
+  obtenerCorreosCargos: (asignaciones) => request('/api/grc/catalogo-cargos', {
+    method: 'POST',
+    body: { asignaciones },
+  }),
+
   // 🔑 AUTENTICACIÓN Y SESIÓN
   checkSession: () => request('/api/auth/me'),
   

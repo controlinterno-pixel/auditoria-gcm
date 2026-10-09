@@ -20,6 +20,9 @@ const convertirSubprocesosLista = valores => (
     ? valores.map(valor => String(valor || '').trim()).filter(Boolean)
     : String(valores || '').split(',').map(valor => valor.trim()).filter(Boolean)
 );
+const claveCorreoCargo = (cargo, macroproceso, subprocesos) => (
+  `${normalizarCatalogo(cargo)}|${normalizarCatalogo(macroproceso)}|${convertirSubprocesosLista(subprocesos).map(normalizarCatalogo).sort().join('|')}`
+);
 const obtenerCorreoCargoCatalogo = (catalogoCargos, cargo, macroproceso, subproceso) => {
   const cargoNormalizado = normalizarCatalogo(cargo);
   const macroNormalizado = normalizarCatalogo(macroproceso);
@@ -65,6 +68,7 @@ export default function InformesAuditoria({
 
   // 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
+  const [correosCargosResueltos, setCorreosCargosResueltos] = useState({});
   const [participanteTemp, setParticipanteTemp] = useState('');
 const [subprocesosAbiertos, setSubprocesosAbiertos] = useState(false); // ✨ NUEVO ESTADO PARA EL DROPDOWN
   // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
@@ -740,46 +744,88 @@ const handleFileUpload = async (e, type) => {
 
   useEffect(() => {
     if (editInformeAuditoria || !draftInforme.auditorResponsable) return;
-    const correo = obtenerCorreoCargoCatalogo(
+    const cargo = draftInforme.auditorResponsable;
+    const macroproceso = draftInforme.proceso || macroprocesoForm;
+    const subprocesos = draftInforme.subprocesos ?? draftInforme.subproceso;
+    const correoLocal = obtenerCorreoCargoCatalogo(
       catalogoCargos,
-      draftInforme.auditorResponsable,
-      draftInforme.proceso || macroprocesoForm,
-      draftInforme.subprocesos ?? draftInforme.subproceso
+      cargo,
+      macroproceso,
+      subprocesos
     );
-    if (correo === draftInforme.correoAuditor) return;
+    const clave = claveCorreoCargo(cargo, macroproceso, subprocesos);
+    const correo = correoLocal || correosCargosResueltos[clave];
+    if (correo) {
+      if (correo === draftInforme.correoAuditor) return;
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setDraftInforme(prev => prev.auditorResponsable === cargo ? { ...prev, correoAuditor: correo } : prev);
+      /* eslint-enable react-hooks/set-state-in-effect */
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(correosCargosResueltos, clave)) return;
 
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setDraftInforme(prev => prev.correoAuditor === correo ? prev : { ...prev, correoAuditor: correo });
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [catalogoCargos, draftInforme.auditorResponsable, draftInforme.correoAuditor, draftInforme.proceso, draftInforme.subproceso, draftInforme.subprocesos, editInformeAuditoria, macroprocesoForm]);
+    let activo = true;
+    apiService.obtenerCorreosCargos([{ cargo, macroproceso, subprocesos }])
+      .then(respuesta => {
+        if (!activo) return;
+        const correoRemoto = String(respuesta?.asignaciones?.[0]?.correoCorporativo || '').trim();
+        setCorreosCargosResueltos(prev => ({ ...prev, [clave]: correoRemoto }));
+        if (correoRemoto) {
+          setDraftInforme(prev => prev.auditorResponsable === cargo ? { ...prev, correoAuditor: correoRemoto } : prev);
+        }
+      })
+      .catch(error => console.error('No se pudo consultar el correo del auditor:', error));
+
+    return () => { activo = false; };
+  }, [catalogoCargos, correosCargosResueltos, draftInforme.auditorResponsable, draftInforme.correoAuditor, draftInforme.proceso, draftInforme.subproceso, draftInforme.subprocesos, editInformeAuditoria, macroprocesoForm]);
 
   useEffect(() => {
     if (editInformeAuditoria || participantesMultiples.length === 0) return;
-    const correosParticipantes = [...new Set(participantesMultiples.map(cargo => (
-      obtenerCorreoCargoCatalogo(
-        catalogoCargos,
-        cargo,
-        draftInforme.proceso || macroprocesoForm,
-        draftInforme.subprocesos ?? draftInforme.subproceso
-      )
-    )).filter(Boolean))];
-    if (correosParticipantes.length === 0) return;
+    const macroproceso = draftInforme.proceso || macroprocesoForm;
+    const subprocesos = draftInforme.subprocesos ?? draftInforme.subproceso;
+    const solicitudes = participantesMultiples
+      .filter(cargo => !obtenerCorreoCargoCatalogo(catalogoCargos, cargo, macroproceso, subprocesos))
+      .filter(cargo => !Object.prototype.hasOwnProperty.call(
+        correosCargosResueltos,
+        claveCorreoCargo(cargo, macroproceso, subprocesos)
+      ))
+      .map(cargo => ({ cargo, macroproceso, subprocesos }));
+    if (solicitudes.length === 0) return;
 
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setDraftInforme(prev => {
-      const correosActuales = String(prev.correosNotificacionInput || '')
-        .split(/[;,\n]/)
-        .map(correo => correo.trim())
-        .filter(Boolean);
-      const correosNuevos = correosParticipantes.filter(correo => (
-        !correosActuales.some(actual => actual.toLowerCase() === correo.toLowerCase())
-      ));
-      return correosNuevos.length > 0
-        ? { ...prev, correosNotificacionInput: [...correosActuales, ...correosNuevos].join(', ') }
-        : prev;
-    });
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [catalogoCargos, draftInforme.proceso, draftInforme.subproceso, draftInforme.subprocesos, editInformeAuditoria, macroprocesoForm, participantesMultiples]);
+    let activo = true;
+    apiService.obtenerCorreosCargos(solicitudes)
+      .then(respuesta => {
+        if (!activo) return;
+        const asignaciones = Array.isArray(respuesta?.asignaciones) ? respuesta.asignaciones : [];
+        const correosNuevos = [];
+        setCorreosCargosResueltos(prev => {
+          const siguientes = { ...prev };
+          asignaciones.forEach(asignacion => {
+            const correo = String(asignacion?.correoCorporativo || '').trim();
+            siguientes[claveCorreoCargo(asignacion.cargo, asignacion.macroproceso, asignacion.subprocesos)] = correo;
+            if (correo) correosNuevos.push(correo);
+          });
+          return siguientes;
+        });
+        if (correosNuevos.length > 0) {
+          setDraftInforme(prev => {
+            const correosActuales = String(prev.correosNotificacionInput || '')
+              .split(/[;,\n]/)
+              .map(correo => correo.trim())
+              .filter(Boolean);
+            const agregar = [...new Set(correosNuevos)].filter(correo => (
+              !correosActuales.some(actual => actual.toLowerCase() === correo.toLowerCase())
+            ));
+            return agregar.length > 0
+              ? { ...prev, correosNotificacionInput: [...correosActuales, ...agregar].join(', ') }
+              : prev;
+          });
+        }
+      })
+      .catch(error => console.error('No se pudieron consultar los correos de participantes:', error));
+
+    return () => { activo = false; };
+  }, [catalogoCargos, correosCargosResueltos, draftInforme.proceso, draftInforme.subproceso, draftInforme.subprocesos, editInformeAuditoria, macroprocesoForm, participantesMultiples]);
 
   const agregarParticipanteSocializacion = () => {
     if (!participanteTemp || participantesMultiples.includes(participanteTemp)) {
@@ -819,7 +865,14 @@ const handleFileUpload = async (e, type) => {
     cargo,
     draftInforme.proceso || macroprocesoForm,
     draftInforme.subprocesos ?? draftInforme.subproceso
-  ));
+  ) && Object.prototype.hasOwnProperty.call(
+    correosCargosResueltos,
+    claveCorreoCargo(cargo, draftInforme.proceso || macroprocesoForm, draftInforme.subprocesos ?? draftInforme.subproceso)
+  ) && !correosCargosResueltos[claveCorreoCargo(
+    cargo,
+    draftInforme.proceso || macroprocesoForm,
+    draftInforme.subprocesos ?? draftInforme.subproceso
+  )]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

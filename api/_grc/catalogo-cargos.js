@@ -5,11 +5,16 @@ import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
-const normalizar = valor => String(valor || '').trim().toLowerCase();
+const normalizar = valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const subprocesosDelCargo = registro => (
+  Array.isArray(registro?.subprocesos)
+    ? registro.subprocesos
+    : registro?.subproceso ? [registro.subproceso] : []
+);
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
-  if (req.method !== 'DELETE') return sendError(res, 'Método no permitido.', 405);
+  if (req.method !== 'DELETE' && req.method !== 'POST') return sendError(res, 'Método no permitido.', 405);
 
   try {
     const user = await requireAuth(req, res);
@@ -17,7 +22,51 @@ export default async function handler(req, res) {
 
     const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
     const perfil = perfilSnap.exists ? perfilSnap.data() : {};
-    if (!ROLES_ADMIN.includes(normalizar(perfil.rol))) {
+    const esAdmin = ROLES_ADMIN.includes(normalizar(perfil.rol));
+
+    if (req.method === 'POST') {
+      const permisos = Array.isArray(perfil.permisos) ? perfil.permisos : [];
+      if (!esAdmin && !permisos.includes('sub_informes')) {
+        return sendError(res, 'No tiene permiso para consultar destinatarios de informes.', 403);
+      }
+
+      const solicitudes = req.body?.asignaciones;
+      if (!Array.isArray(solicitudes) || solicitudes.length === 0 || solicitudes.length > 100) {
+        return sendError(res, 'Debe indicar entre 1 y 100 cargos para consultar.', 400);
+      }
+
+      const snapshot = await adminDb.collection('workspace_compartido').doc('base_de_datos_grc').get();
+      const catalogo = snapshot.exists && Array.isArray(snapshot.data()?.catalogoCargos)
+        ? snapshot.data().catalogoCargos
+        : [];
+      const asignaciones = solicitudes.map(solicitud => {
+        const cargo = String(solicitud?.cargo || '').trim();
+        const macroproceso = normalizar(solicitud?.macroproceso);
+        const subprocesos = Array.isArray(solicitud?.subprocesos)
+          ? solicitud.subprocesos.map(normalizar)
+          : [normalizar(solicitud?.subprocesos)];
+        const candidatos = catalogo.filter(registro => (
+          registro?.activo !== false &&
+          normalizar(registro?.cargo) === normalizar(cargo) &&
+          String(registro?.correoCorporativo || '').trim()
+        ));
+        const porMacroproceso = candidatos.filter(registro => normalizar(registro.macroproceso) === macroproceso);
+        const asignacion = porMacroproceso.find(registro => (
+          subprocesosDelCargo(registro).some(subproceso => subprocesos.includes(normalizar(subproceso)))
+        )) || porMacroproceso[0] || candidatos[0];
+
+        return {
+          cargo,
+          macroproceso: solicitud?.macroproceso || '',
+          subprocesos: solicitud?.subprocesos || [],
+          correoCorporativo: String(asignacion?.correoCorporativo || '').trim(),
+        };
+      });
+
+      return sendSuccess(res, { asignaciones });
+    }
+
+    if (!esAdmin) {
       return sendError(res, 'Solo un administrador puede eliminar cargos del catálogo.', 403);
     }
 
