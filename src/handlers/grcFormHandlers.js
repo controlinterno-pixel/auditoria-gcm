@@ -56,6 +56,7 @@ export const createFormHandlers = ({
   ejecutarDespachoGmailApi,
   crearRegistroGrc,
   actualizarInformeGrc,
+  actualizarHallazgoGrc,
   registrarCorreoInforme,
   defaultMeses
 }) => {
@@ -118,10 +119,6 @@ export const createFormHandlers = ({
 
  const handleHallazgoSubmit = async (e) => {
     e.preventDefault(); 
-    if (!isAdmin && editHallazgo) {
-      showNotification('Solo un administrador puede editar hallazgos existentes.', 'error');
-      return false;
-    }
     const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     const hoy = new Date();
@@ -158,9 +155,10 @@ export const createFormHandlers = ({
     const detalleFuenteVal = formData.get('detalleFuente') || editHallazgo?.detalleFuente || '';
 
     let updated;
+    let hallazgoModificado = null;
     let nuevoHallazgo = null;
     if (editHallazgo) {
-      const mod = { 
+      hallazgoModificado = { 
         ...editHallazgo, 
         idInforme: formData.get('idInforme') || '', 
         sede: formData.get('sede'), 
@@ -183,7 +181,7 @@ export const createFormHandlers = ({
         claseObservacion: formData.get('claseObservacion') || 'Oportunidad de Mejora', 
         historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
       };
-      updated = safeHallazgos.map(h => String(h.id) === String(editHallazgo.id) ? mod : h);
+      updated = safeHallazgos.map(h => String(h.id) === String(editHallazgo.id) ? hallazgoModificado : h);
     } else {
       nuevoHallazgo = { 
         id: Date.now(), 
@@ -215,7 +213,18 @@ export const createFormHandlers = ({
       updated = [...safeHallazgos, nuevoHallazgo];
     }
 
-    if (isAdmin) {
+    if (editHallazgo && !isAdmin) {
+      try {
+        const respuesta = await actualizarHallazgoGrc(editHallazgo.id, hallazgoModificado);
+        if (!respuesta?.registro) return false;
+        setHallazgos(prev => (Array.isArray(prev) ? prev : []).map(hallazgo => (
+          String(hallazgo.id) === String(editHallazgo.id) ? respuesta.registro : hallazgo
+        )));
+      } catch (error) {
+        showNotification(error.message || 'No se pudo actualizar el hallazgo.', 'error');
+        return false;
+      }
+    } else if (isAdmin) {
       const guardado = await saveToCloud({ hallazgos: updated });
       if (!guardado) {
         showNotification('No se pudo guardar el hallazgo.', 'error');

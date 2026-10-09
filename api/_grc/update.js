@@ -13,6 +13,12 @@ const CAMPOS_EDITABLES = [
   'fecha_socializacion', 'socializadoCon', 'participantes', 'evidenciaUrl',
   'actaSocializacionUrl', 'anexos', 'anexosMultiples', 'correoEnviadoA',
 ];
+const CAMPOS_EDITABLES_HALLAZGO = [
+  'sede', 'proceso', 'subproceso', 'subprocesos', 'responsable', 'auditor',
+  'normaReferencia', 'tipoFuente', 'detalleFuente', 'metodologiaCausa',
+  'analisisCausa', 'titulo', 'severidad', 'evidenciaUrl', 'evidencias',
+  'causa', 'claseObservacion',
+];
 const CAMPOS_EDITABLES_PLAN = [
   'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion', 'progreso',
   'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
@@ -255,8 +261,8 @@ export default async function handler(req, res) {
       return sendSuccess(res, resultado);
     }
 
-    if (coleccion !== 'informesAuditoria' || !id) {
-      return sendError(res, 'El informe indicado no es válido.', 400);
+    if (!['informesAuditoria', 'hallazgos'].includes(coleccion) || !id) {
+      return sendError(res, 'El registro indicado no es válido.', 400);
     }
     if (!registro || typeof registro !== 'object' || Array.isArray(registro)) {
       return sendError(res, 'Los cambios enviados no son válidos.', 400);
@@ -269,6 +275,80 @@ export default async function handler(req, res) {
     const perfil = perfilSnap.exists ? perfilSnap.data() : {};
     const admin = ROLES_ADMIN.includes(normalizar(perfil.rol));
     const permisos = Array.isArray(perfil.permisos) ? perfil.permisos : [];
+
+    if (coleccion === 'hallazgos') {
+      if (!admin && !permisos.includes('sub_hallazgos')) {
+        return sendError(res, 'No tiene permiso para editar hallazgos.', 403);
+      }
+
+      const cambios = Object.fromEntries(
+        CAMPOS_EDITABLES_HALLAZGO.filter(campo => Object.hasOwn(registro, campo))
+          .map(campo => [campo, registro[campo]])
+      );
+      if (!normalizar(cambios.titulo) || !obtenerProceso(cambios)) {
+        return sendError(res, 'El título y el proceso del hallazgo son obligatorios.', 400);
+      }
+      const subprocesosActualizados = subprocesosDe(cambios);
+      if (subprocesosActualizados.length === 0) {
+        return sendError(res, 'El hallazgo debe tener al menos un subproceso.', 400);
+      }
+
+      const resultado = await adminDb.runTransaction(async transaction => {
+        const workspace = await leerWorkspaceGrc(transaction);
+        if (!workspace.workspaceExists) return { error: 'not-found' };
+        const { data, workspaceRef } = workspace;
+        const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+        const anterior = hallazgos.find(hallazgo => String(hallazgo.id) === String(id));
+        if (!anterior) return { error: 'not-found' };
+
+        const autor = normalizar(
+          anterior.correoCreador || anterior.creadoPor || anterior.historialCambios?.[0]?.usuario
+        );
+        if (!admin && autor !== normalizar(user.email)) return { error: 'forbidden' };
+
+        const camposCambiados = Object.keys(cambios).filter(campo => (
+          JSON.stringify(anterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
+        ));
+        const historial = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
+        const ahora = new Date();
+        const actualizado = {
+          ...anterior,
+          ...cambios,
+          id: anterior.id,
+          ref: anterior.ref,
+          idInforme: anterior.idInforme,
+          correoCreador: anterior.correoCreador || anterior.creadoPor || user.email,
+          creadoPor: anterior.creadoPor || anterior.correoCreador || user.email,
+          historialCambios: camposCambiados.length ? [
+            ...historial,
+            {
+              fecha: ahora.toLocaleString('es-CO'),
+              timestamp: ahora.toISOString(),
+              usuario: user.email,
+              accion: 'Hallazgo actualizado por su creador',
+              detalleCambios: camposCambiados.map(campo => ({
+                campo,
+                antes: anterior[campo] ?? '',
+                despues: cambios[campo] ?? '',
+              })),
+            },
+          ] : historial,
+        };
+        transaction.set(workspaceRef, {
+          hallazgos: hallazgos.map(hallazgo => (
+            String(hallazgo.id) === String(id) ? actualizado : hallazgo
+          )),
+        }, { merge: true });
+        return { registro: actualizado };
+      });
+
+      if (resultado.error === 'not-found') return sendError(res, 'No se encontró el hallazgo.', 404);
+      if (resultado.error === 'forbidden') return sendError(res, 'Solo el creador o un administrador puede editar este hallazgo.', 403);
+
+      logger.info('Hallazgo actualizado', { id, usuario: user.email });
+      return sendSuccess(res, resultado);
+    }
+
     if (!admin && !permisos.includes('sub_informes')) {
       return sendError(res, 'No tiene permiso para editar informes.', 403);
     }

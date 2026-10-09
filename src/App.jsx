@@ -310,6 +310,7 @@ const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.ema
     saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses,
     crearRegistroGrc: apiService.crearRegistroGrc,
     actualizarInformeGrc: apiService.actualizarInformeGrc,
+    actualizarHallazgoGrc: apiService.actualizarHallazgoGrc,
     registrarCorreoInforme: apiService.registrarCorreoInforme
   }), [
     user, isAdmin, safeRiesgos, safeHallazgos, safePlanes, safeEvaluaciones, safeComites, safeIncidentes, safeCronograma, safeMonitoreo, informesAuditoria,
@@ -605,6 +606,7 @@ return (
                 {subTabResultados === 'hallazgos' && (
                   <Hallazgos 
                     isAdmin={isAdmin} 
+                    user={user}
                     puedeCrearHallazgos={puedeCrearHallazgos}
                     safeRiesgos={safeRiesgos} 
                     informesAuditoria={informesAuditoria} 

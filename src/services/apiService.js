@@ -273,6 +273,11 @@ export const apiService = {
     body: { coleccion: 'informesAuditoria', id, registro, motivo }
   }),
 
+  actualizarHallazgoGrc: (id, registro) => request('/api/grc/update', {
+    method: 'PUT',
+    body: { coleccion: 'hallazgos', id, registro },
+  }),
+
   guardarMatrizPlanes: (registro) => request('/api/grc/update', {
     method: 'PUT',
     body: { coleccion: 'planes', registro }

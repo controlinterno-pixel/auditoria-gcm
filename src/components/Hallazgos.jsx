@@ -15,6 +15,7 @@ const convertirSubprocesosEnLista = subprocesos => (
 
 export default function Hallazgos({
   isAdmin,
+  user = null,
   puedeCrearHallazgos = false,
   safeRiesgos = [],
   informesAuditoria = [], 
@@ -35,6 +36,14 @@ export default function Hallazgos({
   exportToExcel
 }) {
   const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
+  const correoUsuarioActual = String(user?.email || '').trim().toLowerCase();
+  const puedeEditarHallazgo = hallazgo => isAdmin || Boolean(
+    correoUsuarioActual && [
+      hallazgo?.correoCreador,
+      hallazgo?.creadoPor,
+      hallazgo?.historialCambios?.[0]?.usuario,
+    ].some(correo => String(correo || '').trim().toLowerCase() === correoUsuarioActual)
+  );
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
@@ -1424,7 +1433,7 @@ export default function Hallazgos({
                                         👁️ Ver
                                       </button>
                                       <span className="text-slate-200">|</span>
-                                      {isAdmin && (
+                                      {puedeEditarHallazgo(h) && (
                                         <button 
                                           type="button"
                                           onClick={() => {
