@@ -23,6 +23,49 @@ function normalizarProceso(valor) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function serializarEvaluacion(plan) {
+  return JSON.stringify({
+    evaluacionHolistica: plan?.evaluacionHolistica ?? null,
+    historialEvaluaciones: plan?.historialEvaluaciones ?? null,
+  });
+}
+
+async function usuarioPuedeEvaluarPlanes(partialData, user) {
+  if (!Array.isArray(partialData.planes)) return true;
+
+  const { data } = await leerWorkspaceGrc();
+  const planesGuardados = Array.isArray(data.planes) ? data.planes : [];
+  const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+  const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+  const hallazgosPorId = new Map(hallazgos.map(hallazgo => [String(hallazgo.id), hallazgo]));
+  const planesPorId = new Map(planesGuardados.map(plan => [String(plan.id), plan]));
+  const correoUsuario = String(user?.email || '').trim().toLowerCase();
+
+  for (const planActualizado of partialData.planes) {
+    const planGuardado = planesPorId.get(String(planActualizado?.id));
+    if (serializarEvaluacion(planGuardado) === serializarEvaluacion(planActualizado)) continue;
+    if (!planGuardado) return false;
+
+    const hallazgo = hallazgosPorId.get(String(planGuardado.idHallazgo));
+    const idInforme = hallazgo?.idInforme || planGuardado.idInforme;
+    const informe = informes.find(item => String(item.id) === String(idInforme));
+    if (informe?.tipoFuente !== 'Programa de Auditoría' || !informe?.programaId) return false;
+
+    const correoInforme = String(informe.correoAuditor || informe.correoAuditorResponsable || '').trim().toLowerCase();
+    const correosPlanes = [...new Set(planesGuardados
+      .filter(plan => {
+        const hallazgoPlan = hallazgosPorId.get(String(plan.idHallazgo));
+        return String(hallazgoPlan?.idInforme || plan.idInforme) === String(idInforme);
+      })
+      .map(plan => String(plan.correoAuditor || '').trim().toLowerCase())
+      .filter(Boolean))];
+    const correoAsignado = correoInforme || (correosPlanes.length === 1 ? correosPlanes[0] : '');
+    if (!correoUsuario || !correoAsignado || correoUsuario !== correoAsignado) return false;
+  }
+
+  return true;
+}
+
 /**
  * Motor ABAC / RLS Avanzado: Filtra colecciones garantizando que el usuario solo vea
  * lo que le corresponde por Correo, Cargo o Proceso.
@@ -196,6 +239,11 @@ export default async function handler(req, res) {
 
       if (!partialData || typeof partialData !== 'object' || Array.isArray(partialData)) {
         return sendError(res, 'Estructura de datos (partialData) inválida o ausente.', 400);
+      }
+
+      if (!(await usuarioPuedeEvaluarPlanes(partialData, user))) {
+        logger.warn('Intento de evaluación de plan sin asignación autorizada', { usuario: user.email });
+        return sendError(res, 'Solo el auditor asignado puede evaluar planes vinculados a un programa de auditoría.', 403);
       }
 
       await guardarWorkspaceParcial(partialData);

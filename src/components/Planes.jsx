@@ -196,6 +196,39 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const dictamenRef = useRef(null);
   const [criterios, setCriterios] = useState({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   const [justificacion, setJustificacion] = useState('');
+
+  const obtenerCorreoAuditorEvaluador = (informe, planes = []) => {
+    const correoInforme = String(informe?.correoAuditor || informe?.correoAuditorResponsable || '').trim().toLowerCase();
+    if (correoInforme) return correoInforme;
+
+    const correosPlanes = [...new Set(planes
+      .map(plan => String(plan?.correoAuditor || '').trim().toLowerCase())
+      .filter(Boolean))];
+    return correosPlanes.length === 1 ? correosPlanes[0] : '';
+  };
+
+  const esFuenteProgramaAuditoria = informe => (
+    informe?.tipoFuente === 'Programa de Auditoría' && Boolean(informe?.programaId)
+  );
+
+  const esAuditorAsignadoEvaluador = (informe, planes = []) => {
+    const correoActual = String(user?.email || '').trim().toLowerCase();
+    const correoAsignado = obtenerCorreoAuditorEvaluador(informe, planes);
+    return Boolean(correoActual && correoAsignado && correoActual === correoAsignado);
+  };
+
+  const iniciarEvaluacionIntegral = (informe, planes) => {
+    if (!esFuenteProgramaAuditoria(informe) || !esAuditorAsignadoEvaluador(informe, planes)) return;
+    setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
+    setJustificacion('');
+    setModalEval({
+      activo: true,
+      idInforme: informe.id,
+      planes,
+      totalActividades: planes.length,
+      isReadOnly: false,
+    });
+  };
   
   // 🛡️ Salvaguarda: Si el registro es viejo y no tiene criterios, usa 100 por defecto para no romper React
   const safeCriterios = criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 };
@@ -228,6 +261,17 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
       anioTexto: p.fecha ? p.fecha.split('-')[0] : 'Sin Fecha'
     }];
   }), [safePlanes, hallazgosPorId, informesAuditoria, timestampInicioDia]);
+
+  const evaluacionesIntegralesPendientes = informesAuditoria.flatMap(informe => {
+    if (!esFuenteProgramaAuditoria(informe)) return [];
+    const planes = planesEnriquecidos.filter(plan => String(plan.idInforme) === String(informe.id));
+    if (
+      planes.length === 0 ||
+      planes.every(plan => plan.evaluacionHolistica) ||
+      !esAuditorAsignadoEvaluador(informe, planes)
+    ) return [];
+    return [{ informe, planes, actividadesPendientes: planes.filter(plan => !plan.evaluacionHolistica).length }];
+  });
 
   useEffect(() => {
     if (String(revisionInformeId) !== String(reviewReportId)) return;
@@ -851,6 +895,16 @@ const diccionarioCorreos = {
 
  // 🛡️ NUEVA FUNCIÓN: EVALUACIÓN HOLÍSTICA Y PONDERADA DEL PLAN DE ACCIÓN
   const confirmarEvaluacionHolistica = async () => {
+    const informeEvaluado = informesAuditoria.find(informe => String(informe.id) === String(modalEval.idInforme));
+    if (
+      modalEval.isReadOnly ||
+      !esFuenteProgramaAuditoria(informeEvaluado) ||
+      !esAuditorAsignadoEvaluador(informeEvaluado, modalEval.planes)
+    ) {
+      alert('❌ Solo el auditor asignado como aprobador puede evaluar este plan integral de un programa de auditoría.');
+      return;
+    }
+
     if (puntajeHolistico < 80 && justificacion.trim() === '') {
       return alert("❌ Debe proporcionar una justificación técnica detallada para rechazar el plan (Puntaje menor a 80%).");
     }
@@ -1468,6 +1522,51 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           ) */}
         </div>
       </div>
+
+      {evaluacionesIntegralesPendientes.length > 0 && (
+        <section
+          role="status"
+          aria-live="polite"
+          className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm animate-in slide-in-from-top-2 duration-300"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-black text-amber-900">
+                <span aria-hidden="true">🔔</span>
+                Evaluación integral pendiente
+                <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px]">{evaluacionesIntegralesPendientes.length}</span>
+              </h3>
+              <p className="mt-1 text-xs font-medium text-amber-800">
+                Tienes planes de programas de auditoría que requieren tu evaluación como auditor asignado.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+            {evaluacionesIntegralesPendientes.map(({ informe, planes, actividadesPendientes }) => (
+              <div
+                key={`evaluacion-pendiente-${informe.id}`}
+                className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-black text-slate-800">
+                    {informe.ref || `Informe ${informe.id}`} · {informe.titulo || 'Sin título'}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-medium text-slate-500">
+                    {actividadesPendientes} {actividadesPendientes === 1 ? 'acción pendiente' : 'acciones pendientes'} de evaluación
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => iniciarEvaluacionIntegral(informe, planes)}
+                  className="shrink-0 rounded-lg bg-[#0A3B32] px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-[#062620]"
+                >
+                  ⚖️ Diligenciar evaluación
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 🚀 VISTA 1: DASHBOARD FIEL A TU MAQUETA */}
       {vistaActiva === 'dashboard' && (
@@ -2791,7 +2890,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           </table>
                           
                          {/* ⚖️ BOTÓN MAESTRO DE EVALUACIÓN HOLÍSTICA (DISEÑO Y MEMORIA) */}
-                          {planesDelInforme.length > 0 && isAdmin && (() => {
+                          {planesDelInforme.length > 0 &&
+                            esFuenteProgramaAuditoria(informeBase) &&
+                            esAuditorAsignadoEvaluador(informeBase, planesDelInforme) && (() => {
                             const planConEval = planesDelInforme.find(p => p.evaluacionHolistica);
                             const evalGuardada = planConEval ? planConEval.evaluacionHolistica : null;
 
