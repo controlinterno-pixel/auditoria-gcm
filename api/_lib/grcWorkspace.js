@@ -39,6 +39,12 @@ export async function leerWorkspaceGrc(transaction = null) {
   const informesBase = Array.isArray(informesSeparados) ? informesSeparados : informesLegados;
   const informesCombinados = [...informesBase, ...informesIndependientes];
 
+  // 🛡️ DEDUPLICACIÓN EN MEMORIA: Evita duplicados visuales en el frontend durante la migración
+  const mapaInformes = new Map();
+  informesCombinados.forEach(inf => {
+    if (inf && inf.id) mapaInformes.set(String(inf.id), inf);
+  });
+
   return {
     workspaceRef: refWorkspace,
     informesRef: refInformes,
@@ -47,13 +53,24 @@ export async function leerWorkspaceGrc(transaction = null) {
     tieneInformesLegados: Array.isArray(datosWorkspace.informesAuditoria),
     data: {
       ...datosWorkspace,
-      informesAuditoria: informesCombinados,
+      informesAuditoria: Array.from(mapaInformes.values()),
     },
   };
 }
 
 export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
-  transaction.set(workspace.informesRef, { informesAuditoria }, { merge: true });
+  // 🛡️ ESCRITURA FRAGMENTADA (Transacciones): Cada informe va a su propio documento.
+  if (Array.isArray(informesAuditoria)) {
+    informesAuditoria.forEach(informe => {
+      if (informe && informe.id) {
+        const docRef = workspace.coleccionInformesRef.doc(String(informe.id));
+        transaction.set(docRef, informe, { merge: true });
+      }
+    });
+  }
+
+  // 💥 DESTRUCCIÓN DEL MURO DE 1MB: Borramos el mega-arreglo heredado
+  transaction.set(workspace.informesRef, { informesAuditoria: FieldValue.delete() }, { merge: true });
   if (workspace.tieneInformesLegados) {
     transaction.set(workspace.workspaceRef, { informesAuditoria: FieldValue.delete() }, { merge: true });
   }
@@ -62,29 +79,63 @@ export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
 export async function guardarWorkspaceParcial(partialData) {
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
+  const refColeccion = coleccionInformesRef();
+  
   const [snapshotWorkspace, snapshotInformes] = await Promise.all([
     refWorkspace.get(),
     refInformes.get(),
   ]);
+  
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
-  const informesLegados = Array.isArray(datosWorkspace.informesAuditoria)
-    ? datosWorkspace.informesAuditoria
-    : null;
+  const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : null;
   const incluyeInformes = Object.hasOwn(partialData, 'informesAuditoria') && Array.isArray(partialData.informesAuditoria);
-  const informesActualizados = incluyeInformes
-    ? partialData.informesAuditoria
-    : informesLegados && !snapshotInformes.exists ? informesLegados : null;
+  
+  const informesActualizados = incluyeInformes 
+    ? partialData.informesAuditoria 
+    : (informesLegados && !snapshotInformes.exists ? informesLegados : null);
+    
   const datosRestantes = { ...partialData };
   delete datosRestantes.informesAuditoria;
 
   if (informesActualizados || incluyeInformes) {
-    const batch = adminDb.batch();
-    batch.set(refInformes, { informesAuditoria: informesActualizados || [] }, { merge: true });
-    if (Array.isArray(datosWorkspace.informesAuditoria)) {
-      datosRestantes.informesAuditoria = FieldValue.delete();
+    const listaInformes = Array.isArray(informesActualizados) ? informesActualizados : [];
+    
+    // 🛡️ CHUNKING (Lotes): Firestore permite máximo 500 escrituras por Batch.
+    // Dividimos en lotes de 400 para garantizar migraciones exitosas sin importar la cantidad.
+    const chunkSize = 400;
+    for (let i = 0; i < listaInformes.length; i += chunkSize) {
+      const chunk = listaInformes.slice(i, i + chunkSize);
+      const batch = adminDb.batch();
+      
+      chunk.forEach(informe => {
+        if (informe && informe.id) {
+          const docRef = refColeccion.doc(String(informe.id));
+          batch.set(docRef, informe, { merge: true });
+        }
+      });
+
+      // Solo en el último lote destruimos los arreglos legados
+      if (i + chunkSize >= listaInformes.length) {
+        batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
+        if (Array.isArray(datosWorkspace.informesAuditoria)) {
+          datosRestantes.informesAuditoria = FieldValue.delete();
+        }
+        batch.set(refWorkspace, datosRestantes, { merge: true });
+      }
+      
+      await batch.commit();
     }
-    batch.set(refWorkspace, datosRestantes, { merge: true });
-    await batch.commit();
+    
+    // Caso borde: Si la lista estaba vacía (borrado total de informes)
+    if (listaInformes.length === 0) {
+       const batch = adminDb.batch();
+       batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
+       if (Array.isArray(datosWorkspace.informesAuditoria)) {
+         datosRestantes.informesAuditoria = FieldValue.delete();
+       }
+       batch.set(refWorkspace, datosRestantes, { merge: true });
+       await batch.commit();
+    }
     return;
   }
 
