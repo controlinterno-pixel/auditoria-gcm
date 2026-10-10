@@ -12,7 +12,9 @@ export const requireAuth = async (req, res) => {
   }
 
   try {
-    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
+    // CAMBIO ARQUITECTÓNICO: checkForRevocation en 'false' para evitar fallos de red en cada petición.
+    // La firma de la cookie se valida criptográficamente de forma local y síncrona.
+    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, false);
     
     if (!decodedToken.email || !decodedToken.email.endsWith('@termales.com.co')) {
       res.status(403).json({ error: 'Dominio no autorizado.' });

@@ -58,13 +58,17 @@ export default async function handler(req, res) {
     const userData = userDoc.exists ? userDoc.data() : {};
 
     const origin = req.headers.origin || '';
-    const isProd = process.env.NODE_ENV === 'production' || origin.includes('vercel.app');
+    
+    // CAMBIO ARQUITECTÓNICO: Consideramos "producción" a cualquier entorno que NO sea localhost.
+    // Esto garantiza que los dominios personalizados (ej. termales.com.co) reciban la configuración estricta CORS.
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+    const isProd = process.env.NODE_ENV === 'production' || !isLocalhost;
 
     const cookieSerialized = serialize('grc_session', sessionCookie, {
       maxAge: expiresIn / 1000,
-      httpOnly: true, // 🔒 Inaccesible para scripts del lado del cliente (Anti-XSS)
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      httpOnly: true, // 🔒 Inaccesible para scripts del cliente (Anti-XSS)
+      secure: isProd, // 🔒 En producción exige HTTPS
+      sameSite: isProd ? 'none' : 'lax', // 🔒 'none' es OBLIGATORIO para peticiones CORS (APIs separadas del Front)
       path: '/',
     });
 
