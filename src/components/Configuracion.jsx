@@ -236,6 +236,26 @@ export default function Configuracion({
                             <legend className="px-1 text-[10px] font-bold text-slate-500">Macroprocesos / Áreas</legend>
                             <p className="mb-2 text-[9px] text-slate-400">Sin selección: acceso global.</p>
                             <div className="max-h-32 space-y-1 overflow-y-auto">
+                              
+                              {/* NUEVO: Opción Seleccionar Todos los Macroprocesos */}
+                              <label className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-black text-slate-800 hover:bg-slate-100 border-b border-slate-100 mb-1 pb-2">
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    Object.keys(MAPA_PROCESOS || {}).length > 0 && 
+                                    procesosAsignados.length === Object.keys(MAPA_PROCESOS || {}).length
+                                  }
+                                  onChange={event => {
+                                    const todosLosProcesos = event.target.checked 
+                                      ? Object.keys(MAPA_PROCESOS || {}) 
+                                      : [];
+                                    void guardarAlcanceUsuario(u, todosLosProcesos, subprocesosAsignados);
+                                  }}
+                                  className="mt-0.5 accent-slate-800"
+                                />
+                                <span>[ Seleccionar Todos ]</span>
+                              </label>
+
                               {Object.keys(MAPA_PROCESOS || {}).sort((a, b) => a.localeCompare(b, 'es')).map(proceso => (
                                 <label key={proceso} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-medium text-slate-700 hover:bg-emerald-50">
                                   <input
@@ -254,10 +274,29 @@ export default function Configuracion({
                               ))}
                             </div>
                           </fieldset>
-                          <fieldset disabled={procesosAsignados.length === 0} className="rounded-lg border border-slate-200 bg-white p-2.5 disabled:bg-slate-100">
+                         <fieldset disabled={procesosAsignados.length === 0} className="rounded-lg border border-slate-200 bg-white p-2.5 disabled:bg-slate-100">
                             <legend className="px-1 text-[10px] font-bold text-slate-500">Subprocesos</legend>
                             <p className="mb-2 text-[9px] text-slate-400">Sin selección: todos los de las áreas elegidas.</p>
                             <div className="max-h-32 space-y-1 overflow-y-auto">
+                              
+                              {/* NUEVO: Opción Seleccionar Todos los Subprocesos */}
+                              {subprocesosDisponibles.length > 0 && (
+                                <label className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-black text-slate-800 hover:bg-slate-100 border-b border-slate-100 mb-1 pb-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={subprocesosAsignados.length === subprocesosDisponibles.length}
+                                    onChange={event => {
+                                      const todosLosSubprocesos = event.target.checked 
+                                        ? [...subprocesosDisponibles] 
+                                        : [];
+                                      void guardarAlcanceUsuario(u, procesosAsignados, todosLosSubprocesos);
+                                    }}
+                                    className="mt-0.5 accent-slate-800"
+                                  />
+                                  <span>[ Seleccionar Todos ]</span>
+                                </label>
+                              )}
+
                               {subprocesosDisponibles.map(subproceso => (
                                 <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-medium text-slate-700 hover:bg-emerald-50">
                                   <input
