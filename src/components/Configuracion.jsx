@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../services/firebase';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
 
 export default function Configuracion({
@@ -17,15 +16,11 @@ export default function Configuracion({
   const [busquedaUsuario, setBusquedaUsuario] = useState('');
   const [usuarioExpandido, setUsuarioExpandido] = useState(null);
 
-  // Cargar lista de usuarios desde Firestore
+  // Cargar lista de usuarios desde la API protegida
  const cargarUsuarios = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'usuarios'));
-      const docs = [];
-      querySnapshot.forEach((docSnap) => {
-        docs.push({ id: docSnap.id, ...docSnap.data() });
-      });
-      setUsuarios(docs);
+      const respuesta = await apiService.getAdminUsers();
+      setUsuarios(Array.isArray(respuesta?.usuarios) ? respuesta.usuarios : []);
     } catch (error) {
       console.error("Error al cargar usuarios:", error);
     } finally {
@@ -45,8 +40,7 @@ export default function Configuracion({
   // Cambiar rol de un usuario 
   const handleCambiarRol = async (uid, nuevoRol) => {
     try {
-      const userRef = doc(db, 'usuarios', uid);
-      await updateDoc(userRef, { rol: nuevoRol });
+      await apiService.actualizarUsuario(uid, { rol: nuevoRol });
       setUsuarios(prev => prev.map(u => u.id === uid ? { ...u, rol: nuevoRol } : u));
       alert("✅ Rol actualizado correctamente");
     } catch (error) {
@@ -70,7 +64,7 @@ export default function Configuracion({
 
     setUsuarios(prev => prev.map(item => item.id === usuario.id ? { ...item, ...cambios } : item));
     try {
-      await updateDoc(doc(db, 'usuarios', usuario.id), cambios);
+      await apiService.actualizarUsuario(usuario.id, cambios);
     } catch (error) {
       console.error('Error guardando el alcance del usuario:', error);
       alert('No se pudieron guardar los macroprocesos y subprocesos asignados.');
@@ -224,7 +218,7 @@ export default function Configuracion({
                              onBlur={async (e) => {
                                 const val = e.target.value;
                                 try {
-                                  await updateDoc(doc(db, 'usuarios', u.id), { nombreResponsable: val });
+                                  await apiService.actualizarUsuario(u.id, { nombreResponsable: val });
                                 } catch {
                                   // Ignoramos fallo silencioso
                                 }
@@ -404,8 +398,7 @@ export default function Configuracion({
                                         }
 
                                         try {
-                                          const userRef = doc(db, 'usuarios', u.id);
-                                          await updateDoc(userRef, { permisos: nuevosPermisos });
+                                          await apiService.actualizarUsuario(u.id, { permisos: nuevosPermisos });
                                           setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
                                         } catch (error) {
                                           console.error("Error actualizando permiso:", error);
@@ -434,8 +427,7 @@ export default function Configuracion({
                                               else nuevosPermisos = nuevosPermisos.filter(p => p !== sub.id);
 
                                               try {
-                                                const userRef = doc(db, 'usuarios', u.id);
-                                                await updateDoc(userRef, { permisos: nuevosPermisos });
+                                                await apiService.actualizarUsuario(u.id, { permisos: nuevosPermisos });
                                                 setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
                                               } catch (error) {
                                                 console.error("Error actualizando permiso:", error);

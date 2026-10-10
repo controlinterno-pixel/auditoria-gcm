@@ -255,6 +255,13 @@ export const apiService = {
     body: profileData
   }),
 
+  getAdminUsers: () => request('/api/auth/users', { cache: 'no-store' }),
+
+  actualizarUsuario: (uid, cambios) => request('/api/auth/users', {
+    method: 'PATCH',
+    body: { uid, cambios }
+  }),
+
   // 📊 SINCRONIZACIÓN GRC Y RLS
   getGrcData: () => request('/api/grc/sync', { cache: 'no-store' }),
 

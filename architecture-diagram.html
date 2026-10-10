@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Arquitectura | Auditoría GCM</title>
+  <style>
+    :root {
+      --ink: #172b2b;
+      --muted: #61716e;
+      --paper: #f5f7f4;
+      --panel: #ffffff;
+      --line: #d9e2dc;
+      --green: #146a52;
+      --green-soft: #e7f2ed;
+      --blue: #315f82;
+      --blue-soft: #eaf1f6;
+      --amber: #a65c17;
+      --amber-soft: #fbf0df;
+      --red: #a44d43;
+      --red-soft: #f8ece8;
+      --shadow: 0 12px 36px rgba(28, 54, 44, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+    button, input { font: inherit; }
+    button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid #e6a644;
+      outline-offset: 2px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 26px;
+      color: #f4faf5;
+      background: #173b35;
+      border-bottom: 4px solid #d28c38;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      aspect-ratio: 1;
+      color: #173b35;
+      background: #e7b464;
+      font: 700 19px Georgia, serif;
+      border-radius: 7px;
+    }
+    .eyebrow { margin: 0 0 3px; color: #a9c7bb; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    h1 { margin: 0; font: 600 23px Georgia, serif; }
+    .top-meta { color: #c3d3cd; font-size: 12px; text-align: right; }
+    .top-meta strong { display: block; margin-bottom: 4px; color: #fff; font-size: 13px; }
+    main { max-width: 1900px; margin: 0 auto; padding: 20px 22px 28px; }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .filters, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+    .filter, .icon-button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      color: var(--ink);
+      background: #fff;
+      cursor: pointer;
+    }
+    .filter { padding: 7px 12px; font-size: 12px; font-weight: 650; }
+    .filter[aria-pressed="true"] { color: #fff; background: var(--green); border-color: var(--green); }
+    .icon-button { width: 38px; font-size: 18px; }
+    .icon-button:hover, .filter:hover { border-color: #8ca99a; }
+    .search {
+      width: min(270px, 68vw);
+      height: 36px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 12px;
+    }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 14px;
+      align-items: stretch;
+    }
+    .canvas-card, .inspector {
+      min-width: 0;
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      box-shadow: var(--shadow);
+    }
+    .canvas-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+    .canvas-heading h2 { margin: 0; font-size: 13px; }
+    .canvas-heading span { color: var(--muted); font-size: 11px; }
+    .canvas-scroll { overflow: auto; background-color: #f8faf8; }
+    svg { display: block; width: 100%; min-width: 1120px; height: auto; touch-action: none; user-select: none; }
+    .lane { stroke-width: 1.2; }
+    .lane-title { font: 700 12px "Segoe UI", Tahoma, sans-serif; letter-spacing: 1px; }
+    .lane-subtitle { fill: #75827d; font: 11px "Segoe UI", Tahoma, sans-serif; }
+    .edge { fill: none; stroke-width: 2.1; opacity: .76; transition: opacity .16s, stroke-width .16s; }
+    .edge.call { stroke: #315f82; marker-end: url(#arrow-call); }
+    .edge.data { stroke: #146a52; marker-end: url(#arrow-data); }
+    .edge.auth { stroke: #a65c17; stroke-dasharray: 7 5; marker-end: url(#arrow-auth); }
+    .edge.direct { stroke: #a44d43; stroke-dasharray: 3 4; marker-end: url(#arrow-direct); }
+    .edge-label { fill: #4e625d; stroke: #f8faf8; stroke-width: 5px; paint-order: stroke; font: 10px "Segoe UI", Tahoma, sans-serif; text-anchor: middle; }
+    .node { cursor: pointer; transition: opacity .16s; }
+    .node rect { stroke-width: 1.5; rx: 7; transition: stroke-width .16s, filter .16s; }
+    .node .node-title { fill: #17302c; font: 700 13px "Segoe UI", Tahoma, sans-serif; }
+    .node .node-sub { fill: #536761; font: 10.5px "Segoe UI", Tahoma, sans-serif; }
+    .node .node-tag { font: 700 9px "Segoe UI", Tahoma, sans-serif; letter-spacing: .65px; }
+    .node.front rect { fill: #e7f2ed; stroke: #79a994; }
+    .node.api rect { fill: #eaf1f6; stroke: #83a2bb; }
+    .node.data rect { fill: #fbf0df; stroke: #d3a05d; }
+    .node.external rect { fill: #f8ece8; stroke: #cb8c7e; }
+    .node.front .node-tag { fill: #146a52; }
+    .node.api .node-tag { fill: #315f82; }
+    .node.data .node-tag { fill: #a65c17; }
+    .node.external .node-tag { fill: #a44d43; }
+    .node:hover rect, .node.selected rect { stroke-width: 3; filter: drop-shadow(0 4px 5px rgba(24, 47, 40, .15)); }
+    .node.dimmed, .edge.dimmed { opacity: .12; }
+    .node.filtered, .edge.filtered { display: none; }
+    .inspector { padding: 17px; }
+    .inspector-kicker { margin: 0 0 8px; color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; }
+    .inspector h2 { margin: 0 0 9px; font: 600 21px Georgia, serif; line-height: 1.15; }
+    .inspector p { color: #52645f; font-size: 12px; line-height: 1.6; }
+    .detail-block { margin-top: 19px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .detail-block h3 { margin: 0 0 9px; color: #425650; font-size: 10px; letter-spacing: .8px; text-transform: uppercase; }
+    .source-list { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+    .source-list a { color: #255f7e; font-size: 11px; text-decoration-thickness: 1px; text-underline-offset: 3px; overflow-wrap: anywhere; }
+    .source-list a:hover { color: #173b35; }
+    .relation-list { display: grid; gap: 7px; padding: 0; margin: 0; list-style: none; }
+    .relation-list li { padding-left: 10px; border-left: 2px solid #91b9a6; color: #536761; font-size: 11px; line-height: 1.45; }
+    .legend {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 11px 18px;
+      padding: 11px 14px;
+      border-top: 1px solid var(--line);
+      color: #596c66;
+      font-size: 10px;
+    }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch { width: 9px; height: 9px; border-radius: 2px; }
+    .line-swatch { width: 22px; height: 0; border-top: 2px solid #315f82; }
+    .line-swatch.data { border-color: #146a52; }
+    .line-swatch.auth { border-color: #a65c17; border-top-style: dashed; }
+    .line-swatch.direct { border-color: #a44d43; border-top-style: dotted; }
+    .footnote { margin: 12px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .footnote strong { color: #425650; }
+    @media (max-width: 980px) {
+      main { padding: 14px; }
+      .workspace { grid-template-columns: 1fr; }
+      .inspector { min-height: 210px; }
+    }
+    @media (max-width: 620px) {
+      .topbar { align-items: flex-start; padding: 15px; }
+      h1 { font-size: 20px; }
+      .top-meta { max-width: 130px; font-size: 10px; }
+      main { padding: 11px; }
+      .toolbar { align-items: flex-start; }
+      .actions { width: 100%; }
+      .search { flex: 1; width: auto; }
+      .canvas-heading { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">G</div>
+      <div>
+        <p class="eyebrow">Mapa técnico · revisión local</p>
+        <h1>Arquitectura de Auditoría GCM</h1>
+      </div>
+    </div>
+    <div class="top-meta"><strong>Frontend + API + datos</strong>Vista derivada del código del workspace</div>
+  </header>
+
+  <main>
+    <div class="toolbar" aria-label="Controles del diagrama">
+      <div class="filters" role="group" aria-label="Filtrar componentes">
+        <button class="filter" data-filter="all" aria-pressed="true">Todo</button>
+        <button class="filter" data-filter="front" aria-pressed="false">Cliente</button>
+        <button class="filter" data-filter="api" aria-pressed="false">Backend</button>
+        <button class="filter" data-filter="data" aria-pressed="false">Datos</button>
+        <button class="filter" data-filter="external" aria-pressed="false">Externos</button>
+      </div>
+      <div class="actions">
+        <input class="search" id="search" type="search" placeholder="Buscar componente o archivo" aria-label="Buscar componente o archivo">
+        <button class="icon-button" id="zoom-out" aria-label="Alejar" title="Alejar">−</button>
+        <button class="icon-button" id="zoom-in" aria-label="Acercar" title="Acercar">+</button>
+        <button class="icon-button" id="fit" aria-label="Restablecer vista" title="Restablecer vista">⟲</button>
+      </div>
+    </div>
+
+    <section class="workspace" aria-label="Diagrama y detalle de componente">
+      <div class="canvas-card">
+        <div class="canvas-heading"><h2>Flujos principales</h2><span>Selecciona un nodo · arrastra el lienzo · usa la rueda para acercar</span></div>
+        <div class="canvas-scroll" id="canvas-scroll">
+          <svg id="diagram" viewBox="0 0 1740 850" role="img" aria-label="Diagrama interactivo de la arquitectura del repositorio">
+            <defs>
+              <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#dfe7e1"></circle></pattern>
+              <marker id="arrow-call" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#315f82"></path></marker>
+              <marker id="arrow-data" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#146a52"></path></marker>
+              <marker id="arrow-auth" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a65c17"></path></marker>
+              <marker id="arrow-direct" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a44d43"></path></marker>
+            </defs>
+            <rect width="1740" height="850" fill="url(#dots)"></rect>
+            <g id="viewport">
+              <rect class="lane" x="22" y="35" width="390" height="770" rx="9" fill="#f0f6f2" stroke="#d0e0d5"></rect>
+              <text class="lane-title" x="43" y="65" fill="#146a52">01 · CLIENTE</text>
+              <text class="lane-subtitle" x="43" y="84">React SPA · Vite · integraciones de navegador</text>
+              <rect class="lane" x="432" y="35" width="565" height="770" rx="9" fill="#f0f4f7" stroke="#d5e0e8"></rect>
+              <text class="lane-title" x="453" y="65" fill="#315f82">02 · VERCEL / API SERVERLESS</text>
+              <text class="lane-subtitle" x="453" y="84">Rewrite /api/* → api/index.js</text>
+              <rect class="lane" x="1017" y="35" width="330" height="770" rx="9" fill="#fbf6ec" stroke="#eadbc0"></rect>
+              <text class="lane-title" x="1038" y="65" fill="#a65c17">03 · FIREBASE</text>
+              <text class="lane-subtitle" x="1038" y="84">SDK de cliente y Admin SDK</text>
+              <rect class="lane" x="1367" y="35" width="350" height="770" rx="9" fill="#faf1ee" stroke="#ead6d0"></rect>
+              <text class="lane-title" x="1388" y="65" fill="#a44d43">04 · SERVICIOS EXTERNOS</text>
+              <text class="lane-subtitle" x="1388" y="84">Conexiones iniciadas por cliente o API</text>
+
+              <g aria-hidden="true">
+                <path class="edge call" data-from="app" data-to="api-client" d="M382 290 C414 290 418 280 455 280"></path>
+                <text class="edge-label" x="418" y="266">REST / JSON</text>
+                <path class="edge auth" data-from="app" data-to="firebase-client" d="M382 320 L397 320 L397 585 L382 585"></path>
+                <text class="edge-label" x="397" y="465" transform="rotate(90 397 465)">Auth / perfil</text>
+                <path class="edge call" data-from="main" data-to="app" d="M190 190 L190 248"></path>
+                <text class="edge-label" x="238" y="222">renderiza</text>
+                <path class="edge data" data-from="app" data-to="domain" d="M190 342 L190 405"></path>
+                <path class="edge direct" data-from="app" data-to="client-integrations" d="M382 322 L407 322 L407 725 L382 725"></path>
+                <text class="edge-label" x="407" y="645" transform="rotate(90 407 645)">integraciones</text>
+                <path class="edge direct" data-from="client-integrations" data-to="file-repo" d="M382 710 C430 825 1300 825 1348 760 L1348 220 L1387 220"></path>
+                <path class="edge direct" data-from="client-integrations" data-to="google-gmail" d="M382 720 C430 835 1300 835 1348 760 L1348 395 L1387 395"></path>
+                <path class="edge call" data-from="api-client" data-to="api-router" d="M635 280 L665 280"></path>
+                <path class="edge call" data-from="api-router" data-to="auth-api" d="M720 328 C700 350 570 360 570 390"></path>
+                <path class="edge call" data-from="api-router" data-to="grc-api" d="M840 328 C840 350 845 365 845 390"></path>
+                <path class="edge call" data-from="api-router" data-to="ai-api" d="M700 325 C670 430 575 480 575 520"></path>
+                <path class="edge auth" data-from="auth-api" data-to="admin-sdk" d="M685 430 C930 430 930 260 1040 260"></path>
+                <text class="edge-label" x="975" y="340">ID token / cookie</text>
+                <path class="edge auth" data-from="grc-api" data-to="auth-policy" d="M870 480 L870 520"></path>
+                <path class="edge data" data-from="grc-api" data-to="workspace" d="M915 480 C950 540 950 630 920 630"></path>
+                <path class="edge data" data-from="auth-api" data-to="admin-sdk" d="M920 410 C980 410 990 255 1040 255"></path>
+                <path class="edge data" data-from="auth-policy" data-to="admin-sdk" d="M995 560 C1020 520 1020 310 1040 300"></path>
+                <path class="edge data" data-from="workspace" data-to="admin-sdk" d="M995 630 C1020 540 1015 320 1040 300"></path>
+                <path class="edge data" data-from="admin-sdk" data-to="firestore" d="M1180 300 L1180 580"></path>
+                <path class="edge call" data-from="ai-api" data-to="gemini" d="M695 560 C930 560 1185 560 1387 560"></path>
+                <text class="edge-label" x="1260" y="780">HTTPS / API</text>
+              </g>
+
+              <g class="node front" data-node="main" data-layer="front" tabindex="0" role="button" aria-label="src/main.jsx, entrada React">
+                <rect x="55" y="112" width="275" height="78"></rect><text class="node-tag" x="72" y="132">ARRANQUE</text><text class="node-title" x="72" y="153">src/main.jsx</text><text class="node-sub" x="72" y="171">StrictMode · secureLogger · createRoot</text>
+              </g>
+              <g class="node front" data-node="app" data-layer="front" tabindex="0" role="button" aria-label="App.jsx, shell principal">
+                <rect x="55" y="248" width="327" height="96"></rect><text class="node-tag" x="72" y="270">PRESENTACIÓN Y ORQUESTACIÓN</text><text class="node-title" x="72" y="293">App.jsx · shell React</text><text class="node-sub" x="72" y="314">Vistas GRC · auth · estado y handlers</text><text class="node-sub" x="72" y="330">módulos pesados con lazy loading</text>
+              </g>
+              <g class="node front" data-node="domain" data-layer="front" tabindex="0" role="button" aria-label="Módulos de dominio, hooks y servicios">
+                <rect x="55" y="405" width="327" height="107"></rect><text class="node-tag" x="72" y="427">DOMINIO CLIENTE</text><text class="node-title" x="72" y="450">Módulos · hooks · servicios</text><text class="node-sub" x="72" y="471">Riesgos, hallazgos, planes, informes</text><text class="node-sub" x="72" y="489">useGrcData · CatalogosContext · handlers</text>
+              </g>
+              <g class="node front" data-node="client-integrations" data-layer="front" tabindex="0" role="button" aria-label="Integraciones iniciadas desde servicios del navegador">
+                <rect x="55" y="665" width="327" height="120"></rect><text class="node-tag" x="72" y="686">INTEGRACIONES EN NAVEGADOR</text><text class="node-title" x="72" y="708">Correo + evidencias</text><text class="node-sub" x="72" y="729">gmailService: OAuth y Gmail API</text><text class="node-sub" x="72" y="747">Token en memoria · upload multipart</text><text class="node-sub" x="72" y="765">Repositorio corporativo, fuera de /api</text>
+              </g>
+              <g class="node front" data-node="api-client" data-layer="front" tabindex="0" role="button" aria-label="apiService, cliente HTTP centralizado">
+                <rect x="455" y="232" width="180" height="96"></rect><text class="node-tag" x="470" y="253">CLIENTE HTTP</text><text class="node-title" x="470" y="275">apiService</text><text class="node-sub" x="470" y="295">fetch · credentials include</text><text class="node-sub" x="470" y="312">reintentos · JSON / FormData</text>
+              </g>
+              <g class="node api" data-node="api-router" data-layer="api" tabindex="0" role="button" aria-label="Router central de API">
+                <rect x="665" y="232" width="240" height="96"></rect><text class="node-tag" x="681" y="253">ENTRADA SERVERLESS</text><text class="node-title" x="681" y="275">api/index.js</text><text class="node-sub" x="681" y="295">dispatch por ruta /api/auth, /api/grc</text><text class="node-sub" x="681" y="312">/api/public · /api/notifications</text>
+              </g>
+              <g class="node api" data-node="auth-api" data-layer="api" tabindex="0" role="button" aria-label="Endpoints de autenticación">
+                <rect x="455" y="390" width="230" height="90"></rect><text class="node-tag" x="471" y="411">IDENTIDAD</text><text class="node-title" x="471" y="433">/api/auth/*</text><text class="node-sub" x="471" y="454">login · logout · me · profile</text><text class="node-sub" x="471" y="470">login emite cookie HttpOnly</text>
+              </g>
+              <g class="node api" data-node="grc-api" data-layer="api" tabindex="0" role="button" aria-label="Endpoints GRC">
+                <rect x="710" y="390" width="270" height="90"></rect><text class="node-tag" x="726" y="411">NEGOCIO GRC</text><text class="node-title" x="726" y="433">/api/grc/*</text><text class="node-sub" x="726" y="454">sync · create · update · audit</text><text class="node-sub" x="726" y="470">riesgos · histórico · revisión</text>
+              </g>
+              <g class="node api" data-node="ai-api" data-layer="api" tabindex="0" role="button" aria-label="Endpoint de auditoría asistida por IA">
+                <rect x="455" y="520" width="240" height="90"></rect><text class="node-tag" x="471" y="541">IA EN BACKEND</text><text class="node-title" x="471" y="563">/api/grc/audit</text><text class="node-sub" x="471" y="584">auth · límite de prompt · selección de modelo</text><text class="node-sub" x="471" y="600">API keys leídas en servidor</text>
+              </g>
+              <g class="node api" data-node="auth-policy" data-layer="api" tabindex="0" role="button" aria-label="Middleware de sesión y alcance de asignación">
+                <rect x="730" y="520" width="265" height="90"></rect><text class="node-tag" x="746" y="541">SESIÓN Y AUTORIZACIÓN</text><text class="node-title" x="746" y="563">authMiddleware · assignmentScope</text><text class="node-sub" x="746" y="584">verifica grc_session y perfil de usuario</text><text class="node-sub" x="746" y="600">sync aplica filtros de alcance/RLS</text>
+              </g>
+              <g class="node api" data-node="workspace" data-layer="api" tabindex="0" role="button" aria-label="Capa de persistencia del workspace GRC">
+                <rect x="730" y="620" width="265" height="90"></rect><text class="node-tag" x="746" y="641">PERSISTENCIA GRC</text><text class="node-title" x="746" y="663">grcWorkspace.js</text><text class="node-sub" x="746" y="684">merge parcial · informes fragmentados</text><text class="node-sub" x="746" y="700">colecciones workspace_compartido</text>
+              </g>
+              <g class="node front" data-node="firebase-client" data-layer="data" tabindex="0" role="button" aria-label="Firebase Client SDK">
+                <rect x="55" y="545" width="327" height="100"></rect><text class="node-tag" x="72" y="566">SDK EN EL NAVEGADOR</text><text class="node-title" x="72" y="588">Firebase Client SDK</text><text class="node-sub" x="72" y="609">Auth · perfiles y roles en Firestore</text><text class="node-sub" x="72" y="627">uso directo en hooks y Configuracion</text>
+              </g>
+              <g class="node data" data-node="admin-sdk" data-layer="data" tabindex="0" role="button" aria-label="Firebase Admin SDK">
+                <rect x="1040" y="210" width="280" height="100"></rect><text class="node-tag" x="1057" y="232">CONFIANZA DEL SERVIDOR</text><text class="node-title" x="1057" y="255">Firebase Admin SDK</text><text class="node-sub" x="1057" y="276">Admin Auth · Firestore</text><text class="node-sub" x="1057" y="294">credenciales de servicio desde entorno</text>
+              </g>
+              <g class="node data" data-node="firestore" data-layer="data" tabindex="0" role="button" aria-label="Firestore, usuarios y workspace GRC">
+                <rect x="1040" y="580" width="280" height="115"></rect><text class="node-tag" x="1057" y="602">DATOS PERSISTENTES</text><text class="node-title" x="1057" y="625">Cloud Firestore</text><text class="node-sub" x="1057" y="646">usuarios · workspace_compartido</text><text class="node-sub" x="1057" y="664">base_de_datos_grc + informes separados</text><text class="node-sub" x="1057" y="682">rules locales en firestore.rules</text>
+              </g>
+              <g class="node external" data-node="file-repo" data-layer="external" tabindex="0" role="button" aria-label="Repositorio externo de archivos corporativo">
+                <rect x="1387" y="168" width="285" height="104"></rect><text class="node-tag" x="1404" y="190">ARCHIVOS / EVIDENCIAS</text><text class="node-title" x="1404" y="213">Repositorio corporativo</text><text class="node-sub" x="1404" y="234">repos.termalessantarosa.com.co</text><text class="node-sub" x="1404" y="252">upload multipart desde apiService</text>
+              </g>
+              <g class="node external" data-node="google-gmail" data-layer="external" tabindex="0" role="button" aria-label="Google OAuth y Gmail API externo">
+                <rect x="1387" y="343" width="285" height="104"></rect><text class="node-tag" x="1404" y="365">CORREO DEL USUARIO</text><text class="node-title" x="1404" y="388">Google Identity → Gmail API</text><text class="node-sub" x="1404" y="409">userinfo · messages/send</text><text class="node-sub" x="1404" y="427">OAuth consent · token solo en memoria</text>
+              </g>
+              <g class="node external" data-node="gemini" data-layer="external" tabindex="0" role="button" aria-label="Google Gemini API">
+                <rect x="1387" y="514" width="285" height="100"></rect><text class="node-tag" x="1404" y="536">IA GENERATIVA</text><text class="node-title" x="1404" y="559">Google Gemini API</text><text class="node-sub" x="1404" y="580">gemini-2.5/2.0/1.5-flash</text><text class="node-sub" x="1404" y="598">invocación server-side con autenticación</text>
+              </g>
+            </g>
+          </svg>
+        </div>
+        <div class="legend" aria-label="Leyenda">
+          <span class="legend-item"><i class="swatch" style="background:#79a994"></i>Cliente</span>
+          <span class="legend-item"><i class="swatch" style="background:#83a2bb"></i>API</span>
+          <span class="legend-item"><i class="swatch" style="background:#d3a05d"></i>Datos</span>
+          <span class="legend-item"><i class="swatch" style="background:#cb8c7e"></i>Externo</span>
+          <span class="legend-item"><i class="line-swatch"></i>Llamada</span>
+          <span class="legend-item"><i class="line-swatch data"></i>Datos</span>
+          <span class="legend-item"><i class="line-swatch auth"></i>Identidad / sesión</span>
+          <span class="legend-item"><i class="line-swatch direct"></i>Integración directa</span>
+        </div>
+      </div>
+
+      <aside class="inspector" id="inspector" aria-live="polite">
+        <p class="inspector-kicker" id="detail-layer">Vista general</p>
+        <h2 id="detail-title">Selecciona un componente</h2>
+        <p id="detail-description">Explora los bloques para ver su función, conexiones y evidencia en el código. Las rutas del panel abren los archivos locales del repositorio.</p>
+        <div class="detail-block"><h3>Conexiones</h3><ul class="relation-list" id="detail-relations"><li>Las flechas indican llamadas o movimiento de datos comprobado en el código revisado.</li></ul></div>
+        <div class="detail-block"><h3>Archivos de referencia</h3><ul class="source-list" id="detail-sources"><li><a href="src/App.jsx">src/App.jsx</a></li><li><a href="api/index.js">api/index.js</a></li></ul></div>
+      </aside>
+    </section>
+    <p class="footnote"><strong>Alcance:</strong> representa los caminos rastreados en los archivos enlazados, no todos los módulos ni todos los flujos de ejecución. La carga de archivos observada actualmente desde <code>apiService</code> apunta directamente al repositorio corporativo; <code>api/_grc/upload.js</code> existe, pero no se encontró una llamada desde el cliente durante esta revisión. Firebase Storage y <code>uploadService.js</code> tampoco se muestran como flujo activo porque no se encontró un consumidor de ese servicio.</p>
+  </main>
+
+  <script>
+    const details = {
+      main: { layer: 'Cliente · entrada', title: 'src/main.jsx', description: 'Instala el logger global y monta App dentro de React StrictMode en el elemento root.', sources: ['src/main.jsx', 'src/services/secureLogger.js'], relations: ['Monta App.jsx en el nodo root.', 'Instala secureLogger antes del render.'] },
+      app: { layer: 'Cliente · aplicación', title: 'App.jsx', description: 'Shell de la SPA: coordina autenticación, navegación, estado GRC y módulos de interfaz; carga algunos módulos bajo demanda.', sources: ['src/App.jsx', 'src/components/SidebarNavigation.jsx', 'src/context/CatalogosContext.jsx'], relations: ['Usa useGrcData y servicios del frontend.', 'Llama al apiService para operaciones GRC y login/logout.', 'Importa gmailService para el flujo de correo.', 'Los módulos de dominio renderizan dentro del shell.'] },
+      domain: { layer: 'Cliente · dominio', title: 'Módulos, hooks y servicios', description: 'La interfaz se organiza alrededor de módulos GRC y lógica compartida. useGrcData carga el workspace por API y consulta el perfil de usuario con Firestore Client SDK.', sources: ['src/hooks/useGrcData.js', 'src/hooks/useGrcUI.js', 'src/services/apiService.js', 'src/services/grcStorageService.js'], relations: ['App pasa handlers y datos a módulos de riesgos, hallazgos, planes e informes.', 'grcStorageService delega los guardados en apiService.saveGrcData.', 'useGrcData llama getGrcData y consulta usuarios/{uid} con Firestore.'] },
+      'client-integrations': { layer: 'Cliente · integraciones', title: 'Correo + evidencias', description: 'Dos servicios del navegador se conectan directamente con proveedores externos: gmailService usa OAuth y Gmail API; apiService sube evidencias con multipart al repositorio corporativo.', sources: ['src/services/gmailService.js', 'src/services/apiService.js', 'src/App.jsx'], relations: ['App conecta prepararAutorizacionGmail y enviarCorreoGmail.', 'Gmail usa userinfo y messages/send; el token permanece en memoria.', 'apiService.subirEvidencia publica al host corporativo sin pasar por /api en el flujo observado.'] },
+      'api-client': { layer: 'Cliente · transporte', title: 'apiService', description: 'Cliente HTTP centralizado: fetch a rutas relativas /api, incluye cookies de sesión y normaliza/reintenta errores. La subida de evidencias usa XMLHttpRequest al host corporativo.', sources: ['src/services/apiService.js', 'src/services/grcStorageService.js'], relations: ['Envía las peticiones del navegador a /api/*.', 'credentials: include transmite la cookie grc_session.', 'subirEvidencia publica multipart directamente al repositorio corporativo.'] },
+      'api-router': { layer: 'Backend · enrutamiento', title: 'api/index.js', description: 'Router serverless que selecciona el handler por path y delega la solicitud; Vercel reescribe /api/* hacia este archivo.', sources: ['api/index.js', 'vercel.json'], relations: ['Despacha rutas /api/auth/* a handlers de identidad.', 'Despacha rutas /api/grc/* a handlers GRC.', 'También registra /api/public/catalogos y /api/notifications/email.'] },
+      'auth-api': { layer: 'Backend · identidad', title: '/api/auth/*', description: 'Los handlers gestionan login, logout, comprobación de sesión y actualización segura del perfil. login valida un ID token y crea una cookie HttpOnly.', sources: ['api/_auth/login.js', 'api/_auth/logout.js', 'api/_auth/me.js', 'api/_auth/profile.js'], relations: ['login usa Firebase Admin Auth y crea grc_session.', 'Los handlers protegidos usan requireAuth.', 'El perfil se almacena en la colección usuarios de Firestore.'] },
+      'grc-api': { layer: 'Backend · negocio', title: '/api/grc/*', description: 'Handlers independientes para sincronización, altas, cambios, riesgos, auditoría asistida, histórico, revisión y correo relacionado con informes.', sources: ['api/index.js', 'api/_grc/sync.js', 'api/_grc/create.js', 'api/_grc/audit.js'], relations: ['Handlers protegidos validan sesión con requireAuth.', 'sync filtra lectura por rol, identidad y alcance asignado.', 'sync y create usan grcWorkspace para leer/escribir el workspace.'] },
+      'ai-api': { layer: 'Backend · IA', title: '/api/grc/audit', description: 'Endpoint autenticado que acota y construye el prompt, selecciona modelos Gemini y obtiene las claves desde variables del servidor.', sources: ['api/_grc/audit.js', 'src/handlers/auditorIaHandler.js', 'src/services/copilotService.js'], relations: ['El navegador llama por apiService.consultarAuditor.', 'El backend envía prompt a Google Gemini.', 'Las claves se leen en el servidor, no en el bundle del frontend.'] },
+      'auth-policy': { layer: 'Backend · autorización', title: 'Sesión y alcance', description: 'requireAuth valida la cookie de sesión con Firebase Admin Auth, carga datos del usuario y los handlers aplican roles/permisos y alcance de proceso.', sources: ['api/_lib/authMiddleware.js', 'api/_lib/assignmentScope.js', 'api/_grc/sync.js', 'api/_grc/create.js'], relations: ['La cookie grc_session viene en peticiones con credentials: include.', 'authMiddleware verifica la sesión y consulta usuarios/{uid}.', 'sync aplica filtros RLS/ABAC y herencia entre planes, hallazgos e informes.'] },
+      workspace: { layer: 'Backend · persistencia', title: 'grcWorkspace.js', description: 'Capa de persistencia que consolida datos GRC en documentos Firestore y fragmenta informes en una subcolección para lecturas y escrituras escalables.', sources: ['api/_lib/grcWorkspace.js', 'api/_grc/sync.js', 'api/_grc/create.js'], relations: ['Es llamada por handlers GRC de sync/create.', 'Usa Firebase Admin Firestore.', 'Administra documentos de workspace_compartido y subcolección informes.'] },
+      'firebase-client': { layer: 'Datos · SDK navegador', title: 'Firebase Client SDK', description: 'Inicializa Firebase Auth, Firestore y Storage en el frontend. El código inspeccionado usa directamente Auth/Firestore para sesión y gestión de perfiles/roles; no se encontró consumo activo de Storage.', sources: ['src/services/firebase.js', 'src/hooks/useGrcData.js', 'src/components/Configuracion.jsx'], relations: ['useGrcData escucha Firebase Auth y lee usuarios/{uid}.', 'Configuracion consulta y actualiza perfiles/roles directamente en Firestore.', 'El conjunto de datos de negocio GRC se carga por backend, no por lectura directa desde el cliente.'] },
+      'admin-sdk': { layer: 'Datos · SDK servidor', title: 'Firebase Admin SDK', description: 'Inicializa credenciales de servicio desde el entorno del servidor y expone Admin Auth y Firestore a los handlers.', sources: ['api/_lib/firebaseAdmin.js', 'api/_lib/authMiddleware.js', 'api/_lib/grcWorkspace.js'], relations: ['Verifica session cookies y crea cookies de sesión.', 'Lee perfiles de usuarios para autorizar solicitudes.', 'Lee/escribe datos persistentes del workspace GRC.'] },
+      firestore: { layer: 'Datos · persistencia', title: 'Cloud Firestore', description: 'Almacena perfiles en usuarios y datos GRC en workspace_compartido. Los informes pueden leerse de documentos heredados y de una subcolección dedicada.', sources: ['firestore.rules', 'api/_lib/grcWorkspace.js', 'api/_lib/firebaseAdmin.js'], relations: ['El Client SDK accede a perfiles/roles según las reglas.', 'El Admin SDK sirve lecturas/escrituras de backend.', 'Los datos GRC se consultan mediante la capa grcWorkspace.'] },
+      'file-repo': { layer: 'Externo · archivos', title: 'Repositorio corporativo', description: 'Servicio externo usado por apiService para almacenar evidencias y resolver enlaces de descarga.', sources: ['src/services/apiService.js', 'api/_grc/upload.js'], relations: ['El flujo de subida activo encontrado sale del navegador por multipart.', 'El endpoint api/_grc/upload.js hace una llamada server-side al mismo host, pero no se encontró su invocación en el cliente.'] },
+      'google-gmail': { layer: 'Externo · correo', title: 'Google Identity y Gmail API', description: 'gmailService inicia OAuth desde el navegador, verifica la cuenta autorizada y envía mensajes con Gmail API. El token de acceso se mantiene en memoria.', sources: ['src/services/gmailService.js', 'src/App.jsx'], relations: ['La SPA llama prepararAutorizacionGmail y enviarCorreoGmail.', 'userinfo valida el correo de la cuenta autorizada.', 'Gmail API recibe messages/send directamente desde el navegador.'] },
+      gemini: { layer: 'Externo · IA', title: 'Google Gemini API', description: 'Proveedor remoto para la auditoría asistida. La llamada se realiza desde el endpoint serverless autenticado.', sources: ['api/_grc/audit.js', 'package.json'], relations: ['Solo api/_grc/audit.js construye la integración en el flujo revisado.', 'El backend selecciona modelos Gemini y usa claves del entorno.'] }
+    };
+
+    const svg = document.getElementById('diagram');
+    const viewport = document.getElementById('viewport');
+    const canvasScroll = document.getElementById('canvas-scroll');
+    const nodes = [...svg.querySelectorAll('[data-node]')];
+    const edges = [...svg.querySelectorAll('.edge')];
+    const searchInput = document.getElementById('search');
+    let activeFilter = 'all';
+    let selectedId = null;
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let pointerOrigin = null;
+
+    const applyTransform = () => viewport.setAttribute('transform', `translate(${offsetX} ${offsetY}) scale(${scale})`);
+    const visibleNode = (node) => !node.classList.contains('filtered');
+    const updateEdges = () => edges.forEach(edge => {
+      const source = svg.querySelector(`[data-node="${edge.dataset.from}"]`);
+      const target = svg.querySelector(`[data-node="${edge.dataset.to}"]`);
+      edge.classList.toggle('filtered', !source || !target || !visibleNode(source) || !visibleNode(target));
+    });
+
+    const showDetails = (id) => {
+      const item = details[id];
+      if (!item) return;
+      selectedId = id;
+      nodes.forEach(node => node.classList.toggle('selected', node.dataset.node === id));
+      document.getElementById('detail-layer').textContent = item.layer;
+      document.getElementById('detail-title').textContent = item.title;
+      document.getElementById('detail-description').textContent = item.description;
+      document.getElementById('detail-relations').innerHTML = item.relations.map(text => `<li>${text}</li>`).join('');
+      document.getElementById('detail-sources').innerHTML = item.sources.map(path => `<li><a href="${path}">${path}</a></li>`).join('');
+      updateSearch();
+    };
+
+    const updateSearch = () => {
+      const term = searchInput.value.trim().toLowerCase();
+      nodes.forEach(node => {
+        const item = details[node.dataset.node];
+        const matchesFilter = activeFilter === 'all' || node.dataset.layer === activeFilter;
+        const haystack = `${item.title} ${item.description} ${item.sources.join(' ')}`.toLowerCase();
+        const matchesSearch = !term || haystack.includes(term);
+        node.classList.toggle('filtered', !matchesFilter || !matchesSearch);
+      });
+      const selectedNode = selectedId ? svg.querySelector(`[data-node="${selectedId}"]`) : null;
+      const selectionVisible = Boolean(selectedNode && !selectedNode.classList.contains('filtered'));
+      nodes.forEach(node => node.classList.toggle('dimmed', Boolean(selectionVisible && selectedId !== node.dataset.node && !node.classList.contains('filtered'))));
+      edges.forEach(edge => {
+        const connected = !selectedId || edge.dataset.from === selectedId || edge.dataset.to === selectedId;
+        edge.classList.toggle('dimmed', Boolean(selectionVisible && !connected));
+      });
+      updateEdges();
+    };
+
+    nodes.forEach(node => {
+      node.addEventListener('click', () => showDetails(node.dataset.node));
+      node.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          showDetails(node.dataset.node);
+        }
+      });
+    });
+    document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => {
+      activeFilter = button.dataset.filter;
+      document.querySelectorAll('.filter').forEach(filter => filter.setAttribute('aria-pressed', String(filter === button)));
+      updateSearch();
+    }));
+    searchInput.addEventListener('input', updateSearch);
+    document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(1.7, scale + .12); applyTransform(); });
+    document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(.62, scale - .12); applyTransform(); });
+    document.getElementById('fit').addEventListener('click', () => {
+      scale = 1; offsetX = 0; offsetY = 0; selectedId = null;
+      nodes.forEach(node => node.classList.remove('selected', 'dimmed'));
+      edges.forEach(edge => edge.classList.remove('dimmed'));
+      applyTransform();
+      document.getElementById('detail-layer').textContent = 'Vista general';
+      document.getElementById('detail-title').textContent = 'Selecciona un componente';
+      document.getElementById('detail-description').textContent = 'Explora los bloques para ver su función, conexiones y evidencia en el código. Las rutas del panel abren los archivos locales del repositorio.';
+      document.getElementById('detail-relations').innerHTML = '<li>Las flechas indican llamadas o movimiento de datos comprobado en el código revisado.</li>';
+      document.getElementById('detail-sources').innerHTML = '<li><a href="src/App.jsx">src/App.jsx</a></li><li><a href="api/index.js">api/index.js</a></li>';
+      updateSearch();
+    });
+
+    svg.addEventListener('wheel', event => {
+      event.preventDefault();
+      scale = Math.max(.62, Math.min(1.7, scale + (event.deltaY < 0 ? .06 : -.06)));
+      applyTransform();
+    }, { passive: false });
+    svg.addEventListener('pointerdown', event => {
+      if (event.target.closest('[data-node]')) return;
+      pointerOrigin = { x: event.clientX - offsetX, y: event.clientY - offsetY, pointerId: event.pointerId };
+      svg.setPointerCapture(event.pointerId);
+    });
+    svg.addEventListener('pointermove', event => {
+      if (!pointerOrigin || pointerOrigin.pointerId !== event.pointerId) return;
+      offsetX = event.clientX - pointerOrigin.x;
+      offsetY = event.clientY - pointerOrigin.y;
+      applyTransform();
+    });
+    const stopPan = event => { if (pointerOrigin?.pointerId === event.pointerId) pointerOrigin = null; };
+    svg.addEventListener('pointerup', stopPan);
+    svg.addEventListener('pointercancel', stopPan);
+  </script>
+</body>
+</html>

@@ -28,6 +28,10 @@ export default async function handler(req, res) {
       const module = await import('./_auth/profile.js');
       return await module.default(req, res);
     }
+    if (path === '/api/auth/users') {
+      const module = await import('./_auth/users.js');
+      return await module.default(req, res);
+    }
 
     // --- RUTAS DE GRC ---
     if (path === '/api/grc/audit') {

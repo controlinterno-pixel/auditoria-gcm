@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { apiService } from '../services/apiService';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
+import { auth } from '../services/firebase';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
   defaultPlanes, defaultEvaluaciones, defaultMonitoreo 
@@ -50,27 +49,16 @@ export function useGrcData() {
         setUser(currentUser);
 
         try {
-          const docRef = doc(db, 'usuarios', currentUser.uid);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            const datosPerfil = docSnap.data();
-            setPerfilUsuario({
-              ...datosPerfil,
-              nombreResponsable: datosPerfil.nombreResponsable || datosPerfil.nombre || 'Usuario GRC',
-              correo: datosPerfil.correo || datosPerfil.email || currentUser.email
-            });
-            setIsAdmin(datosPerfil.rol === 'admin');
-          } else {
-            setPerfilUsuario({
-              correo: currentUser.email,
-              nombreResponsable: 'Usuario GRC',
-              rol: 'lider'
-            });
-            setIsAdmin(false);
-          }
+          const respuesta = await apiService.checkSession();
+          const datosPerfil = respuesta?.user || {};
+          setPerfilUsuario({
+            ...datosPerfil,
+            nombreResponsable: datosPerfil.nombreResponsable || 'Usuario GRC',
+            correo: datosPerfil.correo || datosPerfil.email || currentUser.email
+          });
+          setIsAdmin(datosPerfil.rol === 'admin');
         } catch (error) {
-          console.error("Error obteniendo perfil en Firestore:", error);
+          console.error("Error obteniendo perfil desde el servidor:", error);
           setIsAdmin(false);
         }
       } else {
