@@ -1,5 +1,9 @@
 // src/services/apiService.js - Cliente HTTP Centralizado para la API Serverless GRC
 import { secureLogger } from './secureLogger.js';
+import { signOut } from 'firebase/auth';
+import { auth } from './firebase.js';
+
+let renovacionSesionEnCurso = null;
 
 /**
  * Helper privado para ejecutar peticiones HTTP estandarizadas a la API.
@@ -19,7 +23,35 @@ const sanitizeServerMessage = (message) => {
   return safe || 'Error del servidor.';
 };
 
-async function request(endpoint, options = {}, reintentosMaximos = 3) {
+const renovarCookieSesion = async () => {
+  if (!auth.currentUser) return false;
+  if (renovacionSesionEnCurso) return renovacionSesionEnCurso;
+
+  renovacionSesionEnCurso = (async () => {
+    const idToken = await auth.currentUser.getIdToken(true);
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const error = new Error(sanitizeServerMessage(data?.error || 'Tu sesión venció. Inicia sesión de nuevo.'));
+      error.status = response.status;
+      throw error;
+    }
+
+    return true;
+  })().finally(() => {
+    renovacionSesionEnCurso = null;
+  });
+
+  return renovacionSesionEnCurso;
+};
+
+async function request(endpoint, options = {}, reintentosMaximos = 3, sesionRenovada = false) {
   const defaultHeaders = {
     'Content-Type': 'application/json',
   };
@@ -62,6 +94,24 @@ async function request(endpoint, options = {}, reintentosMaximos = 3) {
       if (!response.ok) {
         const rawMessage = data?.error || data?.message || data?.details || `Error HTTP ${response.status}`;
         const errorMessage = sanitizeServerMessage(rawMessage);
+
+        if (
+          response.status === 401 &&
+          !sesionRenovada &&
+          !String(endpoint).startsWith('/api/auth/') &&
+          auth.currentUser
+        ) {
+          try {
+            await renovarCookieSesion();
+            return await request(endpoint, options, reintentosMaximos, true);
+          } catch (error) {
+            if (error.status === 401 || error.status === 403) {
+              await signOut(auth).catch(() => {});
+              throw error;
+            }
+            throw new Error('No se pudo renovar la sesión. Comprueba tu conexión e inicia sesión de nuevo.', { cause: error });
+          }
+        }
         
         // 🛑 Si el error es 400-499 (error de validación, ej. "Usuario incorrecto"), NO reintentamos.
         if (response.status >= 400 && response.status < 500) {

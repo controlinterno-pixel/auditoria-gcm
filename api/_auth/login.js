@@ -125,10 +125,20 @@ export default async function handler(req, res) {
       }
     });
   } catch (error) {
-    userAttempts.count += 1;
-    loginAttempts.set(clientIp, userAttempts);
+    const erroresToken = new Set([
+      'auth/argument-error',
+      'auth/id-token-expired',
+      'auth/id-token-revoked',
+      'auth/invalid-id-token',
+    ]);
+    if (erroresToken.has(String(error?.code || ''))) {
+      userAttempts.count += 1;
+      loginAttempts.set(clientIp, userAttempts);
+      logger.warn('Token de Firebase rechazado durante el inicio de sesión', { clientIp, codigo: error.code });
+      return sendError(res, 'No se pudo validar la sesión de Firebase. Intenta iniciar sesión de nuevo.', 401);
+    }
 
-    logger.error('Error durante la autenticación en login.js', error, { clientIp });
-    return sendError(res, 'Autenticación fallida o credenciales inválidas.', 401);
+    logger.error('Error interno creando la sesión de servidor en login.js', error, { clientIp });
+    return sendError(res, 'El servidor no pudo crear la sesión. Tus credenciales no se han cambiado; inténtalo de nuevo más tarde.', 500);
   }
 }
