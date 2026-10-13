@@ -8,8 +8,9 @@ import {
   defaultPlanes, defaultEvaluaciones, defaultMonitoreo 
 } from '../constants/defaultData';
 
+const GRC_REFRESH_INTERVAL_MS = 5 * 60_000;
+
 export function useGrcData() {
-  const GRC_REFRESH_INTERVAL_MS = 60_000;
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [perfilUsuario, setPerfilUsuario] = useState(null);

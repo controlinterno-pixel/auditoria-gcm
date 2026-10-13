@@ -156,7 +156,7 @@ export default async function handler(req, res) {
     // 🛡️ LÓGICA GET: LECTURA CON ROW-LEVEL SECURITY (RLS) SERVER-SIDE
     // =========================================================================
     if (req.method === 'GET') {
-      const { data } = await leerWorkspaceGrc();
+      const { data } = await leerWorkspaceGrc(null, { usarCache: true });
 
       // Administradores y Auditores acceden a la totalidad de la base de datos
       if (isAdmin) {

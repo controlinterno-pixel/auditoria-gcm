@@ -5,8 +5,11 @@ const workspaceRef = () => adminDb.collection('workspace_compartido').doc('base_
 const informesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc_informes');
 // NUEVA ARQUITECTURA: Referencia a la futura subcolección escalable
 const coleccionInformesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('informes');
+const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
+let workspaceReadCache = null;
+let workspaceReadInFlight = null;
 
-export async function leerWorkspaceGrc(transaction = null) {
+async function leerWorkspaceGrcDesdeFirestore(transaction = null) {
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
   const refColeccion = coleccionInformesRef();
@@ -56,6 +59,26 @@ export async function leerWorkspaceGrc(transaction = null) {
       informesAuditoria: Array.from(mapaInformes.values()),
     },
   };
+}
+
+export async function leerWorkspaceGrc(transaction = null, { usarCache = false } = {}) {
+  if (transaction || !usarCache) return leerWorkspaceGrcDesdeFirestore(transaction);
+
+  if (workspaceReadCache && workspaceReadCache.expiraEn > Date.now()) {
+    return workspaceReadCache.valor;
+  }
+  if (workspaceReadInFlight) return workspaceReadInFlight;
+
+  workspaceReadInFlight = leerWorkspaceGrcDesdeFirestore()
+    .then(valor => {
+      workspaceReadCache = { valor, expiraEn: Date.now() + WORKSPACE_READ_CACHE_TTL_MS };
+      return valor;
+    })
+    .finally(() => {
+      workspaceReadInFlight = null;
+    });
+
+  return workspaceReadInFlight;
 }
 
 export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
