@@ -93,29 +93,45 @@ export async function guardarWorkspaceParcial(partialData) {
   const informesActualizados = incluyeInformes 
     ? partialData.informesAuditoria 
     : (informesLegados && !snapshotInformes.exists ? informesLegados : null);
+  const informesEliminados = [...new Set(
+    (Array.isArray(partialData.informesEliminados) ? partialData.informesEliminados : [])
+      .map(id => String(id || '').trim())
+      .filter(Boolean)
+  )];
     
   const datosRestantes = { ...partialData };
   delete datosRestantes.informesAuditoria;
+  delete datosRestantes.informesEliminados;
 
   if (informesActualizados || incluyeInformes) {
     const listaInformes = Array.isArray(informesActualizados) ? informesActualizados : [];
     
-    // 🛡️ CHUNKING (Lotes): Firestore permite máximo 500 escrituras por Batch.
-    // Dividimos en lotes de 400 para garantizar migraciones exitosas sin importar la cantidad.
     const chunkSize = 400;
-    for (let i = 0; i < listaInformes.length; i += chunkSize) {
-      const chunk = listaInformes.slice(i, i + chunkSize);
+    const idsEliminados = new Set(informesEliminados);
+    const informesPorId = new Map(
+      listaInformes
+        .filter(informe => informe && informe.id && !idsEliminados.has(String(informe.id)))
+        .map(informe => [String(informe.id), informe])
+    );
+    const operaciones = [
+      ...[...informesPorId].map(([id, informe]) => ({ tipo: 'guardar', id, informe })),
+      ...informesEliminados.map(id => ({ tipo: 'eliminar', referencia: refColeccion.doc(id) })),
+    ];
+
+    // Keep each batch below Firestore's 500-write limit, including legacy cleanup writes.
+    for (let i = 0; i < operaciones.length; i += chunkSize) {
+      const chunk = operaciones.slice(i, i + chunkSize);
       const batch = adminDb.batch();
       
-      chunk.forEach(informe => {
-        if (informe && informe.id) {
-          const docRef = refColeccion.doc(String(informe.id));
-          batch.set(docRef, informe, { merge: true });
+      chunk.forEach(operacion => {
+        if (operacion.tipo === 'guardar') {
+          batch.set(refColeccion.doc(operacion.id), operacion.informe, { merge: true });
+        } else {
+          batch.delete(operacion.referencia);
         }
       });
 
-      // Solo en el último lote destruimos los arreglos legados
-      if (i + chunkSize >= listaInformes.length) {
+      if (i + chunkSize >= operaciones.length) {
         batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
         if (Array.isArray(datosWorkspace.informesAuditoria)) {
           datosRestantes.informesAuditoria = FieldValue.delete();
@@ -126,8 +142,7 @@ export async function guardarWorkspaceParcial(partialData) {
       await batch.commit();
     }
     
-    // Caso borde: Si la lista estaba vacía (borrado total de informes)
-    if (listaInformes.length === 0) {
+    if (operaciones.length === 0) {
        const batch = adminDb.batch();
        batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
        if (Array.isArray(datosWorkspace.informesAuditoria)) {

@@ -227,6 +227,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
         ));
         const guardado = await saveToCloud({
           [listType]: updated,
+          ...(listType === 'informesAuditoria' ? { informesEliminados: [String(id)] } : {}),
           ...(listType === 'informesAuditoria' ? { hallazgos: hallazgosActualizados } : {}),
           planes: planesActualizados,
         });
