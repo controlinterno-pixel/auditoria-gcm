@@ -159,8 +159,15 @@ export default async function handler(req, res) {
           historialCambios: [],
         };
       } else if (coleccion === 'hallazgos') {
-        const informeOrigen = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
+        let informeOrigen = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
           .find(informe => String(informe.id) === String(registro.idInforme));
+        if (!informeOrigen && registro.idInforme) {
+          const informeRef = workspace.coleccionInformesRef.doc(String(registro.idInforme));
+          const informeSnapshot = await transaction.get(informeRef);
+          if (informeSnapshot.exists) {
+            informeOrigen = { id: informeSnapshot.id, ...informeSnapshot.data() };
+          }
+        }
         if (!informeOrigen) return { error: 'informe-not-found' };
 
         const anio = ahora.getFullYear();
