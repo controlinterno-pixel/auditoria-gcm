@@ -152,6 +152,7 @@ export default function App() {
     ? new URLSearchParams(window.location.search).get('reviewReportId')
     : null;
   const puedeVerFuentesMejora = isAdmin || perfilUsuario?.permisos?.includes('sub_fuentes_mejora') === true;
+  const puedeVerCronograma = isAdmin || perfilUsuario?.permisos?.includes('sub_cronograma') === true;
   const puedeCrearInformes = isAdmin || perfilUsuario?.permisos?.includes('sub_informes') === true;
   const puedeCrearHallazgos = isAdmin || perfilUsuario?.permisos?.includes('sub_hallazgos') === true;
   const puedeCrearPlanes = isAdmin || perfilUsuario?.permisos?.includes('sub_seguimiento_planes') === true;
@@ -444,6 +445,7 @@ return (
         onSelectAprobacionTasks={() => setDetallePanelPlanes('aprobacion')}
         isAdmin={isAdmin}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
+        puedeVerCronograma={puedeVerCronograma}
         user={user}
         handleLogout={handleLogout}
       />
@@ -515,7 +517,7 @@ return (
       <div className="space-y-6">
         
         {/* Protegemos el renderizado del componente PlanAnual */}
-        {isAdmin && subTabPlanificar === 'plan_anual' && (
+        {puedeVerCronograma && subTabPlanificar === 'plan_anual' && (
           <PlanAnual
         isAdmin={isAdmin} cFiltrados={cFiltrados} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
         columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}

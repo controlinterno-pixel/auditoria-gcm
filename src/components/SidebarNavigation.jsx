@@ -24,6 +24,7 @@ export default function SidebarNavigation({
   onSelectAprobacionTasks = () => {},
   isAdmin,
   puedeVerFuentesMejora = false,
+  puedeVerCronograma = false,
   user,
   handleLogout
 }) {
@@ -112,7 +113,10 @@ export default function SidebarNavigation({
           <button 
             onClick={() => { 
               setMenuAbierto(menuAbierto === 'auditorias' ? null : 'auditorias');
-              if (menuAbierto !== 'auditorias') { setActiveTab('plan_anual_tab'); setSubTabPlanificar('plan_anual'); }
+              if (menuAbierto !== 'auditorias') {
+                setActiveTab('plan_anual_tab');
+                setSubTabPlanificar(puedeVerCronograma ? 'plan_anual' : 'programas');
+              }
             }} 
             className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'plan_anual_tab' && (subTabPlanificar === 'plan_anual' || subTabPlanificar === 'programas')) || activeTab === 'evaluaciones' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
             <div className="flex items-center gap-3 group relative">
@@ -124,7 +128,7 @@ export default function SidebarNavigation({
           </button>
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'auditorias' && !isCollapsed ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('plan_anual'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'plan_anual' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Cronograma Anual</button>
+              {puedeVerCronograma && <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('plan_anual'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'plan_anual' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Cronograma Anual</button>}
               <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('programas'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'programas' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Programas de Auditoría</button>
               {isAdmin && <button onClick={() => setActiveTab('evaluaciones')} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'evaluaciones' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Trabajo de Campo</button>}
             </div>

@@ -167,6 +167,7 @@ export default async function handler(req, res) {
       const userEmail = String(user.email || '').toLowerCase().trim();
       const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
       const userProcesses = obtenerProcesosAsignados(user, user);
+      const puedeVerCronograma = Array.isArray(user.permisos) && user.permisos.includes('sub_cronograma');
       const catalogoCargosSeguro = (Array.isArray(data.catalogoCargos) ? data.catalogoCargos : []).map(registro => {
         if (isAdmin) return registro;
         const procesoCargo = normalizarProceso(registro?.macroproceso);
@@ -217,7 +218,7 @@ export default async function handler(req, res) {
         // Colecciones Públicas o de Configuración
         fuentesMejora: data.fuentesMejora || [],
         programas: data.programas || [],
-        cronograma: data.cronograma || [],
+        cronograma: puedeVerCronograma ? data.cronograma || [] : [],
         comites: data.comites || [],
         monitoreo: data.monitoreo || []
       };
