@@ -1,4 +1,4 @@
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Filter } from 'firebase-admin/firestore';
 import { adminDb } from './firebaseAdmin.js';
 
 const workspaceRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
@@ -6,10 +6,35 @@ const informesRef = () => adminDb.collection('workspace_compartido').doc('base_d
 // NUEVA ARQUITECTURA: Referencia a la futura subcolección escalable
 const coleccionInformesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('informes');
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
-let workspaceReadCache = null;
-let workspaceReadInFlight = null;
+const workspaceReadCache = new Map();
+const workspaceReadInFlight = new Map();
 
-async function leerWorkspaceGrcDesdeFirestore(transaction = null) {
+const leerInformesFragmentados = async (refColeccion, procesosAsignados) => {
+  if (!Array.isArray(procesosAsignados) || procesosAsignados.length === 0) {
+    const snapshot = await refColeccion.get();
+    return snapshot.docs.map(documento => ({ id: documento.id, ...documento.data() }));
+  }
+
+  const procesos = [...new Set(procesosAsignados.map(proceso => String(proceso || '').trim()).filter(Boolean))];
+  const chunks = [];
+  for (let indice = 0; indice < procesos.length; indice += 10) {
+    chunks.push(procesos.slice(indice, indice + 10));
+  }
+
+  const snapshots = await Promise.all(chunks.map(chunk => (
+    refColeccion.where(Filter.or(
+      Filter.where('macroproceso', 'in', chunk),
+      Filter.where('proceso', 'in', chunk)
+    )).get()
+  )));
+  const informesPorId = new Map();
+  snapshots.forEach(snapshot => snapshot.docs.forEach(documento => {
+    informesPorId.set(documento.id, { id: documento.id, ...documento.data() });
+  }));
+  return [...informesPorId.values()];
+};
+
+async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsignados = null) {
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
   const refColeccion = coleccionInformesRef();
@@ -26,8 +51,7 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null) {
   // Si es una petición GET (sync.js), leemos la subcolección nueva.
   let informesIndependientes = [];
   if (!transaction) {
-    const querySnapshot = await refColeccion.get();
-    informesIndependientes = querySnapshot.docs.map(doc => doc.data());
+    informesIndependientes = await leerInformesFragmentados(refColeccion, procesosAsignados);
   }
 
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
@@ -61,24 +85,31 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null) {
   };
 }
 
-export async function leerWorkspaceGrc(transaction = null, { usarCache = false } = {}) {
+export async function leerWorkspaceGrc(transaction = null, { usarCache = false, procesosAsignados = null } = {}) {
   if (transaction || !usarCache) return leerWorkspaceGrcDesdeFirestore(transaction);
 
-  if (workspaceReadCache && workspaceReadCache.expiraEn > Date.now()) {
-    return workspaceReadCache.valor;
-  }
-  if (workspaceReadInFlight) return workspaceReadInFlight;
+  const cacheKey = Array.isArray(procesosAsignados) && procesosAsignados.length
+    ? [...new Set(procesosAsignados.map(proceso => String(proceso || '').trim()).filter(Boolean))].sort().join('|')
+    : '*';
+  const cacheEntry = workspaceReadCache.get(cacheKey);
+  if (cacheEntry && cacheEntry.expiraEn > Date.now()) return cacheEntry.valor;
+  if (workspaceReadInFlight.has(cacheKey)) return workspaceReadInFlight.get(cacheKey);
 
-  workspaceReadInFlight = leerWorkspaceGrcDesdeFirestore()
+  const lectura = leerWorkspaceGrcDesdeFirestore(null, procesosAsignados)
     .then(valor => {
-      workspaceReadCache = { valor, expiraEn: Date.now() + WORKSPACE_READ_CACHE_TTL_MS };
+      if (workspaceReadCache.size >= 100 && !workspaceReadCache.has(cacheKey)) {
+        const cacheMasAntigua = workspaceReadCache.keys().next().value;
+        if (cacheMasAntigua) workspaceReadCache.delete(cacheMasAntigua);
+      }
+      workspaceReadCache.set(cacheKey, { valor, expiraEn: Date.now() + WORKSPACE_READ_CACHE_TTL_MS });
       return valor;
     })
     .finally(() => {
-      workspaceReadInFlight = null;
+      workspaceReadInFlight.delete(cacheKey);
     });
 
-  return workspaceReadInFlight;
+  workspaceReadInFlight.set(cacheKey, lectura);
+  return lectura;
 }
 
 export function guardarInformesGrc(transaction, workspace, informesAuditoria) {

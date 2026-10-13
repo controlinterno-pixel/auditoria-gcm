@@ -8,8 +8,6 @@ import {
   defaultPlanes, defaultEvaluaciones, defaultMonitoreo 
 } from '../constants/defaultData';
 
-const GRC_REFRESH_INTERVAL_MS = 5 * 60_000;
-
 export function useGrcData() {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -79,13 +77,11 @@ export function useGrcData() {
     if (!user) return;
     
     let isMounted = true;
-    let isFetching = false;
     setTimeout(() => {
       if (isMounted) setIsCloudLoaded(false);
     }, 0);
 
-    // 🛡️ PURGA AUTOMÁTICA DE DATOS RESIDUALES Y PII EN LOCALSTORAGE
-    // Elimina datos de negocio y datos personales identificables del almacenamiento local
+    // 🛡️ PURGA AUTOMÁTICA DE DATOS RESIDUALES
     const llavesBasura = [
       'grc_riesgos', 'grc_hallazgos', 'grc_planes', 'grc_incidentes', 
       'grc_evaluaciones', 'grc_cronograma', 'grc_monitoreo', 'grc_informesAuditoria', 
@@ -95,17 +91,10 @@ export function useGrcData() {
     llavesBasura.forEach(key => localStorage.removeItem(key));
     
     const fetchSecureData = async () => {
-      if (isFetching) return;
-      isFetching = true;
       try {
-        // 🛡️ HALLAZGO N1 MITIGADO: 
-        // Eliminamos onSnapshot directo a Firestore.
-        // La solicitud pasa por el backend, quien valida la cookie HttpOnly 
-        // y aplica el filtrado RLS estricto antes de devolver el JSON.
-const data = await apiService.getGrcData();
-  if (!isMounted) return;
+        const data = await apiService.getGrcData();
+        if (!isMounted) return;
         
-        // Asignación directa: confiamos 100% en el filtro del servidor
         setRiesgos(data.riesgos || defaultRiesgos);
         setHallazgos(data.hallazgos || defaultHallazgos);
         setPlanes(data.planes || defaultPlanes);
@@ -125,25 +114,19 @@ const data = await apiService.getGrcData();
         
       } catch (error) {
         console.error("🔥 Error de seguridad/red obteniendo datos:", error);
-  } finally {
-        isFetching = false;
+      } finally {
         if (isMounted) setIsCloudLoaded(true);
       }
     };
 
     fetchSecureData();
-    const intervalId = window.setInterval(() => {
-      if (document.visibilityState === 'visible') fetchSecureData();
-    }, GRC_REFRESH_INTERVAL_MS);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') fetchSecureData();
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // 🟢 OPTIMIZACIÓN 2: Eliminados el setInterval (Polling) y el visibilitychange.
+    // La app cargará los datos 1 sola vez al iniciar sesión, y si el usuario
+    // necesita forzar actualización, lo hará recargando la página (F5).
+    
     return () => {
       isMounted = false;
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user]);    
 

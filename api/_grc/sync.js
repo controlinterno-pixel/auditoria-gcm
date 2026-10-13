@@ -156,7 +156,16 @@ export default async function handler(req, res) {
     // 🛡️ LÓGICA GET: LECTURA CON ROW-LEVEL SECURITY (RLS) SERVER-SIDE
     // =========================================================================
     if (req.method === 'GET') {
-      const { data } = await leerWorkspaceGrc(null, { usarCache: true });
+      const userProcesses = obtenerProcesosAsignados(user, user);
+      const procesosConsulta = !isAdmin && userProcesses.length > 0
+        ? (Array.isArray(user.procesosAsignados) && user.procesosAsignados.length > 0
+          ? user.procesosAsignados
+          : [user.procesoAsignado].filter(Boolean))
+        : null;
+      const { data } = await leerWorkspaceGrc(null, {
+        usarCache: true,
+        procesosAsignados: procesosConsulta,
+      });
 
       // Administradores y Auditores acceden a la totalidad de la base de datos
       if (isAdmin) {
@@ -166,7 +175,6 @@ export default async function handler(req, res) {
       // Extracción segura del contexto del usuario autenticado
       const userEmail = String(user.email || '').toLowerCase().trim();
       const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
-      const userProcesses = obtenerProcesosAsignados(user, user);
       const userSubprocesses = obtenerSubprocesosAsignados(user);
       const puedeVerCronograma = Array.isArray(user.permisos) && user.permisos.includes('sub_cronograma');
       const catalogoCargosSeguro = (Array.isArray(data.catalogoCargos) ? data.catalogoCargos : []).map(registro => {
