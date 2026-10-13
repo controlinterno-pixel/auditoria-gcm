@@ -4,7 +4,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
-import { obtenerProcesosAsignados } from '../_lib/assignmentScope.js';
+import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
 
 /**
  * Valida de forma estricta si el usuario posee rol administrativo o de auditoría.
@@ -167,6 +167,7 @@ export default async function handler(req, res) {
       const userEmail = String(user.email || '').toLowerCase().trim();
       const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
       const userProcesses = obtenerProcesosAsignados(user, user);
+      const userSubprocesses = obtenerSubprocesosAsignados(user);
       const puedeVerCronograma = Array.isArray(user.permisos) && user.permisos.includes('sub_cronograma');
       const catalogoCargosSeguro = (Array.isArray(data.catalogoCargos) ? data.catalogoCargos : []).map(registro => {
         if (isAdmin) return registro;
@@ -176,27 +177,46 @@ export default async function handler(req, res) {
           : { ...registro, correoCorporativo: '' };
       });
 
-      // ============================================================================
-      // 🛡️ HERENCIA DE PERMISOS RLS RELACIONAL (Bottom-Up)
-      // Si el usuario tiene acceso a un Plan, DEBE tener acceso a su Hallazgo e Informe Padre
-      // ============================================================================
-      
-      // 1. Filtramos los Planes de Acción (Nivel más bajo)
-      const planesPermitidos = aplicarRLS(data.planes, userEmail, userCargo, userProcesses);
-      const idsHallazgosDesdePlanes = new Set(planesPermitidos.map(p => String(p.idHallazgo)));
+      const informesData = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+      const hallazgosData = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+      const planesData = Array.isArray(data.planes) ? data.planes : [];
+      let planesPermitidos;
+      let hallazgosPermitidos;
+      let informesPermitidos;
 
-      // 2. Filtramos Hallazgos (Pasan si cumplen RLS directo O si tienen un Plan permitido)
-      const hallazgosPermitidos = (data.hallazgos || []).filter(h => {
-        if (idsHallazgosDesdePlanes.has(String(h.id))) return true; // Herencia del Plan
-        return aplicarRLS([h], userEmail, userCargo, userProcesses).length > 0; // Acceso Directo
-      });
-      const idsInformesDesdeHallazgos = new Set(hallazgosPermitidos.map(h => String(h.idInforme)));
+      if (userProcesses.length > 0) {
+        // Shared GRC records use the assigned process/subprocess scope, not per-user email or cargo.
+        hallazgosPermitidos = hallazgosData.filter(hallazgo => (
+          registroDentroDelAlcanceAsignado(hallazgo, userProcesses, userSubprocesses)
+        ));
+        const hallazgosPermitidosPorId = new Set(hallazgosPermitidos.map(hallazgo => String(hallazgo.id)));
+        const idsInformesDesdeHallazgos = new Set(hallazgosPermitidos.map(hallazgo => String(hallazgo.idInforme)));
+        const hallazgosPorId = new Map(hallazgosData.map(hallazgo => [String(hallazgo.id), hallazgo]));
 
-      // 3. Filtramos Informes (Pasan si cumplen RLS directo O si tienen un Hallazgo permitido)
-      const informesPermitidos = (data.informesAuditoria || []).filter(inf => {
-        if (idsInformesDesdeHallazgos.has(String(inf.id))) return true; // Herencia del Hallazgo
-        return aplicarRLS([inf], userEmail, userCargo, userProcesses).length > 0; // Acceso Directo
-      });
+        planesPermitidos = planesData.filter(plan => {
+          const hallazgoPadre = hallazgosPorId.get(String(plan.idHallazgo));
+          return hallazgoPadre
+            ? hallazgosPermitidosPorId.has(String(hallazgoPadre.id))
+            : registroDentroDelAlcanceAsignado(plan, userProcesses, userSubprocesses);
+        });
+        informesPermitidos = informesData.filter(informe => (
+          idsInformesDesdeHallazgos.has(String(informe.id)) ||
+          registroDentroDelAlcanceAsignado(informe, userProcesses, userSubprocesses)
+        ));
+      } else {
+        // Legacy profiles without assigned processes retain email/cargo-based visibility.
+        planesPermitidos = aplicarRLS(planesData, userEmail, userCargo, userProcesses);
+        const idsHallazgosDesdePlanes = new Set(planesPermitidos.map(plan => String(plan.idHallazgo)));
+        hallazgosPermitidos = hallazgosData.filter(hallazgo => (
+          idsHallazgosDesdePlanes.has(String(hallazgo.id)) ||
+          aplicarRLS([hallazgo], userEmail, userCargo, userProcesses).length > 0
+        ));
+        const idsInformesDesdeHallazgos = new Set(hallazgosPermitidos.map(hallazgo => String(hallazgo.idInforme)));
+        informesPermitidos = informesData.filter(informe => (
+          idsInformesDesdeHallazgos.has(String(informe.id)) ||
+          aplicarRLS([informe], userEmail, userCargo, userProcesses).length > 0
+        ));
+      }
 
       // ============================================================================
       // EMPAQUETADO FINAL SEGURO

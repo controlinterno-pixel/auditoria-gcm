@@ -27,4 +27,18 @@ export const registroDentroDelAlcance = (procesosAsignados, subprocesosAsignados
   );
 };
 
+export const registroDentroDelAlcanceAsignado = (registro = {}, procesosAsignados = [], subprocesosAsignados = []) => {
+  const procesosNormalizados = normalizarLista(procesosAsignados);
+  const subprocesosNormalizados = normalizarLista(subprocesosAsignados);
+  const procesoRegistro = normalizar(registro.macroproceso || registro.proceso).split('/')[0].trim();
+  if (!procesoRegistro || !procesosNormalizados.includes(procesoRegistro)) return false;
+  if (subprocesosNormalizados.length === 0) return true;
+
+  const subprocesosRegistroRaw = registro.subprocesos ?? registro.subproceso ?? 'General';
+  const subprocesosRegistro = Array.isArray(subprocesosRegistroRaw)
+    ? normalizarLista(subprocesosRegistroRaw)
+    : normalizarLista(String(subprocesosRegistroRaw || 'General').split(','));
+  return subprocesosRegistro.some(subproceso => subprocesosNormalizados.includes(subproceso));
+};
+
 export const normalizarProcesoAlcance = normalizar;

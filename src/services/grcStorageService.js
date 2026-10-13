@@ -26,7 +26,7 @@ export const saveToCloud = async (partialData, showNotification) => {
     return true;
   } catch (error) {
     console.error('❌ Error de sincronización segura:', error);
-    if (showNotification) showNotification('Error guardando en el servidor GRC.', 'error');
+    if (showNotification) showNotification(error?.message || 'Error guardando en el servidor GRC.', 'error');
     return false;
   }
 };

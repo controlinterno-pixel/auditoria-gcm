@@ -932,9 +932,11 @@ const diccionarioCorreos = {
     const esAprobado = puntajeHolistico >= 80;
 const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || 'controlinterno@empresa.com');
     // Actualizamos en lote TODAS las actividades (Acumulando el Historial de Calificaciones)
+    let evaluacionesAplicadas = 0;
     modalEval.planes.forEach(plan => {
-      const idx = updatedPlanesList.findIndex(p => p.id === plan.id);
+      const idx = updatedPlanesList.findIndex(p => String(p.id) === String(plan.id));
       if (idx !== -1) {
+        evaluacionesAplicadas += 1;
         const nuevaEval = { 
           fecha: ts,
           puntaje: puntajeHolistico,
@@ -966,8 +968,13 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
         };
       }
     });
+    if (evaluacionesAplicadas !== modalEval.planes.length) {
+      showNotification('No se pudieron identificar todas las actividades del paquete. No se guardó la evaluación.', 'error');
+      return;
+    }
+    const guardado = await saveToCloud({ planes: updatedPlanesList });
+    if (!guardado) return;
     setPlanes(updatedPlanesList);
-    await saveToCloud({ planes: updatedPlanesList });
 
   // 📧 Redactar borrador en Gmail automáticamente para adjuntar PDF
     const tituloLimpio = esAprobado 
@@ -982,7 +989,9 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
     const mailtoLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${correoResponsableLider || ''}&su=${encodeURIComponent(tituloLimpio)}&body=${encodeURIComponent(mensajeLimpio)}`;
     window.open(mailtoLink, '_blank');
 
-    alert(esAprobado ? "✅ ¡Paquete de acciones aprobado y cerrado con éxito!" : "❌ Plan rechazado en bloque. Notificación enviada.");
+    alert(esAprobado
+      ? '✅ Evaluación guardada y paquete aprobado. Se abrió el borrador del dictamen en Gmail.'
+      : '❌ Evaluación guardada y plan rechazado. Se abrió el borrador de solicitud de ajuste en Gmail.');
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
     setJustificacion('');
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
