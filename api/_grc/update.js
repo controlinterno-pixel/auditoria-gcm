@@ -2,6 +2,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
@@ -266,6 +267,7 @@ export default async function handler(req, res) {
         return sendError(res, mensaje, estado);
       }
 
+      await notificarSemaforo();
       logger.info('Matriz de planes guardada', { informe: idInforme, usuario: user.email });
       return sendSuccess(res, resultado);
     }
@@ -354,6 +356,7 @@ export default async function handler(req, res) {
       if (resultado.error === 'not-found') return sendError(res, 'No se encontró el hallazgo.', 404);
       if (resultado.error === 'forbidden') return sendError(res, 'Solo el creador o un administrador puede editar este hallazgo.', 403);
 
+      await notificarSemaforo();
       logger.info('Hallazgo actualizado', { id, usuario: user.email });
       return sendSuccess(res, resultado);
     }
@@ -484,6 +487,7 @@ export default async function handler(req, res) {
     if (resultado.error === 'not-found') return sendError(res, 'No se encontró el informe.', 404);
     if (resultado.error === 'forbidden') return sendError(res, 'No tiene permiso para editar este informe.', 403);
 
+    await notificarSemaforo();
     logger.info('Informe actualizado con permiso de módulo', { id, usuario: user.email });
     return sendSuccess(res, { registro: resultado.informe, planesActualizados: resultado.planesActualizados });
   } catch (error) {

@@ -2,6 +2,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
@@ -91,6 +92,7 @@ export default async function handler(req, res) {
     if (resultado.error === 'not-found') return sendError(res, 'No se encontró la base de datos GRC.', 404);
     if (resultado.error === 'assignment-not-found') return sendError(res, 'La asignación ya no existe en el catálogo.', 404);
 
+    await notificarSemaforo();
     logger.info('Asignación de cargo eliminada del catálogo', {
       id,
       cargo: resultado.cargoEliminado.cargo,

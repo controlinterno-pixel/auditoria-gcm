@@ -3,6 +3,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
@@ -235,6 +236,7 @@ export default async function handler(req, res) {
     if (registroGuardado.error === 'invalid-email-confirmation') {
       return sendError(res, 'Los correos del ejecutor y revisor deben ser válidos y coincidir con sus confirmaciones.', 400);
     }
+    await notificarSemaforo();
     logger.info('Registro GRC creado', { coleccion, usuario: user.email, id: registroGuardado.id });
     return sendSuccess(res, registroGuardado.registros ? { registros: registroGuardado.registros } : { registro: registroGuardado });
   } catch (error) {

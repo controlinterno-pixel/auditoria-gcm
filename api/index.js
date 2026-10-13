@@ -38,6 +38,7 @@ export default async function handler(req, res) {
     }
 
     // --- RUTAS DE GRC ---
+    
     if (path === '/api/grc/audit') {
       const module = await import('./_grc/audit.js');
       return await module.default(req, res);

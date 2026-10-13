@@ -1,8 +1,9 @@
 // src/hooks/useGrcData.js
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { apiService } from '../services/apiService';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
   defaultPlanes, defaultEvaluaciones, defaultMonitoreo 
@@ -72,7 +73,7 @@ export function useGrcData() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Carga Inicial Centralizada SEGURA (Backend-Driven)
+// 2. Carga Inicial Centralizada SEGURA + Semáforo en Tiempo Real (Firestore)
   useEffect(() => {
     if (!user) return;
     
@@ -81,7 +82,6 @@ export function useGrcData() {
       if (isMounted) setIsCloudLoaded(false);
     }, 0);
 
-    // 🛡️ PURGA AUTOMÁTICA DE DATOS RESIDUALES
     const llavesBasura = [
       'grc_riesgos', 'grc_hallazgos', 'grc_planes', 'grc_incidentes', 
       'grc_evaluaciones', 'grc_cronograma', 'grc_monitoreo', 'grc_informesAuditoria', 
@@ -90,9 +90,18 @@ export function useGrcData() {
     ];
     llavesBasura.forEach(key => localStorage.removeItem(key));
     
-    const fetchSecureData = async () => {
+    let isFetching = false;
+    let forcedRefreshPending = false;
+    const fetchSecureData = async (forceFresh = false) => {
+      if (!isMounted) return;
+      if (isFetching) {
+        if (forceFresh) forcedRefreshPending = true;
+        return;
+      }
+
+      isFetching = true;
       try {
-        const data = await apiService.getGrcData();
+        const data = await apiService.getGrcData({ forceFresh });
         if (!isMounted) return;
         
         setRiesgos(data.riesgos || defaultRiesgos);
@@ -111,24 +120,37 @@ export function useGrcData() {
         setMapaProcesos(data.mapaProcesos && typeof data.mapaProcesos === 'object' ? data.mapaProcesos : {});
         setSedesEmpresa(Array.isArray(data.sedesEmpresa) ? data.sedesEmpresa : []);
         setCatalogosInicializados(data.catalogosInicializados === true);
-        
       } catch (error) {
         console.error("🔥 Error de seguridad/red obteniendo datos:", error);
       } finally {
+        isFetching = false;
         if (isMounted) setIsCloudLoaded(true);
+        if (isMounted && forcedRefreshPending) {
+          forcedRefreshPending = false;
+          void fetchSecureData(true);
+        }
       }
     };
 
     fetchSecureData();
 
-    // 🟢 OPTIMIZACIÓN 2: Eliminados el setInterval (Polling) y el visibilitychange.
-    // La app cargará los datos 1 sola vez al iniciar sesión, y si el usuario
-    // necesita forzar actualización, lo hará recargando la página (F5).
-    
+    const semaforoRef = doc(db, 'sistema', 'semaforo');
+    let esPrimeraCarga = true;
+    const unsubscribeSemaforo = onSnapshot(semaforoRef, docSnap => {
+      if (esPrimeraCarga) {
+        esPrimeraCarga = false;
+        return;
+      }
+      if (docSnap.exists()) void fetchSecureData(true);
+    }, error => {
+      console.warn('Semáforo en tiempo real no disponible:', error);
+    });
+
     return () => {
       isMounted = false;
+      unsubscribeSemaforo();
     };
-  }, [user]);    
+  }, [user]);   
 
   // 3. Motor RLS Delegado al Servidor
   // 🛡️ Ya no filtramos arreglos en el cliente. Si la data llegó aquí, 

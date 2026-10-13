@@ -2,6 +2,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
@@ -89,6 +90,7 @@ export default async function handler(req, res) {
       return sendError(res, mensaje, estado);
     }
 
+    await notificarSemaforo();
     logger.info('Revisión de planes completada', { idInforme, decision, cantidad: resultado.planes.length, usuario: user.email });
     return sendSuccess(res, { planes: resultado.planes });
   } catch (error) {

@@ -122,6 +122,16 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
         throw new Error(`ServerError: ${errorMessage}`);
       }
 
+      const metodo = String(configBase.method || 'GET').toUpperCase();
+      const esEscrituraGrc = endpoint.startsWith('/api/grc/') &&
+        metodo !== 'GET' &&
+        endpoint !== '/api/grc/stream' &&
+        !(endpoint === '/api/grc/catalogo-cargos' && metodo === 'POST');
+      if (esEscrituraGrc) {
+        fetch(`${import.meta.env.VITE_API_URL || ''}/api/grc/stream`, { method: 'POST' })
+          .catch(() => console.log('Error SSE'));
+      }
+
       return data; // ✅ Éxito total. Entregamos los datos y salimos.
 
     } catch (error) {
@@ -322,14 +332,16 @@ export const apiService = {
     body: { uid, accion }
   }),
 
-  // 📊 SINCRONIZACIÓN GRC Y RLS
-  getGrcData: () => request('/api/grc/sync', { cache: 'no-store' }),
+ // 📊 SINCRONIZACIÓN GRC Y RLS
+  getGrcData: ({ forceFresh = false } = {}) => request(`/api/grc/sync${forceFresh ? '?fresh=1' : ''}`, { 
+    cache: 'no-store', 
+    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
+  }),
 
   saveGrcData: (partialData) => request('/api/grc/sync', {
     method: 'POST',
     body: { partialData }
   }),
-
   crearRegistroGrc: (coleccion, registro) => request('/api/grc/create', {
     method: 'POST',
     body: { coleccion, registro }

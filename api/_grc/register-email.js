@@ -2,6 +2,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
     });
 
     if (!informeActualizado) return sendError(res, 'No se encontró el informe o no tiene permiso para actualizarlo.', 404);
+    await notificarSemaforo();
     logger.info('Envío del informe registrado', { id, usuario: user.email });
     return sendSuccess(res, { informe: informeActualizado });
   } catch (error) {

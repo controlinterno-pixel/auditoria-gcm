@@ -3,6 +3,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
 
@@ -163,7 +164,7 @@ export default async function handler(req, res) {
           : [user.procesoAsignado].filter(Boolean))
         : null;
       const { data } = await leerWorkspaceGrc(null, {
-        usarCache: true,
+        usarCache: req.query?.fresh !== '1',
         procesosAsignados: procesosConsulta,
       });
 
@@ -276,6 +277,8 @@ export default async function handler(req, res) {
       }
 
       await guardarWorkspaceParcial(partialData);
+      await notificarSemaforo();
+
       logger.info('Estructura GRC actualizada por administrador', { usuario: user.email });
       return sendSuccess(res, { message: 'Guardado exitoso.' });
     }

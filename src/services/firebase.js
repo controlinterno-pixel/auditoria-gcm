@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // 🛡️ DICTAMEN DE CIBERSEGURIDAD PARA AUDITORÍA TI:
@@ -22,4 +23,5 @@ const getSecureClientConfig = () => {
 
 const app = initializeApp(getSecureClientConfig());
 export const auth = getAuth(app);
+export const db = getFirestore(app);
 export const storage = getStorage(app);
