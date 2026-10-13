@@ -2,6 +2,10 @@
 import { parse } from 'cookie';
 import { adminAuth, adminDb } from './firebaseAdmin.js';
 
+const authCache = new Map();
+const AUTH_CACHE_TTL_MS = 30_000;
+const AUTH_CACHE_MAX_ENTRIES = 1000;
+
 export const requireAuth = async (req, res) => {
   const cookies = parse(req.headers.cookie || '');
   const sessionCookie = cookies.grc_session;
@@ -21,20 +25,15 @@ export const requireAuth = async (req, res) => {
       return null;
     }
 
-   // PEGAR ESTA LÍNEA HASTA ARRIBA (Debajo de los imports)
-const authCache = new Map();
-
-// PEGAR ESTO DENTRO DEL TRY (Reemplazando lo que borraste)
     const uid = decodedToken.uid;
     const now = Date.now();
 
-    // 1. Escudo de Caché: Si el usuario ya se autenticó en los últimos 3 minutos en esta instancia, no ir a la BD.
-    if (authCache.has(uid)) {
-      const cached = authCache.get(uid);
-      if (now - cached.timestamp < 180000) return cached.data; // 3 minutos de vida
+    const cached = authCache.get(uid);
+    if (cached && now - cached.timestamp < AUTH_CACHE_TTL_MS) {
+      return cached.data;
     }
+    if (cached) authCache.delete(uid);
 
-    // 2. Si no está en caché, ir a Firestore (Una sola vez por sesión activa)
     const userDoc = await adminDb.collection('usuarios').doc(uid).get();
     if (!userDoc.exists) {
       res.status(403).json({ error: 'El perfil de acceso no existe.' });
@@ -60,7 +59,10 @@ const authCache = new Map();
       subprocesosAsignados: Array.isArray(userData.subprocesosAsignados) ? userData.subprocesosAsignados : [],
     };
 
-    // 3. Guardar en memoria y retornar
+    if (authCache.size >= AUTH_CACHE_MAX_ENTRIES) {
+      const oldestUid = authCache.keys().next().value;
+      if (oldestUid) authCache.delete(oldestUid);
+    }
     authCache.set(uid, { timestamp: now, data: sessionData });
     return sessionData;
   } catch (error) {

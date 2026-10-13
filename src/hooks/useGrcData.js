@@ -9,6 +9,7 @@ import {
 } from '../constants/defaultData';
 
 export function useGrcData() {
+  const GRC_REFRESH_INTERVAL_MS = 60_000;
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [perfilUsuario, setPerfilUsuario] = useState(null);
@@ -132,7 +133,7 @@ const data = await apiService.getGrcData();
     fetchSecureData();
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === 'visible') fetchSecureData();
-    }, 15000);
+    }, GRC_REFRESH_INTERVAL_MS);
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') fetchSecureData();
     };
