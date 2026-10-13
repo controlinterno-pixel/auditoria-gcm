@@ -198,12 +198,15 @@ export default function Hallazgos({
       return;
     }
 
-    setIsUploading(true); setUploadProgress(20);
+    setIsUploading(true);
+    setUploadProgress(0);
+    let archivoActual = archivos[0];
+    let subidasCompletadas = 0;
     try {
-      const nuevasEvidencias = [];
       for (let indice = 0; indice < archivos.length; indice += 1) {
         const archivo = archivos[indice];
-        setUploadProgress(20 + Math.round((indice / archivos.length) * 70));
+        archivoActual = archivo;
+        setUploadProgress(Math.round((indice / archivos.length) * 100));
         const data = await apiService.subirEvidencia(archivo, { appName: 'controlInterno' });
         const urlFinal = apiService.resolveArchivoUrl({
           appName: data?.appName || 'controlInterno',
@@ -211,13 +214,21 @@ export default function Hallazgos({
           url: data?.url,
           file: data?.file,
         }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
-        nuevasEvidencias.push({ url: urlFinal, nombre: archivo.name });
+        actualizarArchivosSubidos(prev => [...prev, { url: urlFinal, nombre: archivo.name }]);
+        subidasCompletadas += 1;
+        setUploadProgress(Math.round((subidasCompletadas / archivos.length) * 100));
       }
-      actualizarArchivosSubidos(prev => [...prev, ...nuevasEvidencias]);
-      setIsUploading(false); setUploadProgress(100);
-      alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
+      alert(`🎉 ${subidasCompletadas === 1 ? 'Evidencia guardada' : `${subidasCompletadas} evidencias guardadas`} con éxito en el servidor de Termales.`);
     } catch (err) {
-      console.error(err); alert("Error al conectar con el servidor de archivos."); setIsUploading(false);
+      console.error(err);
+      const detalle = err?.message || 'El repositorio no respondió.';
+      const resumen = subidasCompletadas > 0
+        ? `${subidasCompletadas} evidencia(s) sí se subieron y quedaron adjuntas. `
+        : '';
+      alert(`${resumen}No se pudo subir "${archivoActual.name}". ${detalle} Puedes reintentar solo ese archivo.`);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
     }
   };
 
