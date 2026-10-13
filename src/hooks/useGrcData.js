@@ -38,7 +38,7 @@ export function useGrcData() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         try {
-          const idToken = await currentUser.getIdToken();
+          const idToken = await currentUser.getIdToken(true);
           await apiService.login(idToken);
         } catch (err) {
           console.error("Error renovando cookie de servidor:", err);
