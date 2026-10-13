@@ -1,7 +1,8 @@
 import { secureLogger } from './secureLogger.js';
 
 const GOOGLE_CLIENT_ID = typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_GOOGLE_CLIENT_ID || '') : '';
-const GOOGLE_OAUTH_SCOPE = 'openid email https://www.googleapis.com/auth/gmail.send';
+const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+const GOOGLE_OAUTH_SCOPE = `openid email ${GMAIL_SEND_SCOPE}`;
 
 let gmailSession = null;
 let pendingAuthorization = null;
@@ -54,16 +55,17 @@ const verifySender = (email, expectedEmail) => {
   }
 };
 
-const requestGmailSession = async (expectedEmail) => {
+const requestGmailSession = async (expectedEmail, { forcePrompt = false, forceConsent = false } = {}) => {
   if (!GOOGLE_CLIENT_ID) {
     throw new Error('Falta configurar VITE_GOOGLE_CLIENT_ID para habilitar el envío desde Gmail.');
   }
 
-  if (gmailSession && gmailSession.expiresAt > Date.now() + 60_000) {
+  if (!forcePrompt && gmailSession && gmailSession.expiresAt > Date.now() + 60_000) {
     const expected = String(expectedEmail || '').trim().toLowerCase();
-    if (!expected || gmailSession.email.toLowerCase() === expected) return gmailSession;
-    gmailSession = null;
+    const hasSendScope = gmailSession.scopes?.includes(GMAIL_SEND_SCOPE);
+    if (hasSendScope && (!expected || gmailSession.email.toLowerCase() === expected)) return gmailSession;
   }
+  gmailSession = null;
 
   if (!pendingAuthorization) {
     const oauth2 = loadGoogleIdentity();
@@ -71,6 +73,7 @@ const requestGmailSession = async (expectedEmail) => {
       const tokenClient = oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: GOOGLE_OAUTH_SCOPE,
+        include_granted_scopes: true,
         callback: response => {
           if (response.error || !response.access_token) {
             reject(new Error(response.error_description || response.error || 'Google no autorizó el envío.'));
@@ -81,8 +84,17 @@ const requestGmailSession = async (expectedEmail) => {
         error_callback: error => reject(new Error(error.message || 'No se pudo abrir la ventana de Google.'))
       });
 
-      tokenClient.requestAccessToken({ prompt: 'select_account' });
+      tokenClient.requestAccessToken({
+        prompt: forceConsent ? 'consent' : forcePrompt ? 'select_account' : undefined,
+      });
     }).then(async response => {
+      const scopes = String(response.scope || '').split(/\s+/).filter(Boolean);
+      if (!scopes.includes(GMAIL_SEND_SCOPE)) {
+        const error = new Error('Google no concedió el permiso gmail.send. Acepta el acceso a Gmail e inténtalo de nuevo.');
+        error.code = 'GMAIL_SCOPE_MISSING';
+        throw error;
+      }
+
       const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: { Authorization: `Bearer ${response.access_token}` }
       });
@@ -95,6 +107,7 @@ const requestGmailSession = async (expectedEmail) => {
       const session = {
         accessToken: response.access_token,
         email: profile.email,
+        scopes,
         expiresAt: Date.now() + (Number(response.expires_in) || 3600) * 1000
       };
       verifySender(session.email, expectedEmail);
@@ -110,9 +123,19 @@ const requestGmailSession = async (expectedEmail) => {
   return session;
 };
 
+const requestGmailSessionWithConsent = async (expectedEmail, { forcePrompt = false } = {}) => {
+  try {
+    return await requestGmailSession(expectedEmail, { forcePrompt });
+  } catch (error) {
+    if (error?.code !== 'GMAIL_SCOPE_MISSING') throw error;
+    gmailSession = null;
+    return requestGmailSession(expectedEmail, { forcePrompt: true, forceConsent: true });
+  }
+};
+
 export const prepararAutorizacionGmail = async (userEmail, showNotification) => {
   try {
-    await requestGmailSession(userEmail);
+    await requestGmailSessionWithConsent(userEmail, { forcePrompt: true });
     return true;
   } catch (error) {
     secureLogger.error('Error autenticando Gmail para el envío:', { message: error?.message || 'error' });
@@ -195,7 +218,7 @@ const buildRawMessage = (emailParams, senderEmail, recipients) => {
 export const enviarCorreoGmail = async (emailParams, userEmail, showNotification) => {
   try {
     const recipients = getRecipients(emailParams.destinatarios);
-    const session = await requestGmailSession(userEmail);
+    const session = await requestGmailSessionWithConsent(userEmail);
     const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
       headers: {

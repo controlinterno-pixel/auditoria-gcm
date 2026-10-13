@@ -775,7 +775,10 @@ const handleInformeAuditoriaSubmit = async (e) => {
         updated = [registroNuevo, ...safeInformes];
       }
 
-      if (correosNotificacionOut && prepararEnvioGmail && !(await prepararEnvioGmail())) return false;
+      let gmailAutorizado = true;
+      if (correosNotificacionOut && prepararEnvioGmail) {
+        gmailAutorizado = await prepararEnvioGmail();
+      }
 
       let guardado;
       if (editInformeAuditoria) {
@@ -809,18 +812,22 @@ const handleInformeAuditoriaSubmit = async (e) => {
 
       if (correosNotificacionOut !== '') {
         let correoEnviado = false;
-        try {
-          correoEnviado = await ejecutarDespachoGmailApi({
-            ref_consecutivo: refConsecutivoFinal,
-            asunto: `[GRC Termales] Radicación de Informe ${refConsecutivoFinal}`,
-            titulo: limpiarTildesParaCorreo(tituloVal),
-            evidenciaUrl: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
-            anexosMultiples: anexosMultiplesRaw,
-            destinatarios: correosNotificacionOut
-          });
-        } catch (error) {
-          console.error('Error enviando correo del informe ya guardado:', error);
-          showNotification("El informe se guardó, pero no se pudo enviar el correo.", "error");
+        if (gmailAutorizado) {
+          try {
+            correoEnviado = await ejecutarDespachoGmailApi({
+              ref_consecutivo: refConsecutivoFinal,
+              asunto: `[GRC Termales] Radicación de Informe ${refConsecutivoFinal}`,
+              titulo: limpiarTildesParaCorreo(tituloVal),
+              evidenciaUrl: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
+              anexosMultiples: anexosMultiplesRaw,
+              destinatarios: correosNotificacionOut
+            });
+          } catch (error) {
+            console.error('Error enviando correo del informe ya guardado:', error);
+            showNotification("El informe se guardó, pero no se pudo enviar el correo.", "error");
+          }
+        } else {
+          showNotification('Informe guardado, pero el correo no se envió porque Gmail no autorizó el permiso de envío. Guarda de nuevo y acepta el acceso para reintentar.', 'error');
         }
 
         if (correoEnviado) {
