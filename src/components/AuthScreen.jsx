@@ -33,8 +33,10 @@ export default function AuthScreen() {
   const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
   const [area, setArea] = useState('');
+  const [subproceso, setSubproceso] = useState('');
   const [cargosOpciones, setCargosOpciones] = useState([]);
   const [areasOpciones, setAreasOpciones] = useState([]);
+  const [mapaProcesosOpciones, setMapaProcesosOpciones] = useState({});
 
   // 🛡️ Nuevos Estados para Mejoras de UX/Seguridad
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -53,7 +55,11 @@ export default function AuthScreen() {
       .then(catalogos => {
         if (!activo || !catalogos?.catalogosInicializados) return;
         setCargosOpciones(Array.isArray(catalogos.cargos) ? catalogos.cargos : []);
-        setAreasOpciones(Object.keys(catalogos.mapaProcesos || {}));
+        const procesos = catalogos.mapaProcesos && typeof catalogos.mapaProcesos === 'object'
+          ? catalogos.mapaProcesos
+          : {};
+        setMapaProcesosOpciones(procesos);
+        setAreasOpciones(Object.keys(procesos));
       })
       .catch(() => {});
     return () => { activo = false; };
@@ -87,8 +93,8 @@ export default function AuthScreen() {
     }
 
     // 🛡️ Validación de Selección de Cargo y Área
-    if (!cargo || !area) {
-      alert("⚠️ Debe seleccionar un Cargo y un Área válida de las opciones desplegables.");
+    if (!cargo || !area || !subproceso) {
+      alert("⚠️ Debe seleccionar un Cargo, Macroproceso y Subproceso válidos.");
       return;
     }
 
@@ -116,12 +122,14 @@ export default function AuthScreen() {
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const user = userCredential.user;
 
-      // 🛡️ REGLA DE SEGURIDAD N2:
-      // El rol ya NO se escribe desde el cliente hacia la colección "usuarios".
-      // La asignación de roles queda bajo control estricto del Administrador 
-      // mediante la consola de Firebase o un backend seguro.
-   
-  await sendEmailVerification(user);
+      await apiService.registrarSolicitudAcceso({
+        idToken: await user.getIdToken(),
+        nombreResponsable: nombre,
+        cargo,
+        procesoSolicitado: area,
+        subprocesoSolicitado: subproceso,
+      });
+      await sendEmailVerification(user);
       await signOut(auth);
       setPendingVerification(true);
     } catch (err) {
@@ -232,13 +240,13 @@ export default function AuthScreen() {
           <div>
             <h2 className="text-2xl font-black text-slate-800">¡Confirma tu correo!</h2>
             <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed">
-              Hemos enviado un enlace de confirmación a: <br/>
+              Confirma tu correo y un administrador revisará tu solicitud de acceso para: <br/>
               <span className="font-bold text-slate-800 font-mono">{email}</span>
             </p>
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left">
             <p className="text-[11px] text-amber-800 font-semibold leading-normal">
-              💡 <b>Paso final de seguridad:</b> Haz clic en el enlace del correo para activar tu acceso a Enterprise.
+              💡 <b>Siguiente paso:</b> verifica tu correo. El acceso se activará cuando un administrador apruebe el cargo y alcance solicitado.
             </p>
           </div>
           <div className="space-y-3 pt-2">
@@ -427,6 +435,22 @@ export default function AuthScreen() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Subproceso solicitado *</label>
+                <select
+                  required
+                  value={subproceso}
+                  onChange={(e) => setSubproceso(e.target.value)}
+                  disabled={!area}
+                  className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 disabled:opacity-60"
+                >
+                  <option value="">-- Seleccionar subproceso --</option>
+                  {(Array.isArray(mapaProcesosOpciones[area]) ? mapaProcesosOpciones[area] : []).map((item, idx) => (
+                    <option key={`subproceso-${idx}`} value={item}>{item}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

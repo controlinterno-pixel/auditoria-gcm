@@ -50,12 +50,51 @@ export default async function handler(req, res) {
       return sendError(res, 'idToken requerido o con formato inválido.', 400);
     }
 
+    const decodedIdToken = await adminAuth.verifyIdToken(idToken);
+    const email = String(decodedIdToken.email || '').trim().toLowerCase();
+    if (!email.endsWith('@termales.com.co')) {
+      return sendError(res, 'Solo se permiten cuentas institucionales.', 403);
+    }
+    if (decodedIdToken.email_verified !== true) {
+      return sendError(res, 'Verifica tu correo institucional antes de iniciar sesión.', 403);
+    }
+
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 días de validez
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
     const decoded = await adminAuth.verifySessionCookie(sessionCookie);
 
-    const userDoc = await adminDb.collection('usuarios').doc(decoded.uid).get();
-    const userData = userDoc.exists ? userDoc.data() : {};
+    const userRef = adminDb.collection('usuarios').doc(decoded.uid);
+    let userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      const perfilPendiente = {
+        correo: email,
+        email,
+        nombreResponsable: decoded.name || 'Usuario GRC',
+        rol: 'lider',
+        permisos: [],
+        estadoAcceso: 'pendiente',
+        procesosSolicitados: [],
+        subprocesosSolicitados: [],
+        procesosAsignados: [],
+        subprocesosAsignados: [],
+        creadoEn: new Date().toISOString(),
+      };
+      try {
+        await userRef.create(perfilPendiente);
+      } catch (error) {
+        if (error.code !== 6 && error.code !== 'already-exists') throw error;
+      }
+      userDoc = await userRef.get();
+    }
+
+    const userData = userDoc.data() || {};
+    if (userData.estadoAcceso && userData.estadoAcceso !== 'activo') {
+      loginAttempts.delete(clientIp);
+      const message = userData.estadoAcceso === 'rechazado'
+        ? 'La solicitud de acceso fue rechazada. Contacta a un administrador.'
+        : 'Tu correo está verificado. Espera la aprobación de un administrador para acceder.';
+      return sendError(res, message, 403);
+    }
 
     const origin = req.headers.origin || '';
     

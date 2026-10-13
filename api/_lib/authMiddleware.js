@@ -36,7 +36,15 @@ const authCache = new Map();
 
     // 2. Si no está en caché, ir a Firestore (Una sola vez por sesión activa)
     const userDoc = await adminDb.collection('usuarios').doc(uid).get();
+    if (!userDoc.exists) {
+      res.status(403).json({ error: 'El perfil de acceso no existe.' });
+      return null;
+    }
     const userData = userDoc.exists ? userDoc.data() : {};
+    if (userData.estadoAcceso && userData.estadoAcceso !== 'activo') {
+      res.status(403).json({ error: 'El acceso está pendiente de aprobación.' });
+      return null;
+    }
 
     const sessionData = {
       uid: uid,
@@ -45,6 +53,7 @@ const authCache = new Map();
       cargo: userData.cargo || '',
       nombreResponsable: userData.nombreResponsable || userData.nombre || 'Usuario GRC',
       permisos: Array.isArray(userData.permisos) ? userData.permisos : [],
+      estadoAcceso: userData.estadoAcceso || 'activo',
       procesoAsignado: userData.procesoAsignado || '',
       subprocesoAsignado: userData.subprocesoAsignado || '',
       procesosAsignados: Array.isArray(userData.procesosAsignados) ? userData.procesosAsignados : [],

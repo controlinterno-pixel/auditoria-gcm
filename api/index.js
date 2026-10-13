@@ -16,6 +16,10 @@ export default async function handler(req, res) {
       const module = await import('./_auth/login.js');
       return await module.default(req, res);
     }
+    if (path === '/api/auth/register') {
+      const module = await import('./_auth/register.js');
+      return await module.default(req, res);
+    }
     if (path === '/api/auth/logout') {
       const module = await import('./_auth/logout.js');
       return await module.default(req, res);

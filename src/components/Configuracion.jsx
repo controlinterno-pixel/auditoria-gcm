@@ -49,6 +49,20 @@ export default function Configuracion({
     }
   };
 
+  const resolverSolicitudAcceso = async (usuario, accion) => {
+    try {
+      const respuesta = await apiService.resolverSolicitudAcceso(usuario.id, accion);
+      setUsuarios(prev => prev.map(item => item.id === usuario.id ? {
+        ...item,
+        estadoAcceso: respuesta.estadoAcceso,
+        procesosAsignados: respuesta.procesosAsignados || item.procesosAsignados || [],
+        subprocesosAsignados: respuesta.subprocesosAsignados || item.subprocesosAsignados || [],
+      } : item));
+    } catch (error) {
+      alert(error?.message || 'No se pudo resolver la solicitud de acceso.');
+    }
+  };
+
   const guardarAlcanceUsuario = async (usuario, procesosSeleccionados, subprocesosSeleccionados) => {
     const procesos = [...new Set(procesosSeleccionados)];
     const subprocesosDisponibles = new Set(
@@ -158,6 +172,13 @@ export default function Configuracion({
     <div className="flex-1">
       <h4 className="font-black text-slate-800 text-sm leading-tight">{u.nombreResponsable || u.nombre || 'Colaborador GRC'}</h4>
       <p className="text-[10px] text-slate-500 font-mono mt-0.5">{u.correo || u.email}</p>
+                      <span className={`mt-1 inline-flex rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                        u.estadoAcceso === 'pendiente' ? 'border-amber-200 bg-amber-50 text-amber-700' :
+                        u.estadoAcceso === 'rechazado' ? 'border-red-200 bg-red-50 text-red-700' :
+                        'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}>
+                        {u.estadoAcceso === 'pendiente' ? 'Pendiente de aprobación' : u.estadoAcceso === 'rechazado' ? 'Acceso rechazado' : 'Acceso activo'}
+                      </span>
     </div>
   </div>
                     
@@ -192,6 +213,28 @@ export default function Configuracion({
                   {/* 👁️ CUERPO DEL ACORDEÓN (CONFIGURACIÓN DETALLADA) */}
                   {isExpanded && (
                     <div className="p-4 sm:p-5 border-t border-slate-100 bg-white rounded-b-2xl animate-in slide-in-from-top-2 duration-300 space-y-5">
+
+                      {u.estadoAcceso === 'pendiente' && (
+                        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-xs text-amber-900">
+                            <p className="font-black">Solicitud de acceso</p>
+                            <p className="mt-1">Solicita: {(u.procesosSolicitados || []).join(', ') || 'Sin macroproceso'} · {(u.subprocesosSolicitados || []).join(', ') || 'Sin subproceso'}</p>
+                            <p className="mt-1 text-[10px]">Revisa o ajusta el alcance abajo antes de aprobar.</p>
+                          </div>
+                          <div className="flex shrink-0 gap-2">
+                            <button
+                              type="button"
+                              onClick={(event) => { event.stopPropagation(); void resolverSolicitudAcceso(u, 'rechazar'); }}
+                              className="rounded-md border border-red-200 bg-white px-3 py-2 text-[10px] font-black text-red-700 hover:bg-red-50"
+                            >Rechazar</button>
+                            <button
+                              type="button"
+                              onClick={(event) => { event.stopPropagation(); void resolverSolicitudAcceso(u, 'aprobar'); }}
+                              className="rounded-md bg-emerald-700 px-3 py-2 text-[10px] font-black text-white hover:bg-emerald-800"
+                            >Aprobar acceso</button>
+                          </div>
+                        </div>
+                      )}
                       
                       {/* 🔗 RLS (ROW-LEVEL SECURITY) OPTIMIZADO CON ONBLUR */}
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-inner">
@@ -204,7 +247,7 @@ export default function Configuracion({
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                           <div>
                             <label className="text-[10px] font-bold text-slate-500 block mb-1">Nombre (Dueño Tarea)</label>
                             <input 
@@ -226,9 +269,32 @@ export default function Configuracion({
                               className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm bg-white"
                             />
                           </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Cargo</label>
+                            <input
+                              type="text"
+                              value={u.cargo || ''}
+                              placeholder="Cargo institucional"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, cargo: val } : usr));
+                              }}
+                              onBlur={async (e) => {
+                                try {
+                                  await apiService.actualizarUsuario(u.id, { cargo: e.target.value });
+                                } catch (error) {
+                                  alert(error?.message || 'No se pudo guardar el cargo.');
+                                  await cargarUsuarios();
+                                }
+                              }}
+                              className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm bg-white"
+                            />
+                          </div>
                           <fieldset className="rounded-lg border border-slate-200 bg-white p-2.5">
                             <legend className="px-1 text-[10px] font-bold text-slate-500">Macroprocesos / Áreas</legend>
-                            <p className="mb-2 text-[9px] text-slate-400">Sin selección: acceso global.</p>
+                            <p className="mb-2 text-[9px] text-slate-400">
+                              {u.estadoAcceso === 'pendiente' ? 'Solicitud pendiente: selecciona el alcance que aprobarás.' : 'Sin selección: acceso global.'}
+                            </p>
                             <div className="max-h-32 space-y-1 overflow-y-auto">
                               
                               {/* NUEVO: Opción Seleccionar Todos los Macroprocesos */}
@@ -270,7 +336,9 @@ export default function Configuracion({
                           </fieldset>
                          <fieldset disabled={procesosAsignados.length === 0} className="rounded-lg border border-slate-200 bg-white p-2.5 disabled:bg-slate-100">
                             <legend className="px-1 text-[10px] font-bold text-slate-500">Subprocesos</legend>
-                            <p className="mb-2 text-[9px] text-slate-400">Sin selección: todos los de las áreas elegidas.</p>
+                            <p className="mb-2 text-[9px] text-slate-400">
+                              {u.estadoAcceso === 'pendiente' ? 'Selecciona subprocesos antes de aprobar.' : 'Sin selección: todos los de las áreas elegidas.'}
+                            </p>
                             <div className="max-h-32 space-y-1 overflow-y-auto">
                               
                               {/* NUEVO: Opción Seleccionar Todos los Subprocesos */}

@@ -42,6 +42,7 @@ export function useGrcData() {
           await apiService.login(idToken);
         } catch (err) {
           console.error("Error renovando cookie de servidor:", err);
+          window.alert(err?.message || 'No fue posible validar tu acceso. Intenta de nuevo o contacta a un administrador.');
           await signOut(auth);
           return;
         }

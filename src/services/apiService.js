@@ -246,6 +246,11 @@ export const apiService = {
     body: { idToken }
   }),
 
+  registrarSolicitudAcceso: (profileData) => request('/api/auth/register', {
+    method: 'POST',
+    body: profileData
+  }),
+
   logout: () => request('/api/auth/logout', {
     method: 'POST'
   }),
@@ -260,6 +265,11 @@ export const apiService = {
   actualizarUsuario: (uid, cambios) => request('/api/auth/users', {
     method: 'PATCH',
     body: { uid, cambios }
+  }),
+
+  resolverSolicitudAcceso: (uid, accion) => request('/api/auth/users', {
+    method: 'PATCH',
+    body: { uid, accion }
   }),
 
   // 📊 SINCRONIZACIÓN GRC Y RLS

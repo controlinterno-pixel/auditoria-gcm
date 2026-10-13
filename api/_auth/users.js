@@ -12,6 +12,7 @@ const CAMPOS_EDITABLES = new Set([
   'procesoAsignado',
   'subprocesoAsignado',
   'nombreResponsable',
+  'cargo',
 ]);
 
 function cambiosValidos(cambios) {
@@ -26,6 +27,57 @@ function cambiosValidos(cambios) {
     }
     return typeof valor === 'string' && valor.length <= 160;
   });
+}
+
+async function obtenerMapaProcesos() {
+  const snapshot = await adminDb.collection('workspace_compartido').doc('base_de_datos_grc').get();
+  const data = snapshot.exists ? snapshot.data() || {} : {};
+  return data.mapaProcesos && typeof data.mapaProcesos === 'object' ? data.mapaProcesos : {};
+}
+
+async function resolverSolicitud(uid, accion) {
+  const userRef = adminDb.collection('usuarios').doc(uid);
+  const userSnapshot = await userRef.get();
+  if (!userSnapshot.exists) return { error: 'Usuario no encontrado.', status: 404 };
+
+  const userData = userSnapshot.data() || {};
+  if (accion === 'rechazar') {
+    if (userData.estadoAcceso !== 'pendiente') {
+      return { error: 'La solicitud ya fue resuelta.', status: 409 };
+    }
+    await userRef.update({ estadoAcceso: 'rechazado' });
+    return { estadoAcceso: 'rechazado' };
+  }
+
+  if (accion !== 'aprobar' || userData.estadoAcceso !== 'pendiente') {
+    return { error: 'La solicitud no está pendiente de aprobación.', status: 409 };
+  }
+
+  const mapaProcesos = await obtenerMapaProcesos();
+  const procesos = Array.isArray(userData.procesosAsignados) && userData.procesosAsignados.length
+    ? userData.procesosAsignados
+    : (Array.isArray(userData.procesosSolicitados) ? userData.procesosSolicitados : []);
+  const subprocesos = Array.isArray(userData.subprocesosAsignados) && userData.subprocesosAsignados.length
+    ? userData.subprocesosAsignados
+    : (Array.isArray(userData.subprocesosSolicitados) ? userData.subprocesosSolicitados : []);
+  const procesosValidos = procesos.length > 0 && procesos.every(proceso => (
+    Object.hasOwn(mapaProcesos, proceso) && Array.isArray(mapaProcesos[proceso])
+  ));
+  const subprocesosValidos = subprocesos.length > 0 && subprocesos.every(subproceso => (
+    procesos.some(proceso => mapaProcesos[proceso].includes(subproceso))
+  ));
+  if (!procesosValidos || !subprocesosValidos) {
+    return { error: 'Asigna al menos un macroproceso y subproceso válidos antes de aprobar.', status: 400 };
+  }
+
+  await userRef.update({
+    estadoAcceso: 'activo',
+    procesosAsignados: procesos,
+    subprocesosAsignados: subprocesos,
+    procesoAsignado: procesos.length === 1 ? procesos[0] : '',
+    subprocesoAsignado: subprocesos.length === 1 ? subprocesos[0] : '',
+  });
+  return { estadoAcceso: 'activo', procesosAsignados: procesos, subprocesosAsignados: subprocesos };
 }
 
 export default async function handler(req, res) {
@@ -50,8 +102,18 @@ export default async function handler(req, res) {
       return sendSuccess(res, { usuarios });
     }
 
-    const { uid, cambios } = req.body || {};
-    if (typeof uid !== 'string' || !uid || uid.length > 128 || !cambiosValidos(cambios)) {
+    const { uid, cambios, accion } = req.body || {};
+    if (typeof uid !== 'string' || !uid || uid.length > 128) {
+      return sendError(res, 'La actualización del usuario no es válida.', 400);
+    }
+
+    if (accion) {
+      const resultado = await resolverSolicitud(uid, accion);
+      if (resultado.error) return sendError(res, resultado.error, resultado.status);
+      return sendSuccess(res, resultado);
+    }
+
+    if (!cambiosValidos(cambios)) {
       return sendError(res, 'La actualización del usuario no es válida.', 400);
     }
 
