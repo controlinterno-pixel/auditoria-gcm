@@ -85,8 +85,12 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
   };
 }
 
+export function invalidarCacheWorkspaceGrc() {
+  workspaceReadCache.clear();
+}
+
 export async function leerWorkspaceGrc(transaction = null, { usarCache = false, procesosAsignados = null } = {}) {
-  if (transaction || !usarCache) return leerWorkspaceGrcDesdeFirestore(transaction);
+  if (transaction || !usarCache) return leerWorkspaceGrcDesdeFirestore(transaction, procesosAsignados);
 
   const cacheKey = Array.isArray(procesosAsignados) && procesosAsignados.length
     ? [...new Set(procesosAsignados.map(proceso => String(proceso || '').trim()).filter(Boolean))].sort().join('|')
