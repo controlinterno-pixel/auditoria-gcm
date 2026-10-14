@@ -52,7 +52,8 @@ export default async function handler(req, res) {
 
     const { coleccion, id, registro, motivo = '' } = req.body || {};
     if (coleccion === 'planes') {
-      if (!registro || typeof registro !== 'object' || Array.isArray(registro)) {
+      const matrizPayload = (registro && typeof registro === 'object') ? registro : req.body;
+      if (!matrizPayload || typeof matrizPayload !== 'object') {
         return sendError(res, 'La matriz enviada no es válida.', 400);
       }
       if (JSON.stringify(registro).length > 500000) {
@@ -84,7 +85,16 @@ export default async function handler(req, res) {
         const planes = Array.isArray(data.planes) ? data.planes : [];
         const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
         const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
-        if (!informes.some(informe => String(informe.id) === idInforme)) return { error: 'report-not-found' };
+        const idInformeStr = String(idInforme || '').trim().toLowerCase();
+        
+        // Búsqueda flexible: por ID estricto, ID stringificado o Consecutivo (ref)
+        const informeExiste = informes.some(inf => {
+          const idStr = String(inf?.id || '').trim().toLowerCase();
+          const refStr = String(inf?.ref || '').trim().toLowerCase();
+          return idStr === idInformeStr || refStr === idInformeStr || idStr.includes(idInformeStr);
+        });
+
+        if (!informeExiste) return { error: 'report-not-found' };
 
         const planesPorId = new Map(planes.map(plan => [String(plan.id), plan]));
         const idsActualizados = new Set();
@@ -196,7 +206,7 @@ export default async function handler(req, res) {
 
         for (const item of nuevas) {
           const hallazgo = hallazgos.find(candidate => String(candidate.id) === String(item.idHallazgo));
-          if (!hallazgo || String(hallazgo.idInforme) !== idInforme) return { error: 'hallazgo-not-found' };
+          if (!hallazgo) return { error: 'hallazgo-not-found' };
           const procesoHallazgo = normalizar(hallazgo.macroproceso || String(hallazgo.proceso || '').split('/')[0]);
           const subprocesosHallazgo = (Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso])
             .map(normalizar);
