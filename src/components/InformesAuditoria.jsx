@@ -20,6 +20,20 @@ const convertirSubprocesosLista = valores => (
     ? valores.map(valor => String(valor || '').trim()).filter(Boolean)
     : String(valores || '').split(',').map(valor => valor.trim()).filter(Boolean)
 );
+const convertirMacroprocesosLista = valores => [...new Set(
+  (Array.isArray(valores) ? valores : String(valores || '').split(','))
+    .map(valor => String(valor || '').trim())
+    .filter(Boolean)
+)];
+const mapaSubprocesos = (macroprocesos, subprocesos, relacion = {}) => {
+  const macros = convertirMacroprocesosLista(macroprocesos);
+  const legado = convertirSubprocesosLista(subprocesos);
+  return Object.fromEntries(macros.map((macro, indice) => [
+    macro,
+    convertirSubprocesosLista(relacion?.[macro] ?? (indice === 0 ? legado : [])),
+  ]));
+};
+const aplanarSubprocesos = relacion => [...new Set(Object.values(relacion || {}).flat())];
 const claveCorreoCargo = (cargo, macroproceso, subprocesos) => (
   `${normalizarCatalogo(cargo)}|${normalizarCatalogo(macroproceso)}|${convertirSubprocesosLista(subprocesos).map(normalizarCatalogo).sort().join('|')}`
 );
@@ -70,7 +84,6 @@ export default function InformesAuditoria({
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
   const [correosCargosResueltos, setCorreosCargosResueltos] = useState({});
   const [participanteTemp, setParticipanteTemp] = useState('');
-const [subprocesosAbiertos, setSubprocesosAbiertos] = useState(false); // ✨ NUEVO ESTADO PARA EL DROPDOWN
   // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
   // (Eliminamos estados redundantes que causaban desfases en los selects)
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
@@ -78,7 +91,9 @@ const [subprocesosAbiertos, setSubprocesosAbiertos] = useState(false); // ✨ NU
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
-  const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || '');
+  const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (
+    editInformeAuditoria?.macroprocesos?.[0] || editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || ''
+  );
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
   const fuentesMejoraDisponibles = Array.isArray(fuentesMejora) ? fuentesMejora : [];
@@ -133,7 +148,7 @@ const [subprocesosAbiertos, setSubprocesosAbiertos] = useState(false); // ✨ NU
   // 🧠 LÓGICA DE ENRIQUECIMIENTO (Soporte Legacy para Proceso)
   const informesEnriquecidos = safeInformes.map(inf => ({
     ...inf,
-    procesoLimpio: inf.macroproceso || inf.proceso || 'Sin Proceso'
+    procesoLimpio: convertirMacroprocesosLista(inf.macroprocesos || inf.macroproceso || inf.proceso).join(', ') || 'Sin Proceso'
   }));
 
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
@@ -233,6 +248,8 @@ const [subprocesosAbiertos, setSubprocesosAbiertos] = useState(false); // ✨ NU
   const [draftInforme, setDraftInforme] = useState({
     titulo: '',
     proceso: '',
+    macroprocesos: [],
+    subprocesosPorMacroproceso: {},
     subproceso: 'General',
     subprocesos: ['General'],
     tipoFuente: '',
@@ -332,11 +349,23 @@ const [subprocesosAbiertos, setSubprocesosAbiertos] = useState(false); // ✨ NU
           anexosCargados = [{ url: editInformeAuditoria.actaSocializacionUrl, nombre: decodeName(editInformeAuditoria.actaSocializacionUrl) }];
         }
 
+        const macroprocesosIniciales = convertirMacroprocesosLista(
+          editInformeAuditoria.macroprocesos || editInformeAuditoria.macroproceso || editInformeAuditoria.proceso
+        );
+        const subprocesosIniciales = convertirSubprocesosLista(
+          editInformeAuditoria.subprocesos ?? editInformeAuditoria.subproceso ?? 'General'
+        );
         const draftInicial = {
           titulo: editInformeAuditoria.titulo || '',
           proceso: editInformeAuditoria.proceso || editInformeAuditoria.macroproceso || '',
+          macroprocesos: macroprocesosIniciales,
           subproceso: editInformeAuditoria.subproceso || 'General',
-          subprocesos: convertirSubprocesosLista(editInformeAuditoria.subprocesos ?? editInformeAuditoria.subproceso ?? 'General'),
+          subprocesos: subprocesosIniciales,
+          subprocesosPorMacroproceso: mapaSubprocesos(
+            macroprocesosIniciales,
+            subprocesosIniciales,
+            editInformeAuditoria.subprocesosPorMacroproceso
+          ),
           tipoFuente: editInformeAuditoria.tipoFuente || '',
           detalleFuente: editInformeAuditoria.detalleFuente || '',
           fecha: editInformeAuditoria.fecha || '',
@@ -377,6 +406,8 @@ const [subprocesosAbiertos, setSubprocesosAbiertos] = useState(false); // ✨ NU
      const draftVacio = {
         titulo: '',
         proceso: '',
+        macroprocesos: [],
+        subprocesosPorMacroproceso: {},
         subproceso: 'General',
         subprocesos: [],
         tipoFuente: '',
@@ -715,17 +746,20 @@ const handleFileUpload = async (e, type) => {
     const fuenteDB = fuentesMejoraDisponibles.find(
       fuente => String(fuente.codigo || fuente.id) === String(seleccion)
     );
-    const nuevoMacro = fuenteDB?.macroproceso || fuenteDB?.proceso || '';
-    const nuevoSub = fuenteDB?.subproceso || 'General';
-    const nuevosSubprocesos = convertirSubprocesosLista(fuenteDB?.subprocesos ?? nuevoSub);
+    const nuevosMacros = convertirMacroprocesosLista(fuenteDB?.macroprocesos || fuenteDB?.macroproceso || fuenteDB?.proceso);
+    const nuevoMacro = nuevosMacros[0] || '';
+    const nuevosSubprocesos = convertirSubprocesosLista(fuenteDB?.subprocesos ?? fuenteDB?.subproceso ?? 'General');
+    const nuevaRelacion = mapaSubprocesos(nuevosMacros, nuevosSubprocesos, fuenteDB?.subprocesosPorMacroproceso);
     const siguienteDraft = {
       ...draftInforme,
       tipoFuente: seleccion,
       detalleFuente: fuenteDB?.alcance || fuenteDB?.descripcion || '',
       proceso: nuevoMacro,
       macroproceso: nuevoMacro,
-      subproceso: nuevosSubprocesos[0] || nuevoSub,
+      macroprocesos: nuevosMacros,
+      subproceso: nuevosSubprocesos[0] || 'General',
       subprocesos: nuevosSubprocesos,
+      subprocesosPorMacroproceso: nuevaRelacion,
       correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, nuevosSubprocesos),
     };
 
@@ -735,11 +769,59 @@ const handleFileUpload = async (e, type) => {
 
     if (fuenteDB) {
       setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
-      setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevosSubprocesos[0] || nuevoSub }));
+      setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevosSubprocesos[0] || '' }));
     } else if (seleccion === 'Programa de Auditoría') {
       setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
     }
+  };
+
+  const actualizarTerritorioInforme = (macroprocesos, relacion) => {
+    const macros = convertirMacroprocesosLista(macroprocesos);
+    const relacionNormalizada = mapaSubprocesos(macros, [], relacion);
+    const subprocesos = aplanarSubprocesos(relacionNormalizada);
+    const macroPrincipal = macros[0] || '';
+    const subprocesoPrincipal = convertirSubprocesosLista(relacionNormalizada[macroPrincipal])[0] || '';
+    const siguiente = {
+      ...draftInforme,
+      proceso: macroPrincipal,
+      macroproceso: macroPrincipal,
+      macroprocesos: macros,
+      subproceso: subprocesoPrincipal,
+      subprocesos,
+      subprocesosPorMacroproceso: relacionNormalizada,
+      correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, macroPrincipal, subprocesos),
+    };
+    setDraftInforme(siguiente);
+    registrarCambioBorrador(siguiente);
+    setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: macroPrincipal }));
+    setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesoPrincipal }));
+    setIsDirty(true);
+  };
+
+  const cambiarMacroprocesoInforme = (macroproceso, seleccionado) => {
+    const macrosActuales = convertirMacroprocesosLista(draftInforme.macroprocesos || macroprocesoForm);
+    const relacionActual = { ...(draftInforme.subprocesosPorMacroproceso || {}) };
+    if (seleccionado) {
+      if (macrosActuales.includes(macroproceso)) return;
+      const disponibles = MAPA_PROCESOS[macroproceso] || [];
+      relacionActual[macroproceso] = disponibles.length === 1
+        ? [disponibles[0]]
+        : disponibles.length === 0 ? ['General'] : [];
+      actualizarTerritorioInforme([...macrosActuales, macroproceso], relacionActual);
+      return;
+    }
+    delete relacionActual[macroproceso];
+    actualizarTerritorioInforme(macrosActuales.filter(valor => valor !== macroproceso), relacionActual);
+  };
+
+  const cambiarSubprocesoInforme = (macroproceso, subproceso, seleccionado) => {
+    const relacionActual = { ...(draftInforme.subprocesosPorMacroproceso || {}) };
+    const actuales = convertirSubprocesosLista(relacionActual[macroproceso]);
+    relacionActual[macroproceso] = seleccionado
+      ? [...new Set([...actuales, subproceso])]
+      : actuales.filter(valor => valor !== subproceso);
+    actualizarTerritorioInforme(draftInforme.macroprocesos || [macroproceso], relacionActual);
   };
 
   useEffect(() => {
@@ -1540,6 +1622,11 @@ const handleFileUpload = async (e, type) => {
 <form 
             key={editInformeAuditoria?.ref || 'form-nuevo'} 
             onSubmit={async (e) => { 
+              if (!modoVistaCompleta && convertirMacroprocesosLista(draftInforme.macroprocesos || macroprocesoForm).length === 0) {
+                e.preventDefault();
+                window.alert('Selecciona al menos un macroproceso para el informe.');
+                return;
+              }
               if (!modoVistaCompleta && (!Array.isArray(draftInforme.subprocesos) || draftInforme.subprocesos.length === 0)) {
                 e.preventDefault();
                 window.alert('Selecciona al menos un subproceso para el informe.');
@@ -1615,10 +1702,19 @@ const handleFileUpload = async (e, type) => {
                         const prog = safeProgramas.find(p => String(p.id) === String(val));
                         setIsDirty(true);
                         
-                        const nuevoMacro = prog ? prog.proceso : '';
+                        const nuevosMacros = prog
+                          ? convertirMacroprocesosLista(prog.macroprocesos || prog.proceso)
+                          : [];
+                        const nuevoMacro = nuevosMacros[0] || '';
                         const nuevosSubprocesos = prog
                           ? convertirSubprocesosLista(prog.subprocesos ?? prog.subproceso ?? 'General')
                           : [];
+                        const nuevaRelacion = mapaSubprocesos(
+                          nuevosMacros,
+                          nuevosSubprocesos,
+                          prog?.subprocesosPorMacroproceso
+                        );
+                        const subprocesosPrograma = aplanarSubprocesos(nuevaRelacion);
                         const nuevoSub = nuevosSubprocesos[0] || 'General';
                         
                         if (prog) {
@@ -1630,9 +1726,12 @@ const handleFileUpload = async (e, type) => {
                           ...draftInforme,
                           programaId: val,
                           proceso: nuevoMacro,
-                          subproceso: nuevoSub,
-                          subprocesos: nuevosSubprocesos,
-                          correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, nuevosSubprocesos),
+                          macroproceso: nuevoMacro,
+                          macroprocesos: nuevosMacros,
+                          subproceso: subprocesosPrograma[0] || nuevoSub,
+                          subprocesos: subprocesosPrograma,
+                          subprocesosPorMacroproceso: nuevaRelacion,
+                          correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, subprocesosPrograma),
                         };
                         setDraftInforme(siguiente);
                         registrarCambioBorrador(siguiente);
@@ -1649,7 +1748,7 @@ const handleFileUpload = async (e, type) => {
                     </select>
                     {/* 👇 ESTE INPUT OCULTO GARANTIZA QUE SE GUARDE EL PROGRAMA SIEMPRE */}
                     <input type="hidden" name="programaId" value={draftInforme.programaId || editInformeAuditoria?.programaId || ''} />
-                    <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">El sistema autocompletará el Macroproceso y Subproceso auditado.</p>
+                    <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">El sistema precarga los macroprocesos y subprocesos de la fuente; puedes ajustar la selección para este informe.</p>
                   </div>
                 )}
 {draftInforme.tipoFuente && draftInforme.tipoFuente !== 'Programa de Auditoría' && (
@@ -1692,101 +1791,63 @@ const handleFileUpload = async (e, type) => {
                 />
               </div>
 
-              <div className="md:col-span-1">
-                 <label className="font-bold text-gray-600 block mb-1.5">🏛️ Macroproceso</label>
-                 <select
-                   name="proceso_select"
-                   required
-                   value={draftInforme.proceso || macroprocesoForm}
-                   onChange={(e) => {
-                     const nuevoMacro = e.target.value;
-                     const subprocesosAsociados = MAPA_PROCESOS[nuevoMacro] || [];
-                     const nuevosSubprocesos = subprocesosAsociados.length === 1 ? [subprocesosAsociados[0]] : [];
-                     const nuevoSubproceso = nuevosSubprocesos[0] || '';
-                     const siguiente = {
-                       ...draftInforme,
-                       proceso: nuevoMacro,
-                       subproceso: nuevoSubproceso,
-                       subprocesos: nuevosSubprocesos,
-                       correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, nuevosSubprocesos),
-                     };
-                     setDraftInforme(siguiente);
-                     registrarCambioBorrador(siguiente);
-                     setIsDirty(true);
-                     setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
-                     setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoSubproceso }));
-                   }}
-                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-                   disabled={draftInforme.tipoFuente !== '' || modoVistaCompleta}
-                 >
-                   <option value="">-- Seleccionar --</option>
-                   {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
-                 </select>
-                 {/* 👇 ESTE INPUT OCULTO GARANTIZA QUE SE GUARDE EL PROCESO AUNQUE ESTÉ BLOQUEADO */}
-                 <input type="hidden" name="proceso" value={draftInforme.proceso || macroprocesoForm || ''} />
-              </div>
+              <fieldset disabled={modoVistaCompleta} className="md:col-span-2 min-w-0">
+                <legend className="font-bold text-gray-600 mb-1.5">🏛️ Macroprocesos</legend>
+                <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                  {Object.keys(MAPA_PROCESOS).map(macroproceso => (
+                    <label key={macroproceso} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50">
+                      <input
+                        type="checkbox"
+                        checked={convertirMacroprocesosLista(draftInforme.macroprocesos || macroprocesoForm).includes(macroproceso)}
+                        onChange={event => cambiarMacroprocesoInforme(macroproceso, event.target.checked)}
+                        className="h-4 w-4 accent-emerald-700"
+                      />
+                      {macroproceso}
+                    </label>
+                  ))}
+                </div>
+                <input type="hidden" name="macroprocesos" value={JSON.stringify(draftInforme.macroprocesos || [])} />
+                <input type="hidden" name="proceso" value={draftInforme.proceso || macroprocesoForm || ''} />
+              </fieldset>
 
-<div className="md:col-span-1 relative">
-                <label className="font-bold text-gray-600 block mb-1.5">↳ Subprocesos</label>
-                
-                {/* Botón visual que imita un campo select */}
-                <button
-                  type="button"
-                  onClick={() => setSubprocesosAbiertos(!subprocesosAbiertos)}
-                  disabled={!macroprocesoForm || modoVistaCompleta}
-                  className="w-full flex items-center justify-between border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 bg-white shadow-sm disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed text-left"
-                >
-                  <span className="truncate">
-                    {(draftInforme.subprocesos || []).length > 0 
-                      ? `${draftInforme.subprocesos.length} seleccionado(s)` 
-                      : '-- Seleccionar --'}
-                  </span>
-                  
-                  {/* Flechita SVG (Chevron) que rota al abrirse */}
-                  <svg className={`w-4 h-4 shrink-0 transition-transform duration-200 text-slate-500 ${subprocesosAbiertos ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {/* Lista desplegable flotante */}
-                {subprocesosAbiertos && !modoVistaCompleta && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-2">
-                    {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(subproceso => (
-                      <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50">
-                        <input
-                          type="checkbox"
-                          checked={(draftInforme.subprocesos || []).includes(subproceso)}
-                          onChange={event => {
-                            const subprocesos = event.target.checked
-                              ? [...new Set([...(draftInforme.subprocesos || []), subproceso])]
-                              : (draftInforme.subprocesos || []).filter(valor => valor !== subproceso);
-                            const subprocesoPrincipal = subprocesos[0] || '';
-                            const siguiente = {
-                              ...draftInforme,
-                              subprocesos,
-                              subproceso: subprocesoPrincipal,
-                              correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, draftInforme.proceso || macroprocesoForm, subprocesos),
-                            };
-                            setDraftInforme(siguiente);
-                            registrarCambioBorrador(siguiente);
-                            setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesoPrincipal }));
-                            setIsDirty(true);
-                          }}
-                          className="mt-0.5 accent-emerald-700"
-                        />
-                        <span className="leading-tight">{subproceso}</span>
-                      </label>
-                    ))}
-                    {macroprocesoForm && (MAPA_PROCESOS[macroprocesoForm] || []).length === 0 && (
-                      <p className="text-[10px] text-amber-700 p-2 text-center">Este macroproceso no tiene subprocesos configurados.</p>
-                    )}
-                  </div>
-                )}
-                
-                {/* Inputs ocultos para mantener la compatibilidad con el backend */}
-                <input type="hidden" name="subproceso" value={draftInforme.subprocesos?.[0] || draftInforme.subproceso || 'General'} />
+              <fieldset disabled={modoVistaCompleta || !convertirMacroprocesosLista(draftInforme.macroprocesos || macroprocesoForm).length} className="md:col-span-2 min-w-0">
+                <legend className="font-bold text-gray-600 mb-1.5">↳ Subprocesos</legend>
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                  {convertirMacroprocesosLista(draftInforme.macroprocesos || macroprocesoForm).map(macroproceso => {
+                    const disponibles = MAPA_PROCESOS[macroproceso] || [];
+                    return (
+                      <div key={macroproceso} className="mb-2 last:mb-0">
+                        <p className="px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-800">{macroproceso}</p>
+                        {disponibles.length === 0 ? (
+                          <label className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={convertirSubprocesosLista(draftInforme.subprocesosPorMacroproceso?.[macroproceso]).includes('General')}
+                              onChange={event => cambiarSubprocesoInforme(macroproceso, 'General', event.target.checked)}
+                              className="h-4 w-4 accent-emerald-700"
+                            />
+                            General
+                          </label>
+                        ) : disponibles.map(subproceso => (
+                          <label key={`${macroproceso}-${subproceso}`} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-emerald-50">
+                            <input
+                              type="checkbox"
+                              checked={convertirSubprocesosLista(draftInforme.subprocesosPorMacroproceso?.[macroproceso]).includes(subproceso)}
+                              onChange={event => cambiarSubprocesoInforme(macroproceso, subproceso, event.target.checked)}
+                              className="h-4 w-4 accent-emerald-700"
+                            />
+                            {subproceso}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {!(draftInforme.macroprocesos || []).length && <p className="px-2 py-1 text-[10px] text-slate-400">Primero selecciona macroprocesos.</p>}
+                </div>
+                <input type="hidden" name="subproceso" value={draftInforme.subproceso || 'General'} />
                 <input type="hidden" name="subprocesos" value={JSON.stringify(draftInforme.subprocesos || [])} />
-              </div>
+                <input type="hidden" name="subprocesosPorMacroproceso" value={JSON.stringify(draftInforme.subprocesosPorMacroproceso || {})} />
+              </fieldset>
 
                 <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>
@@ -2451,7 +2512,7 @@ const handleFileUpload = async (e, type) => {
                         <td className="p-4 font-mono font-black text-sm text-slate-800 bg-slate-50/50">{inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}</td>
                         <td className="p-4">
                           <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-100 font-black rounded uppercase text-[9px] tracking-wider mb-1 inline-block">
-                            {inf.macroproceso || inf.proceso}
+                            {convertirMacroprocesosLista(inf.macroprocesos || inf.macroproceso || inf.proceso).join(', ')}
                           </span>
                           {convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).some(subproceso => subproceso !== 'General') && (
                             <div className="text-[10px] text-slate-500 font-bold mt-0.5 mb-1.5">↳ {convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).filter(subproceso => subproceso !== 'General').join(', ')}</div>

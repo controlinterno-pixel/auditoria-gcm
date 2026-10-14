@@ -2,6 +2,18 @@ import { useEffect, useState } from 'react';
 import { useCatalogos } from '../context/useCatalogos';
 
 const NORMAS_PREDETERMINADAS = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
+const listaUnica = valores => [...new Set(
+  (Array.isArray(valores) ? valores : String(valores || '').split(','))
+    .map(valor => String(valor || '').trim())
+    .filter(Boolean)
+)];
+
+const procesoPorMacro = (macroproceso, subprocesos) => {
+  const seleccionados = listaUnica(subprocesos);
+  return seleccionados.length
+    ? `${macroproceso} / ${seleccionados.join(', ')}`
+    : macroproceso;
+};
 
 export default function ModalNuevaFuente({
   isOpen,
@@ -31,7 +43,10 @@ export default function ModalNuevaFuente({
       descripcion: '',
       alcance: '',
       macroproceso: '',
+      macroprocesos: [],
       subproceso: '',
+      subprocesos: [],
+      subprocesosPorMacroproceso: {},
       proceso: '',
       origen: 'interno',
       motivoEdicion: '', // ✨ NUEVO CAMPO: Para capturar la justificación al editar
@@ -43,6 +58,15 @@ export default function ModalNuevaFuente({
     const macroprocesoGuardado = fuenteEdicion.macroproceso || (
       MAPA_PROCESOS[procesoGuardado[0]] ? procesoGuardado[0] : ''
     );
+    const macroprocesosGuardados = listaUnica(fuenteEdicion.macroprocesos || macroprocesoGuardado);
+    const subprocesosGuardados = listaUnica(
+      fuenteEdicion.subprocesos ?? fuenteEdicion.subproceso ?? procesoGuardado.slice(1).join(' / ').split(',')
+    );
+    const subprocesosPorMacroprocesoGuardados = fuenteEdicion.subprocesosPorMacroproceso && typeof fuenteEdicion.subprocesosPorMacroproceso === 'object'
+      ? fuenteEdicion.subprocesosPorMacroproceso
+      : macroprocesosGuardados.length
+        ? { [macroprocesosGuardados[0]]: subprocesosGuardados }
+        : {};
     const normaGuardada = fuenteEdicion.norma ?? fuenteEdicion.tipoNorma ?? valoresIniciales.norma;
     const fechaRaw = String(fuenteEdicion.fecha || fuenteEdicion.fechaRegistro || fuenteEdicion.fechaAuditoria || valoresIniciales.fecha);
     const fechaPartes = fechaRaw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -56,8 +80,11 @@ export default function ModalNuevaFuente({
       estado: fuenteEdicion.estado || fuenteEdicion.status || valoresIniciales.estado,
       descripcion: fuenteEdicion.descripcion || fuenteEdicion.descripcionFuente || fuenteEdicion.detalleFuente || fuenteEdicion.detalle || '',
       alcance: fuenteEdicion.alcance || fuenteEdicion.objetivo || fuenteEdicion.objetivosAlcance || '',
-      macroproceso: macroprocesoGuardado,
-      subproceso: fuenteEdicion.subproceso || procesoGuardado.slice(1).join(' / '),
+      macroproceso: macroprocesosGuardados[0] || '',
+      macroprocesos: macroprocesosGuardados,
+      subproceso: subprocesosGuardados[0] || '',
+      subprocesos: subprocesosGuardados,
+      subprocesosPorMacroproceso: subprocesosPorMacroprocesoGuardados,
       norma: Array.isArray(normaGuardada) ? normaGuardada : normaGuardada ? [normaGuardada] : [],
       motivoEdicion: '', // ✨ Siempre forzamos a que esté vacío al abrir para escribir un nuevo motivo
     };
@@ -77,8 +104,50 @@ export default function ModalNuevaFuente({
 
   if (!isOpen) return null;
 
-  const subprocesosDisponibles = formData.macroproceso ? MAPA_PROCESOS[formData.macroproceso] || [] : [];
-  const subprocesoDeshabilitado = isReadOnly || !formData.macroproceso || subprocesosDisponibles.length <= 1;
+  const macroprocesos = listaUnica(formData.macroprocesos || formData.macroproceso);
+  const subprocesosPorMacroproceso = formData.subprocesosPorMacroproceso || {};
+  const subprocesosSeleccionados = listaUnica(formData.subprocesos);
+
+  const actualizarSeleccionTerritorial = (siguienteMacros, siguienteRelacion) => {
+    const macros = listaUnica(siguienteMacros);
+    const relacion = Object.fromEntries(macros.map(macro => [macro, listaUnica(siguienteRelacion[macro])]));
+    const subprocesos = listaUnica(Object.values(relacion).flat());
+    const macroPrincipal = macros[0] || '';
+    const subprocesoPrincipal = listaUnica(relacion[macroPrincipal])[0] || '';
+    setFormData(prev => ({
+      ...prev,
+      macroproceso: macroPrincipal,
+      macroprocesos: macros,
+      subproceso: subprocesoPrincipal,
+      subprocesos,
+      subprocesosPorMacroproceso: relacion,
+      proceso: macroPrincipal ? procesoPorMacro(macroPrincipal, relacion[macroPrincipal]) : '',
+    }));
+  };
+
+  const handleMacroprocesoToggle = (macroproceso, seleccionado) => {
+    setIsDirty(true);
+    const macrosActuales = macroprocesos;
+    const relacionActual = { ...subprocesosPorMacroproceso };
+    if (seleccionado) {
+      if (macrosActuales.includes(macroproceso)) return;
+      const opciones = MAPA_PROCESOS[macroproceso] || [];
+      relacionActual[macroproceso] = opciones.length === 1 ? [opciones[0]] : [];
+      actualizarSeleccionTerritorial([...macrosActuales, macroproceso], relacionActual);
+      return;
+    }
+    delete relacionActual[macroproceso];
+    actualizarSeleccionTerritorial(macrosActuales.filter(item => item !== macroproceso), relacionActual);
+  };
+
+  const handleSubprocesoToggle = (macroproceso, subproceso, seleccionado) => {
+    setIsDirty(true);
+    const actuales = listaUnica(subprocesosPorMacroproceso[macroproceso]);
+    const siguientes = seleccionado
+      ? [...actuales, subproceso]
+      : actuales.filter(item => item !== subproceso);
+    actualizarSeleccionTerritorial(macroprocesos, { ...subprocesosPorMacroproceso, [macroproceso]: siguientes });
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -105,33 +174,6 @@ export default function ModalNuevaFuente({
       const normasActuales = Array.isArray(prev.norma) ? prev.norma : [];
       return { ...prev, norma: normasActuales.filter(n => n !== normaARemover) };
     });
-  };
-
-  const handleMacroprocesoChange = (e) => {
-    const nuevoMacro = e.target.value;
-    setIsDirty(true);
-
-    // Lógica de Autocompletado Inteligente
-    const subAsociados = MAPA_PROCESOS[nuevoMacro] || [];
-    const nuevoSub = subAsociados.length === 1 ? subAsociados[0] : '';
-    const nuevoProceso = nuevoSub ? `${nuevoMacro} / ${nuevoSub}` : '';
-
-    setFormData((prev) => ({
-      ...prev,
-      macroproceso: nuevoMacro,
-      subproceso: nuevoSub,
-      proceso: nuevoProceso,
-    }));
-  };
-
-  const handleSubprocesoChange = (e) => {
-    const subproceso = e.target.value;
-    setIsDirty(true);
-    setFormData((prev) => ({
-      ...prev,
-      subproceso,
-      proceso: subproceso ? `${prev.macroproceso} / ${subproceso}` : '',
-    }));
   };
 
   const handleAddNorma = () => {
@@ -172,7 +214,7 @@ export default function ModalNuevaFuente({
 
     // 🛡️ Validación básica antes de guardar
     const normasSeleccionadas = Array.isArray(formData.norma) ? formData.norma.filter(Boolean) : (formData.norma ? [formData.norma] : []);
-    if (!formData.tipoFuente || normasSeleccionadas.length === 0 || !formData.fecha || !formData.responsable || !formData.descripcion || !formData.macroproceso) {
+    if (!formData.tipoFuente || normasSeleccionadas.length === 0 || !formData.fecha || !formData.responsable || !formData.descripcion || macroprocesos.length === 0) {
       alert("⚠️ Faltan campos obligatorios por diligenciar. Por favor, revisa el formulario.");
       return;
     }
@@ -186,7 +228,16 @@ export default function ModalNuevaFuente({
 
     setIsSaving(true);
     try {
-      const guardado = await onSave({ ...formData, norma: normasSeleccionadas });
+      const guardado = await onSave({
+        ...formData,
+        norma: normasSeleccionadas,
+        macroproceso: macroprocesos[0],
+        macroprocesos,
+        proceso: procesoPorMacro(macroprocesos[0], subprocesosPorMacroproceso[macroprocesos[0]]),
+        subproceso: subprocesosSeleccionados[0] || '',
+        subprocesos: subprocesosSeleccionados,
+        subprocesosPorMacroproceso,
+      });
       if (guardado === false) return;
 
       setIsDirty(false);
@@ -383,28 +434,56 @@ export default function ModalNuevaFuente({
                     <textarea disabled={isReadOnly} name="alcance" rows="3" value={formData.alcance} onChange={handleInputChange} placeholder="Indique el objetivo de la fuente y el alcance (procesos, áreas, sedes, etc.)." className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm resize-none disabled:bg-slate-100 disabled:text-slate-500"></textarea>
                     <div className="text-right text-[10px] font-bold text-slate-400 mt-1">{formData.alcance.length}/1000</div>
                   </div>
-                  <div>
-                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Macroproceso *</label>
-                    <select disabled={isReadOnly} name="macroproceso" value={formData.macroproceso} onChange={handleMacroprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
-                      <option value="">⚙️ Seleccione un macroproceso</option>
-                      {formData.macroproceso && !MAPA_PROCESOS[formData.macroproceso] && <option value={formData.macroproceso}>{formData.macroproceso}</option>}
-                      {Object.keys(MAPA_PROCESOS).map((macroproceso) => (
-                        <option key={macroproceso} value={macroproceso}>{macroproceso}</option>
+                  <fieldset disabled={isReadOnly} className="min-w-0">
+                    <legend className="text-[11px] font-black text-slate-600 uppercase tracking-wider mb-2">Macroprocesos *</legend>
+                    <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                      {Object.keys(MAPA_PROCESOS).map(macroproceso => (
+                        <label key={macroproceso} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-blue-50">
+                          <input
+                            type="checkbox"
+                            checked={macroprocesos.includes(macroproceso)}
+                            onChange={event => handleMacroprocesoToggle(macroproceso, event.target.checked)}
+                            className="h-4 w-4 accent-blue-600"
+                          />
+                          {macroproceso}
+                        </label>
                       ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Subproceso *</label>
-                    <select disabled={subprocesoDeshabilitado} name="subproceso" value={formData.subproceso} onChange={handleSubprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-500">
-                      <option value="">
-                        {!formData.macroproceso ? '⚙️ Esperando macroproceso...' : (subprocesosDisponibles.length <= 1 ? '⚙️ Aplica a nivel general' : '⚙️ Seleccione un subproceso')}
-                      </option>
-                      {formData.subproceso && !subprocesosDisponibles.includes(formData.subproceso) && <option value={formData.subproceso}>{formData.subproceso}</option>}
-                      {subprocesosDisponibles.map((subproceso) => (
-                        <option key={subproceso} value={subproceso}>{subproceso}</option>
+                      {macroprocesos.filter(macro => !MAPA_PROCESOS[macro]).map(macro => (
+                        <label key={macro} className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-slate-700">
+                          <input type="checkbox" checked readOnly className="h-4 w-4 accent-blue-600" />
+                          {macro}
+                        </label>
                       ))}
-                    </select>
-                  </div>
+                    </div>
+                    {macroprocesos.length === 0 && <p className="mt-1 text-[10px] text-slate-400">Selecciona uno o más macroprocesos.</p>}
+                  </fieldset>
+                  <fieldset disabled={isReadOnly || macroprocesos.length === 0} className="min-w-0">
+                    <legend className="text-[11px] font-black text-slate-600 uppercase tracking-wider mb-2">Subprocesos</legend>
+                    <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                      {macroprocesos.map(macroproceso => {
+                        const disponibles = MAPA_PROCESOS[macroproceso] || [];
+                        return (
+                          <div key={macroproceso} className="mb-2 last:mb-0">
+                            <p className="px-2 py-1 text-[10px] font-black uppercase tracking-wide text-blue-800">{macroproceso}</p>
+                            {disponibles.length === 0 ? (
+                              <p className="px-2 py-1 text-[10px] text-slate-400">Sin subprocesos catalogados.</p>
+                            ) : disponibles.map(subproceso => (
+                              <label key={`${macroproceso}-${subproceso}`} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-blue-50">
+                                <input
+                                  type="checkbox"
+                                  checked={listaUnica(subprocesosPorMacroproceso[macroproceso]).includes(subproceso)}
+                                  onChange={event => handleSubprocesoToggle(macroproceso, subproceso, event.target.checked)}
+                                  className="h-4 w-4 accent-blue-600"
+                                />
+                                {subproceso}
+                              </label>
+                            ))}
+                          </div>
+                        );
+                      })}
+                      {macroprocesos.length === 0 && <p className="px-2 py-1 text-[10px] text-slate-400">Primero selecciona macroprocesos.</p>}
+                    </div>
+                  </fieldset>
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Origen *</label>
                     <div className="flex items-center gap-4 h-[46px] px-2">
@@ -489,6 +568,14 @@ export default function ModalNuevaFuente({
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Responsable</p>
                   <p className="text-sm font-bold text-slate-800 leading-tight">{formData.responsable || '---'}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-slate-400 mt-0.5">🏛️</span>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Macroprocesos</p>
+                  <p className="text-sm font-bold text-slate-800 leading-tight">{macroprocesos.join(', ') || '---'}</p>
+                  <p className="mt-1 text-[10px] text-slate-500">{subprocesosSeleccionados.join(', ') || 'Sin subprocesos específicos'}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">

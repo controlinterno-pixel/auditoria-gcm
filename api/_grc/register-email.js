@@ -44,12 +44,20 @@ export default async function handler(req, res) {
         const informeSnapshot = await transaction.get(workspace.coleccionInformesRef.doc(String(id).trim()));
         if (informeSnapshot.exists) informe = { id: informeSnapshot.id, ...informeSnapshot.data() };
       }
-      const procesoInforme = informe?.macroproceso || String(informe?.proceso || '').split('/')[0];
+      const procesosInforme = Array.isArray(informe?.macroprocesos) && informe.macroprocesos.length > 0
+        ? informe.macroprocesos
+        : [informe?.macroproceso || String(informe?.proceso || '').split('/')[0]];
       const subprocesosInforme = (
         Array.isArray(informe?.subprocesos) ? informe.subprocesos : [informe?.subproceso]
       );
       if (!informe || (!admin && (
-        !registroDentroDelAlcance(procesosAsignados, subprocesosAsignados, procesoInforme, subprocesosInforme)
+        !registroDentroDelAlcance(
+          procesosAsignados,
+          subprocesosAsignados,
+          procesosInforme,
+          subprocesosInforme,
+          informe?.subprocesosPorMacroproceso
+        )
       ))) {
         return null;
       }

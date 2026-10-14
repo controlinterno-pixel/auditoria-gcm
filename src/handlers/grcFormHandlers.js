@@ -582,7 +582,19 @@ const handleInformeAuditoriaSubmit = async (e) => {
       const formData = new FormData(e.target);
       
       const tituloVal = formData.get('titulo') || editInformeAuditoria?.titulo || 'Sin título';
-      const procesoVal = formData.get('proceso') || formData.get('Proceso') || editInformeAuditoria?.proceso || editInformeAuditoria?.macroproceso || 'Sin proceso';
+      const procesoLegacy = String(formData.get('proceso') || formData.get('Proceso') || editInformeAuditoria?.proceso || editInformeAuditoria?.macroproceso || 'Sin proceso');
+      let macroprocesosVal = [];
+      try {
+        const macroprocesosRaw = JSON.parse(String(formData.get('macroprocesos') || '[]'));
+        if (Array.isArray(macroprocesosRaw)) macroprocesosVal = macroprocesosRaw.map(valor => String(valor || '').trim()).filter(Boolean);
+      } catch {
+        macroprocesosVal = [];
+      }
+      if (macroprocesosVal.length === 0) {
+        macroprocesosVal = [String(editInformeAuditoria?.macroproceso || procesoLegacy.split('/')[0]).trim()].filter(Boolean);
+      }
+      const macroprocesoVal = macroprocesosVal[0] || 'Sin proceso';
+      const procesoVal = macroprocesoVal;
       let subprocesosVal = [];
       try {
         const subprocesosRaw = JSON.parse(String(formData.get('subprocesos') || '[]'));
@@ -594,6 +606,21 @@ const handleInformeAuditoriaSubmit = async (e) => {
         const legado = String(formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || editInformeAuditoria?.subproceso || 'General');
         subprocesosVal = legado.split(',').map(valor => valor.trim()).filter(Boolean);
       }
+      let subprocesosPorMacroprocesoVal = {};
+      try {
+        const relacionRaw = JSON.parse(String(formData.get('subprocesosPorMacroproceso') || '{}'));
+        if (relacionRaw && typeof relacionRaw === 'object' && !Array.isArray(relacionRaw)) {
+          subprocesosPorMacroprocesoVal = relacionRaw;
+        }
+      } catch {
+        subprocesosPorMacroprocesoVal = {};
+      }
+      subprocesosPorMacroprocesoVal = Object.fromEntries(macroprocesosVal.map((macro, indice) => [
+        macro,
+        Array.isArray(subprocesosPorMacroprocesoVal[macro])
+          ? subprocesosPorMacroprocesoVal[macro].map(valor => String(valor || '').trim()).filter(Boolean)
+          : indice === 0 ? subprocesosVal : [],
+      ]));
       const subprocesoVal = subprocesosVal[0] || 'General';
       const programaIdVal = String(formData.get('programaId') || editInformeAuditoria?.programaId || '').trim();
       const fechaVal = formData.get('fecha') || editInformeAuditoria?.fecha || new Date().toISOString().split('T')[0];
@@ -644,8 +671,11 @@ const handleInformeAuditoriaSubmit = async (e) => {
           actual: {
             titulo: tituloVal,
             proceso: procesoVal,
+            macroproceso: macroprocesoVal,
+            macroprocesos: macroprocesosVal,
             subproceso: subprocesoVal,
             subprocesos: subprocesosVal,
+            subprocesosPorMacroproceso: subprocesosPorMacroprocesoVal,
             programaId: programaIdVal,
             tipoFuente: tipoFuenteOut,
             detalleFuente: detalleFuenteOut,
@@ -666,9 +696,11 @@ const handleInformeAuditoriaSubmit = async (e) => {
           ...editInformeAuditoria, 
           titulo: tituloVal, 
           proceso: procesoVal, 
-          macroproceso: procesoVal, 
+          macroproceso: macroprocesoVal,
+          macroprocesos: macroprocesosVal,
           subproceso: subprocesoVal, 
           subprocesos: subprocesosVal,
+          subprocesosPorMacroproceso: subprocesosPorMacroprocesoVal,
           programaId: programaIdVal,
           tipoFuente: tipoFuenteOut,
           detalleFuente: detalleFuenteOut,
@@ -701,16 +733,22 @@ const handleInformeAuditoriaSubmit = async (e) => {
               detalle: {
                 ...detalleCambio,
                 proceso: procesoVal,
+                macroproceso: macroprocesoVal,
+                macroprocesos: macroprocesosVal,
                 subproceso: subprocesoVal,
                 subprocesos: subprocesosVal,
+                subprocesosPorMacroproceso: subprocesosPorMacroprocesoVal,
                 socializado: socializadoVal,
                 correoEnviadoA: correosNotificacionOut,
                 archivos: detalleCambio.archivos,
                 snapshot: {
                   titulo: tituloVal,
                   proceso: procesoVal,
+                  macroproceso: macroprocesoVal,
+                  macroprocesos: macroprocesosVal,
                   subproceso: subprocesoVal,
                   subprocesos: subprocesosVal,
+                  subprocesosPorMacroproceso: subprocesosPorMacroprocesoVal,
                   programaId: programaIdVal,
                   tipoFuente: tipoFuenteOut,
                   detalleFuente: detalleFuenteOut,
@@ -742,9 +780,11 @@ const handleInformeAuditoriaSubmit = async (e) => {
           ref: refConsecutivoFinal, 
           titulo: tituloVal, 
           proceso: procesoVal, 
-          macroproceso: procesoVal,
+          macroproceso: macroprocesoVal,
+          macroprocesos: macroprocesosVal,
           subproceso: subprocesoVal, 
           subprocesos: subprocesosVal,
+          subprocesosPorMacroproceso: subprocesosPorMacroprocesoVal,
           programaId: programaIdVal,
           tipoFuente: tipoFuenteOut,
           detalleFuente: detalleFuenteOut,

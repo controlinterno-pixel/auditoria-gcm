@@ -8,7 +8,7 @@ import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const CAMPOS_EDITABLES = [
-  'titulo', 'proceso', 'macroproceso', 'subproceso', 'subprocesos', 'programaId',
+  'titulo', 'proceso', 'macroproceso', 'macroprocesos', 'subproceso', 'subprocesos', 'subprocesosPorMacroproceso', 'programaId',
   'tipoFuente', 'detalleFuente', 'fecha', 'elaboradoPor', 'revisadoPor',
   'aprobadoPor', 'auditorResponsable', 'auditor', 'correoAuditor',
   'correoAuditorResponsable', 'socializado', 'fechaSocializacion',
@@ -34,6 +34,11 @@ const subprocesosDe = registro => (
 const correoValido = valor => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim());
 const obtenerProceso = registro => normalizar(
   registro?.macroproceso || String(registro?.proceso || '').split('/')[0]
+);
+const obtenerMacroprocesos = registro => (
+  Array.isArray(registro?.macroprocesos) && registro.macroprocesos.length > 0
+    ? registro.macroprocesos
+    : [obtenerProceso(registro)]
 );
 const obtenerAuditor = informe => String(
   informe?.auditorResponsable || informe?.auditor || informe?.auditorLider || ''
@@ -399,8 +404,9 @@ export default async function handler(req, res) {
     if (!admin && !registroDentroDelAlcance(
       procesosAsignados,
       subprocesosAsignados,
-      obtenerProceso(nuevoRegistro),
-      subprocesosDe(nuevoRegistro)
+      obtenerMacroprocesos(nuevoRegistro),
+      subprocesosDe(nuevoRegistro),
+      nuevoRegistro.subprocesosPorMacroproceso
     )) {
       return sendError(res, 'El informe debe pertenecer a un proceso y subproceso asignados.', 403);
     }
@@ -421,8 +427,9 @@ export default async function handler(req, res) {
       if (!admin && !registroDentroDelAlcance(
         procesosAsignados,
         subprocesosAsignados,
-        obtenerProceso(anterior),
-        subprocesosDe(anterior)
+        obtenerMacroprocesos(anterior),
+        subprocesosDe(anterior),
+        anterior.subprocesosPorMacroproceso
       )) return { error: 'forbidden' };
 
       const camposCambiados = Object.keys(cambios).filter(campo => (

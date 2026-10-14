@@ -21,12 +21,13 @@ const leerInformesFragmentados = async (refColeccion, procesosAsignados) => {
     chunks.push(procesos.slice(indice, indice + 10));
   }
 
-  const snapshots = await Promise.all(chunks.map(chunk => (
+  const snapshots = await Promise.all(chunks.flatMap(chunk => ([
     refColeccion.where(Filter.or(
       Filter.where('macroproceso', 'in', chunk),
       Filter.where('proceso', 'in', chunk)
-    )).get()
-  )));
+    )).get(),
+    refColeccion.where('macroprocesos', 'array-contains-any', chunk).get(),
+  ])));
   const informesPorId = new Map();
   snapshots.forEach(snapshot => snapshot.docs.forEach(documento => {
     informesPorId.set(documento.id, { id: documento.id, ...documento.data() });

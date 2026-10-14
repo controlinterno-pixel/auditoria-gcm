@@ -104,16 +104,20 @@ function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
     // Si yo pertenezco a este proceso, veo todo lo que sucede aquí.
     // =========================================================
     if (processSafe.length > 0) {
-      const procesoRegistro = String(item.proceso || item.macroproceso || '').toLowerCase();
+      const procesosRegistro = [
+        ...(Array.isArray(item.macroprocesos) ? item.macroprocesos : []),
+        item.macroproceso,
+        item.proceso,
+      ].filter(Boolean).map(valor => String(valor).toLowerCase());
       const subprocesoRegistro = [
         item.subproceso,
         ...(Array.isArray(item.subprocesos) ? item.subprocesos : []),
       ].filter(Boolean).join(' ').toLowerCase();
       
-      if (procesoRegistro && processSafe.some(proceso => (
-        procesoRegistro.includes(proceso) ||
-        subprocesoRegistro.includes(proceso) ||
-        proceso.includes(procesoRegistro)
+      if (processSafe.some(proceso => (
+        procesosRegistro.some(procesoRegistro => (
+          procesoRegistro.includes(proceso) || proceso.includes(procesoRegistro)
+        )) || subprocesoRegistro.includes(proceso)
       ))) {
         return true;
       }

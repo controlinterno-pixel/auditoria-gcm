@@ -178,19 +178,24 @@ export default function SidebarNavigation({
           </button>
          <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'hallazgos' && !isCollapsed ? 'max-h-80 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              {/* ✨ Permiso de visualización abierto. La seguridad de datos se controla desde el Backend (RLS) */}
-              <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Informes Emitidos</button>
               
-              {/* Este botón sí se queda solo para el Administrador */}
+              {/* 1. Fuente de mejora */}
               {(isAdmin || puedeVerFuentesMejora) && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('fuentes_mejora'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'fuentes_mejora' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Fuente de mejora</button>}
 
+              {/* 2. Informes Emitidos */}
+              <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Informes Emitidos</button>
+              
+              {/* 3. Hallazgos Registrados */}
               <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>
+              
+              {/* 4. Cargos y Procesos */}
               {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('cargos_procesos'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'cargos_procesos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Cargos y Procesos</button>}
+              
+              {/* 5. Eventos de Pérdida */}
               <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('incidentes'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>
             </div>
           </div>
         </div>
-
 
         {/* 5. PLANES DE ACCIÓN */}
         <div className="flex flex-col">

@@ -101,6 +101,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
       fuente.alcance,
       fuente.descripcion,
       fuente.macroproceso,
+      ...(Array.isArray(fuente.macroprocesos) ? fuente.macroprocesos : []),
       fuente.subproceso,
       fuente.proceso,
    ].filter(Boolean).join(' ').toLowerCase();
