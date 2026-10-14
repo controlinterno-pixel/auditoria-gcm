@@ -565,7 +565,7 @@ const handleNotificarPlan = (planId) => {
       ));
 
       const camposDisenoNotificables = [
-        'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion',
+        'accion', 'sede', 'fechaInicio', 'fecha', 'tipoAccion',
         'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
         'correoResponsable', 'correoRevisor', 'correoAuditor',
       ];
@@ -575,7 +575,8 @@ const handleNotificarPlan = (planId) => {
         const cambioDiseno = camposDisenoNotificables.some(campo => (
           JSON.stringify(original[campo] ?? null) !== JSON.stringify(actualizacion[campo] ?? null)
         ));
-        const llegaAlCien = Number(actualizacion.progreso) === 100 && Number(original.progreso) < 100;
+        const llegaAlCien = Number(actualizacion.progreso) === 100 &&
+          (Number(original.progreso) < 100 || original.estadoWorkflow === 'En Ejecución');
         return cambioDiseno || llegaAlCien;
       });
 

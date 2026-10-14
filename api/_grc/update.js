@@ -160,18 +160,22 @@ export default async function handler(req, res) {
           const camposCambiados = Object.keys(cambios).filter(campo => (
             JSON.stringify(anterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
           ));
-          if (camposCambiados.length === 0) continue;
+          const atascadoAlCien = !admin && anterior.estadoWorkflow === 'En Ejecución' && Number(anterior.progreso) === 100;
+          if (camposCambiados.length === 0 && !atascadoAlCien) continue;
           const cambioProgreso = camposCambiados.includes('progreso');
-          const cambioDiseno = camposCambiados.some(campo => campo !== 'progreso');
+          // Subir evidencia es ejecución, no una corrección del diseño aprobado.
+          const cambioDiseno = camposCambiados.some(campo => !['progreso', 'evidenciaUrl'].includes(campo));
           if (!admin && cambioProgreso && !['En Ejecución', 'En Revisión (100%)'].includes(anterior.estadoWorkflow)) {
             return { error: 'progress-forbidden' };
           }
           const reenviaRevision = !admin && cambioDiseno;
           let estadoWorkflow = anterior.estadoWorkflow;
-          if (!admin && !reenviaRevision && cambioProgreso) {
-            if (cambios.progreso === 100) estadoWorkflow = 'En Revisión (100%)';
+          const alCien = Number(cambios.progreso ?? anterior.progreso) === 100;
+          if (!admin && !reenviaRevision && (cambioProgreso || atascadoAlCien)) {
+            if (alCien) estadoWorkflow = 'En Revisión (100%)';
             else if (anterior.estadoWorkflow === 'En Revisión (100%)') estadoWorkflow = 'En Ejecución';
           }
+          const cambiaEstadoEjecucion = !admin && !reenviaRevision && (cambioProgreso || atascadoAlCien);
           const historial = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
           planesActualizados.push({
             ...anterior,
@@ -179,19 +183,19 @@ export default async function handler(req, res) {
             id: anterior.id,
             idHallazgo: anterior.idHallazgo,
             idInforme: idInformeAnterior,
-            ...(!admin && cambioProgreso && !reenviaRevision ? { estadoWorkflow, estado: 'En Proceso' } : {}),
+            ...(cambiaEstadoEjecucion ? { estadoWorkflow, estado: 'En Proceso' } : {}),
             ...(reenviaRevision ? {
               estadoWorkflow: 'Pendiente Revisión Jefatura',
               estado: 'En Proceso',
             } : {}),
-            historialCambios: camposCambiados.length ? [
+            historialCambios: (camposCambiados.length || atascadoAlCien) ? [
               ...historial,
               {
                 fecha: ahora.toLocaleString('es-CO'),
                 usuario: user.email,
                 accion: reenviaRevision
                   ? 'Diseño corregido y reenviado a revisión por su responsable'
-                  : cambioProgreso
+                  : cambiaEstadoEjecucion
                     ? estadoWorkflow === 'En Revisión (100%)'
                       ? 'Ejecución al 100% enviada a revisión del auditor'
                       : 'Avance de ejecución actualizado por su responsable'

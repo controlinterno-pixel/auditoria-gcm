@@ -71,7 +71,9 @@ export default async function handler(req, res) {
         };
         return {
           ...plan,
-          estadoWorkflow: aprobado ? 'En Ejecución' : 'Borrador',
+          estadoWorkflow: aprobado
+            ? (Number(plan.progreso) >= 100 ? 'En Revisión (100%)' : 'En Ejecución')
+            : 'Borrador',
           estado: 'En Proceso',
           ...(aprobado
             ? { aprobadoPorCorreo: user.email, aprobadoEn: ahora.toISOString(), motivoRechazo: '' }

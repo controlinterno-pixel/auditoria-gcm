@@ -361,7 +361,8 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   // 3. Tareas que el usuario debe APROBAR (Como Auditor)
   const misPlanesAprobacion = planesConOrigen.filter(p => {
     const correoAuditor = (p.correoAuditor || '').trim().toLowerCase();
-    return correoAuditor === userEmailLower.trim() && p.estadoWorkflow === 'Pendiente Aprobación Auditor';
+    return correoAuditor === userEmailLower.trim() &&
+           ['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow);
   });
   const misTareasAprobacion = misPlanesAprobacion.length;
 
