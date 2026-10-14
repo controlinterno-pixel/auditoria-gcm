@@ -1008,8 +1008,9 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
 
   // 🗑️ NUEVA FUNCIÓN: ELIMINAR UNA EVALUACIÓN DEL HISTORIAL (SOLO ADMIN)
   const handleEliminarEvaluacion = async (indexEliminar) => {
-    if (!isAdmin) {
-      return alert("❌ Permiso denegado. Solo un Administrador puede eliminar evaluaciones.");
+// Permite que admins o líderes autorizados guarden directamente con saveToCloud
+if (!isAdmin && !puedeCrearPlanes) {
+    return alert("❌ Permiso denegado. Solo un Administrador puede eliminar evaluaciones.");
     }
     
     if (!window.confirm("¿Estás seguro de que deseas ELIMINAR esta evaluación del historial? Esta acción es irreversible y recalculará el estado del plan.")) return;

@@ -85,14 +85,21 @@ export default async function handler(req, res) {
         const planes = Array.isArray(data.planes) ? data.planes : [];
         const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
         const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+        const idInformeDocumento = String(idInforme || '').trim();
         const idInformeStr = String(idInforme || '').trim().toLowerCase();
-        
-        // Búsqueda flexible: por ID estricto, ID stringificado o Consecutivo (ref)
-        const informeExiste = informes.some(inf => {
+
+        // Preserve exact legacy ID/ref matching, then check the fragmented report document.
+        let informeExiste = informes.some(inf => {
           const idStr = String(inf?.id || '').trim().toLowerCase();
           const refStr = String(inf?.ref || '').trim().toLowerCase();
-          return idStr === idInformeStr || refStr === idInformeStr || idStr.includes(idInformeStr);
+          return idStr === idInformeStr || refStr === idInformeStr;
         });
+        if (!informeExiste && idInformeDocumento) {
+          const informeSnapshot = await transaction.get(
+            workspace.coleccionInformesRef.doc(idInformeDocumento)
+          );
+          informeExiste = informeSnapshot.exists;
+        }
 
         if (!informeExiste) return { error: 'report-not-found' };
 
