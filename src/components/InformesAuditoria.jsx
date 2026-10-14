@@ -1651,11 +1651,11 @@ const handleFileUpload = async (e, type) => {
     
       {/* 🚀 VISTA 2: FORMULARIO NUEVO / EDICIÓN (O SOLO LECTURA PARA LÍDERES) */}
       {vistaActiva === 'nuevo' && (puedeCrearInformes || puedeEditarInformes || modoVistaCompleta) && (
-        <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
+        <div id="edit-form" className="relative mx-auto max-w-6xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-lg sm:p-7">
           <div className="flex justify-between items-center border-b pb-4 gap-3">
-            <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest flex items-center">
+            <h3 className="flex items-center text-sm font-black text-[#0A3B32]">
               <span className="text-xl mr-3 bg-emerald-50 p-2 rounded-lg">{modoVistaCompleta ? '👁️' : (editInformeAuditoria ? '✏️' : '➕')}</span>
-              {modoVistaCompleta ? `Información completa: ${editInformeAuditoria?.ref || 'Informe'}` : (editInformeAuditoria ? `Editando Flujo de Informe: ${editInformeAuditoria.ref}` : 'ARCHIVAR, RADICAR Y DISTRIBUIR NUEVO INFORME')}
+              {modoVistaCompleta ? `Información completa: ${editInformeAuditoria?.ref || 'Informe'}` : (editInformeAuditoria ? `Editar informe ${editInformeAuditoria.ref}` : 'Nuevo informe')}
             </h3>
             {editInformeAuditoria && (
               <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -1693,7 +1693,7 @@ const handleFileUpload = async (e, type) => {
               handleResetForm();
               setVistaActiva('dashboard'); 
             }} 
-            className="space-y-6 text-xs"
+            className="space-y-8 text-xs"
           >
           {modoVistaCompleta && (
             <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 font-bold flex items-center justify-between gap-3 shadow-inner">
@@ -1714,10 +1714,10 @@ const handleFileUpload = async (e, type) => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-7 md:grid-cols-2 xl:grid-cols-4">
 
 {/* 🛡️ FUENTE DE MEJORA Y VINCULACIÓN DINÁMICA */}
-              <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2 space-y-4">
+              <div className="col-span-full space-y-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
                 <div>
                   <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📍 Fuente de Mejora (Obligatorio)</label>
             <select
@@ -1827,7 +1827,11 @@ const handleFileUpload = async (e, type) => {
                 )}
               </div>
 
-              <div className="md:col-span-2">
+              <div className="col-span-full border-b border-slate-200 pb-2">
+                <h4 className="text-sm font-bold text-slate-800">Identificación del informe</h4>
+              </div>
+
+              <div className="col-span-full">
                 <label className="font-bold text-gray-600 block mb-1.5">Título del Informe Formal</label>
                 <input 
                   name="titulo" 
@@ -1919,6 +1923,10 @@ const handleFileUpload = async (e, type) => {
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed" 
                   disabled={modoVistaCompleta}
                 />
+              </div>
+
+              <div className="col-span-full border-b border-slate-200 pb-2">
+                <h4 className="text-sm font-bold text-slate-800">Responsables</h4>
               </div>
 
              <div className="md:col-span-1">
@@ -2035,6 +2043,10 @@ const handleFileUpload = async (e, type) => {
                 )}
               </div>
 
+              <div className="col-span-full border-b border-slate-200 pb-2">
+                <h4 className="text-sm font-bold text-slate-800">Socialización</h4>
+              </div>
+
               <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📢 ¿Fue Socializado?</label>
                 <select 
@@ -2079,8 +2091,7 @@ const handleFileUpload = async (e, type) => {
                 <input type="hidden" name="fechaSoc" value={draftInforme.fechaSocializacion || ''} />
               </div>
 
-              {/* ⚠️ Nota: Se redujo a md:col-span-2 para mantener la cuadrícula simétrica */}
-              <div className="md:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+              <div className="col-span-full space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Cargos)</label>
                 <div className="flex gap-2">
                 <select 
@@ -2128,8 +2139,8 @@ const handleFileUpload = async (e, type) => {
               </div>   
             </div>            
             
-            <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl shadow-inner mt-4">
-              <label className="font-black text-blue-900 block mb-2 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
+            <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
+              <label className="mb-2 block text-sm font-bold text-blue-900">Distribución por correo electrónico</label>
 <input
   name="correosNotificacionInput"
   type="text"
@@ -2149,13 +2160,12 @@ const handleFileUpload = async (e, type) => {
             </div>
 
             {/* ☁️ BÓVEDA SERVIDOR TERMALES */}
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-inner grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-              <div className="md:col-span-2 border-b pb-3 border-slate-200 flex justify-between items-center">
+            <div className="mt-2 grid grid-cols-1 gap-5 border-t border-slate-200 pt-6 md:grid-cols-2">
+              <div className="col-span-full flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
                 <div>
-                  <label className="font-black text-slate-800 uppercase tracking-widest text-xs">Repositorio Oficial Termales Santa Rosa</label>
-                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">Sube tus PDFs. El sistema los enviará directo a repos.termalessantarosa.com.co.</p>
+                  <h4 className="text-sm font-bold text-slate-800">Documentos del informe</h4>
                 </div>
-                <div className="text-slate-300 text-3xl">☁️</div>
+                <div className="text-xl text-slate-400">☁️</div>
               </div>
 
 {/* 👇 Mapeo completo para asegurar que la URL del PDF nunca se pierda */}
