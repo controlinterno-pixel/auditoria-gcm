@@ -2640,8 +2640,8 @@ const handleFileUpload = async (e, type) => {
                     ].filter((url, index, urls) => url && url !== '#' && urls.indexOf(url) === index);
                     return (
                       <Fragment key={idInforme}>
-                      <tr className="cursor-pointer transition-colors hover:bg-blue-50/40" onClick={() => setInformeExpandidoId(expandido ? null : idInforme)}>
-                        <td className="whitespace-nowrap bg-slate-50/50 p-4 font-mono text-sm font-black text-slate-800">
+                      <tr className={`group cursor-pointer border-b-2 transition-colors ${expandido ? 'border-b-0 bg-blue-50/50' : `${idx % 2 === 0 ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50'} hover:bg-blue-50/70`}`} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)}>
+                        <td className="whitespace-nowrap border-l-4 border-l-slate-200 p-4 font-mono text-sm font-black text-slate-800 transition-colors group-hover:border-l-blue-500">
                           <div className="flex items-center gap-2">
                             <button type="button" aria-expanded={expandido} aria-label={expandido ? 'Ocultar detalle del informe' : 'Ver detalle del informe'} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)} className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-[10px] text-slate-500 hover:border-blue-300 hover:text-blue-700">{expandido ? '▾' : '›'}</button>
                             <span>{inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}</span>
@@ -2726,8 +2726,8 @@ const handleFileUpload = async (e, type) => {
                         </td>
                       </tr>
                       {expandido && (
-                        <tr className="bg-slate-50/80">
-                          <td colSpan="5" className="px-5 py-4">
+                        <tr className="border-b-2 border-slate-300 bg-blue-50/60">
+                          <td colSpan="5" className="border-l-4 border-l-blue-500 px-5 py-4">
                             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                               <section>
                                 <h4 className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-500">Trazabilidad de firmas</h4>
