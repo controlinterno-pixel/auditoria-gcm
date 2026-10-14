@@ -39,8 +39,15 @@ export default async function handler(req, res) {
       const { data, workspaceRef } = workspace;
       const planes = Array.isArray(data.planes) ? data.planes : [];
       const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
-      const informeExiste = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
+      let informeExiste = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
         .some(informe => String(informe.id) === String(idInforme));
+      if (!informeExiste) {
+        // Los informes nuevos viven en una subcolección que la transacción no lista.
+        const informeSnapshot = await transaction.get(
+          workspace.coleccionInformesRef.doc(String(idInforme).trim())
+        );
+        informeExiste = informeSnapshot.exists;
+      }
       if (!informeExiste) return { error: 'report-not-found' };
 
       const pendientes = planes.filter(plan => {

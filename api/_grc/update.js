@@ -406,7 +406,12 @@ export default async function handler(req, res) {
       if (!workspace.workspaceExists) return { error: 'not-found' };
       const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
-      const anterior = informes.find(informe => String(informe.id) === String(id));
+      let anterior = informes.find(informe => String(informe.id) === String(id));
+      const estaEnLegado = Boolean(anterior);
+      if (!anterior) {
+        const informeSnapshot = await transaction.get(workspace.coleccionInformesRef.doc(String(id).trim()));
+        if (informeSnapshot.exists) anterior = { id: informeSnapshot.id, ...informeSnapshot.data() };
+      }
       if (!anterior) return { error: 'not-found' };
 
       if (!admin && !registroDentroDelAlcance(
@@ -490,7 +495,9 @@ export default async function handler(req, res) {
       guardarInformesGrc(
         transaction,
         workspace,
-        informes.map(informe => String(informe.id) === String(id) ? actualizado : informe)
+        estaEnLegado
+          ? informes.map(informe => String(informe.id) === String(id) ? actualizado : informe)
+          : [...informes, actualizado]
       );
       if (planesActualizados.length > 0) {
         const planesPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));

@@ -38,7 +38,12 @@ export default async function handler(req, res) {
       const workspace = await leerWorkspaceGrc(transaction);
       const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
-      const informe = informes.find(item => String(item.id) === String(id));
+      let informe = informes.find(item => String(item.id) === String(id));
+      const estaEnLegado = Boolean(informe);
+      if (!informe) {
+        const informeSnapshot = await transaction.get(workspace.coleccionInformesRef.doc(String(id).trim()));
+        if (informeSnapshot.exists) informe = { id: informeSnapshot.id, ...informeSnapshot.data() };
+      }
       const procesoInforme = informe?.macroproceso || String(informe?.proceso || '').split('/')[0];
       const subprocesosInforme = (
         Array.isArray(informe?.subprocesos) ? informe.subprocesos : [informe?.subproceso]
@@ -53,7 +58,9 @@ export default async function handler(req, res) {
       guardarInformesGrc(
         transaction,
         workspace,
-        informes.map(item => String(item.id) === String(id) ? actualizado : item)
+        estaEnLegado
+          ? informes.map(item => String(item.id) === String(id) ? actualizado : item)
+          : [...informes, actualizado]
       );
       return actualizado;
     });
