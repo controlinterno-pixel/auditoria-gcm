@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Search } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
 import { TIPOS_FUENTE, resolverTipoFuente } from '../constants/diccionariosGRC';
@@ -33,7 +34,6 @@ export default function Hallazgos({
   setSearchTerm = () => {},
   columnFilters = {},
   handleColFilterChange = () => {},
-  FilterInput,
   exportToExcel
 }) {
   const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
@@ -310,10 +310,6 @@ export default function Hallazgos({
   });
 
   const aniosDisponibles = [...new Set(hallazgosEnriquecidos.map(h => h.anioReal).filter(a => a !== 'Sin Fecha'))].sort().reverse();
-  const cambiarFiltroColumnaHistorial = (clave, valor) => {
-    setPaginaHistorial(1);
-    handleColFilterChange(clave, valor);
-  };
   
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1218,66 +1214,85 @@ export default function Hallazgos({
                 <span className="text-xs font-semibold text-slate-500" aria-live="polite">{totalInformes} {totalInformes === 1 ? 'informe' : 'informes'}</span>
               </div>
                
-               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 items-center gap-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.2fr_1.2fr_.8fr_.9fr_1.2fr_1.6fr]">
                   
                   {/* ✨ NUEVO: FILTRO DINÁMICO DE PROCESO */}
-                  <select 
-                    value={columnFilters['proceso'] || ''} 
-                    onChange={(e) => {
-                      setPaginaHistorial(1);
-                      handleColFilterChange('proceso', e.target.value);
-                      handleColFilterChange('subproceso', ''); // Limpia al cambiar
-                    }} 
-                    className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 bg-slate-50 font-semibold text-slate-700 shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">🏛️ Todos los Procesos</option>
-                    {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                  <label className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-slate-500">Proceso</span>
+                    <select
+                      value={columnFilters['proceso'] || ''}
+                      onChange={(e) => {
+                        setPaginaHistorial(1);
+                        handleColFilterChange('proceso', e.target.value);
+                        handleColFilterChange('subproceso', '');
+                      }}
+                      className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    >
+                      <option value="">Todos los procesos</option>
+                      {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </label>
 {/* ✨ NUEVO: FILTRO DINÁMICO DE SUBPROCESO */}
-                  <select 
-                    value={columnFilters['subproceso'] || ''} 
-                    onChange={(e) => { setPaginaHistorial(1); handleColFilterChange('subproceso', e.target.value); }}
-                    className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 bg-slate-50 font-semibold text-slate-700 shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">🗂️ Todos los Subprocesos</option>
-                    {[...new Set(columnFilters['proceso'] ? (MAPA_PROCESOS[columnFilters['proceso']] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => (
-                      <option key={sp} value={sp}>{sp}</option>
-                    ))}
-                  </select>
+                  <label className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-slate-500">Subproceso</span>
+                    <select
+                      value={columnFilters['subproceso'] || ''}
+                      onChange={(e) => { setPaginaHistorial(1); handleColFilterChange('subproceso', e.target.value); }}
+                      className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    >
+                      <option value="">Todos los subprocesos</option>
+                      {[...new Set(columnFilters['proceso'] ? (MAPA_PROCESOS[columnFilters['proceso']] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
+                  </label>
 
-                  <select value={filtroAnio} onChange={(e) => { setFiltroAnio(e.target.value); setPaginaHistorial(1); }} className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer">
-                    <option value="">📅 Todos los Años</option>
-                    {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
-                  </select>
+                  <label className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-slate-500">Año</span>
+                    <select value={filtroAnio} onChange={(e) => { setFiltroAnio(e.target.value); setPaginaHistorial(1); }} className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                      <option value="">Todos los años</option>
+                      {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
+                    </select>
+                  </label>
 
-                  <select value={filtroMes} onChange={(e) => { setFiltroMes(e.target.value); setPaginaHistorial(1); }} className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer">
-                    <option value="">📆 Todos los Meses</option>
-                    <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
-                    <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
-                    <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
-                    <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-                  </select>
+                  <label className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-slate-500">Mes</span>
+                    <select value={filtroMes} onChange={(e) => { setFiltroMes(e.target.value); setPaginaHistorial(1); }} className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                      <option value="">Todos los meses</option>
+                      <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                      <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                      <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                      <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                    </select>
+                  </label>
 
                   {/* ✨ FILTRO DESPLEGABLE POR TIPO DE FUENTE (Alineado con el diseño visual) */}
-                  <select 
-                    value={filtroTipoFuente} 
-                    onChange={(e) => { setFiltroTipoFuente(e.target.value); setPaginaHistorial(1); }}
-                    className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
-                  >
-                    <option value="">⊞ Todos los tipos de fuente</option>
-                    {TIPOS_FUENTE.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
-                  </select>
+                  <label className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-slate-500">Tipo de fuente</span>
+                    <select
+                      value={filtroTipoFuente}
+                      onChange={(e) => { setFiltroTipoFuente(e.target.value); setPaginaHistorial(1); }}
+                      className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    >
+                      <option value="">Todos los tipos</option>
+                      {TIPOS_FUENTE.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
+                    </select>
+                  </label>
 
-                 <div className="relative w-full sm:col-span-2 xl:col-span-2">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                 <label className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-slate-500">Buscar</span>
+                    <span className="relative mt-1 block">
+                      <Search size={15} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input 
                       type="text" 
-                      placeholder="Búsqueda General..." 
+                      aria-label="Buscar hallazgos"
+                      placeholder="Informe, proceso o hallazgo"
                       value={searchTerm} 
                       onChange={(e) => { setSearchTerm(e.target.value); setPaginaHistorial(1); }}
-                      className="pl-8 pr-4 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-full shadow-sm font-semibold"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     />
-                 </div>
+                    </span>
+                 </label>
                </div>
             </div>
 
@@ -1342,26 +1357,11 @@ export default function Hallazgos({
                           <table className="w-full text-xs text-left divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden shadow-inner">
                             <thead className="bg-slate-900 text-white font-bold uppercase tracking-widest text-[9px]">
                               <tr>
-                                <th className="p-3 w-28">
-                                  <div className="mb-1">ID / REF</div>
-                                  <FilterInput colKey="ref" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
-                                </th>
-                                <th className="p-3 w-40">
-                                  <div className="mb-1">PROCESO / SEDE</div>
-                                  <FilterInput colKey="proceso" placeholder="Filtrar Macro..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
-                                </th>
-                                <th className="p-3 w-2/5">
-                                  <div className="mb-1">DESCRIPCIÓN DEL HALLAZGO</div>
-                                  <FilterInput colKey="titulo" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
-                                </th>
-                                <th className="p-3">
-                                  <div className="mb-1">RESPONSABLES</div>
-                                  <FilterInput colKey="responsable" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
-                                </th>
-                                <th className="p-3 text-center">
-                                  <div className="mb-1">ESTADO</div>
-                                  <FilterInput colKey="estado" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
-                                </th>
+                                <th className="p-3 w-28">ID / REF</th>
+                                <th className="p-3 w-40">PROCESO / SEDE</th>
+                                <th className="p-3 w-2/5">DESCRIPCIÓN DEL HALLAZGO</th>
+                                <th className="p-3">RESPONSABLES</th>
+                                <th className="p-3 text-center">ESTADO</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
