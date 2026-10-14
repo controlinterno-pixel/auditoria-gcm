@@ -16,6 +16,7 @@ function esRolAdministrador(rol) {
   return normalizado === 'admin' || normalizado === 'administrador' || normalizado === 'auditor';
 }
 
+// eslint-disable-next-line no-unused-vars
 function normalizarProceso(valor) {
   return String(valor || '')
     .trim()
