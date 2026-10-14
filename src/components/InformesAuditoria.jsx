@@ -161,12 +161,30 @@ export default function InformesAuditoria({
   const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroFuente, setDashFiltroFuente] = useState('Todas'); // ✨ NUEVO ESTADO PARA EL FILTRO DE PILLS
+  const [procesosKpiAbierto, setProcesosKpiAbierto] = useState(false);
 
   // ✨ ESTADO Y LÓGICA DE PAGINACIÓN REAL
   const [paginaActual, setPaginaActual] = useState(1);
   const actualizarFiltroDashboard = (actualizarFiltro, valor) => {
     actualizarFiltro(valor);
     setPaginaActual(1);
+    setProcesosKpiAbierto(false);
+  };
+  const limpiarFiltrosDashboard = () => {
+    setDashFiltroAnio('Todos');
+    setDashFiltroProceso('Todos');
+    setDashFiltroSubproceso('Todos');
+    setDashFiltroEstado('Todos');
+    setDashFiltroFuente('Todas');
+    setSearchTerm('');
+    Object.keys(columnFilters || {}).forEach(clave => handleColFilterChange(clave, ''));
+    setPaginaActual(1);
+    setProcesosKpiAbierto(false);
+  };
+  const elegirProcesoKpi = proceso => {
+    actualizarFiltroDashboard(setDashFiltroProceso, proceso);
+    setDashFiltroSubproceso('Todos');
+    setProcesosKpiAbierto(false);
   };
   const handleFiltroColumnaConPaginacion = (...args) => {
     handleColFilterChange(...args);
@@ -252,19 +270,19 @@ if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuen
   };
 
   // 1. Filtrar los datos del Dashboard según el menú lateral y las pastillas (Pills)
-  const informesDashboard = informesEnriquecidos.filter(inf => {
+  const informesBaseDashboard = informesEnriquecidos.filter(inf => {
     if (dashFiltroAnio !== 'Todos' && inf.fecha?.split('-')[0] !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && !obtenerMacroprocesosInforme(inf).includes(dashFiltroProceso)) return false;
     if (dashFiltroSubproceso !== 'Todos' && !obtenerSubprocesosInforme(inf, dashFiltroProceso === 'Todos' ? '' : dashFiltroProceso).includes(dashFiltroSubproceso)) return false;
-    if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
-    
-   // ✨ NUEVA CONDICIÓN: Filtrar por Fuente de Mejora separando Programa de Auditoría
     if (dashFiltroFuente !== 'Todas') {
       if (resolverCategoriaFuente(inf.tipoFuente, fuentesMejoraDisponibles) !== dashFiltroFuente) return false;
     }
-    
     return true;
   });
+  const informesDashboard = informesBaseDashboard.filter(inf => (
+    dashFiltroEstado === 'Todos' ||
+    (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')
+  ));
 
   const informesFiltradosDashboard = applyFilters(informesDashboard, searchTerm, columnFilters);
   const totalInformesFiltrados = informesFiltradosDashboard.length;
@@ -278,16 +296,24 @@ if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuen
   const indiceFinDashboard = Math.min(paginaActualDashboard * 10, totalInformesFiltrados);
 
   // 2. Calcular KPIs basados en lo que está filtrado
-  const totalInformes = informesDashboard.length;
-  const socializados = informesDashboard.filter(i => i.socializado === 'Sí').length;
+  const totalInformes = informesBaseDashboard.length;
+  const totalInformesVisibles = informesDashboard.length;
+  const socializados = informesBaseDashboard.filter(i => i.socializado === 'Sí').length;
   const pendientes = totalInformes - socializados;
   const pctSocializados = totalInformes > 0 ? Math.round((socializados / totalInformes) * 100) : 0;
   const pctPendientes = totalInformes > 0 ? Math.round((pendientes / totalInformes) * 100) : 0;
-  const procesosAuditados = new Set(informesDashboard.flatMap(obtenerMacroprocesosInforme)).size;
+  const procesosAuditados = new Set(informesBaseDashboard.flatMap(obtenerMacroprocesosInforme)).size;
   const macroprocesosDashboard = [...new Set(informesEnriquecidos.flatMap(obtenerMacroprocesosInforme))].sort();
   const subprocesosDashboard = [...new Set(informesEnriquecidos
     .filter(informe => dashFiltroProceso === 'Todos' || obtenerMacroprocesosInforme(informe).includes(dashFiltroProceso))
     .flatMap(informe => obtenerSubprocesosInforme(informe, dashFiltroProceso === 'Todos' ? '' : dashFiltroProceso)))].sort();
+  const dashboardSinFiltros = dashFiltroAnio === 'Todos' &&
+    dashFiltroProceso === 'Todos' &&
+    dashFiltroSubproceso === 'Todos' &&
+    dashFiltroEstado === 'Todos' &&
+    dashFiltroFuente === 'Todas' &&
+    !String(searchTerm || '').trim() &&
+    !Object.values(columnFilters || {}).some(valor => String(valor || '').trim());
 
   // 3. Agrupador Dinámico según el botón "ORGANIZAR POR"
   const informesAgrupados = informesDashboard.reduce((acc, inf) => {
@@ -1228,51 +1254,71 @@ const handleFileUpload = async (e, type) => {
         // Generador de Conic Gradient para la Dona
         let accumulatedPercent = 0;
         const donutSlices = fuentesArray.map((fuente, idx) => {
-          const percent = (fuente.cantidad / totalInformes) * 100;
+          const percent = (fuente.cantidad / totalInformesVisibles) * 100;
           const color = coloresArray[idx % coloresArray.length];
           const slice = `${color} ${accumulatedPercent}% ${accumulatedPercent + percent}%`;
           accumulatedPercent += percent;
           return slice;
         }).join(', ');
-        const donutStyle = totalInformes > 0 ? { background: `conic-gradient(${donutSlices})` } : { background: '#f8fafc' };
+        const donutStyle = totalInformesVisibles > 0 ? { background: `conic-gradient(${donutSlices})` } : { background: '#f8fafc' };
 
         return (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 bg-slate-50/50 -m-6 p-6 rounded-b-2xl">
             
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <button type="button" onClick={limpiarFiltrosDashboard} aria-label={`Quitar filtros y mostrar todos los informes (${totalInformes})`} aria-pressed={dashboardSinFiltros} className={`flex w-full min-w-0 items-start gap-4 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${dashboardSinFiltros ? 'border-blue-300 bg-blue-50/50 ring-1 ring-blue-200' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50'}`}>
                 <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shrink-0 border border-blue-100">📄</div>
                 <div>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total de informes</p>
                   <p className="text-3xl font-black text-slate-800 leading-none">{totalInformes}</p>
-                  <p className="text-[10px] font-bold text-emerald-500 mt-2 flex items-center gap-1">↑ 12% <span className="text-slate-400 font-medium normal-case">vs. mes anterior</span></p>
+                  <p className="mt-2 text-[10px] font-semibold text-blue-700">Quitar filtros</p>
                 </div>
-              </div>
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+              </button>
+              <button type="button" onClick={() => actualizarFiltroDashboard(setDashFiltroEstado, dashFiltroEstado === 'Pendiente' ? 'Todos' : 'Pendiente')} aria-label={`Filtrar informes en proceso (${pendientes})`} aria-pressed={dashFiltroEstado === 'Pendiente'} className={`flex w-full min-w-0 items-start gap-4 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${dashFiltroEstado === 'Pendiente' ? 'border-amber-300 bg-amber-50 ring-1 ring-amber-200' : 'border-slate-200 bg-white hover:border-amber-200 hover:bg-amber-50/40'}`}>
                 <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center text-2xl shrink-0 border border-amber-100">🕒</div>
                 <div>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">En proceso</p>
                   <p className="text-3xl font-black text-slate-800 leading-none">{pendientes}</p>
-                  <p className="text-[10px] font-bold text-amber-500 mt-2 flex items-center gap-1">↑ {pctPendientes}%</p>
+                  <p className="mt-2 text-[10px] font-semibold text-amber-700">{dashFiltroEstado === 'Pendiente' ? 'Filtro activo' : `${pctPendientes}% del total`}</p>
                 </div>
-              </div>
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+              </button>
+              <button type="button" onClick={() => actualizarFiltroDashboard(setDashFiltroEstado, dashFiltroEstado === 'Socializado' ? 'Todos' : 'Socializado')} aria-label={`Filtrar informes socializados (${socializados})`} aria-pressed={dashFiltroEstado === 'Socializado'} className={`flex w-full min-w-0 items-start gap-4 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${dashFiltroEstado === 'Socializado' ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-200' : 'border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40'}`}>
                 <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-2xl shrink-0 border border-emerald-100">✓</div>
                 <div>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Socializados</p>
                   <p className="text-3xl font-black text-slate-800 leading-none">{socializados}</p>
-                  <p className="text-[10px] font-bold text-emerald-500 mt-2 flex items-center gap-1">↑ {pctSocializados}%</p>
+                  <p className="mt-2 text-[10px] font-semibold text-emerald-700">{dashFiltroEstado === 'Socializado' ? 'Filtro activo' : `${pctSocializados}% del total`}</p>
                 </div>
-              </div>
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+              </button>
+              <button type="button" onClick={() => setProcesosKpiAbierto(abierto => !abierto)} aria-expanded={procesosKpiAbierto} aria-controls="kpi-procesos-picker" aria-label={`Elegir proceso auditado (${procesosAuditados})`} className={`flex w-full min-w-0 items-start gap-4 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${procesosKpiAbierto || dashFiltroProceso !== 'Todos' ? 'border-rose-300 bg-rose-50/60 ring-1 ring-rose-200' : 'border-slate-200 bg-white hover:border-rose-200 hover:bg-rose-50/40'}`}>
                 <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center text-2xl shrink-0 border border-red-100">!</div>
                 <div>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Procesos Auditados</p>
                   <p className="text-3xl font-black text-slate-800 leading-none">{procesosAuditados}</p>
-                  <p className="text-[10px] font-bold text-red-500 mt-2 flex items-center gap-1">↓ 2%</p>
+                  <p className="mt-2 text-[10px] font-semibold text-rose-700">{dashFiltroProceso === 'Todos' ? 'Elegir proceso' : dashFiltroProceso}</p>
+                </div>
+              </button>
+            </div>
+
+            {procesosKpiAbierto && (
+              <div id="kpi-procesos-picker" className="rounded-xl border border-rose-200 bg-white p-4" aria-label="Seleccionar proceso auditado">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-slate-800">Filtrar por proceso</p>
+                  <button type="button" onClick={() => setProcesosKpiAbierto(false)} className="rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">Cerrar</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {macroprocesosDashboard.map(proceso => {
+                    const cantidad = informesEnriquecidos.filter(informe => obtenerMacroprocesosInforme(informe).includes(proceso)).length;
+                    const activo = dashFiltroProceso === proceso;
+                    return (
+                      <button key={proceso} type="button" onClick={() => elegirProcesoKpi(proceso)} aria-pressed={activo} className={`rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activo ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-200 hover:bg-blue-50'}`}>
+                        {proceso} <span className="ml-1 text-[10px] font-bold text-slate-500">{cantidad}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
+            )}
 
            {/* 2. FUENTES DE INFORME (PILLS INTERACTIVOS) */}
             <div className="space-y-3">
