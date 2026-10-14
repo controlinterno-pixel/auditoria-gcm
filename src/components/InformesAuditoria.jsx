@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { renderHistorialSummary } from '../utils/historialCambios.js';
 import { useCatalogos } from '../context/useCatalogos';
 
@@ -118,6 +118,7 @@ export default function InformesAuditoria({
   
   // ✨ NUEVO ESTADO: Controla el modal de vista de detalle único (Imagen 2)
   const [informeDetalleModal, setInformeDetalleModal] = useState(null);
+  const [informeExpandidoId, setInformeExpandidoId] = useState(null);
 
   // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
   const handleCrearNuevoInforme = () => {
@@ -141,27 +142,11 @@ export default function InformesAuditoria({
   const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroFuente, setDashFiltroFuente] = useState('Todas'); // ✨ NUEVO ESTADO PARA EL FILTRO DE PILLS
-  const [dashFiltroCambios, setDashFiltroCambios] = useState('Todos');
-  const [dashFechaDesde, setDashFechaDesde] = useState('');
-  const [dashFechaHasta, setDashFechaHasta] = useState('');
 
   // ✨ ESTADO Y LÓGICA DE PAGINACIÓN REAL
   const [paginaActual, setPaginaActual] = useState(1);
   const actualizarFiltroDashboard = (actualizarFiltro, valor) => {
     actualizarFiltro(valor);
-    setPaginaActual(1);
-  };
-  const limpiarFiltrosDashboard = () => {
-    setDashFiltroAnio('Todos');
-    setDashFiltroProceso('Todos');
-    setDashFiltroSubproceso('Todos');
-    setDashFiltroEstado('Todos');
-    setDashFiltroFuente('Todas');
-    setDashFiltroCambios('Todos');
-    setDashFechaDesde('');
-    setDashFechaHasta('');
-    setSearchTerm('');
-    Object.keys(columnFilters || {}).forEach(clave => handleColFilterChange(clave, ''));
     setPaginaActual(1);
   };
   const handleFiltroColumnaConPaginacion = (...args) => {
@@ -174,38 +159,68 @@ export default function InformesAuditoria({
   const [filtroMes, setFiltroMes] = useState('');
   const [filtroProceso, setFiltroProceso] = useState('');
   const [filtroSubproceso, setFiltroSubproceso] = useState('');
+  const [histFiltroCambios, setHistFiltroCambios] = useState('Todos');
+  const [histFechaDesde, setHistFechaDesde] = useState('');
+  const [histFechaHasta, setHistFechaHasta] = useState('');
+  const [histFiltroFuente, setHistFiltroFuente] = useState('Todas');
+  const [histFiltroSocializacion, setHistFiltroSocializacion] = useState('Todos');
 
   // 🧠 LÓGICA DE ENRIQUECIMIENTO (Soporte Legacy para Proceso)
   const informesEnriquecidos = safeInformes.map(inf => ({
     ...inf,
     procesoLimpio: obtenerMacroprocesosInforme(inf).join(', ') || 'Sin Proceso'
   }));
+  const macroprocesosDisponiblesHistorial = [...new Set(informesEnriquecidos.flatMap(obtenerMacroprocesosInforme))].sort();
+  const subprocesosDisponiblesHistorial = [...new Set(informesEnriquecidos
+    .filter(informe => !filtroProceso || obtenerMacroprocesosInforme(informe).includes(filtroProceso))
+    .flatMap(informe => obtenerSubprocesosInforme(informe, filtroProceso)))].sort();
+  const fuentesDisponiblesHistorial = [...new Set(informesEnriquecidos.map(informe => informe.tipoFuente || 'Auditoría Interna'))].sort();
+  const informesConCambios = informesEnriquecidos.filter(informe => Array.isArray(informe.historialCambios) && informe.historialCambios.length > 0).length;
 
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
   const informesFiltradosPorFecha = informesEnriquecidos.filter(inf => {
     if (filtroProceso && !obtenerMacroprocesosInforme(inf).includes(filtroProceso)) return false;
     if (filtroSubproceso && !convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).includes(filtroSubproceso)) return false;
-    
-    if (!filtroAnio && !filtroMes) return true;
-    if (!inf.fecha) return false;
-    const [anio, mes] = inf.fecha.split('-'); 
+    if ((histFechaDesde || histFechaHasta || filtroAnio || filtroMes) && !inf.fecha) return false;
+    if (histFechaDesde && String(inf.fecha) < histFechaDesde) return false;
+    if (histFechaHasta && String(inf.fecha) > histFechaHasta) return false;
+    if (histFiltroFuente !== 'Todas' && (inf.tipoFuente || 'Auditoría Interna') !== histFiltroFuente) return false;
+    if (histFiltroSocializacion !== 'Todos' && (histFiltroSocializacion === 'Socializado' ? inf.socializado !== 'Sí' : inf.socializado === 'Sí')) return false;
+    const [anio, mes] = String(inf.fecha || '').split('-');
     if (filtroAnio && anio !== filtroAnio) return false;
     if (filtroMes && mes !== filtroMes) return false;
+    const tieneCambios = Array.isArray(inf.historialCambios) && inf.historialCambios.length > 0;
+    if (histFiltroCambios === 'Con cambios' && !tieneCambios) return false;
+    if (histFiltroCambios === 'Sin cambios' && tieneCambios) return false;
     
     return true;
   });
+  const informesCandidatosHistorial = applyFilters(informesFiltradosPorFecha, searchTerm, columnFilters);
+  const paginasHistorial = Math.max(1, Math.ceil(informesCandidatosHistorial.length / 10));
+  const paginaHistorialActual = Math.min(paginaActual, paginasHistorial);
+  const informesPaginaHistorial = informesCandidatosHistorial.slice((paginaHistorialActual - 1) * 10, paginaHistorialActual * 10);
+  const limpiarFiltrosHistorial = () => {
+    setFiltroProceso('');
+    setFiltroSubproceso('');
+    setFiltroAnio('');
+    setFiltroMes('');
+    setHistFiltroCambios('Todos');
+    setHistFechaDesde('');
+    setHistFechaHasta('');
+    setHistFiltroFuente('Todas');
+    setHistFiltroSocializacion('Todos');
+    setSearchTerm('');
+    Object.keys(columnFilters || {}).forEach(clave => handleColFilterChange(clave, ''));
+    setPaginaActual(1);
+    setInformeExpandidoId(null);
+  };
 
   // 1. Filtrar los datos del Dashboard según el menú lateral y las pastillas (Pills)
   const informesDashboard = informesEnriquecidos.filter(inf => {
     if (dashFiltroAnio !== 'Todos' && inf.fecha?.split('-')[0] !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && !obtenerMacroprocesosInforme(inf).includes(dashFiltroProceso)) return false;
     if (dashFiltroSubproceso !== 'Todos' && !obtenerSubprocesosInforme(inf, dashFiltroProceso === 'Todos' ? '' : dashFiltroProceso).includes(dashFiltroSubproceso)) return false;
-    if (dashFechaDesde && String(inf.fecha || '') < dashFechaDesde) return false;
-    if (dashFechaHasta && String(inf.fecha || '') > dashFechaHasta) return false;
     if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
-    const tieneCambios = Array.isArray(inf.historialCambios) && inf.historialCambios.length > 0;
-    if (dashFiltroCambios === 'Con cambios' && !tieneCambios) return false;
-    if (dashFiltroCambios === 'Sin cambios' && tieneCambios) return false;
     
     // ✨ NUEVA CONDICIÓN: Filtrar por Fuente de Mejora (usando el nombre normalizado o el texto original)
     if (dashFiltroFuente !== 'Todas') {
@@ -240,8 +255,9 @@ export default function InformesAuditoria({
   const totalInformes = informesDashboard.length;
   const socializados = informesDashboard.filter(i => i.socializado === 'Sí').length;
   const pendientes = totalInformes - socializados;
+  const pctSocializados = totalInformes > 0 ? Math.round((socializados / totalInformes) * 100) : 0;
+  const pctPendientes = totalInformes > 0 ? Math.round((pendientes / totalInformes) * 100) : 0;
   const procesosAuditados = new Set(informesDashboard.flatMap(obtenerMacroprocesosInforme)).size;
-  const informesConCambios = informesEnriquecidos.filter(informe => Array.isArray(informe.historialCambios) && informe.historialCambios.length > 0).length;
   const macroprocesosDashboard = [...new Set(informesEnriquecidos.flatMap(obtenerMacroprocesosInforme))].sort();
   const subprocesosDashboard = [...new Set(informesEnriquecidos
     .filter(informe => dashFiltroProceso === 'Todos' || obtenerMacroprocesosInforme(informe).includes(dashFiltroProceso))
@@ -1202,24 +1218,44 @@ const handleFileUpload = async (e, type) => {
         return (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 bg-slate-50/50 -m-6 p-6 rounded-b-2xl">
             
-            <div className="flex flex-wrap items-center justify-between gap-3 border-y border-slate-200 bg-white px-4 py-2.5">
-              <div className="inline-flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Filtrar informes por historial de cambios">
-                {[
-                  { id: 'Todos', label: 'Todos los informes', count: informesEnriquecidos.length },
-                  { id: 'Con cambios', label: 'Con cambios', count: informesConCambios },
-                  { id: 'Sin cambios', label: 'Sin cambios', count: informesEnriquecidos.length - informesConCambios },
-                ].map(opcion => (
-                  <button key={opcion.id} type="button" aria-pressed={dashFiltroCambios === opcion.id} onClick={() => actualizarFiltroDashboard(setDashFiltroCambios, opcion.id)} className={`whitespace-nowrap rounded-md px-3 py-2 text-[10px] font-black transition-colors ${dashFiltroCambios === opcion.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
-                    {opcion.label} <span className={`ml-1 tabular-nums ${dashFiltroCambios === opcion.id ? 'text-blue-100' : 'text-slate-400'}`}>{opcion.count}</span>
-                  </button>
-                ))}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shrink-0 border border-blue-100">📄</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total de informes</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{totalInformes}</p>
+                  <p className="text-[10px] font-bold text-emerald-500 mt-2 flex items-center gap-1">↑ 12% <span className="text-slate-400 font-medium normal-case">vs. mes anterior</span></p>
+                </div>
               </div>
-              <p className="text-[10px] font-semibold text-slate-500">{totalInformes} informes en los filtros actuales · {socializados} socializados · {procesosAuditados} macroprocesos</p>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center text-2xl shrink-0 border border-amber-100">🕒</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">En proceso</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{pendientes}</p>
+                  <p className="text-[10px] font-bold text-amber-500 mt-2 flex items-center gap-1">↑ {pctPendientes}%</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-2xl shrink-0 border border-emerald-100">✓</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Socializados</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{socializados}</p>
+                  <p className="text-[10px] font-bold text-emerald-500 mt-2 flex items-center gap-1">↑ {pctSocializados}%</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center text-2xl shrink-0 border border-red-100">!</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Procesos Auditados</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{procesosAuditados}</p>
+                  <p className="text-[10px] font-bold text-red-500 mt-2 flex items-center gap-1">↓ 2%</p>
+                </div>
+              </div>
             </div>
 
            {/* 2. FUENTES DE INFORME (PILLS INTERACTIVOS) */}
             <div className="space-y-3">
-              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Filtrar por fuente</h3>
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Fuentes de Informe</h3>
               <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                 
                 {/* Botón "Todas" */}
@@ -1276,13 +1312,13 @@ const handleFileUpload = async (e, type) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-5">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
               
               {/* 3. ZONA IZQUIERDA: FILTROS + TABLA + ACORDEÓN */}
-              <div className="min-w-0 space-y-4">
+              <div className="min-w-0 space-y-4 xl:col-span-3">
                 
                 {/* Barra de Filtros Blanca */}
-                <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-4 xl:grid-cols-8">
+                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
                   <div className="flex flex-col px-2">
                     <span className="text-[9px] text-slate-400 font-bold mb-0.5">Proceso</span>
                     <select value={dashFiltroProceso} onChange={e => { actualizarFiltroDashboard(setDashFiltroProceso, e.target.value); setDashFiltroSubproceso('Todos'); }} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
@@ -1290,7 +1326,7 @@ const handleFileUpload = async (e, type) => {
                       {macroprocesosDashboard.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
-                  <div className="w-px h-8 bg-slate-200"></div>
+                  <div className="h-8 w-px bg-slate-200"></div>
 
                   <div className="flex flex-col px-2">
                     <span className="text-[9px] text-slate-400 font-bold mb-0.5">Subproceso</span>
@@ -1299,16 +1335,6 @@ const handleFileUpload = async (e, type) => {
                         {subprocesosDashboard.map(sp => <option key={sp} value={sp}>{sp}</option>)}
                     </select>
                   </div>
-                  <div className="flex flex-col px-2">
-                    <span className="text-[9px] text-slate-400 font-bold mb-0.5">Emisión desde</span>
-                    <input type="date" value={dashFechaDesde} onChange={e => actualizarFiltroDashboard(setDashFechaDesde, e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer" aria-label="Fecha de emisión desde" />
-                  </div>
-                  <div className="flex flex-col px-2">
-                    <span className="text-[9px] text-slate-400 font-bold mb-0.5">Emisión hasta</span>
-                    <input type="date" value={dashFechaHasta} onChange={e => actualizarFiltroDashboard(setDashFechaHasta, e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer" aria-label="Fecha de emisión hasta" />
-                  </div>
-                  <div className="w-px h-8 bg-slate-200"></div>
-
                   <div className="flex flex-col px-2">
                     <span className="text-[9px] text-slate-400 font-bold mb-0.5">Año</span>
                     <select value={dashFiltroAnio} onChange={e => actualizarFiltroDashboard(setDashFiltroAnio, e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
@@ -1327,100 +1353,45 @@ const handleFileUpload = async (e, type) => {
                     </select>
                   </div>
 
-                  <div className="col-span-2 flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 xl:col-span-2">
+                  <div className="ml-auto flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                     <span className="text-slate-400 text-xs">🔍</span>
                     <input type="text" placeholder="Buscar informe, título, responsable..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }} className="w-full text-[11px] outline-none bg-transparent text-slate-700 font-medium placeholder-slate-400" />
                   </div>
-                  <button type="button" onClick={limpiarFiltrosDashboard} className="col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wide text-slate-600 transition-colors hover:bg-slate-50 xl:col-span-1">Limpiar filtros</button>
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1120px] text-left">
-                      <thead className="border-b border-slate-200 bg-slate-50 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                    <table className="w-full text-left">
+                      <thead className="border-b border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-400">
                         <tr>
-                          <th className="px-4 py-3">Consecutivo</th>
-                          <th className="px-4 py-3">Informe / Proceso</th>
-                          <th className="px-4 py-3">Emisión</th>
-                          <th className="px-4 py-3">Registro</th>
-                          <th className="px-4 py-3">Responsables</th>
-                          <th className="px-4 py-3">Socialización</th>
-                          <th className="px-4 py-3 text-center">Docs.</th>
-                          <th className="px-4 py-3 text-right">Acciones</th>
+                          <th className="w-10 p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></th>
+                          <th className="w-32 p-4">Consecutivo</th>
+                          <th className="p-4">Informe / Título</th>
+                          <th className="p-4">Fuente</th>
+                          <th className="p-4">Proceso</th>
+                          <th className="p-4 text-center">Fecha</th>
+                          <th className="p-4 text-center">Socialización</th>
+                          <th className="p-4 text-center">Estado</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 text-[11px] text-slate-700">
+                      <tbody className="divide-y divide-slate-100 text-[11px] font-medium text-slate-600">
                         {informesFiltradosDashboard.length === 0 ? (
-                          <tr><td colSpan="8" className="p-12 text-center font-semibold text-slate-400">No hay informes para los filtros seleccionados.</td></tr>
+                          <tr><td colSpan="8" className="p-12 text-center font-bold italic text-slate-400">No hay informes para los filtros seleccionados.</td></tr>
                         ) : informesPaginadosDashboard.map(inf => {
                           const referenciaInforme = normalizarReferencia(inf.tipoFuente || 'Auditoría Interna');
                           const iconIndex = fuentesArray.findIndex(fuente => fuente.referencias.has(referenciaInforme));
-                          const colorClass = ['text-blue-700 bg-blue-50 border-blue-200', 'text-purple-700 bg-purple-50 border-purple-200', 'text-emerald-700 bg-emerald-50 border-emerald-200', 'text-amber-700 bg-amber-50 border-amber-200', 'text-rose-700 bg-rose-50 border-rose-200', 'text-cyan-700 bg-cyan-50 border-cyan-200'][iconIndex % 6] || 'text-slate-600 bg-slate-50 border-slate-200';
-                          const responsables = [
-                            ['Elab.', inf.elaboradoPor],
-                            ['Rev.', inf.revisadoPor],
-                            ['Apr.', inf.aprobadoPor],
-                          ].filter(([, valor]) => Boolean(String(valor || '').trim()));
-                          const anexos = Array.isArray(inf.anexosMultiples)
-                            ? inf.anexosMultiples
-                            : Array.isArray(inf.anexos) ? inf.anexos : [];
-                          const documentos = new Set([
-                            inf.evidenciaUrl || inf.evidenciaUrlInput || inf.archivoUrl || inf.url || inf.path,
-                            inf.actaSocializacionUrl || inf.actaSocializacionUrlInput || inf.actaUrl,
-                            ...anexos.map(anexo => anexo?.url),
-                          ].filter(url => url && url !== '#'));
-                          const historialCount = Array.isArray(inf.historialCambios) ? inf.historialCambios.length : 0;
-                          const macroprocesos = obtenerMacroprocesosInforme(inf);
-                          const detenerFila = event => event.stopPropagation();
-                          const urlInforme = inf.evidenciaUrl || inf.evidenciaUrlInput || inf.archivoUrl || inf.url || inf.path;
-                          const urlActa = inf.actaSocializacionUrl || inf.actaSocializacionUrlInput || inf.actaUrl;
-
+                          const colorClass = ['text-blue-600 bg-blue-50 border-blue-200', 'text-purple-600 bg-purple-50 border-purple-200', 'text-emerald-600 bg-emerald-50 border-emerald-200', 'text-amber-600 bg-amber-50 border-amber-200', 'text-rose-600 bg-rose-50 border-rose-200', 'text-cyan-600 bg-cyan-50 border-cyan-200'][iconIndex % 6] || 'text-slate-600 bg-slate-50 border-slate-200';
+                          const cambios = Array.isArray(inf.historialCambios) ? inf.historialCambios.length : 0;
                           return (
-                            <tr key={inf.id} className="group cursor-pointer transition-colors hover:bg-blue-50/40" onClick={() => setInformeDetalleModal(inf)}>
-                              <td className="whitespace-nowrap px-4 py-3 align-top">
-                                <span className="rounded-md bg-[#0A3B32] px-2 py-1 font-mono text-[10px] font-black text-white">{inf.ref || 'Sin consecutivo'}</span>
-                                <span className={`mt-1 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[8px] font-black uppercase ${colorClass}`}>
-                                  {iconosArray[iconIndex % iconosArray.length] || '📄'} {inf.tipoFuente || 'Auditoría Interna'}
-                                </span>
-                              </td>
-                              <td className="max-w-[340px] px-4 py-3 align-top">
-                                <p className="font-black leading-snug text-slate-900">{inf.titulo || 'Sin título'}</p>
-                                <p className="mt-1 truncate text-[10px] font-bold text-emerald-800" title={macroprocesos.join(', ')}>{macroprocesos.join(', ') || 'Sin macroproceso'}</p>
-                                <p className="mt-0.5 truncate text-[10px] text-slate-500" title={convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).join(', ')}>
-                                  {convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).join(', ') || 'Sin subproceso'}
-                                </p>
-                              </td>
-                              <td className="whitespace-nowrap px-4 py-3 align-top font-semibold text-slate-600">{inf.fecha || 'Sin fecha'}</td>
-                              <td className="px-4 py-3 align-top">
-                                <span className={`inline-flex rounded-md border px-2 py-1 text-[9px] font-black ${historialCount ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-                                  {historialCount ? `${historialCount} cambio${historialCount === 1 ? '' : 's'}` : 'Inicial'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <div className="flex flex-wrap gap-1">
-                                  {responsables.length ? responsables.map(([etiqueta, valor]) => (
-                                    <span key={etiqueta} className="rounded bg-slate-100 px-1.5 py-1 text-[9px] font-semibold text-slate-600" title={`${etiqueta}: ${valor}`}>
-                                      <span className="font-black text-slate-400">{etiqueta}</span> {valor}
-                                    </span>
-                                  )) : <span className="text-[10px] text-slate-400">Sin responsables registrados</span>}
-                                </div>
-                              </td>
-                              <td className="whitespace-nowrap px-4 py-3 align-top">
-                                <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[9px] font-black ${inf.socializado === 'Sí' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
-                                  <span className={`h-1.5 w-1.5 rounded-full ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                  {inf.socializado === 'Sí' ? 'Socializado' : 'Pendiente'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-center align-top font-mono font-bold text-slate-700">{documentos.size}</td>
-                              <td className="px-4 py-3 align-top" onClick={detenerFila}>
-                                <div className="flex max-w-[330px] flex-wrap justify-end gap-1">
-                                  <button type="button" disabled={!urlInforme} title={urlInforme ? 'Ver informe final' : 'Sin documento principal'} onClick={() => urlInforme && abrirArchivo(urlInforme, inf.titulo ? `${inf.titulo}.pdf` : 'informe.pdf')} className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-[9px] font-black text-blue-800 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-40">📄 Informe</button>
-                                  <button type="button" disabled={!urlActa} title={urlActa ? 'Ver acta de socialización' : 'Sin acta cargada'} onClick={() => urlActa && abrirArchivo(urlActa, inf.titulo ? `${inf.titulo}_acta.pdf` : 'acta_socializacion.pdf')} className="rounded-md border border-violet-200 bg-violet-50 px-2 py-1.5 text-[9px] font-black text-violet-800 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40">🤝 Acta</button>
-                                  <button type="button" title="Ver información completa" onClick={() => setInformeDetalleModal(inf)} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[9px] font-black text-slate-700 hover:bg-slate-100">👁️ Detalle</button>
-                                  {(isAdmin || puedeEditarInformes) && <button type="button" title="Editar informe" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(false); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5 text-[9px] font-black text-orange-800 hover:bg-orange-100">✏️ Editar</button>}
-                                  {isAdmin && <button type="button" title="Eliminar informe" onClick={() => handleDeleteItem('informesAuditoria', inf.id)} className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-[9px] font-black text-rose-800 hover:bg-rose-100">🗑️ Eliminar</button>}
-                                </div>
-                              </td>
+                            <tr key={inf.id} className="group cursor-pointer transition-colors hover:bg-slate-50/50" onClick={() => setInformeDetalleModal(inf)}>
+                              <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" onClick={event => event.stopPropagation()} /></td>
+                              <td className="p-4 font-mono font-black text-slate-800"><span className="transition-colors group-hover:text-blue-600">{inf.ref}</span></td>
+                              <td className="max-w-[180px] truncate p-4 font-bold leading-tight text-slate-700" title={inf.titulo}>{inf.titulo}</td>
+                              <td className="p-4"><span className={`flex w-max items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-black uppercase tracking-wider ${colorClass}`}><span>{iconosArray[iconIndex % iconosArray.length] || '📄'}</span>{inf.tipoFuente || 'Auditoría Interna'}</span></td>
+                              <td className="max-w-[160px] truncate p-4 font-bold text-slate-500" title={inf.procesoLimpio}>{inf.procesoLimpio}</td>
+                              <td className="p-4 text-center font-bold text-slate-500">{inf.fecha}</td>
+                              <td className="p-4 text-center"><span className={`flex items-center justify-center gap-1 text-[10px] font-bold ${inf.socializado === 'Sí' ? 'text-emerald-600' : 'text-amber-500'}`}><span>{inf.socializado === 'Sí' ? '👥' : '⚠'}</span>{inf.socializado === 'Sí' ? 'Completada' : 'Pendiente'}</span></td>
+                              <td className="p-4 text-center"><span className={`flex items-center justify-center gap-1 text-[10px] font-bold ${cambios ? 'text-blue-700' : 'text-slate-500'}`}><span className={`h-1.5 w-1.5 rounded-full ${cambios ? 'bg-blue-500' : 'bg-slate-400'}`} />{cambios ? `${cambios} cambios` : 'Inicial'}</span></td>
                             </tr>
                           );
                         })}
@@ -1492,7 +1463,7 @@ const handleFileUpload = async (e, type) => {
               </div>
 
               {/* 4. ZONA DERECHA: PANELES DE RESUMEN */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-4 xl:col-span-1">
                 
                 {/* Dona: Distribución */}
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
@@ -2511,51 +2482,92 @@ const handleFileUpload = async (e, type) => {
       {/* 🚀 VISTA 3: TABLA DE HISTORIAL */}
       {vistaActiva === 'historial' && (
         <div className="space-y-6 animate-in slide-in-from-left-8 duration-500">
-          <div className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-           <div className="flex flex-wrap items-center gap-3">
-              <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Filtros:</span>
-              
-              {/* SELECTOR DE PROCESO */}
-              <select value={filtroProceso} onChange={(e) => { setFiltroProceso(e.target.value); setFiltroSubproceso(''); }} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer">
-                <option value="">🏛️ Todos los Procesos</option>
-                {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-
-              {/* SELECTOR DE SUBPROCESO EN CASCADA */}
-              <select value={filtroSubproceso} onChange={(e) => setFiltroSubproceso(e.target.value)} disabled={!filtroProceso} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed max-w-[200px] truncate">
-                <option value="">🗂️ Todos los Subprocesos</option>
-                {filtroProceso && [...new Set(MAPA_PROCESOS[filtroProceso] || [])].sort().map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-
-              <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer">
-                <option value="">📅 Todos los Años</option>
-                {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
-              </select>
-              
-              <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer">
-                <option value="">📆 Todos los Meses</option>
-                <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
-                <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
-                <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
-                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-              </select>
-            </div>
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-full md:w-64 shadow-inner">
-              <span className="text-slate-400">🔍</span>
-              <input type="text" placeholder="Buscar informe..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }} className="w-full text-xs outline-none bg-transparent text-slate-700 font-bold placeholder-slate-400" />
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+              <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Macroproceso</span>
+                <select value={filtroProceso} onChange={event => { setFiltroProceso(event.target.value); setFiltroSubproceso(''); setPaginaActual(1); }} className="mt-1 w-full truncate bg-transparent text-[11px] font-bold text-slate-700 outline-none">
+                  <option value="">Todos los procesos</option>
+                  {macroprocesosDisponiblesHistorial.map(macro => <option key={macro} value={macro}>{macro}</option>)}
+                </select>
+              </label>
+              <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Subproceso</span>
+                <select value={filtroSubproceso} onChange={event => { setFiltroSubproceso(event.target.value); setPaginaActual(1); }} className="mt-1 w-full truncate bg-transparent text-[11px] font-bold text-slate-700 outline-none">
+                  <option value="">Todos los subprocesos</option>
+                  {subprocesosDisponiblesHistorial.map(subproceso => <option key={subproceso} value={subproceso}>{subproceso}</option>)}
+                </select>
+              </label>
+              <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Fuente</span>
+                <select value={histFiltroFuente} onChange={event => { setHistFiltroFuente(event.target.value); setPaginaActual(1); }} className="mt-1 w-full truncate bg-transparent text-[11px] font-bold text-slate-700 outline-none">
+                  <option value="Todas">Todas las fuentes</option>
+                  {fuentesDisponiblesHistorial.map(fuente => <option key={fuente} value={fuente}>{fuente}</option>)}
+                </select>
+              </label>
+              <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Año</span>
+                <select value={filtroAnio} onChange={event => { setFiltroAnio(event.target.value); setPaginaActual(1); }} className="mt-1 w-full bg-transparent text-[11px] font-bold text-slate-700 outline-none">
+                  <option value="">Todos los años</option>
+                  {aniosDisponibles.map(anio => <option key={anio} value={String(anio)}>{anio}</option>)}
+                </select>
+              </label>
+              <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Mes</span>
+                <select value={filtroMes} onChange={event => { setFiltroMes(event.target.value); setPaginaActual(1); }} className="mt-1 w-full bg-transparent text-[11px] font-bold text-slate-700 outline-none">
+                  <option value="">Todos los meses</option>
+                  {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((mes, indice) => <option key={mes} value={String(indice + 1).padStart(2, '0')}>{mes}</option>)}
+                </select>
+              </label>
+              <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Socialización</span>
+                <select value={histFiltroSocializacion} onChange={event => { setHistFiltroSocializacion(event.target.value); setPaginaActual(1); }} className="mt-1 w-full bg-transparent text-[11px] font-bold text-slate-700 outline-none">
+                  <option value="Todos">Todos los estados</option>
+                  <option value="Socializado">Socializado</option>
+                  <option value="Pendiente">Pendiente</option>
+                </select>
+              </label>
+              <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Emisión desde</span>
+                <input type="date" value={histFechaDesde} onChange={event => { setHistFechaDesde(event.target.value); setPaginaActual(1); }} className="mt-1 w-full bg-transparent text-[11px] font-bold text-slate-700 outline-none" />
+              </label>
+              <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Emisión hasta</span>
+                <input type="date" value={histFechaHasta} onChange={event => { setHistFechaHasta(event.target.value); setPaginaActual(1); }} className="mt-1 w-full bg-transparent text-[11px] font-bold text-slate-700 outline-none" />
+              </label>
+              <label className="col-span-2 flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 xl:col-span-3">
+                <span className="text-slate-400">🔍</span>
+                <input type="text" placeholder="Buscar informe, título, proceso..." value={searchTerm} onChange={event => { setSearchTerm(event.target.value); setPaginaActual(1); }} className="w-full bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400" />
+              </label>
+              <button type="button" onClick={limpiarFiltrosHistorial} className="col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wide text-slate-600 transition-colors hover:bg-slate-100 sm:col-span-1 xl:col-span-1">Limpiar filtros</button>
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-y border-slate-200 bg-white px-4 py-2.5">
+            <div className="inline-flex max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Filtrar historial por cambios">
+              {[
+                { id: 'Todos', label: 'Todos', count: informesEnriquecidos.length },
+                { id: 'Con cambios', label: 'Con cambios', count: informesConCambios },
+                { id: 'Sin cambios', label: 'Sin cambios', count: informesEnriquecidos.length - informesConCambios },
+              ].map(opcion => (
+                <button key={opcion.id} type="button" aria-pressed={histFiltroCambios === opcion.id} onClick={() => { setHistFiltroCambios(opcion.id); setPaginaActual(1); }} className={`whitespace-nowrap rounded-md px-3 py-2 text-[10px] font-black transition-colors ${histFiltroCambios === opcion.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
+                  {opcion.label} <span className={`ml-1 tabular-nums ${histFiltroCambios === opcion.id ? 'text-blue-100' : 'text-slate-400'}`}>{opcion.count}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] font-semibold text-slate-500">{informesCandidatosHistorial.length} registros en los filtros actuales</p>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse">
+              <table className="w-full min-w-[1060px] border-collapse text-left text-xs">
                 <thead>
                   <tr className="bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider">
-                    <th className="p-4 w-32">Consecutivo</th>
-                    <th className="p-4">Proceso / Título</th>
-                    <th className="p-4">Trazabilidad de Firmas</th>
-                    <th className="p-4">Socialización e Impacto</th>
-                    <th className="p-4 text-center w-56">Documentos Custodiados</th>
+                    <th className="w-40 px-4 py-3">ID / Referencia</th>
+                    <th className="px-4 py-3">Informe / Proceso</th>
+                    <th className="w-36 px-4 py-3">Firmas</th>
+                    <th className="w-40 px-4 py-3">Socialización</th>
+                    <th className="w-[360px] px-4 py-3 text-right">Gestión</th>
                   </tr>
                   <tr className="bg-slate-100">
                     <td className="p-2"><FilterInput colKey="ref" placeholder="Filtrar..." dark={false} columnFilters={columnFilters} handleColFilterChange={handleFiltroColumnaConPaginacion} /></td>
@@ -2565,13 +2577,33 @@ const handleFileUpload = async (e, type) => {
                     <td className="p-2 bg-slate-50"></td>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
-                  {applyFilters(informesFiltradosPorFecha, searchTerm, columnFilters).length === 0 ? (
-                    <tr><td colSpan="5" className="p-12 text-center text-slate-400 font-bold italic">No se encontraron informes.</td></tr>
-                  ) : (
-                    applyFilters(informesFiltradosPorFecha, searchTerm, columnFilters).map((inf, idx) => (
-                      <tr key={inf.id || idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-4 font-mono font-black text-sm text-slate-800 bg-slate-50/50">{inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}</td>
+                <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
+                  {informesCandidatosHistorial.length === 0 ? (
+                    <tr><td colSpan="5" className="p-12 text-center font-semibold text-slate-400">No hay informes para los filtros seleccionados.</td></tr>
+                  ) : informesPaginaHistorial.map((inf, idx) => {
+                    const idInforme = String(inf.id || inf.ref || idx);
+                    const expandido = informeExpandidoId === idInforme;
+                    const cambios = Array.isArray(inf.historialCambios) ? inf.historialCambios : [];
+                    const responsables = [
+                      ['Elaboró', inf.elaboradoPor],
+                      ['Revisó', inf.revisadoPor],
+                      ['Aprobó', inf.aprobadoPor],
+                    ].filter(([, valor]) => String(valor || '').trim());
+                    const documentos = [
+                      inf.evidenciaUrl || inf.evidenciaUrlInput || inf.archivoUrl || inf.url || inf.path,
+                      inf.actaSocializacionUrl || inf.actaSocializacionUrlInput || inf.actaUrl,
+                      ...(Array.isArray(inf.anexosMultiples) ? inf.anexosMultiples.map(anexo => anexo?.url) : []),
+                      ...(Array.isArray(inf.anexos) ? inf.anexos.map(anexo => anexo?.url) : []),
+                    ].filter((url, index, urls) => url && url !== '#' && urls.indexOf(url) === index);
+                    return (
+                      <Fragment key={idInforme}>
+                      <tr className="cursor-pointer transition-colors hover:bg-blue-50/40" onClick={() => setInformeExpandidoId(expandido ? null : idInforme)}>
+                        <td className="whitespace-nowrap bg-slate-50/50 p-4 font-mono text-sm font-black text-slate-800">
+                          <div className="flex items-center gap-2">
+                            <button type="button" aria-expanded={expandido} aria-label={expandido ? 'Ocultar detalle del informe' : 'Ver detalle del informe'} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)} className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-[10px] text-slate-500 hover:border-blue-300 hover:text-blue-700">{expandido ? '▾' : '›'}</button>
+                            <span>{inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}</span>
+                          </div>
+                        </td>
                         <td className="p-4">
                           <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-100 font-black rounded uppercase text-[9px] tracking-wider mb-1 inline-block">
                             {convertirMacroprocesosLista(inf.macroprocesos || inf.macroproceso || inf.proceso).join(', ')}
@@ -2579,57 +2611,18 @@ const handleFileUpload = async (e, type) => {
                           {convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).some(subproceso => subproceso !== 'General') && (
                             <div className="text-[10px] text-slate-500 font-bold mt-0.5 mb-1.5">↳ {convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).filter(subproceso => subproceso !== 'General').join(', ')}</div>
                           )}
-                          <div className="font-bold text-slate-900 text-sm leading-tight mt-1">{inf.titulo}</div>
-                          <div className="text-[9px] text-slate-400 font-medium mt-1">
-                            Emitido el: {inf.fecha}{inf.hora ? ` a las ${inf.hora}` : ''}
-                          </div>
-                          <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            <span className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full">
-                              {contarCambios(inf)} cambios
-                            </span>
-                            {contarCambios(inf) > 0 && (
-                              <span className="text-[9px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1">
-                                {Array.isArray(inf.historialCambios) ? inf.historialCambios[inf.historialCambios.length - 1].accion : 'Sin acciones'}
-                              </span>
-                            )}
-                          </div>
+                          <div className="mt-1 font-black leading-tight text-slate-900">{inf.titulo}</div>
+                          <p className="mt-1 text-[9px] font-medium text-slate-400">{inf.fecha || 'Sin fecha'}{inf.hora ? ` · ${inf.hora}` : ''}</p>
                         </td>
                         <td className="p-4">
-                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1 text-[10px] font-medium text-slate-600">
-                            <div><span className="text-slate-400 font-bold">✍️ ELABORÓ:</span> <span className="font-black text-slate-800">{inf.elaboradoPor}</span></div>
-                            <div><span className="text-slate-400 font-bold">🔍 REVISÓ:</span> <span className="font-black text-slate-800">{inf.revisadoPor}</span></div>
-                            <div><span className="text-slate-400 font-bold">🔒 APROBÓ:</span> <span className="font-black text-slate-800">{inf.aprobadoPor}</span></div>
-                          </div>
+                          <span className={`inline-flex rounded-md border px-2 py-1 text-[9px] font-black ${responsables.length === 3 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>{responsables.length}/3 asignados</span>
+                          <p className="mt-1 max-w-[140px] truncate text-[9px] text-slate-500" title={responsables.map(([, valor]) => valor).join(', ')}>{responsables.map(([, valor]) => valor).join(', ') || 'Sin responsables'}</p>
                         </td>
                         <td className="p-4">
-                          <div className="flex flex-col items-start space-y-1.5">
-                            <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest border inline-block ${inf.socializado === 'Sí' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>📢 Socializado: {inf.socializado || 'No'}</span>
-                            {(inf.participantes || inf.socializadoCon) && (
-                              <div className="text-[10px] text-slate-500 font-bold leading-relaxed bg-slate-50 px-2 py-1 rounded-md border border-slate-200/60 mt-1">
-                                <span className="text-slate-400 font-normal">Cargos:</span> {inf.participantes || inf.socializadoCon}
-                              </div>
-                            )}
-                            {inf.correoEnviadoA && (
-                              <div className="mt-2 group inline-block cursor-help">
-                                <div className="flex items-center space-x-1.5 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors shadow-sm">
-                                  <span className="text-sm">📧</span><span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Notificado al Líder</span>
-                                </div>
-                                <div className="fixed inset-0 z-[9999] pointer-events-none opacity-0 invisible group-hover:opacity-100 group-hover:visible flex items-center justify-center transition-all duration-300">
-                                  <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"></div>
-                                  <div className="relative bg-[#0f172a] border border-emerald-500/40 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform scale-95 group-hover:scale-100 transition-transform duration-300 w-80 text-left">
-                                    <h4 className="text-[12px] font-black text-emerald-400 uppercase tracking-widest mb-3 border-b border-slate-700/80 pb-2 flex items-center"><span className="mr-2 text-base">🔗</span> Audit Trail de Correo</h4>
-                                    <div className="space-y-3 text-[10px] leading-relaxed text-slate-300 font-medium">
-                                      <p className="flex flex-col"><b className="text-slate-400 uppercase tracking-wider text-[9px] mb-1">Destinatario(s):</b> <span className="text-white font-mono break-all bg-slate-800/80 p-1.5 rounded border border-slate-700">{inf.correoEnviadoA}</span></p>
-                                      <p className="flex flex-col"><b className="text-slate-400 uppercase tracking-wider text-[9px] mb-1">Fecha y Hora de Despacho:</b> <span className="text-emerald-400 font-black text-xs">{inf.fechaCorreoEnviado}</span></p>
-                                      <p className="text-[9px] text-slate-500 italic mt-3 border-t border-slate-700/80 pt-3">El sistema GRC certifica que este dictamen fue despachado de forma segura.</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          <span className={`inline-flex rounded-md border px-2 py-1 text-[9px] font-black ${inf.socializado === 'Sí' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{inf.socializado === 'Sí' ? '● Socializado' : '● Pendiente'}</span>
+                          <p className="mt-1 text-[9px] font-semibold text-slate-500">{contarCambios(inf) ? `${contarCambios(inf)} cambio(s)` : 'Registro inicial'}</p>
                         </td>
-                        <td className="p-4 text-center space-y-1.5 align-middle">
+                        <td className="p-4 text-center space-y-1.5 align-middle" onClick={event => event.stopPropagation()}>
                           <button 
                             type="button" 
                             onClick={(e) => {
@@ -2689,10 +2682,68 @@ const handleFileUpload = async (e, type) => {
                           </div>
                         </td>
                       </tr>
-                    ))
-)}
+                      {expandido && (
+                        <tr className="bg-slate-50/80">
+                          <td colSpan="5" className="px-5 py-4">
+                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                              <section>
+                                <h4 className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-500">Trazabilidad de firmas</h4>
+                                <div className="grid grid-cols-1 gap-1.5">
+                                  {[
+                                    ['Elaboró', inf.elaboradoPor],
+                                    ['Revisó', inf.revisadoPor],
+                                    ['Aprobó', inf.aprobadoPor],
+                                  ].map(([etiqueta, valor]) => (
+                                    <div key={etiqueta} className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[10px]">
+                                      <span className="font-bold text-slate-500">{etiqueta}</span>
+                                      <span className="truncate font-black text-slate-800">{valor || 'Sin asignar'}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </section>
+                              <section>
+                                <h4 className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-500">Socialización e impacto</h4>
+                                <p className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] text-slate-700">
+                                  <span className="font-black">Participantes:</span> {inf.participantes || inf.socializadoCon || 'Sin participantes registrados'}
+                                </p>
+                                {inf.correoEnviadoA && (
+                                  <p className="mt-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-[10px] text-emerald-800">
+                                    <span className="font-black">Notificado:</span> {inf.correoEnviadoA}
+                                    {inf.fechaCorreoEnviado ? ` · ${inf.fechaCorreoEnviado}` : ''}
+                                  </p>
+                                )}
+                              </section>
+                              <section>
+                                <h4 className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-500">Documentos e historial</h4>
+                                <p className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-bold text-slate-700">{documentos.length} documento(s) adjunto(s)</p>
+                                {cambios.length > 0 && (
+                                  <p className="mt-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-[10px] text-blue-900">
+                                    <span className="font-black">Último cambio:</span> {cambios[cambios.length - 1].accion || 'Actualización'}
+                                  </p>
+                                )}
+                              </section>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
+            </div>
+            <div className="flex flex-col gap-2 border-t border-slate-200 bg-white p-3 text-[10px] font-bold text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                {informesCandidatosHistorial.length === 0
+                  ? 'Mostrando 0 informes'
+                  : `Mostrando ${(paginaHistorialActual - 1) * 10 + 1}–${Math.min(paginaHistorialActual * 10, informesCandidatosHistorial.length)} de ${informesCandidatosHistorial.length} informes`}
+              </span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setPaginaActual(Math.max(1, paginaHistorialActual - 1))} disabled={paginaHistorialActual === 1} className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Anterior</button>
+                <span className="min-w-20 text-center text-slate-700">{paginaHistorialActual} / {paginasHistorial}</span>
+                <button type="button" onClick={() => setPaginaActual(Math.min(paginasHistorial, paginaHistorialActual + 1))} disabled={paginaHistorialActual >= paginasHistorial} className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Siguiente</button>
+                <span className="ml-1 text-slate-400">10 por página</span>
+              </div>
             </div>
           </div>
         </div>
