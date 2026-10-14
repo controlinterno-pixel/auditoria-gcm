@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useCatalogos } from '../context/useCatalogos';
+import { TIPOS_FUENTE } from '../constants/diccionariosGRC';
 
 const NORMAS_PREDETERMINADAS = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
+const ICONOS_TIPO_FUENTE = {
+  'Auditoría Interna': '🎯',
+  'Auditoría Externa': '🏢',
+  PQR: '💬',
+  'Indicador de Gestión': '📈',
+  Incidente: '⚠️',
+  Riesgo: '🛡️',
+  'Otra Fuente': '🔗',
+};
 const listaUnica = valores => [...new Set(
   (Array.isArray(valores) ? valores : String(valores || '').split(','))
     .map(valor => String(valor || '').trim())
@@ -314,14 +324,8 @@ export default function ModalNuevaFuente({
                   <div className="col-span-2">
                     <label className="text-[11px] font-black text-blue-900 uppercase tracking-wider block mb-2">Tipo de Fuente *</label>
                     <select disabled={isReadOnly} name="tipoFuente" value={formData.tipoFuente} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
-                      {formData.tipoFuente && !['Auditoría Interna', 'Auditoría Externa', 'PQR', 'Indicador de Gestión', 'Incidente', 'Riesgo', 'Otra Fuente'].includes(formData.tipoFuente) && <option value={formData.tipoFuente}>{formData.tipoFuente}</option>}
-                      <option value="Auditoría Interna">🎯 Auditoría Interna</option>
-                      <option value="Auditoría Externa">🏢 Auditoría Externa</option>
-                      <option value="PQR">💬 PQR</option>
-                      <option value="Indicador de Gestión">📈 Indicador de Gestión</option>
-                      <option value="Incidente">⚠️ Incidente</option>
-                      <option value="Riesgo">🛡️ Riesgo</option>
-                      <option value="Otra Fuente">🔗 Otra Fuente</option>
+                      {formData.tipoFuente && !TIPOS_FUENTE.includes(formData.tipoFuente) && <option value={formData.tipoFuente}>{formData.tipoFuente}</option>}
+                      {TIPOS_FUENTE.map(tipo => <option key={tipo} value={tipo}>{ICONOS_TIPO_FUENTE[tipo]} {tipo}</option>)}
                     </select>
                   </div>
                   <div>

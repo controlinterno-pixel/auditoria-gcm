@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
+import { TIPOS_FUENTE, resolverTipoFuente } from '../constants/diccionariosGRC';
 
 const convertirResponsablesEnLista = responsables => (
   Array.isArray(responsables)
@@ -300,32 +301,11 @@ export default function Hallazgos({
     if (filtroTipoFuente) {
       const informeOrigen = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
       if (!informeOrigen) return false; // Si no hay informe base, no puede cumplir el filtro
-      
-      const referencia = String(informeOrigen.tipoFuente || 'Auditoría Interna').trim();
-      const fuenteReal = fuentesMejoraDisponibles.find(f => 
-        String(f.codigo || '').toLowerCase() === referencia.toLowerCase() || 
-        String(f.id || '').toLowerCase() === referencia.toLowerCase()
-      );
-      
-      const nombreGrupo = fuenteReal ? (fuenteReal.norma || fuenteReal.tipoNorma || fuenteReal.tipoFuente || 'Fuente sin norma') : referencia;
-      if (nombreGrupo !== filtroTipoFuente) return false;
+      if (resolverTipoFuente(informeOrigen.tipoFuente, fuentesMejoraDisponibles) !== filtroTipoFuente) return false;
     }
     
     return true;
   });
-
-  // Extraer las fuentes únicas disponibles dinámicamente
-  const fuentesUnicasDisponibles = [...new Set(hallazgosEnriquecidos.map(h => {
-    const informeOrigen = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
-    if (!informeOrigen) return 'Auditoría Interna'; // Fallback de seguridad
-    
-    const referencia = String(informeOrigen.tipoFuente || 'Auditoría Interna').trim();
-    const fuenteReal = fuentesMejoraDisponibles.find(f => 
-      String(f.codigo || '').toLowerCase() === referencia.toLowerCase() || 
-      String(f.id || '').toLowerCase() === referencia.toLowerCase()
-    );
-    return fuenteReal ? (fuenteReal.norma || fuenteReal.tipoNorma || fuenteReal.tipoFuente || 'Fuente sin norma') : referencia;
-  }))].sort();
 
   const aniosDisponibles = [...new Set(hallazgosEnriquecidos.map(h => h.anioReal).filter(a => a !== 'Sin Fecha'))].sort().reverse();
   
@@ -1267,8 +1247,8 @@ export default function Hallazgos({
                     onChange={(e) => setFiltroTipoFuente(e.target.value)} 
                     className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer max-w-[160px] truncate"
                   >
-                    <option value="">⊞ Todas las Fuentes</option>
-                    {fuentesUnicasDisponibles.map(f => <option key={f} value={f}>{f}</option>)}
+                    <option value="">⊞ Todos los tipos de fuente</option>
+                    {TIPOS_FUENTE.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
                   </select>
 
                  <div className="relative w-full sm:w-auto">

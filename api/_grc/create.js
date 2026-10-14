@@ -5,7 +5,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { guardarInformesGrc, guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const COLECCIONES_PERMITIDAS = {
@@ -22,6 +22,102 @@ const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
 const normalizar = (valor) => String(valor || '').trim().toLowerCase();
 const esCorreoValido = (valor) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim());
 
+async function reservarConsecutivoInforme(anio) {
+  const refContador = adminDb.collection('_grc_counters').doc(`informes_${anio}`);
+  const contadorExistente = await refContador.get();
+  let ultimoConsecutivo = Number(contadorExistente.data()?.ultimo) || 0;
+
+  if (!contadorExistente.exists) {
+    const { data } = await leerWorkspaceGrc();
+    ultimoConsecutivo = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
+      .reduce((mayor, informe) => {
+        const coincidencia = String(informe?.ref || '').match(new RegExp(`^INF-${anio}-(\\d+)$`));
+        return coincidencia ? Math.max(mayor, Number(coincidencia[1])) : mayor;
+      }, 0);
+  }
+
+  return adminDb.runTransaction(async transaction => {
+    const snapshot = await transaction.get(refContador);
+    const ultimoGuardado = Number(snapshot.data()?.ultimo) || 0;
+    const siguiente = Math.max(ultimoGuardado, ultimoConsecutivo) + 1;
+    transaction.set(refContador, {
+      anio,
+      ultimo: siguiente,
+      actualizadoEn: new Date().toISOString(),
+    }, { merge: true });
+    return siguiente;
+  });
+}
+
+async function repararConsecutivosInformes(user) {
+  const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
+  const perfil = perfilSnap.exists ? perfilSnap.data() : {};
+  if (!esAdministrador(perfil.rol)) return { error: 'forbidden' };
+
+  const { data } = await leerWorkspaceGrc();
+  const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+  const porReferencia = new Map();
+  const maximosPorAnio = new Map();
+
+  informes.forEach(informe => {
+    const coincidencia = String(informe?.ref || '').match(/^INF-(\d{4})-(\d+)$/i);
+    if (!coincidencia) return;
+    const [, anio, consecutivo] = coincidencia;
+    maximosPorAnio.set(anio, Math.max(maximosPorAnio.get(anio) || 0, Number(consecutivo)));
+    const clave = `INF-${anio}-${consecutivo}`.toLowerCase();
+    porReferencia.set(clave, [...(porReferencia.get(clave) || []), informe]);
+  });
+
+  const duplicados = [...porReferencia.values()].filter(grupo => grupo.length > 1);
+  if (duplicados.length === 0) return { informesAuditoria: informes, reparados: 0 };
+
+  const corregidosPorId = new Map();
+  for (const grupo of duplicados) {
+    const ordenados = [...grupo].sort((a, b) => (
+      String(a.fecha || '').localeCompare(String(b.fecha || '')) ||
+      String(a.fechaHora || '').localeCompare(String(b.fechaHora || '')) ||
+      String(a.id || '').localeCompare(String(b.id || ''))
+    ));
+    const referenciaActual = String(ordenados[0].ref);
+    const anio = referenciaActual.match(/^INF-(\d{4})-/i)?.[1] || String(new Date().getFullYear());
+
+    for (const informe of ordenados.slice(1)) {
+      const siguiente = (maximosPorAnio.get(anio) || 0) + 1;
+      maximosPorAnio.set(anio, siguiente);
+      const nuevaRef = `INF-${anio}-${String(siguiente).padStart(3, '0')}`;
+      const historial = Array.isArray(informe.historialCambios) ? informe.historialCambios : [];
+      corregidosPorId.set(String(informe.id), {
+        ...informe,
+        ref: nuevaRef,
+        historialCambios: [...historial, {
+          fecha: new Date().toLocaleString('es-CO'),
+          timestamp: new Date().toISOString(),
+          usuario: user.email,
+          accion: `Consecutivo corregido por duplicidad: ${informe.ref} → ${nuevaRef}`,
+          motivo: 'Renumeración automática para garantizar referencias únicas.',
+        }],
+      });
+    }
+  }
+
+  const informesActualizados = informes.map(informe => corregidosPorId.get(String(informe.id)) || informe);
+  await guardarWorkspaceParcial({ informesAuditoria: informesActualizados });
+  await Promise.all([...maximosPorAnio].map(([anio, consecutivo]) => (
+    adminDb.runTransaction(async transaction => {
+      const refContador = adminDb.collection('_grc_counters').doc(`informes_${anio}`);
+      const snapshot = await transaction.get(refContador);
+      const ultimo = Number(snapshot.data()?.ultimo) || 0;
+      transaction.set(refContador, {
+        anio,
+        ultimo: Math.max(ultimo, consecutivo),
+        actualizadoEn: new Date().toISOString(),
+      }, { merge: true });
+    })
+  )));
+  await notificarSemaforo();
+  return { informesAuditoria: informesActualizados, reparados: corregidosPorId.size };
+}
+
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== 'POST') return sendError(res, 'Método no permitido.', 405);
@@ -31,6 +127,11 @@ export default async function handler(req, res) {
     if (!user) return;
 
     const { coleccion, registro } = req.body || {};
+    if (coleccion === 'repararConsecutivosInformes') {
+      const resultado = await repararConsecutivosInformes(user);
+      if (resultado.error === 'forbidden') return sendError(res, 'Solo un administrador puede reparar consecutivos.', 403);
+      return sendSuccess(res, resultado);
+    }
     const permisoRequerido = COLECCIONES_PERMITIDAS[coleccion];
     if (!permisoRequerido) return sendError(res, 'Tipo de registro no permitido.', 400);
     if (!registro || typeof registro !== 'object' || Array.isArray(registro)) {
@@ -76,6 +177,11 @@ export default async function handler(req, res) {
     )) {
       return sendError(res, 'La matriz debe incluir entre 1 y 100 actividades nuevas y un informe.', 400);
     }
+
+    const anioInforme = new Date().getFullYear();
+    const consecutivoInforme = coleccion === 'informesAuditoria'
+      ? await reservarConsecutivoInforme(anioInforme)
+      : null;
 
     const registroGuardado = await adminDb.runTransaction(async (transaction) => {
       const workspace = await leerWorkspaceGrc(transaction);
@@ -149,16 +255,11 @@ export default async function handler(req, res) {
       }
 
       if (coleccion === 'informesAuditoria') {
-        const anio = ahora.getFullYear();
-        const prefijo = `INF-${anio}-`;
-        const consecutivo = registrosActuales.reduce((mayor, item) => {
-          const coincidencia = String(item?.ref || '').match(new RegExp(`^INF-${anio}-(\\d+)$`));
-          return coincidencia ? Math.max(mayor, Number(coincidencia[1])) : mayor;
-        }, 0) + 1;
+        const prefijo = `INF-${anioInforme}-`;
         nuevoRegistro = {
           ...registro,
           id: randomUUID(),
-          ref: `${prefijo}${String(consecutivo).padStart(3, '0')}`,
+          ref: `${prefijo}${String(consecutivoInforme).padStart(3, '0')}`,
           correoCreador: user.email,
           creadoPor: user.email,
           historialCambios: [],

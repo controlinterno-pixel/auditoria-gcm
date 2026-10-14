@@ -1,5 +1,29 @@
 // src/constants/diccionariosGRC.js
 
+export const TIPOS_FUENTE = [
+  'Auditoría Interna',
+  'Auditoría Externa',
+  'PQR',
+  'Indicador de Gestión',
+  'Incidente',
+  'Riesgo',
+  'Otra Fuente',
+];
+
+export const resolverTipoFuente = (referencia, fuentes = []) => {
+  const normalizar = valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const referenciaTexto = String(referencia || '').trim();
+  const tipoDirecto = TIPOS_FUENTE.find(tipo => normalizar(tipo) === normalizar(referenciaTexto));
+  if (tipoDirecto) return tipoDirecto;
+
+  const referenciaNormalizada = normalizar(referenciaTexto);
+  const fuente = fuentes.find(item => [item.codigo, item.id].some(valor => normalizar(valor) === referenciaNormalizada));
+  const tipoFuente = String(fuente?.tipoFuente || fuente?.tipo || '').trim();
+  return TIPOS_FUENTE.find(tipo => normalizar(tipo) === normalizar(tipoFuente)) || (
+    referenciaTexto ? 'Otra Fuente' : 'Auditoría Interna'
+  );
+};
+
 // 📚 1. LISTA MAESTRA DE AUDITORES OFICIALES
 export const AUDITORES_OFICIALES = [
   "Rodolfo González",

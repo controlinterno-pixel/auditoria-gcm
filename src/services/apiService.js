@@ -347,6 +347,11 @@ export const apiService = {
     body: { coleccion, registro }
   }),
 
+  repararConsecutivosInformes: () => request('/api/grc/create', {
+    method: 'POST',
+    body: { coleccion: 'repararConsecutivosInformes' }
+  }),
+
   actualizarInformeGrc: (id, registro, motivo) => request('/api/grc/update', {
     method: 'PUT',
     body: { coleccion: 'informesAuditoria', id, registro, motivo }

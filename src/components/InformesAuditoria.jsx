@@ -3,6 +3,7 @@ import { renderHistorialSummary } from '../utils/historialCambios.js';
 import { useCatalogos } from '../context/useCatalogos';
 
 import { apiService } from '../services/apiService';
+import { TIPOS_FUENTE, resolverTipoFuente } from '../constants/diccionariosGRC';
 
 const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
   const map = new Map();
@@ -72,6 +73,7 @@ const obtenerCorreoCargoCatalogo = (catalogoCargos, cargo, macroproceso, subproc
 
 export default function InformesAuditoria({ 
   informesAuditoria, 
+  setInformesAuditoria,
   safeProgramas = [],
   editInformeAuditoria, 
   setEditInformeAuditoria, 
@@ -102,6 +104,7 @@ export default function InformesAuditoria({
   // (Eliminamos estados redundantes que causaban desfases en los selects)
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
+  const [reparandoConsecutivos, setReparandoConsecutivos] = useState(false);
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
@@ -110,6 +113,15 @@ export default function InformesAuditoria({
   );
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
+  const referenciasInforme = safeInformes.reduce((conteo, informe) => {
+    const ref = String(informe?.ref || '').trim().toUpperCase();
+    if (/^INF-\d{4}-\d+$/.test(ref)) conteo.set(ref, (conteo.get(ref) || 0) + 1);
+    return conteo;
+  }, new Map());
+  const informesConReferenciaDuplicada = [...referenciasInforme.values()].reduce(
+    (total, cantidad) => total + Math.max(0, cantidad - 1),
+    0
+  );
   const fuentesMejoraDisponibles = Array.isArray(fuentesMejora) ? fuentesMejora : [];
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
@@ -174,7 +186,7 @@ export default function InformesAuditoria({
   const subprocesosDisponiblesHistorial = [...new Set(informesEnriquecidos
     .filter(informe => !filtroProceso || obtenerMacroprocesosInforme(informe).includes(filtroProceso))
     .flatMap(informe => obtenerSubprocesosInforme(informe, filtroProceso)))].sort();
-  const fuentesDisponiblesHistorial = [...new Set(informesEnriquecidos.map(informe => informe.tipoFuente || 'Auditoría Interna'))].sort();
+  const fuentesDisponiblesHistorial = TIPOS_FUENTE;
   const informesConCambios = informesEnriquecidos.filter(informe => Array.isArray(informe.historialCambios) && informe.historialCambios.length > 0).length;
 
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
@@ -184,7 +196,7 @@ export default function InformesAuditoria({
     if ((histFechaDesde || histFechaHasta || filtroAnio || filtroMes) && !inf.fecha) return false;
     if (histFechaDesde && String(inf.fecha) < histFechaDesde) return false;
     if (histFechaHasta && String(inf.fecha) > histFechaHasta) return false;
-    if (histFiltroFuente !== 'Todas' && (inf.tipoFuente || 'Auditoría Interna') !== histFiltroFuente) return false;
+    if (histFiltroFuente !== 'Todas' && resolverTipoFuente(inf.tipoFuente, fuentesMejoraDisponibles) !== histFiltroFuente) return false;
     if (histFiltroSocializacion !== 'Todos' && (histFiltroSocializacion === 'Socializado' ? inf.socializado !== 'Sí' : inf.socializado === 'Sí')) return false;
     const [anio, mes] = String(inf.fecha || '').split('-');
     if (filtroAnio && anio !== filtroAnio) return false;
@@ -214,6 +226,23 @@ export default function InformesAuditoria({
     setPaginaActual(1);
     setInformeExpandidoId(null);
   };
+  const repararConsecutivosDuplicados = async () => {
+    if (!isAdmin || !setInformesAuditoria || reparandoConsecutivos || informesConReferenciaDuplicada === 0) return;
+    if (!window.confirm(`Se renumerarán ${informesConReferenciaDuplicada} informe(s) con referencias repetidas. ¿Continuar?`)) return;
+
+    setReparandoConsecutivos(true);
+    try {
+      const resultado = await apiService.repararConsecutivosInformes();
+      if (!Array.isArray(resultado?.informesAuditoria)) throw new Error('La respuesta del servidor no contiene los informes actualizados.');
+      setInformesAuditoria(resultado.informesAuditoria);
+      setInformeExpandidoId(null);
+      window.alert(`Reparación completada: ${resultado.reparados || 0} referencia(s) corregida(s).`);
+    } catch (error) {
+      window.alert(error.message || 'No se pudieron reparar los consecutivos.');
+    } finally {
+      setReparandoConsecutivos(false);
+    }
+  };
 
   // 1. Filtrar los datos del Dashboard según el menú lateral y las pastillas (Pills)
   const informesDashboard = informesEnriquecidos.filter(inf => {
@@ -224,17 +253,7 @@ export default function InformesAuditoria({
     
     // ✨ NUEVA CONDICIÓN: Filtrar por Fuente de Mejora (usando el nombre normalizado o el texto original)
     if (dashFiltroFuente !== 'Todas') {
-      // Necesitamos recrear la lógica que asocia el informe con su nombre de grupo
-      const referencia = String(inf.tipoFuente || 'Auditoría Interna').trim();
-      const refNormalizada = referencia.toLowerCase();
-      const fuenteReal = fuentesMejoraDisponibles.find(f => 
-        String(f.codigo || '').toLowerCase() === refNormalizada || 
-        String(f.id || '').toLowerCase() === refNormalizada
-      );
-      
-      const nombreGrupoInforme = fuenteReal ? (fuenteReal.norma || fuenteReal.tipoNorma || fuenteReal.tipoFuente || 'Fuente sin norma') : referencia;
-      
-      if (nombreGrupoInforme !== dashFiltroFuente) return false;
+      if (resolverTipoFuente(inf.tipoFuente, fuentesMejoraDisponibles) !== dashFiltroFuente) return false;
     }
     
     return true;
@@ -1166,13 +1185,8 @@ const handleFileUpload = async (e, type) => {
         const conteoFuentes = informesDashboard.reduce((acc, inf) => {
           const referencia = String(inf.tipoFuente || 'Auditoría Interna').trim();
           const fuenteReal = fuentesPorReferencia.get(normalizarReferencia(referencia)) || null;
-          // Convertimos el arreglo de normas a un texto seguro separado por comas
-          const normaCruda = fuenteReal?.norma || fuenteReal?.tipoNorma;
-          const normaLimpia = Array.isArray(normaCruda) ? normaCruda.join(', ') : normaCruda;
-          const nombreGrupo = fuenteReal ? (normaLimpia || fuenteReal.tipoFuente || 'Fuente sin norma') : referencia;
-          const clave = fuenteReal
-            ? `norma:${normalizarReferencia(nombreGrupo)}`
-            : `legacy:${normalizarReferencia(referencia)}`;
+          const nombreGrupo = resolverTipoFuente(referencia, fuentesMejoraDisponibles);
+          const clave = `tipo:${normalizarReferencia(nombreGrupo)}`;
           const fuenteAgrupada = acc.get(clave) || {
             clave,
             nombre: nombreGrupo,
@@ -2499,7 +2513,7 @@ const handleFileUpload = async (e, type) => {
                 </select>
               </label>
               <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Fuente</span>
+                <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Tipo de fuente</span>
                 <select value={histFiltroFuente} onChange={event => { setHistFiltroFuente(event.target.value); setPaginaActual(1); }} className="mt-1 w-full truncate bg-transparent text-[11px] font-bold text-slate-700 outline-none">
                   <option value="Todas">Todas las fuentes</option>
                   {fuentesDisponiblesHistorial.map(fuente => <option key={fuente} value={fuente}>{fuente}</option>)}
@@ -2555,7 +2569,19 @@ const handleFileUpload = async (e, type) => {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] font-semibold text-slate-500">{informesCandidatosHistorial.length} registros en los filtros actuales</p>
+            <div className="flex flex-wrap items-center gap-3">
+              {isAdmin && informesConReferenciaDuplicada > 0 && (
+                <button
+                  type="button"
+                  onClick={repararConsecutivosDuplicados}
+                  disabled={reparandoConsecutivos}
+                  className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[10px] font-black text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {reparandoConsecutivos ? 'Reparando...' : `Reparar ${informesConReferenciaDuplicada} consecutivo(s)`}
+                </button>
+              )}
+              <p className="text-[10px] font-semibold text-slate-500">{informesCandidatosHistorial.length} registros en los filtros actuales</p>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
