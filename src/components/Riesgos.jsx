@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ThinkingOrb } from 'thinking-orbs';
 import { 
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
@@ -1713,9 +1714,9 @@ const renderMatriz = () => {
       )}
       {/* 👇 🤖 MODAL DE CARGA (SPINNER MIENTRAS LA IA PIENSA) 👇 */}
       {procesandoIA && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center justify-center space-y-5">
-            <div className="animate-spin text-5xl drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">⚙️</div>
+            <ThinkingOrb state="solving" size={64} theme="dark" aria-label="Motor GRC analizando datos..." />
             <p className="font-black animate-pulse text-xs text-emerald-400 uppercase tracking-widest text-center">
               Motor GRC Enterprise analizando datos...
             </p>

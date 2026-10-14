@@ -1,6 +1,7 @@
 // Ruta: src/components/ModalIA.jsx
 import { useState, useRef } from 'react';
 import { exportarA_PDF } from '../utils/pdfUtils';
+import { ThinkingOrb } from 'thinking-orbs';
 
 function cleanMarkdown(text) {
   if (typeof text !== 'string') return text;
@@ -131,8 +132,8 @@ export default function ModalIA({ aiModal, setAiModal }) {
     <>
       {/* 1. LOADING OVERLAY */}
       {isExporting && (
-        <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center">
-          <div className="animate-spin text-5xl mb-4">⚙️</div>
+        <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center gap-5">
+          <ThinkingOrb state="composing" size={64} theme="dark" aria-label="Generando reporte PDF…" />
           <h2 className="text-lg font-black text-blue-400 tracking-widest uppercase animate-pulse">
             Generando Reporte PDF...
           </h2>
