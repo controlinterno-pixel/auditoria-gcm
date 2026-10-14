@@ -192,40 +192,44 @@ export default async function handler(req, res) {
       let planesPermitidos;
       let hallazgosPermitidos;
       let informesPermitidos;
+// ============================================================================
+      // NUEVO MOTOR UNIFICADO: VISIBILIDAD POR IDENTIDAD + HERENCIA DE CONTEXTO
+      // ============================================================================
+      
+      // 1. ¿El usuario está involucrado directamente? (Por correo, cargo, proceso o subproceso)
+      const tieneAccesoDirecto = (item) => {
+        if (aplicarRLS([item], userEmail, userCargo, userProcesses).length > 0) return true;
+        if (registroDentroDelAlcanceAsignado(item, userProcesses, userSubprocesses)) return true;
+        return false;
+      };
 
-      if (userProcesses.length > 0) {
-        // Shared GRC records use the assigned process/subprocess scope, not per-user email or cargo.
-        hallazgosPermitidos = hallazgosData.filter(hallazgo => (
-          registroDentroDelAlcanceAsignado(hallazgo, userProcesses, userSubprocesses)
-        ));
-        const hallazgosPermitidosPorId = new Set(hallazgosPermitidos.map(hallazgo => String(hallazgo.id)));
-        const idsInformesDesdeHallazgos = new Set(hallazgosPermitidos.map(hallazgo => String(hallazgo.idInforme)));
-        const hallazgosPorId = new Map(hallazgosData.map(hallazgo => [String(hallazgo.id), hallazgo]));
+      // 2. Evaluamos los PLANES de Acción
+      const planesConAccesoDirecto = planesData.filter(tieneAccesoDirecto);
+      const idsHallazgosDesdePlanes = new Set(planesConAccesoDirecto.map(plan => String(plan.idHallazgo)));
 
-        planesPermitidos = planesData.filter(plan => {
-          const hallazgoPadre = hallazgosPorId.get(String(plan.idHallazgo));
-          return hallazgoPadre
-            ? hallazgosPermitidosPorId.has(String(hallazgoPadre.id))
-            : registroDentroDelAlcanceAsignado(plan, userProcesses, userSubprocesses);
-        });
-        informesPermitidos = informesData.filter(informe => (
-          idsInformesDesdeHallazgos.has(String(informe.id)) ||
-          registroDentroDelAlcanceAsignado(informe, userProcesses, userSubprocesses)
-        ));
-      } else {
-        // Legacy profiles without assigned processes retain email/cargo-based visibility.
-        planesPermitidos = aplicarRLS(planesData, userEmail, userCargo, userProcesses);
-        const idsHallazgosDesdePlanes = new Set(planesPermitidos.map(plan => String(plan.idHallazgo)));
-        hallazgosPermitidos = hallazgosData.filter(hallazgo => (
-          idsHallazgosDesdePlanes.has(String(hallazgo.id)) ||
-          aplicarRLS([hallazgo], userEmail, userCargo, userProcesses).length > 0
-        ));
-        const idsInformesDesdeHallazgos = new Set(hallazgosPermitidos.map(hallazgo => String(hallazgo.idInforme)));
-        informesPermitidos = informesData.filter(informe => (
-          idsInformesDesdeHallazgos.has(String(informe.id)) ||
-          aplicarRLS([informe], userEmail, userCargo, userProcesses).length > 0
-        ));
-      }
+      // 3. Evaluamos los HALLAZGOS (Visibles porque estoy en el proceso O porque heredo el acceso desde un Plan)
+      hallazgosPermitidos = hallazgosData.filter(hallazgo => (
+        tieneAccesoDirecto(hallazgo) || idsHallazgosDesdePlanes.has(String(hallazgo.id))
+      ));
+      const idsHallazgosAprobados = new Set(hallazgosPermitidos.map(h => String(h.id)));
+      const idsInformesDesdeHallazgos = new Set(hallazgosPermitidos.map(hallazgo => String(hallazgo.idInforme)));
+
+      // 4. Evaluamos los INFORMES (Visibles directamente O porque heredo el acceso desde un Hallazgo/Plan)
+      informesPermitidos = informesData.filter(informe => (
+        tieneAccesoDirecto(informe) || idsInformesDesdeHallazgos.has(String(informe.id))
+      ));
+      const idsInformesAprobados = new Set(informesPermitidos.map(i => String(i.id)));
+
+      // 5. HERENCIA DESCENDENTE: Para dar "Todo el contexto", si el usuario puede ver un Informe, 
+      // le mostramos también todos los Hallazgos y Planes que le pertenecen a ese Informe.
+      hallazgosPermitidos = hallazgosData.filter(hallazgo => 
+        idsInformesAprobados.has(String(hallazgo.idInforme)) || idsHallazgosAprobados.has(String(hallazgo.id))
+      );
+      const idsHallazgosFinales = new Set(hallazgosPermitidos.map(h => String(h.id)));
+      
+      planesPermitidos = planesData.filter(plan => 
+        idsHallazgosFinales.has(String(plan.idHallazgo)) || planesConAccesoDirecto.includes(plan)
+      );
 
       // ============================================================================
       // EMPAQUETADO FINAL SEGURO
