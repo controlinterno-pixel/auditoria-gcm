@@ -221,6 +221,12 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     informe?.tipoFuente === 'Programa de Auditoría' && Boolean(informe?.programaId)
   );
 
+  // Un plan al 100% sigue pendiente del auditor aunque su fase guardada sea antigua.
+  const enRevisionAuditor = plan => (
+    plan?.estadoWorkflow === 'En Revisión (100%)' ||
+    (plan?.estadoWorkflow === 'En Ejecución' && Number(plan?.progreso) >= 100)
+  );
+
   const esPlanProgramaAuditoria = plan => {
     const hallazgo = hallazgosPorId.get(String(plan?.idHallazgo));
     const idInforme = hallazgo?.idInforme || plan?.idInforme;
@@ -1328,47 +1334,34 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     }
 
     setGuardandoEficaciaCierre(true);
-    const ts = new Date().toLocaleString();
-    const planActual = safePlanes.find(item => String(item.id) === String(plan.id)) || plan;
     const eficaz = fueEficaz === 'si';
-    const evaluacionEficacia = {
-      fecha: ts,
-      usuario: user?.email || 'Auditor',
-      conclusion: conclusion.trim(),
-      fueEficaz: eficaz,
-      requiereAccionesAdicionales: requiereAcciones === 'si',
-      observaciones: observaciones.trim(),
-    };
-    const planActualizado = {
-      ...planActual,
-      estadoWorkflow: eficaz ? 'Cerrado' : 'En Ejecución',
-      estado: eficaz ? 'Cerrado' : 'En Ejecución',
-      progreso: eficaz ? 100 : 90,
-      evaluacionEficaciaCierre: evaluacionEficacia,
-      historialCambios: [
-        ...(planActual.historialCambios || []),
-        {
-          fecha: ts,
-          usuario: user?.email || 'Auditor',
-          accion: eficaz
-            ? '✅ Eficacia confirmada. Acción cerrada.'
-            : `❌ Eficacia no demostrada. Acción devuelta al ejecutor. Observación: ${observaciones.trim()}`,
-          motivo: conclusion.trim(),
-        },
-      ],
-    };
-    const planesActualizados = safePlanes.map(item => (
-      String(item.id) === String(plan.id) ? planActualizado : item
-    ));
 
     try {
-      const guardado = await saveToCloud({ planes: planesActualizados });
-      if (!guardado) {
+      let planActualizado;
+      try {
+        const respuesta = await apiService.decidirPlanComoAuditor(
+          plan.id,
+          eficaz ? 'cerrar' : 'rechazar',
+          observaciones.trim(),
+          {
+            conclusion: conclusion.trim(),
+            requiereAccionesAdicionales: requiereAcciones === 'si',
+            observaciones: observaciones.trim(),
+          }
+        );
+        planActualizado = respuesta?.plan;
+      } catch (error) {
+        showNotification(error.message || 'No se pudo guardar la evaluación de eficacia. Intenta de nuevo.', 'error');
+        return;
+      }
+      if (!planActualizado) {
         showNotification('No se pudo guardar la evaluación de eficacia. Intenta de nuevo.', 'error');
         return;
       }
 
-      setPlanes(planesActualizados);
+      setPlanes(prev => (Array.isArray(prev) ? prev : []).map(item => (
+        String(item.id) === String(plan.id) ? planActualizado : item
+      )));
       setModalEficaciaCierre({ activo: false, plan: null, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '' });
       if (eficaz) {
         setConfirmacionCierreEficaz({ id: planActualizado.id, accion: planActualizado.accion });
@@ -2964,7 +2957,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {/* ========================================================================= */}
                                           {/* NIVEL 3: AUDITOR -> Revisa el 100% y cierra o rechaza el plan             */}
                                           {/* ========================================================================= */}
-                                          {p.estadoWorkflow === 'En Revisión (100%)' && esAuditor && (
+                                          {enRevisionAuditor(p) && esAuditor && (
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
                                               <button type="button" onClick={async () => {
                                                 if (!esPlanProgramaAuditoria(p)) {
@@ -2980,10 +2973,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                                 }
 
                                                 if(window.confirm("¿Aprobar las evidencias cargadas y CERRAR este plan de acción definitivamente?")) {
-                                                  const ts = new Date().toLocaleString();
-                                                  const mod = { ...p, estadoWorkflow: 'Cerrado', estado: 'Cerrado', progreso: 100, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Evidencias aprobadas. Plan CERRADO.' }] };
-                                                  const updated = safePlanes.map(x => x.id === p.id ? mod : x);
-                                                  setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                                  try {
+                                                    const respuesta = await apiService.decidirPlanComoAuditor(p.id, 'cerrar');
+                                                    setPlanes(prev => (Array.isArray(prev) ? prev : []).map(x => String(x.id) === String(p.id) ? respuesta.plan : x));
+                                                  } catch (error) {
+                                                    alert(error.message || 'No se pudo cerrar el plan.');
+                                                    return;
+                                                  }
                                                   
                                                   if (ejecutarDespachoGmailApi) {
                                                     await ejecutarDespachoGmailApi({
@@ -3003,10 +2999,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                               <button type="button" onClick={async () => {
                                                 const r = prompt("Ingrese el motivo de rechazo de la evidencia:");
                                                 if(r) {
-                                                  const ts = new Date().toLocaleString();
-                                                  const mod = { ...p, estadoWorkflow: 'En Ejecución', progreso: 90, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: `❌ Evidencia rechazada. Motivo: ${r}` }] };
-                                                  const updated = safePlanes.map(x => x.id === p.id ? mod : x);
-                                                  setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                                  try {
+                                                    const respuesta = await apiService.decidirPlanComoAuditor(p.id, 'rechazar', r);
+                                                    setPlanes(prev => (Array.isArray(prev) ? prev : []).map(x => String(x.id) === String(p.id) ? respuesta.plan : x));
+                                                  } catch (error) {
+                                                    alert(error.message || 'No se pudo rechazar la evidencia.');
+                                                    return;
+                                                  }
                                                   
                                                   if (ejecutarDespachoGmailApi) {
                                                     await ejecutarDespachoGmailApi({

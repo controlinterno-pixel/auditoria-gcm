@@ -362,7 +362,8 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   const misPlanesAprobacion = planesConOrigen.filter(p => {
     const correoAuditor = (p.correoAuditor || '').trim().toLowerCase();
     return correoAuditor === userEmailLower.trim() &&
-           ['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow);
+           (['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow) ||
+            (p.estadoWorkflow === 'En Ejecución' && Number(p.progreso) >= 100));
   });
   const misTareasAprobacion = misPlanesAprobacion.length;
 

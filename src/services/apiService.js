@@ -367,6 +367,11 @@ export const apiService = {
     body: { idInforme, decision, motivo }
   }),
 
+  decidirPlanComoAuditor: (idPlan, decision, motivo = '', evaluacionEficacia = null) => request('/api/grc/review-plans', {
+    method: 'POST',
+    body: { idPlan, decision, motivo, evaluacionEficacia }
+  }),
+
   registrarCorreoInforme: (id, destinatarios, fechaCorreoEnviado) => request('/api/grc/register-email', {
     method: 'POST',
     body: { id, destinatarios, fechaCorreoEnviado }

@@ -9,6 +9,75 @@ import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const normalizar = valor => String(valor || '').trim().toLowerCase();
 
+async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluacionEficacia }) {
+  const cerrar = decision === 'cerrar';
+  const motivoSeguro = String(motivo || '').trim().slice(0, 2000);
+  if (!idPlan) return sendError(res, 'Falta el plan a decidir.', 400);
+  if (!cerrar && !motivoSeguro) return sendError(res, 'Escribe el motivo del rechazo de la evidencia.', 400);
+
+  const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
+  const admin = ROLES_ADMIN.includes(normalizar(perfilSnap.exists ? perfilSnap.data().rol : ''));
+
+  const resultado = await adminDb.runTransaction(async transaction => {
+    const workspace = await leerWorkspaceGrc(transaction);
+    if (!workspace.workspaceExists) return { error: 'not-found' };
+    const { data, workspaceRef } = workspace;
+    const planes = Array.isArray(data.planes) ? data.planes : [];
+    const plan = planes.find(item => String(item.id) === String(idPlan));
+    if (!plan) return { error: 'plan-not-found' };
+    if (!admin && normalizar(plan.correoAuditor) !== normalizar(user.email)) return { error: 'not-auditor' };
+    const enRevision = plan.estadoWorkflow === 'En Revisión (100%)' ||
+      (plan.estadoWorkflow === 'En Ejecución' && Number(plan.progreso) >= 100);
+    if (!enRevision) return { error: 'not-in-review' };
+
+    const ahora = new Date();
+    const evaluacion = evaluacionEficacia && typeof evaluacionEficacia === 'object' ? {
+      fecha: ahora.toLocaleString('es-CO'),
+      usuario: user.email,
+      conclusion: String(evaluacionEficacia.conclusion || '').trim().slice(0, 2000),
+      fueEficaz: cerrar,
+      requiereAccionesAdicionales: Boolean(evaluacionEficacia.requiereAccionesAdicionales),
+      observaciones: String(evaluacionEficacia.observaciones || '').trim().slice(0, 2000),
+    } : null;
+    const actualizado = {
+      ...plan,
+      estadoWorkflow: cerrar ? 'Cerrado' : 'En Ejecución',
+      estado: cerrar ? 'Cerrado' : 'En Proceso',
+      progreso: cerrar ? 100 : 90,
+      ...(evaluacion ? { evaluacionEficaciaCierre: evaluacion } : {}),
+      historialCambios: [...(Array.isArray(plan.historialCambios) ? plan.historialCambios : []), {
+        fecha: ahora.toLocaleString('es-CO'),
+        timestamp: ahora.toISOString(),
+        usuario: user.email,
+        accion: cerrar
+          ? (evaluacion ? '✅ Eficacia confirmada. Acción cerrada.' : '✅ Evidencias aprobadas. Plan CERRADO.')
+          : `❌ Evidencia rechazada. Motivo: ${motivoSeguro}`,
+        ...(motivoSeguro ? { motivo: motivoSeguro } : {}),
+      }],
+    };
+    if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
+    transaction.set(workspaceRef, {
+      planes: planes.map(item => String(item.id) === String(idPlan) ? actualizado : item),
+    }, { merge: true });
+    return { plan: actualizado };
+  });
+
+  const errores = {
+    'not-found': ['No se encontró la matriz GRC.', 404],
+    'plan-not-found': ['No se encontró el plan de acción.', 404],
+    'not-auditor': ['Solo el auditor de seguimiento asignado puede decidir este plan.', 403],
+    'not-in-review': ['El plan no está en revisión del auditor.', 409],
+  };
+  if (resultado.error && errores[resultado.error]) {
+    const [mensaje, estado] = errores[resultado.error];
+    return sendError(res, mensaje, estado);
+  }
+
+  await notificarSemaforo();
+  logger.info('Decisión del auditor sobre plan', { idPlan, decision, usuario: user.email });
+  return sendSuccess(res, { plan: resultado.plan });
+}
+
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== 'POST') return sendError(res, 'Método no permitido.', 405);
@@ -17,7 +86,10 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const { idInforme, decision, motivo = '' } = req.body || {};
+    const { idInforme, idPlan, decision, motivo = '', evaluacionEficacia = null } = req.body || {};
+    if (['cerrar', 'rechazar'].includes(decision)) {
+      return await decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluacionEficacia });
+    }
     if (!idInforme || !['aprobar', 'corregir'].includes(decision)) {
       return sendError(res, 'La decisión de revisión no es válida.', 400);
     }
