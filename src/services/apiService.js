@@ -357,16 +357,9 @@ export const apiService = {
     body: { coleccion: 'hallazgos', id, registro },
   }),
 
-  // Redirige el guardado de la matriz a /api/grc/sync en método POST
-  guardarMatrizPlanes: (registro) => request('/api/grc/sync', {
-    method: 'POST',
-    body: {
-      partialData: {
-        idInforme: registro?.idInforme,
-        planesNuevos: registro?.nuevas || [],
-        planesActualizados: registro?.actualizaciones || []
-      }
-    }
+  guardarMatrizPlanes: (registro) => request('/api/grc/update', {
+    method: 'PUT',
+    body: { coleccion: 'planes', registro }
   }),
 
   decidirRevisionPlanes: (idInforme, decision, motivo = '') => request('/api/grc/review-plans', {
