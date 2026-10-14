@@ -178,13 +178,9 @@ export default async function handler(req, res) {
       const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
       const userSubprocesses = obtenerSubprocesosAsignados(user);
       const puedeVerCronograma = Array.isArray(user.permisos) && user.permisos.includes('sub_cronograma');
-      const catalogoCargosSeguro = (Array.isArray(data.catalogoCargos) ? data.catalogoCargos : []).map(registro => {
-        if (isAdmin) return registro;
-        const procesoCargo = normalizarProceso(registro?.macroproceso);
-        return procesoCargo && userProcesses.includes(procesoCargo)
-          ? registro
-          : { ...registro, correoCorporativo: '' };
-      });
+      // Se libera el catálogo corporativo completo para permitir el autocompletado 
+      // de los correos en la asignación de Planes de Acción, sin importar el rol.
+      const catalogoCargosSeguro = Array.isArray(data.catalogoCargos) ? data.catalogoCargos : [];
 
       const informesData = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
       const hallazgosData = Array.isArray(data.hallazgos) ? data.hallazgos : [];
