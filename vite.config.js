@@ -1,16 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import circleDependency from 'vite-plugin-circular-dependency'; // 1. Agregas esta importación
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  base: '/', // 🚀 Garantiza rutas absolutas para assets estáticos
+  plugins: [
+    react(),
+    circleDependency() // 2. Agregas el plugin aquí
+  ],
+  base: '/', 
   build: {
-    sourcemap: false, // 🛡️ Evita ingeniería inversa en producción
+    sourcemap: false, 
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        // 🚀 Code-Splitting manual: Separa dependencias pesadas en archivos independientes
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('xlsx')) return 'vendor-excel';
