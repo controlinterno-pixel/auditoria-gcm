@@ -422,6 +422,15 @@ const handleNotificarPlan = (planId) => {
     e.preventDefault();
     if (!formInformeId) return;
 
+    // 🛡️ RESOLUCIÓN ROBUSTA DEL ID REAL DEL INFORME
+    // Busca el informe coincidente tanto por ID directo como por la referencia consecutivo (INF-XXXX-XXX)
+    const informeEncontrado = informesAuditoria.find(inf => 
+      String(inf.id) === String(formInformeId) || 
+      (inf.ref && String(inf.ref).trim().toLowerCase() === String(formInformeId).trim().toLowerCase())
+    );
+
+    const idInformeReal = informeEncontrado ? String(informeEncontrado.id) : String(formInformeId);
+
     let errorCorreosEjecutor = false;
     let errorCorreosRevisor = false;
     let errorCorreoAuditor = false;
@@ -589,10 +598,10 @@ const handleNotificarPlan = (planId) => {
 
       try {
         const respuesta = await apiService.guardarMatrizPlanes({
-          idInforme: formInformeId,
-          nuevas: actividadesNuevas,
-          actualizaciones: actividadesEditadas,
-        });
+  idInforme: idInformeReal,
+  nuevas: actividadesNuevas,
+  actualizaciones: actividadesEditadas,
+});
         const planesCreados = Array.isArray(respuesta?.planesNuevos) ? respuesta.planesNuevos : [];
         const planesActualizados = Array.isArray(respuesta?.planesActualizados) ? respuesta.planesActualizados : [];
         if (planesCreados.length + planesActualizados.length === 0) {
