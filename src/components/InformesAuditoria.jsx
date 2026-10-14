@@ -5,6 +5,13 @@ import { useCatalogos } from '../context/useCatalogos';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE, resolverTipoFuente } from '../constants/diccionariosGRC';
 
+// Función para evitar que Programa de Auditoría caiga en la categoría genérica "Otra Fuente"
+const resolverCategoriaFuente = (tipo, fuentes) => {
+  if (String(tipo).trim() === 'Programa de Auditoría') {
+    return 'Programa de Auditoría';
+  }
+  return resolverTipoFuente(tipo, fuentes);
+};
 const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
   const map = new Map();
   [...listaActual, ...nuevos].forEach((item) => {
@@ -186,8 +193,8 @@ export default function InformesAuditoria({
   const subprocesosDisponiblesHistorial = [...new Set(informesEnriquecidos
     .filter(informe => !filtroProceso || obtenerMacroprocesosInforme(informe).includes(filtroProceso))
     .flatMap(informe => obtenerSubprocesosInforme(informe, filtroProceso)))].sort();
-  const fuentesDisponiblesHistorial = TIPOS_FUENTE;
-  const informesConCambios = informesEnriquecidos.filter(informe => Array.isArray(informe.historialCambios) && informe.historialCambios.length > 0).length;
+const fuentesDisponiblesHistorial = [...new Set([...TIPOS_FUENTE, 'Programa de Auditoría'])];
+    const informesConCambios = informesEnriquecidos.filter(informe => Array.isArray(informe.historialCambios) && informe.historialCambios.length > 0).length;
 
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
   const informesFiltradosPorFecha = informesEnriquecidos.filter(inf => {
@@ -196,7 +203,7 @@ export default function InformesAuditoria({
     if ((histFechaDesde || histFechaHasta || filtroAnio || filtroMes) && !inf.fecha) return false;
     if (histFechaDesde && String(inf.fecha) < histFechaDesde) return false;
     if (histFechaHasta && String(inf.fecha) > histFechaHasta) return false;
-    if (histFiltroFuente !== 'Todas' && resolverTipoFuente(inf.tipoFuente, fuentesMejoraDisponibles) !== histFiltroFuente) return false;
+if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuentesMejoraDisponibles) !== histFiltroFuente) return false;
     if (histFiltroSocializacion !== 'Todos' && (histFiltroSocializacion === 'Socializado' ? inf.socializado !== 'Sí' : inf.socializado === 'Sí')) return false;
     const [anio, mes] = String(inf.fecha || '').split('-');
     if (filtroAnio && anio !== filtroAnio) return false;
@@ -251,9 +258,9 @@ export default function InformesAuditoria({
     if (dashFiltroSubproceso !== 'Todos' && !obtenerSubprocesosInforme(inf, dashFiltroProceso === 'Todos' ? '' : dashFiltroProceso).includes(dashFiltroSubproceso)) return false;
     if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
     
-    // ✨ NUEVA CONDICIÓN: Filtrar por Fuente de Mejora (usando el nombre normalizado o el texto original)
+   // ✨ NUEVA CONDICIÓN: Filtrar por Fuente de Mejora separando Programa de Auditoría
     if (dashFiltroFuente !== 'Todas') {
-      if (resolverTipoFuente(inf.tipoFuente, fuentesMejoraDisponibles) !== dashFiltroFuente) return false;
+      if (resolverCategoriaFuente(inf.tipoFuente, fuentesMejoraDisponibles) !== dashFiltroFuente) return false;
     }
     
     return true;
@@ -1185,7 +1192,7 @@ const handleFileUpload = async (e, type) => {
         const conteoFuentes = informesDashboard.reduce((acc, inf) => {
           const referencia = String(inf.tipoFuente || 'Auditoría Interna').trim();
           const fuenteReal = fuentesPorReferencia.get(normalizarReferencia(referencia)) || null;
-          const nombreGrupo = resolverTipoFuente(referencia, fuentesMejoraDisponibles);
+          const nombreGrupo = resolverCategoriaFuente(referencia, fuentesMejoraDisponibles); // Usamos la nueva función
           const clave = `tipo:${normalizarReferencia(nombreGrupo)}`;
           const fuenteAgrupada = acc.get(clave) || {
             clave,
@@ -1731,7 +1738,7 @@ const handleFileUpload = async (e, type) => {
                         ))}
                       </optgroup>
                     )}
-                    <optgroup label="Otras Fuentes Manuales">
+                   <optgroup label="Programas de Control Interno">
                       <option value="Programa de Auditoría">Programa de Auditoría</option>
                     </optgroup>
                   </select>
