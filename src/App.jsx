@@ -102,9 +102,24 @@ export default function App() {
     };
   }, []);
 
-  // Escucha a Firebase y libera la carga según el estado de sesión:
-  // - Sin sesión: libera inmediatamente desde el callback de Firebase
-  // - Con sesión: libera cuando los datos del usuario (contexto) ya cargaron
+ // 1. Extraemos TODA la información de Firebase y el Backend
+  const {
+    user, setUser, isAdmin, setIsAdmin,
+    perfilUsuario,
+    isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
+    riesgos, setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
+    setIncidentes, setEvaluaciones,
+    cronograma, setCronograma, setMonitoreo,
+    informesAuditoria, setInformesAuditoria, setComites,
+    setProgramas, fuentesMejora, setFuentesMejora,
+    catalogoCargos, setCatalogoCargos, mapaProcesos, setMapaProcesos,
+    sedesEmpresa, setSedesEmpresa,
+    catalogosInicializados, setCatalogosInicializados,
+    safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
+    safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
+  } = useGrcData();
+
+  // 2. Escucha a Firebase y libera la carga (Depende de 'user')
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
@@ -144,22 +159,6 @@ export default function App() {
     editApetito, setEditApetito, editMonitoreo, setEditMonitoreo, activeTooltip, setActiveTooltip,
     editInformeAuditoria, setEditInformeAuditoria, editComite, setEditComite
   } = ui;
-
-  const {
-    user, setUser, isAdmin, setIsAdmin,
-    perfilUsuario,
-    isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
-    riesgos, setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
-    setIncidentes, setEvaluaciones,
-    cronograma, setCronograma, setMonitoreo,
-    informesAuditoria, setInformesAuditoria, setComites,
-    setProgramas, fuentesMejora, setFuentesMejora,
-    catalogoCargos, setCatalogoCargos, mapaProcesos, setMapaProcesos,
-    sedesEmpresa, setSedesEmpresa,
-    catalogosInicializados, setCatalogosInicializados,
-    safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
-    safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
-  } = useGrcData();
   const reviewReportId = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('reviewReportId')
     : null;
