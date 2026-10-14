@@ -102,12 +102,24 @@ export default function App() {
     };
   }, []);
 
+  // Escucha a Firebase y libera la carga según el estado de sesión:
+  // - Sin sesión: libera inmediatamente desde el callback de Firebase
+  // - Con sesión: libera cuando los datos del usuario (contexto) ya cargaron
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, () => {
-      setAuthInitialized(true); // Libera el renderizado solo cuando Firebase confirma la sesión
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        setAuthInitialized(true);
+      }
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      const t = setTimeout(() => setAuthInitialized(true), 0);
+      return () => clearTimeout(t);
+    }
+  }, [user]);
 
   const toggleSidebar = () => {
     const newVal = !isSidebarCollapsed;
@@ -298,8 +310,8 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   const handleImportExcelRiesgos = (e) => processExcelRiesgos({ event: e, safeRiesgos, setRiesgos, saveToCloud, showNotification, setIsCloudLoaded, user });
   const forceUpdateCronograma = async () => { if (window.confirm("¿Deseas cargar los 20 procesos del Plan Anual?")) { await saveToCloud({ cronograma: defaultCronograma }); showNotification("¡Plan Anual actualizado!", "success"); } };
   const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
-const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification), [user?.email, showNotification]);
-const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.email, showNotification), [user?.email, showNotification]);
+  const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification), [user, showNotification]);
+  const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.email, showNotification), [user, showNotification]);
   const {
     handleRiesgoSubmit, handleHallazgoSubmit, handlePlanSubmit, handleAprobarCierrePlan,
     handleEvaluacionSubmit, handleComiteSubmit, handleIncidenteSubmit, handleCronogramaSubmit,
