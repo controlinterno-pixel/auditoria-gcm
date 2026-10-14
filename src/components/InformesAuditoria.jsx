@@ -1562,56 +1562,6 @@ const handleFileUpload = async (e, type) => {
                   </div>
                 </div>
 
-                {/* Resumen Rápido (Lista vertical) */}
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
-                  <h3 className="text-[11px] font-black text-slate-800 mb-4">Resumen rápido</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow cursor-pointer bg-slate-50/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm">📄</div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Informes</p>
-                          <p className="text-sm font-black text-slate-800 leading-none">{totalInformes}</p>
-                        </div>
-                      </div>
-                      <span className="text-slate-300">›</span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow cursor-pointer bg-slate-50/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center text-sm">🕒</div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">En proceso</p>
-                          <p className="text-sm font-black text-slate-800 leading-none">{pendientes}</p>
-                        </div>
-                      </div>
-                      <span className="text-slate-300">›</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow cursor-pointer bg-slate-50/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center text-sm">✓</div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Socializados</p>
-                          <p className="text-sm font-black text-slate-800 leading-none">{socializados}</p>
-                        </div>
-                      </div>
-                      <span className="text-slate-300">›</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow cursor-pointer bg-slate-50/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center text-sm">!</div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Prcs. Auditados</p>
-                          <p className="text-sm font-black text-slate-800 leading-none">{procesosAuditados}</p>
-                        </div>
-                      </div>
-                      <span className="text-slate-300">›</span>
-                    </div>
-                  </div>
-                </div>
-
               </div>
             </div>
           </div>
