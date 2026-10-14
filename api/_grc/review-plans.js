@@ -7,7 +7,24 @@ import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
-const normalizar = valor => String(valor || '').trim().toLowerCase();
+const normalizar = valor => String(valor || '')
+  .trim()
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+function esAuditorAsignado(plan, user, perfil) {
+  const correosAsignados = [plan?.correoAuditor, plan?.correoAuditorResponsable, plan?.correo_auditor]
+    .map(normalizar)
+    .filter(Boolean);
+  if (correosAsignados.includes(normalizar(user.email))) return true;
+
+  const auditorAsignado = normalizar(plan?.auditorAsignado || plan?.auditorResponsable || plan?.auditor);
+  const identidadesUsuario = [perfil?.nombreResponsable, perfil?.nombre, perfil?.cargo]
+    .map(normalizar)
+    .filter(Boolean);
+  return Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
+}
 
 async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluacionEficacia }) {
   const cerrar = decision === 'cerrar';
@@ -16,7 +33,8 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
   if (!cerrar && !motivoSeguro) return sendError(res, 'Escribe el motivo del rechazo de la evidencia.', 400);
 
   const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
-  const admin = ROLES_ADMIN.includes(normalizar(perfilSnap.exists ? perfilSnap.data().rol : ''));
+  const perfil = perfilSnap.exists ? perfilSnap.data() : {};
+  const admin = ROLES_ADMIN.includes(normalizar(perfil.rol));
 
   const resultado = await adminDb.runTransaction(async transaction => {
     const workspace = await leerWorkspaceGrc(transaction);
@@ -25,7 +43,7 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
     const planes = Array.isArray(data.planes) ? data.planes : [];
     const plan = planes.find(item => String(item.id) === String(idPlan));
     if (!plan) return { error: 'plan-not-found' };
-    if (!admin && normalizar(plan.correoAuditor) !== normalizar(user.email)) return { error: 'not-auditor' };
+    if (!admin && !esAuditorAsignado(plan, user, perfil)) return { error: 'not-auditor' };
     const enRevision = plan.estadoWorkflow === 'En Revisión (100%)' ||
       (plan.estadoWorkflow === 'En Ejecución' && Number(plan.progreso) >= 100);
     if (!enRevision) return { error: 'not-in-review' };

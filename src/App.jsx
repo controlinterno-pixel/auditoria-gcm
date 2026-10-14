@@ -359,9 +359,25 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   const misTareasRevision = misPlanesRevision.length;
 
   // 3. Tareas que el usuario debe APROBAR (Como Auditor)
+  const normalizarIdentidad = valor => String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const rolUsuario = normalizarIdentidad(perfilUsuario?.rol);
+  const tieneRolAuditor = ['admin', 'administrador', 'auditor'].includes(rolUsuario);
   const misPlanesAprobacion = planesConOrigen.filter(p => {
-    const correoAuditor = (p.correoAuditor || '').trim().toLowerCase();
-    return correoAuditor === userEmailLower.trim() &&
+    const correosAuditor = [p.correoAuditor, p.correoAuditorResponsable, p.correo_auditor]
+      .map(normalizarIdentidad)
+      .filter(Boolean);
+    const auditorAsignado = normalizarIdentidad(p.auditorAsignado || p.auditorResponsable || p.auditor);
+    const identidadesUsuario = [perfilUsuario?.nombreResponsable, perfilUsuario?.nombre, perfilUsuario?.cargo]
+      .map(normalizarIdentidad)
+      .filter(Boolean);
+    const esAuditorDelPlan = tieneRolAuditor ||
+      correosAuditor.includes(normalizarIdentidad(userEmailLower)) ||
+      Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
+    return esAuditorDelPlan &&
            (['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow) ||
             (p.estadoWorkflow === 'En Ejecución' && Number(p.progreso) >= 100));
   });
@@ -720,7 +736,7 @@ return (
                 
                 {subTabPlanes === 'planes' && (
                   <Planes 
-                    reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user}
+                    reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user} perfilUsuario={perfilUsuario}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
                     FilterInput={FilterInput} pFiltrados={pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}

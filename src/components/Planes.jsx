@@ -5,6 +5,27 @@ import { useCatalogos } from '../context/useCatalogos';
 import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 
+const normalizarIdentidad = valor => String(valor || '')
+  .trim()
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+const esAuditorAsignado = (plan, correo, perfil) => {
+  const correosAsignados = [plan?.correoAuditor, plan?.correoAuditorResponsable, plan?.correo_auditor]
+    .map(normalizarIdentidad)
+    .filter(Boolean);
+  if (correosAsignados.includes(normalizarIdentidad(correo))) return true;
+
+  const auditorAsignado = normalizarIdentidad(
+    plan?.auditorAsignado || plan?.auditorResponsable || plan?.auditor
+  );
+  const identidadesUsuario = [perfil?.nombreResponsable, perfil?.nombre, perfil?.cargo]
+    .map(normalizarIdentidad)
+    .filter(Boolean);
+  return Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
+};
+
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
   let color = "bg-red-500";
@@ -34,6 +55,7 @@ export default function Planes({
   misPlanesRevision = [],
   misPlanesAprobacion = [],
   user = null,
+  perfilUsuario = null,
   editPlan,
   setEditPlan,
   ejecutarDespachoGmailApi,
@@ -2894,7 +2916,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       const miCorreo = (user?.email || '').toLowerCase().trim();
                                       const esEjecutor = miCorreo === (p.correoResponsable || '').toLowerCase().trim();
                                       const esRevisor = miCorreo === (p.correoRevisor || '').toLowerCase().trim();
-                                      const esAuditor = miCorreo === (p.correoAuditor || '').toLowerCase().trim() || isAdmin;
+                                      const rolUsuario = normalizarIdentidad(perfilUsuario?.rol);
+                                      const tieneRolAuditor = ['admin', 'administrador', 'auditor'].includes(rolUsuario);
+                                      const esAuditor = isAdmin || tieneRolAuditor || esAuditorAsignado(p, miCorreo, perfilUsuario);
 
                                       return (
                                         <>
