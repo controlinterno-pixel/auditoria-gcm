@@ -10,6 +10,8 @@ export const TIPOS_FUENTE = [
   'Otra Fuente',
 ];
 
+export const TIPOS_FUENTE_HISTORIAL = [...new Set([...TIPOS_FUENTE, 'Programa de Auditoría'])];
+
 export const resolverTipoFuente = (referencia, fuentes = []) => {
   const normalizar = valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const referenciaTexto = String(referencia || '').trim();
@@ -23,6 +25,12 @@ export const resolverTipoFuente = (referencia, fuentes = []) => {
     referenciaTexto ? 'Otra Fuente' : 'Auditoría Interna'
   );
 };
+
+export const resolverCategoriaFuente = (referencia, fuentes = []) => (
+  String(referencia).trim() === 'Programa de Auditoría'
+    ? 'Programa de Auditoría'
+    : resolverTipoFuente(referencia, fuentes)
+);
 
 // 📚 1. LISTA MAESTRA DE AUDITORES OFICIALES
 export const AUDITORES_OFICIALES = [

@@ -3,15 +3,7 @@ import { renderHistorialSummary } from '../utils/historialCambios.js';
 import { useCatalogos } from '../context/useCatalogos';
 
 import { apiService } from '../services/apiService';
-import { TIPOS_FUENTE, resolverTipoFuente } from '../constants/diccionariosGRC';
-
-// Función para evitar que Programa de Auditoría caiga en la categoría genérica "Otra Fuente"
-const resolverCategoriaFuente = (tipo, fuentes) => {
-  if (String(tipo).trim() === 'Programa de Auditoría') {
-    return 'Programa de Auditoría';
-  }
-  return resolverTipoFuente(tipo, fuentes);
-};
+import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
   const map = new Map();
   [...listaActual, ...nuevos].forEach((item) => {
@@ -211,7 +203,6 @@ export default function InformesAuditoria({
   const subprocesosDisponiblesHistorial = [...new Set(informesEnriquecidos
     .filter(informe => !filtroProceso || obtenerMacroprocesosInforme(informe).includes(filtroProceso))
     .flatMap(informe => obtenerSubprocesosInforme(informe, filtroProceso)))].sort();
-const fuentesDisponiblesHistorial = [...new Set([...TIPOS_FUENTE, 'Programa de Auditoría'])];
     const informesConCambios = informesEnriquecidos.filter(informe => Array.isArray(informe.historialCambios) && informe.historialCambios.length > 0).length;
 
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
@@ -2529,7 +2520,7 @@ const handleFileUpload = async (e, type) => {
                 <span className="block text-[9px] font-black uppercase tracking-wide text-slate-500">Tipo de fuente</span>
                 <select value={histFiltroFuente} onChange={event => { setHistFiltroFuente(event.target.value); setPaginaActual(1); }} className="mt-1 w-full truncate bg-transparent text-[11px] font-bold text-slate-700 outline-none">
                   <option value="Todas">Todas las fuentes</option>
-                  {fuentesDisponiblesHistorial.map(fuente => <option key={fuente} value={fuente}>{fuente}</option>)}
+                  {TIPOS_FUENTE_HISTORIAL.map(fuente => <option key={fuente} value={fuente}>{fuente}</option>)}
                 </select>
               </label>
               <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">

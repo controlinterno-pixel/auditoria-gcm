@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
-import { TIPOS_FUENTE, resolverTipoFuente } from '../constants/diccionariosGRC';
+import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 
 const convertirResponsablesEnLista = responsables => (
   Array.isArray(responsables)
@@ -303,7 +303,7 @@ export default function Hallazgos({
     if (filtroTipoFuente) {
       const informeOrigen = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
       if (!informeOrigen) return false; // Si no hay informe base, no puede cumplir el filtro
-      if (resolverTipoFuente(informeOrigen.tipoFuente, fuentesMejoraDisponibles) !== filtroTipoFuente) return false;
+      if (resolverCategoriaFuente(informeOrigen.tipoFuente, fuentesMejoraDisponibles) !== filtroTipoFuente) return false;
     }
     
     return true;
@@ -1275,7 +1275,7 @@ export default function Hallazgos({
                       className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     >
                       <option value="">Todos los tipos</option>
-                      {TIPOS_FUENTE.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
+                      {TIPOS_FUENTE_HISTORIAL.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
                     </select>
                   </label>
 
