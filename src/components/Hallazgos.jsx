@@ -50,6 +50,8 @@ export default function Hallazgos({
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
+  const [paginaHistorial, setPaginaHistorial] = useState(1);
+  const [informesPorPagina, setInformesPorPagina] = useState(10);
 
   // ✨ NUEVA FUNCIÓN DE UX: Previene salir por accidente si hay cambios
   const cambiarVistaSegura = (nuevaVista) => {
@@ -308,6 +310,10 @@ export default function Hallazgos({
   });
 
   const aniosDisponibles = [...new Set(hallazgosEnriquecidos.map(h => h.anioReal).filter(a => a !== 'Sin Fecha'))].sort().reverse();
+  const cambiarFiltroColumnaHistorial = (clave, valor) => {
+    setPaginaHistorial(1);
+    handleColFilterChange(clave, valor);
+  };
   
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1195,23 +1201,34 @@ export default function Hallazgos({
         }, {});
 
         const listaInformesIds = Object.keys(hallazgosPorInforme);
+        const totalInformes = listaInformesIds.length;
+        const totalPaginas = Math.max(1, Math.ceil(totalInformes / informesPorPagina));
+        const paginaActual = Math.min(paginaHistorial, totalPaginas);
+        const inicioPagina = (paginaActual - 1) * informesPorPagina;
+        const informesPagina = listaInformesIds.slice(inicioPagina, inicioPagina + informesPorPagina);
+        const primerInforme = totalInformes === 0 ? 0 : inicioPagina + 1;
+        const ultimoInforme = Math.min(inicioPagina + informesPorPagina, totalInformes);
 
         return (
           <div className="space-y-4 animate-in slide-in-from-left-8 duration-500">
             {/* 🎛️ BARRA DE FILTROS TEMPORALES Y BÚSQUEDA SUPERIOR */}
-            <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-4">
-               <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest ml-2">Historial por Informe Emitido</h3>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <h3 className="font-bold text-slate-800 text-sm">Historial por informe emitido</h3>
+                <span className="text-xs font-semibold text-slate-500" aria-live="polite">{totalInformes} {totalInformes === 1 ? 'informe' : 'informes'}</span>
+              </div>
                
-               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 items-center gap-2">
                   
                   {/* ✨ NUEVO: FILTRO DINÁMICO DE PROCESO */}
                   <select 
                     value={columnFilters['proceso'] || ''} 
                     onChange={(e) => {
+                      setPaginaHistorial(1);
                       handleColFilterChange('proceso', e.target.value);
                       handleColFilterChange('subproceso', ''); // Limpia al cambiar
                     }} 
-                    className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer"
+                    className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 bg-slate-50 font-semibold text-slate-700 shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">🏛️ Todos los Procesos</option>
                     {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
@@ -1219,8 +1236,8 @@ export default function Hallazgos({
 {/* ✨ NUEVO: FILTRO DINÁMICO DE SUBPROCESO */}
                   <select 
                     value={columnFilters['subproceso'] || ''} 
-                    onChange={(e) => handleColFilterChange('subproceso', e.target.value)} 
-                    className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer max-w-[140px] truncate"
+                    onChange={(e) => { setPaginaHistorial(1); handleColFilterChange('subproceso', e.target.value); }}
+                    className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 bg-slate-50 font-semibold text-slate-700 shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">🗂️ Todos los Subprocesos</option>
                     {[...new Set(columnFilters['proceso'] ? (MAPA_PROCESOS[columnFilters['proceso']] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => (
@@ -1228,12 +1245,12 @@ export default function Hallazgos({
                     ))}
                   </select>
 
-                  <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
+                  <select value={filtroAnio} onChange={(e) => { setFiltroAnio(e.target.value); setPaginaHistorial(1); }} className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer">
                     <option value="">📅 Todos los Años</option>
                     {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
                   </select>
 
-                  <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
+                  <select value={filtroMes} onChange={(e) => { setFiltroMes(e.target.value); setPaginaHistorial(1); }} className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer">
                     <option value="">📆 Todos los Meses</option>
                     <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
                     <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
@@ -1244,21 +1261,21 @@ export default function Hallazgos({
                   {/* ✨ FILTRO DESPLEGABLE POR TIPO DE FUENTE (Alineado con el diseño visual) */}
                   <select 
                     value={filtroTipoFuente} 
-                    onChange={(e) => setFiltroTipoFuente(e.target.value)} 
-                    className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer max-w-[160px] truncate"
+                    onChange={(e) => { setFiltroTipoFuente(e.target.value); setPaginaHistorial(1); }}
+                    className="min-w-0 border border-slate-200 rounded-lg text-xs py-2 px-2 font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
                   >
                     <option value="">⊞ Todos los tipos de fuente</option>
                     {TIPOS_FUENTE.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
                   </select>
 
-                 <div className="relative w-full sm:w-auto">
+                 <div className="relative w-full sm:col-span-2 xl:col-span-2">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
                     <input 
                       type="text" 
                       placeholder="Búsqueda General..." 
                       value={searchTerm} 
-                      onChange={(e) => setSearchTerm(e.target.value)} 
-                      className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-[10px] focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-56 shadow-sm font-bold" 
+                      onChange={(e) => { setSearchTerm(e.target.value); setPaginaHistorial(1); }}
+                      className="pl-8 pr-4 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-full shadow-sm font-semibold"
                     />
                  </div>
                </div>
@@ -1270,8 +1287,8 @@ export default function Hallazgos({
                 No se encontraron informes con hallazgos para los filtros seleccionados.
               </div>
             ) : (
-              <div className="space-y-3">
-                {listaInformesIds.map(idInf => {
+              <div className="space-y-2">
+                {informesPagina.map(idInf => {
                   const hzsDelInforme = hallazgosPorInforme[idInf];
                   const informeBase = informesAuditoria.find(inf => String(inf.id) === String(idInf));
                   
@@ -1285,12 +1302,16 @@ export default function Hallazgos({
                   const isExpanded = informeHistorialExpandido === idInf;
 
                   return (
-                    <div key={`inf-card-${idInf}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
+                    <div key={`inf-card-${idInf}`} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-shadow hover:shadow-md">
                       
                       {/* Fila Resumen del Informe (Línea de Trazabilidad Principal) */}
                       <div 
                         onClick={() => setInformeHistorialExpandido(isExpanded ? null : idInf)}
-                        className={`p-4 flex flex-col md:flex-row items-start md:items-center justify-between cursor-pointer transition-colors gap-3 ${isExpanded ? 'bg-slate-50/80 border-b border-slate-100' : 'hover:bg-slate-50'}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInformeHistorialExpandido(isExpanded ? null : idInf); } }}
+                        className={`p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between cursor-pointer transition-colors gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${isExpanded ? 'bg-slate-50/80 border-b border-slate-100' : 'hover:bg-slate-50'}`}
                       >
                         <div className="flex items-center space-x-3 flex-1 min-w-0">
                           <span className="text-xl shrink-0">📂</span>
@@ -1323,23 +1344,23 @@ export default function Hallazgos({
                               <tr>
                                 <th className="p-3 w-28">
                                   <div className="mb-1">ID / REF</div>
-                                  <FilterInput colKey="ref" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                  <FilterInput colKey="ref" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
                                 </th>
                                 <th className="p-3 w-40">
                                   <div className="mb-1">PROCESO / SEDE</div>
-                                  <FilterInput colKey="proceso" placeholder="Filtrar Macro..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                  <FilterInput colKey="proceso" placeholder="Filtrar Macro..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
                                 </th>
                                 <th className="p-3 w-2/5">
                                   <div className="mb-1">DESCRIPCIÓN DEL HALLAZGO</div>
-                                  <FilterInput colKey="titulo" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                  <FilterInput colKey="titulo" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
                                 </th>
                                 <th className="p-3">
                                   <div className="mb-1">RESPONSABLES</div>
-                                  <FilterInput colKey="responsable" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                  <FilterInput colKey="responsable" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
                                 </th>
                                 <th className="p-3 text-center">
                                   <div className="mb-1">ESTADO</div>
-                                  <FilterInput colKey="estado" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                  <FilterInput colKey="estado" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={cambiarFiltroColumnaHistorial} />
                                 </th>
                               </tr>
                             </thead>
@@ -1493,6 +1514,43 @@ export default function Hallazgos({
                 })}
               </div>
             )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-600">
+                <span aria-live="polite">Mostrando <strong className="text-slate-800">{primerInforme}-{ultimoInforme}</strong> de <strong className="text-slate-800">{totalInformes}</strong> informes</span>
+                <label className="flex items-center gap-2 font-medium">
+                  Informes por página
+                  <select
+                    value={informesPorPagina}
+                    onChange={(e) => { setInformesPorPagina(Number(e.target.value)); setPaginaHistorial(1); }}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Cantidad de informes por página"
+                  >
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                  </select>
+                </label>
+              </div>
+              <nav className="flex items-center justify-between sm:justify-end gap-2" aria-label="Paginación del historial de hallazgos">
+                <button
+                  type="button"
+                  onClick={() => setPaginaHistorial(Math.max(1, paginaActual - 1))}
+                  disabled={paginaActual <= 1}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <span className="min-w-24 text-center text-xs font-semibold tabular-nums text-slate-600" aria-live="polite">Página {paginaActual} de {totalPaginas}</span>
+                <button
+                  type="button"
+                  onClick={() => setPaginaHistorial(Math.min(totalPaginas, paginaActual + 1))}
+                  disabled={paginaActual >= totalPaginas}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente
+                </button>
+              </nav>
+            </div>
 
           </div>
         );
