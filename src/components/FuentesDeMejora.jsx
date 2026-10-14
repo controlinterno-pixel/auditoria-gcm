@@ -769,7 +769,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
                       <div>
                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Acción del sistema</p>
                         <div className="bg-blue-50/50 border border-blue-100 p-3.5 rounded-xl shadow-inner">
-                          <p className="text-[11px] font-bold text-blue-900 leading-relaxed">
+                          <p className="text-[11px] font-bold text-blue-900 leading-relaxed break-words">
                             {logSeleccionado.accion}
                           </p>
                         </div>
@@ -782,7 +782,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
                           <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm">
                             {logSeleccionado.usuario ? logSeleccionado.usuario.substring(0,2).toUpperCase() : 'US'}
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="font-bold text-slate-800 text-[11px] truncate">{logSeleccionado.usuario || 'Sistema GRC'}</p>
                             <p className="text-[9px] text-slate-400 font-medium truncate">Sesión autenticada</p>
                           </div>
@@ -793,10 +793,38 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
                       <div>
                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Detalles de la Operación</p>
                         <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 p-3 rounded-xl shadow-sm">
-                          <span className="text-blue-500 text-sm mt-0.5">ℹ️</span>
-                          <p className="text-[10px] font-medium text-slate-700 leading-relaxed">
+                          <span className="text-blue-500 text-sm mt-0.5 shrink-0">ℹ️</span>
+                          <p className="text-[10px] font-medium text-slate-700 leading-relaxed break-words flex-1">
                             {logSeleccionado.motivo || 'No se registró un motivo detallado para este evento.'}
                           </p>
+                        </div>
+                      </div>
+
+                      {/* Detalles Técnicos Reales */}
+                      <div>
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 border-b border-slate-100 pb-1">Información Técnica</p>
+                        <div className="space-y-3 bg-white p-3 rounded-xl border border-slate-100">
+                          
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-slate-400 text-xs">🆔</span>
+                              <p className="text-[10px] font-bold text-slate-600">ID de Registro</p>
+                            </div>
+                            <p className="text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 break-all text-right">
+                              {logSeleccionado.fuenteRef}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-slate-400 text-xs">⏱️</span>
+                              <p className="text-[10px] font-bold text-slate-600">Timestamp</p>
+                            </div>
+                            <p className="text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 break-all text-right" title={logSeleccionado.timestamp || logSeleccionado.fecha}>
+                              {logSeleccionado.timestamp || logSeleccionado.fecha}
+                            </p>
+                          </div>
+
                         </div>
                       </div>
 
