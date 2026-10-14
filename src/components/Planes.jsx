@@ -594,8 +594,6 @@ const handleNotificarPlan = (planId) => {
           promesaPreparacionGmail = Promise.resolve(false);
         }
       }
-      if (requiereCorreoNuevo && promesaPreparacionGmail && !(await promesaPreparacionGmail)) return;
-
       try {
         const respuesta = await apiService.guardarMatrizPlanes({
   idInforme: idInformeReal,
@@ -627,7 +625,7 @@ const handleNotificarPlan = (planId) => {
             correoPreparado = false;
           }
         }
-        if (requiereNotificacionEdicion && !correoPreparado) todasNotificacionesEnviadas = false;
+        if ((requiereNotificacionEdicion || requiereCorreoNuevo) && !correoPreparado) todasNotificacionesEnviadas = false;
         if (actividadesNuevas.length > 0 && enviarNotificaciones && ejecutarDespachoGmailApi && correoPreparado) {
           for (const plan of planesCreados) {
             const correoEjecutorEnviado = await ejecutarDespachoGmailApi({
@@ -727,8 +725,9 @@ const handleNotificarPlan = (planId) => {
       .map(h => h.id);
 
     // 3. Filtrar de la lista principal las actividades que fueron "quitadas"
+    const idsHallazgosActuales = new Set(hallazgosActuales.map(String));
     updatedPlanesList = updatedPlanesList.filter(plan => {
-      if (hallazgosActuales.includes(plan.idHallazgo)) {
+      if (idsHallazgosActuales.has(String(plan.idHallazgo))) {
         // Si el plan pertenece a este informe, SOLO se queda si está en los sobrevivientes
         return idsSobrevivientes.includes(plan.id);
       }
@@ -768,9 +767,11 @@ const diccionarioCorreos = {
         }
 
         // 🛡️ Salvaguardas para extraer datos correctamente, asegurando que no queden valores en blanco que rompan el sistema.
+        const hallazgoReal = safeHallazgos.find(h => String(h.id) === String(hallazgoId));
         const planData = {
           id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
-          idHallazgo: parseInt(hallazgoId),
+          idHallazgo: hallazgoReal ? hallazgoReal.id : hallazgoId,
+          idInforme: idInformeReal,
           accion: act.accion,
           sede: act.sede || 'No especificada', 
           responsable: act.responsable || 'Sin Asignar',
@@ -849,12 +850,16 @@ const diccionarioCorreos = {
       }
     });
 
-    if (
-      enviarNotificaciones &&
-      (notificacionesRadicadas.length > 0 || notificacionesRevision100.length > 0) &&
-      prepararEnvioGmail &&
-      !(await prepararEnvioGmail())
-    ) return;
+    const requiereCorreoAdmin = enviarNotificaciones &&
+      (notificacionesRadicadas.length > 0 || notificacionesRevision100.length > 0);
+    let correoPreparadoAdmin = true;
+    if (requiereCorreoAdmin && prepararEnvioGmail) {
+      try {
+        correoPreparadoAdmin = Boolean(await prepararEnvioGmail());
+      } catch {
+        correoPreparadoAdmin = false;
+      }
+    }
 
     let guardado;
     if (hallazgosModificados && setHallazgos) {
@@ -869,8 +874,8 @@ const diccionarioCorreos = {
   // ... código anterior (saveToCloud) ...
 
    // 📧 NOTIFICACIÓN 1: CREACIÓN - CASCADA AL REVISOR
-    let todasNotificacionesEnviadas = true;
-    if (enviarNotificaciones && notificacionesRadicadas.length > 0 && ejecutarDespachoGmailApi) {
+    let todasNotificacionesEnviadas = correoPreparadoAdmin;
+    if (correoPreparadoAdmin && enviarNotificaciones && notificacionesRadicadas.length > 0 && ejecutarDespachoGmailApi) {
       for (const plan of notificacionesRadicadas) {
         // 1A. Avisar a quien elabora que la tarea quedó guardada
         await ejecutarDespachoGmailApi({
@@ -894,7 +899,7 @@ const diccionarioCorreos = {
     }
 
     // 📧 NOTIFICACIÓN 2: ALERTA DE TRABAJO AL 100% PARA EL AUDITOR
-    if (enviarNotificaciones && notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
+    if (correoPreparadoAdmin && enviarNotificaciones && notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
       for (const act of notificacionesRevision100) {
         const correoAuditorTarget = act.correoAuditor || diccionarioCorreos[act.auditorAsignado] || correoAdminDefault;
         const correoRevisionEnviado = await ejecutarDespachoGmailApi({
