@@ -215,10 +215,10 @@ const buildRawMessage = (emailParams, senderEmail, recipients) => {
   ].join('\r\n'));
 };
 
-export const enviarCorreoGmail = async (emailParams, userEmail, showNotification) => {
+export const enviarCorreoGmail = async (emailParams, userEmail, showNotification, { forcePrompt = false } = {}) => {
   try {
     const recipients = getRecipients(emailParams.destinatarios);
-    const session = await requestGmailSessionWithConsent(userEmail);
+    const session = await requestGmailSessionWithConsent(userEmail, { forcePrompt });
     const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
       headers: {
@@ -229,9 +229,11 @@ export const enviarCorreoGmail = async (emailParams, userEmail, showNotification
     });
     const result = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
+    if (!response.ok || !result.id) {
       if (response.status === 401) gmailSession = null;
-      throw new Error(result.error?.message || `Gmail rechazó el envío (HTTP ${response.status}).`);
+      throw new Error(result.error?.message || (response.ok
+        ? 'Gmail no devolvió el identificador del mensaje; el envío no quedó confirmado.'
+        : `Gmail rechazó el envío (HTTP ${response.status}).`));
     }
 
     showNotification?.(`Correo enviado desde ${session.email}.`, 'success');

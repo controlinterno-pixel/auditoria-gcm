@@ -54,6 +54,7 @@ export const createFormHandlers = ({
   setFormResetKey,
   prepararEnvioGmail,
   ejecutarDespachoGmailApi,
+  encolarReintentoNotificacion,
   crearRegistroGrc,
   actualizarInformeGrc,
   actualizarHallazgoGrc,
@@ -294,7 +295,7 @@ export const createFormHandlers = ({
         if (progresoVal === 100 && workflowVal !== 'Cerrado') {
             workflowVal = 'En Revisión'; 
             dispararCorreo = true;
-            auditorNotificar = planToUpdate.auditorAsignado;
+            auditorNotificar = planToUpdate.correoAuditor || planToUpdate.correoAuditorResponsable || planToUpdate.correo_auditor || '';
         } else if (progresoVal < 100) {
             workflowVal = 'Borrador';
         }
@@ -334,20 +335,35 @@ export const createFormHandlers = ({
       updatedList = [...safePlanes, nuevo];
     }
 
-    if (dispararCorreo && auditorNotificar && prepararEnvioGmail && !(await prepararEnvioGmail())) return;
+    let correoPreparado = true;
+    if (dispararCorreo && auditorNotificar && prepararEnvioGmail) {
+      try {
+        correoPreparado = Boolean(await prepararEnvioGmail());
+      } catch {
+        correoPreparado = false;
+      }
+    }
     const guardado = await saveToCloud({ planes: updatedList });
     if (!guardado) return;
     setPlanes(updatedList);
 
     if (dispararCorreo && auditorNotificar) {
-        const destinatarioDinamico = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "admin@ejemplo.com";
-        const correoEnviado = await ejecutarDespachoGmailApi({
+        const payloadNotificacionPlan = {
           ref_consecutivo: `APROBACION-100`, 
           titulo_informe: 'Verificar soportes cargados al 100% para proceder con el cierre',
           proceso_auditado: 'Plan de acción pendiente por aprobar', 
           enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app', 
-          destinatarios: destinatarioDinamico 
-        });
+          destinatarios: auditorNotificar
+        };
+        let correoEnviado = false;
+        if (correoPreparado && ejecutarDespachoGmailApi) {
+          try {
+            correoEnviado = Boolean(await ejecutarDespachoGmailApi(payloadNotificacionPlan));
+          } catch {
+            correoEnviado = false;
+          }
+        }
+        if (!correoEnviado) encolarReintentoNotificacion?.(payloadNotificacionPlan, { tipo: 'plan' });
         showNotification(
           correoEnviado ? "Avance guardado y auditor notificado." : "Avance guardado, pero no se pudo enviar el correo.",
           correoEnviado ? "success" : "error"
@@ -360,7 +376,14 @@ export const createFormHandlers = ({
 
   const handleAprobarCierrePlan = async (plan) => {
     if (!window.confirm("¿Aprobar evidencias y cerrar definitivamente este plan y su hallazgo vinculado?")) return;
-    if (prepararEnvioGmail && !(await prepararEnvioGmail())) return;
+    let correoPreparado = true;
+    if (prepararEnvioGmail) {
+      try {
+        correoPreparado = Boolean(await prepararEnvioGmail());
+      } catch {
+        correoPreparado = false;
+      }
+    }
     const ts = new Date().toLocaleString();
     const fechaCierreStr = new Date().toISOString().split('T')[0];
     const planModificado = { ...plan, estado: 'Cerrado', estadoWorkflow: 'Cerrado', progreso: 100, fechaCierre: fechaCierreStr, historialCambios: [...(plan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: '✅ Plan aprobado y cerrado por el Auditor' }] };
@@ -377,13 +400,22 @@ export const createFormHandlers = ({
       setPlanes(updatedPlanes);
     
 const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com";
-    const correoEnviado = await ejecutarDespachoGmailApi({
+    const payloadNotificacionCierre = {
       ref_consecutivo: `CIERRE-PLAN-${plan.id}`,
       titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito', 
       proceso_auditado: plan.accion.substring(0, 50) + '...', 
       enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app', 
       destinatarios: plan.correoResponsable || correoCentral 
-    });
+    };
+    let correoEnviado = false;
+    if (correoPreparado && ejecutarDespachoGmailApi) {
+      try {
+        correoEnviado = Boolean(await ejecutarDespachoGmailApi(payloadNotificacionCierre));
+      } catch {
+        correoEnviado = false;
+      }
+    }
+    if (!correoEnviado) encolarReintentoNotificacion?.(payloadNotificacionCierre, { tipo: 'plan' });
 
     showNotification(
       correoEnviado ? "Ciclo cerrado y responsable notificado." : "Ciclo cerrado, pero no se pudo enviar el correo.",
@@ -883,17 +915,23 @@ const handleInformeAuditoriaSubmit = async (e) => {
       showNotification("Informe guardado con éxito.", "success");
 
       if (correosNotificacionOut !== '') {
+        const payloadNotificacionInforme = {
+          ref_consecutivo: refConsecutivoFinal,
+          asunto: `[GRC Termales] Radicación de Informe ${refConsecutivoFinal}`,
+          titulo: limpiarTildesParaCorreo(tituloVal),
+          evidenciaUrl: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
+          anexosMultiples: anexosMultiplesRaw,
+          destinatarios: correosNotificacionOut,
+        };
+        const contextoReintentoInforme = {
+          tipo: 'informe',
+          informeId: idInformeGuardado,
+          destinatarios: correosNotificacionOut,
+        };
         let correoEnviado = false;
         if (gmailAutorizado) {
           try {
-            correoEnviado = await ejecutarDespachoGmailApi({
-              ref_consecutivo: refConsecutivoFinal,
-              asunto: `[GRC Termales] Radicación de Informe ${refConsecutivoFinal}`,
-              titulo: limpiarTildesParaCorreo(tituloVal),
-              evidenciaUrl: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
-              anexosMultiples: anexosMultiplesRaw,
-              destinatarios: correosNotificacionOut
-            });
+            correoEnviado = await ejecutarDespachoGmailApi(payloadNotificacionInforme);
           } catch (error) {
             console.error('Error enviando correo del informe ya guardado:', error);
             showNotification("El informe se guardó, pero no se pudo enviar el correo.", "error");
@@ -901,6 +939,8 @@ const handleInformeAuditoriaSubmit = async (e) => {
         } else {
           showNotification('Informe guardado, pero el correo no se envió porque Gmail no autorizó el permiso de envío. Guarda de nuevo y acepta el acceso para reintentar.', 'error');
         }
+
+        if (!correoEnviado) encolarReintentoNotificacion?.(payloadNotificacionInforme, contextoReintentoInforme);
 
         if (correoEnviado) {
           const informesConCorreo = updated.map(informe => String(informe.id) === String(idInformeGuardado) ? {
@@ -912,17 +952,22 @@ const handleInformeAuditoriaSubmit = async (e) => {
             if (isAdmin) {
               const correoRegistrado = await saveToCloud({ informesAuditoria: informesConCorreo });
               if (correoRegistrado) setInformesAuditoria(informesConCorreo);
-              else showNotification("El informe y el correo se enviaron, pero no se pudo registrar el envío.", "error");
+              else {
+                encolarReintentoNotificacion?.(payloadNotificacionInforme, { ...contextoReintentoInforme, correoEnviado: true });
+                showNotification("El correo se envió, pero falta registrar el envío. Reintenta desde la bandeja.", "error");
+              }
             } else if (typeof registrarCorreoInforme === 'function') {
               const respuesta = await registrarCorreoInforme(idInformeGuardado, correosNotificacionOut, tsActual);
               if (respuesta?.informe) {
                 setInformesAuditoria(prev => prev.map(informe => String(informe.id) === String(idInformeGuardado) ? respuesta.informe : informe));
               } else {
-                showNotification("El informe y el correo se enviaron, pero no se pudo registrar el envío.", "error");
+                encolarReintentoNotificacion?.(payloadNotificacionInforme, { ...contextoReintentoInforme, correoEnviado: true });
+                showNotification("El correo se envió, pero falta registrar el envío. Reintenta desde la bandeja.", "error");
               }
             }
           } catch {
-            showNotification("El informe y el correo se enviaron, pero no se pudo registrar el envío.", "error");
+            encolarReintentoNotificacion?.(payloadNotificacionInforme, { ...contextoReintentoInforme, correoEnviado: true });
+            showNotification("El correo se envió, pero falta registrar el envío. Reintenta desde la bandeja.", "error");
           }
         }
       }

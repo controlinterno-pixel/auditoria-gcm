@@ -1,5 +1,5 @@
 import { useMemo, useCallback, lazy, Suspense, useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MailWarning, RefreshCw } from 'lucide-react';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
@@ -87,6 +87,8 @@ const getInitialSidebarState = () => {
 export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialSidebarState);
   const [detallePanelPlanes, setDetallePanelPlanes] = useState(null);
+  const [reintentosNotificacion, setReintentosNotificacion] = useState([]);
+  const [reintentandoNotificacionId, setReintentandoNotificacionId] = useState(null);
   
   // 🛡️ ESTADO DE BLOQUEO: Previene la "condición de carrera" al recargar con F5
   const [authInitialized, setAuthInitialized] = useState(false);
@@ -120,6 +122,7 @@ export default function App() {
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();
+  const notificacionesPendientesUsuario = reintentosNotificacion.filter(item => item.propietario === String(user?.email || '').trim().toLowerCase());
 
   // 2. Escucha a Firebase y libera la carga (Depende de 'user')
   useEffect(() => {
@@ -356,6 +359,57 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
   const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification), [user, showNotification]);
   const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.email, showNotification), [user, showNotification]);
+  const encolarReintentoNotificacion = useCallback((payload, contexto = {}) => {
+    if (!payload?.destinatarios) return false;
+    const id = globalThis.crypto?.randomUUID?.() || `email-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setReintentosNotificacion(prev => [{
+      id,
+      propietario: String(user?.email || '').trim().toLowerCase(),
+      payload,
+      tipo: contexto.tipo || 'general',
+      informeId: contexto.informeId || null,
+      destinatarios: contexto.destinatarios || String(payload.destinatarios),
+      correoEnviado: contexto.correoEnviado === true,
+      creadoEn: new Date().toISOString(),
+      intentos: 0,
+    }, ...prev].slice(0, 30));
+    return true;
+  }, [user?.email]);
+  const reintentarNotificacion = async item => {
+    if (!item || item.propietario !== String(user?.email || '').trim().toLowerCase() || reintentandoNotificacionId) return;
+    setReintentandoNotificacionId(item.id);
+    setReintentosNotificacion(prev => prev.map(actual => actual.id === item.id ? { ...actual, intentos: actual.intentos + 1 } : actual));
+    let correoEnviado = item.correoEnviado;
+
+    try {
+      if (!correoEnviado) {
+        correoEnviado = await enviarCorreoGmail(item.payload, user?.email, showNotification, { forcePrompt: true });
+        if (!correoEnviado) return;
+        setReintentosNotificacion(prev => prev.map(actual => actual.id === item.id ? { ...actual, correoEnviado: true } : actual));
+      }
+
+      if (item.tipo === 'informe' && item.informeId) {
+        const fechaCorreoEnviado = new Date().toLocaleString();
+        const respuesta = await apiService.registrarCorreoInforme(item.informeId, item.destinatarios, fechaCorreoEnviado);
+        if (!respuesta?.informe) {
+          setReintentosNotificacion(prev => prev.map(actual => actual.id === item.id ? { ...actual, correoEnviado: true } : actual));
+          showNotification('El correo ya se envió, pero falta registrar ese envío. Reintenta el registro desde la bandeja.', 'error');
+          return;
+        }
+        setInformesAuditoria(prev => prev.map(informe => String(informe.id) === String(item.informeId) ? respuesta.informe : informe));
+      }
+
+      setReintentosNotificacion(prev => prev.filter(actual => actual.id !== item.id));
+      showNotification('Notificación confirmada y registrada.', 'success');
+    } catch (error) {
+      if (correoEnviado) {
+        setReintentosNotificacion(prev => prev.map(actual => actual.id === item.id ? { ...actual, correoEnviado: true } : actual));
+      }
+      showNotification(error?.message || 'No se pudo completar el reintento. La notificación sigue pendiente.', 'error');
+    } finally {
+      setReintentandoNotificacionId(null);
+    }
+  };
   const {
     handleRiesgoSubmit, handleHallazgoSubmit, handlePlanSubmit, handleAprobarCierrePlan,
     handleEvaluacionSubmit, handleComiteSubmit, handleIncidenteSubmit, handleCronogramaSubmit,
@@ -365,7 +419,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
     setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes, setCronograma, setMonitoreo, setInformesAuditoria,
     setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
-    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses,
+    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, encolarReintentoNotificacion, defaultMeses,
     crearRegistroGrc: apiService.crearRegistroGrc,
     actualizarInformeGrc: apiService.actualizarInformeGrc,
     actualizarHallazgoGrc: apiService.actualizarHallazgoGrc,
@@ -375,7 +429,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
     setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes, setCronograma, setMonitoreo, setInformesAuditoria,
     setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
-    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses
+    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, encolarReintentoNotificacion, defaultMeses
   ]);
 
 // 🔔 Calculador de notificaciones personalizadas para la barra lateral
@@ -547,6 +601,71 @@ return (
 <main id="main-scroll-area" tabIndex={-1} aria-label="Contenido principal" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-4 sm:p-6 xl:p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
           <Suspense fallback={<div className="flex justify-center items-center p-12 text-slate-400 font-bold text-sm uppercase tracking-widest animate-pulse">⏳ Cargando módulo...</div>}>
 <div key={`${activeTab}-${subTabPlanificar}-${subTabResultados}-${subTabPlanes}-${subTabGobernanza}`} className={`${isPresentationMode ? 'max-w-none' : 'max-w-[1600px]'} mx-auto transition-all duration-500`}>
+          {notificacionesPendientesUsuario.length > 0 && (
+            <section aria-labelledby="notificaciones-pendientes-titulo" aria-live="polite" className="mb-4 rounded-xl border border-amber-300 bg-amber-50/90 p-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <MailWarning size={19} aria-hidden="true" className="mt-0.5 shrink-0 text-amber-700" />
+                  <div>
+                    <h2 id="notificaciones-pendientes-titulo" className="text-sm font-black text-amber-950">Notificaciones pendientes</h2>
+                    <p className="mt-0.5 text-xs text-amber-900">Los datos ya se guardaron. Puedes reintentar el correo sin volver a guardar el informe o la matriz.</p>
+                  </div>
+                </div>
+                <span className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-bold tabular-nums text-amber-900">
+                  {notificacionesPendientesUsuario.length} pendientes
+                </span>
+              </div>
+              <ul className="mt-3 space-y-2">
+                {notificacionesPendientesUsuario.map(item => (
+                  <li key={item.id} className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-slate-800">
+                        {item.payload.asunto || item.payload.titulo_informe || item.payload.titulo || 'Notificación GRC'}
+                      </p>
+                      {item.correoEnviado ? (
+                        <p className="mt-1 break-all text-[11px] text-slate-600">Enviado a: {item.destinatarios}</p>
+                      ) : (
+                        <label htmlFor={`retry-recipients-${item.id}`} className="mt-2 block text-[10px] font-bold text-slate-600">
+                          Destinatarios
+                          <input
+                            id={`retry-recipients-${item.id}`}
+                            type="text"
+                            value={item.destinatarios}
+                            onChange={event => {
+                              const destinatarios = event.target.value;
+                              setReintentosNotificacion(prev => prev.map(actual => actual.id === item.id ? {
+                                ...actual,
+                                destinatarios,
+                                payload: { ...actual.payload, destinatarios },
+                              } : actual));
+                            }}
+                            aria-describedby={`retry-hint-${item.id}`}
+                            placeholder="correo@empresa.com"
+                            className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                          <span id={`retry-hint-${item.id}`} className="mt-1 block font-normal text-slate-500">Puedes corregir la dirección o separar varios correos con coma.</span>
+                        </label>
+                      )}
+                      <p className="mt-1 text-[10px] font-medium text-amber-800">
+                        {item.correoEnviado ? 'Correo enviado; falta confirmar su registro.' : 'No se confirmó el envío.'}
+                        {item.intentos > 0 ? ` Intentos: ${item.intentos}.` : ''}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={reintentandoNotificacionId !== null || (!item.correoEnviado && !item.destinatarios.trim())}
+                      onClick={() => reintentarNotificacion(item)}
+                      aria-label={item.correoEnviado ? 'Registrar el envío ya realizado' : `Reintentar envío a ${item.destinatarios}`}
+                      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-700 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <RefreshCw size={14} aria-hidden="true" className={reintentandoNotificacionId === item.id ? 'animate-spin' : ''} />
+                      {reintentandoNotificacionId === item.id ? 'Reintentando…' : item.correoEnviado ? 'Registrar envío' : 'Reintentar envío'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <nav aria-label="Ubicación actual" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
             <ol className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
               <li>
@@ -808,7 +927,7 @@ return (
                 
                 {subTabPlanes === 'planes' && (
                   <Planes 
-                    reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user} perfilUsuario={perfilUsuario}
+                    reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} encolarReintentoNotificacion={encolarReintentoNotificacion} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user} perfilUsuario={perfilUsuario}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
                     FilterInput={FilterInput} pFiltrados={pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}
@@ -824,7 +943,14 @@ return (
                         const logTrazabilidad = { fecha: ts, usuario: user?.email || 'Usuario', accion: `Fase de Gobernanza actualizada a: ${nuevoEstadoWorkflow}` };
                         const planActual = safePlanes.find(p => p.id === id);
                         if (!planActual) return;
-                        if (nuevoEstadoWorkflow === 'En Revisión' && !(await prepararEnvioGmail())) return;
+                        let correoPreparado = true;
+                        if (nuevoEstadoWorkflow === 'En Revisión') {
+                          try {
+                            correoPreparado = Boolean(await prepararEnvioGmail());
+                          } catch {
+                            correoPreparado = false;
+                          }
+                        }
                         const planModificado = { ...planActual, estadoWorkflow: nuevoEstadoWorkflow, historialCambios: [...(planActual.historialCambios || []), logTrazabilidad] };
                         const updatedList = safePlanes.map(p => p.id === id ? planModificado : p);
                         const guardado = await saveToCloud({ planes: updatedList });
@@ -834,7 +960,16 @@ return (
                         setFormResetKey(Date.now());
                         if (nuevoEstadoWorkflow === 'En Revisión') {
                         const correoGestor = auth.currentUser?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "admin@termales.com.co";
-                          const correoEnviado = await ejecutarDespachoGmailApi({ ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: 'https://auditoria-gcm.vercel.app', destinatarios: correoGestor });
+                          const payloadNotificacion = { ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: window.location.origin, destinatarios: correoGestor };
+                          let correoEnviado = false;
+                          if (correoPreparado) {
+                            try {
+                              correoEnviado = Boolean(await ejecutarDespachoGmailApi(payloadNotificacion));
+                            } catch {
+                              correoEnviado = false;
+                            }
+                          }
+                          if (!correoEnviado) encolarReintentoNotificacion(payloadNotificacion, { tipo: 'plan' });
                           showNotification(
                             correoEnviado ? "Plan enviado a revisión y administrador notificado." : "Plan enviado a revisión, pero no se pudo enviar el correo.",
                             correoEnviado ? "success" : "error"

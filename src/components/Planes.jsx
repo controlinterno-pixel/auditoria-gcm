@@ -57,6 +57,7 @@ export default function Planes({
   misPlanesEjecucion = [],
   misPlanesRevision = [],
   misPlanesAprobacion = [],
+  encolarReintentoNotificacion = () => {},
   user = null,
   perfilUsuario = null,
   editPlan,
@@ -280,6 +281,21 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const esFuenteProgramaAuditoria = informe => (
     informe?.tipoFuente === 'Programa de Auditoría' && Boolean(informe?.programaId)
   );
+
+  const enviarNotificacionPlanConReintento = async (payload, autorizacionLista = true) => {
+    let enviado = false;
+    if (autorizacionLista && typeof ejecutarDespachoGmailApi === 'function') {
+      try {
+        enviado = Boolean(await ejecutarDespachoGmailApi(payload));
+      } catch {
+        enviado = false;
+      }
+    }
+    if (!enviado && payload?.destinatarios) {
+      encolarReintentoNotificacion(payload, { tipo: 'plan' });
+    }
+    return enviado;
+  };
 
   // Un plan al 100% sigue pendiente del auditor aunque su fase guardada sea antigua.
   const enRevisionAuditor = plan => (
@@ -718,39 +734,39 @@ const handleNotificarPlan = (planId) => {
           }
         }
         if ((requiereNotificacionEdicion || requiereCorreoNuevo) && !correoPreparado) todasNotificacionesEnviadas = false;
-        if (actividadesNuevas.length > 0 && enviarNotificaciones && ejecutarDespachoGmailApi && correoPreparado) {
+        if (actividadesNuevas.length > 0 && enviarNotificaciones) {
           for (const plan of planesCreados) {
-            const correoEjecutorEnviado = await ejecutarDespachoGmailApi({
+            const correoEjecutorEnviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
               titulo_informe: 'Acción Creada - Pendiente de Revisión',
               proceso_auditado: `Has elaborado el plan de acción: "${plan.accion}". Está pendiente de revisión por ${plan.revisor}.`,
               enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
               destinatarios: plan.correoResponsable,
-            });
-            const correoRevisorEnviado = await ejecutarDespachoGmailApi({
+            }, correoPreparado);
+            const correoRevisorEnviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
               titulo_informe: 'Acción requerida: revisar Plan de Acción',
               proceso_auditado: `El responsable ${plan.responsable} creó el plan "${plan.accion}". Ingrese a la plataforma para revisarlo.`,
               enlace_pdf: enlaceRevision,
               destinatarios: plan.correoRevisor,
-            });
+            }, correoPreparado);
             if (!correoEjecutorEnviado || !correoRevisorEnviado) todasNotificacionesEnviadas = false;
           }
         }
-        if (actividadesEditadas.length > 0 && ejecutarDespachoGmailApi && correoPreparado) {
+        if (actividadesEditadas.length > 0 && requiereNotificacionEdicion) {
           const planesReenviadosARevision = planesActualizados.filter(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
           for (const plan of planesReenviadosARevision) {
             if (!plan.correoRevisor) {
               todasNotificacionesEnviadas = false;
               continue;
             }
-            const correoRevisorEnviado = await ejecutarDespachoGmailApi({
+            const correoRevisorEnviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
               titulo_informe: 'Diseño corregido: pendiente de nueva revisión',
               proceso_auditado: `El responsable ${plan.responsable} corrigió el plan "${plan.accion}". La acción volvió a Pendiente Revisión Jefatura; ingrese a la matriz para aprobarla o solicitar otra corrección.`,
               enlace_pdf: enlaceRevision,
               destinatarios: plan.correoRevisor,
-            });
+            }, correoPreparado);
             if (!correoRevisorEnviado) todasNotificacionesEnviadas = false;
           }
 
@@ -760,13 +776,13 @@ const handleNotificarPlan = (planId) => {
               todasNotificacionesEnviadas = false;
               continue;
             }
-            const correoAuditorEnviado = await ejecutarDespachoGmailApi({
+            const correoAuditorEnviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
               titulo_informe: 'Plan al 100%: revisión de evidencias requerida',
               proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Revise sus evidencias para aprobar el cierre.`,
               enlace_pdf: plan.evidenciaUrl || window.location.origin,
               destinatarios: plan.correoAuditor,
-            });
+            }, correoPreparado);
             if (!correoAuditorEnviado) todasNotificacionesEnviadas = false;
           }
         }
@@ -968,40 +984,40 @@ const diccionarioCorreos = {
 
    // 📧 NOTIFICACIÓN 1: CREACIÓN - CASCADA AL REVISOR
     let todasNotificacionesEnviadas = correoPreparadoAdmin;
-    if (correoPreparadoAdmin && enviarNotificaciones && notificacionesRadicadas.length > 0 && ejecutarDespachoGmailApi) {
+    if (enviarNotificaciones && notificacionesRadicadas.length > 0) {
       for (const plan of notificacionesRadicadas) {
         // 1A. Avisar a quien elabora que la tarea quedó guardada
-        await ejecutarDespachoGmailApi({
+        const correoEjecutorEnviado = await enviarNotificacionPlanConReintento({
           ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
           titulo_informe: `[Paso 1/3] Acción Creada - Pendiente de Revisión`,
           proceso_auditado: `Has elaborado el plan de acción: "${plan.accion}". Actualmente se encuentra en estado 'Pendiente Revisión Jefatura' a cargo de ${plan.revisor}.`,
           enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: plan.correoResponsable
-        });
+        }, correoPreparadoAdmin);
 
         // 1B. Notificar AL REVISOR que tiene una tarea esperando su Visto Bueno
-        const correoRevisorEnviado = await ejecutarDespachoGmailApi({
+        const correoRevisorEnviado = await enviarNotificacionPlanConReintento({
           ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
           titulo_informe: `⏳ ACCIÓN REQUERIDA: Revisar Plan de Acción`,
           proceso_auditado: `El responsable ${plan.responsable} ha creado el plan: "${plan.accion}". Ingrese al sistema GRC para APROBAR este diseño y remitirlo al Auditor de seguimiento.`,
           enlace_pdf: 'https://auditoria-gcm.vercel.app',
           destinatarios: plan.correoRevisor
-        });
-        if (!correoRevisorEnviado) todasNotificacionesEnviadas = false;
+        }, correoPreparadoAdmin);
+        if (!correoEjecutorEnviado || !correoRevisorEnviado) todasNotificacionesEnviadas = false;
       }
     }
 
     // 📧 NOTIFICACIÓN 2: ALERTA DE TRABAJO AL 100% PARA EL AUDITOR
-    if (correoPreparadoAdmin && enviarNotificaciones && notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
+    if (enviarNotificaciones && notificacionesRevision100.length > 0) {
       for (const act of notificacionesRevision100) {
         const correoAuditorTarget = act.correoAuditor || diccionarioCorreos[act.auditorAsignado] || correoAdminDefault;
-        const correoRevisionEnviado = await ejecutarDespachoGmailApi({
+        const correoRevisionEnviado = await enviarNotificacionPlanConReintento({
           ref_consecutivo: `PLA-${String(act.id).slice(-4)}`,
           titulo_informe: `Verificar evidencias al 100% para cierre`,
           proceso_auditado: `El plan de acción completó su ejecución al 100%. Ingrese a la plataforma para aprobar las evidencias y proceder al Cierre Formal.`,
           enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: correoAuditorTarget
-        });
+        }, correoPreparadoAdmin);
         if (!correoRevisionEnviado) todasNotificacionesEnviadas = false;
       }
     }
@@ -1467,8 +1483,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
         'success'
       );
 
-      if (ejecutarDespachoGmailApi) {
-        const notificado = await ejecutarDespachoGmailApi({
+      {
+        const notificado = await enviarNotificacionPlanConReintento({
           ref_consecutivo: `PLA-${String(planActualizado.id).slice(-4)}`,
           titulo_informe: eficaz ? 'Plan de acción cerrado' : 'Evidencia rechazada: requiere ajustes',
           proceso_auditado: eficaz
@@ -1549,17 +1565,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             correoPreparado = false;
           }
         }
-        if (!ejecutarDespachoGmailApi || !correoPreparado) {
-          showNotification('La decisión se guardó, pero no se pudo preparar el envío de correo.', 'error');
-          return;
-        }
         for (const plan of planesActualizados) {
           if (!plan.correoResponsable) {
             todasNotificacionesEnviadas = false;
             continue;
           }
           try {
-            const enviado = await ejecutarDespachoGmailApi({
+            const enviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
               asunto: decision === 'aprobar' ? 'Diseño del plan aprobado' : 'Corrección solicitada para el plan de acción',
               titulo_informe: decision === 'aprobar' ? 'Diseño del plan aprobado' : 'El plan requiere correcciones',
@@ -1568,7 +1580,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 : `El diseño de la acción "${plan.accion}" requiere correcciones. Motivo del aprobador: ${motivoCorreccion.trim()}`,
               enlace_pdf: window.location.origin,
               destinatarios: plan.correoResponsable,
-            });
+            }, correoPreparado);
             if (!enviado) todasNotificacionesEnviadas = false;
           } catch {
             todasNotificacionesEnviadas = false;
@@ -3158,16 +3170,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                                     return;
                                                   }
                                                   
-                                                  if (ejecutarDespachoGmailApi) {
-                                                    await ejecutarDespachoGmailApi({
-                                                      ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
-                                                      titulo_informe: `🏁 Plan de Acción CERRADO EXITOSAMENTE`,
-                                                      proceso_auditado: `Auditoría ha validado las evidencias al 100% de la acción: "${p.accion}". El ciclo de mejora ha finalizado.`,
-                                                      enlace_pdf: 'https://auditoria-gcm.vercel.app',
-                                                      destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
-                                                    });
-                                                  }
-                                                  alert("Plan Cerrado y responsables notificados.");
+                                                  const notificados = await enviarNotificacionPlanConReintento({
+                                                    ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                    titulo_informe: 'Plan de Acción cerrado',
+                                                    proceso_auditado: `Auditoría validó las evidencias al 100% de la acción: "${p.accion}". El ciclo de mejora ha finalizado.`,
+                                                    enlace_pdf: window.location.origin,
+                                                    destinatarios: [p.correoResponsable, p.correoRevisor].filter(Boolean).join(', ')
+                                                  });
+                                                  alert(notificados ? 'Plan cerrado y responsables notificados.' : 'Plan cerrado y guardado. La notificación quedó pendiente para reintento.');
                                                 }
                                               }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all animate-pulse shadow-emerald-500/30">
                                                 ✓ Aprobar Cierre
@@ -3184,16 +3194,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                                     return;
                                                   }
                                                   
-                                                  if (ejecutarDespachoGmailApi) {
-                                                    await ejecutarDespachoGmailApi({
-                                                      ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
-                                                      titulo_informe: `❌ Evidencia Rechazada`,
-                                                      proceso_auditado: `El Auditor rechazó los soportes de la acción: "${p.accion}". Motivo: ${r}. El avance regresa a 90% (En Ejecución) para su corrección.`,
-                                                      enlace_pdf: 'https://auditoria-gcm.vercel.app',
-                                                      destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
-                                                    });
-                                                  }
-                                                  alert("Rechazo aplicado y notificado al ejecutor.");
+                                                  const notificados = await enviarNotificacionPlanConReintento({
+                                                    ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                    titulo_informe: 'Evidencia de plan rechazada',
+                                                    proceso_auditado: `El Auditor rechazó los soportes de la acción: "${p.accion}". Motivo: ${r}. El avance regresa a 90% (En Ejecución) para su corrección.`,
+                                                    enlace_pdf: window.location.origin,
+                                                    destinatarios: [p.correoResponsable, p.correoRevisor].filter(Boolean).join(', ')
+                                                  });
+                                                  alert(notificados ? 'Rechazo aplicado y responsables notificados.' : 'Rechazo aplicado. La notificación quedó pendiente para reintento.');
                                                 }
                                               }} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">
                                                 ✕ Rechazar Evidencia
