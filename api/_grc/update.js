@@ -16,7 +16,7 @@ const CAMPOS_EDITABLES = [
   'actaSocializacionUrl', 'anexos', 'anexosMultiples', 'correoEnviadoA',
 ];
 const CAMPOS_EDITABLES_HALLAZGO = [
-  'sede', 'proceso', 'macroproceso', 'macroprocesos', 'subproceso', 'subprocesos', 'subprocesosPorMacroproceso', 'responsable', 'auditor',
+  'idInforme', 'sede', 'proceso', 'macroproceso', 'macroprocesos', 'subproceso', 'subprocesos', 'subprocesosPorMacroproceso', 'responsable', 'auditor',
   'normaReferencia', 'tipoFuente', 'detalleFuente', 'metodologiaCausa',
   'analisisCausa', 'titulo', 'severidad', 'evidenciaUrl', 'evidencias',
   'causa', 'claseObservacion',
@@ -349,6 +349,43 @@ export default async function handler(req, res) {
         const anterior = hallazgos.find(hallazgo => String(hallazgo.id) === String(id));
         if (!anterior) return { error: 'not-found' };
 
+        const cambiaInforme = Object.hasOwn(cambios, 'idInforme') &&
+          String(cambios.idInforme || '').trim() !== String(anterior.idInforme || '').trim();
+        let informeDestino = null;
+        if (cambiaInforme) {
+          const idInformeSolicitado = String(cambios.idInforme || '').trim();
+          if (!idInformeSolicitado) return { error: 'report-required' };
+
+          const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+          const informeEncontrado = informes.find(informe => (
+            String(informe.id || '').trim() === idInformeSolicitado ||
+            String(informe.ref || '').trim().toLowerCase() === idInformeSolicitado.toLowerCase()
+          ));
+          if (informeEncontrado) {
+            informeDestino = informeEncontrado;
+          } else {
+            const informeSnapshot = await transaction.get(
+              workspace.coleccionInformesRef.doc(idInformeSolicitado)
+            );
+            if (informeSnapshot.exists) {
+              informeDestino = { id: informeSnapshot.id, ...informeSnapshot.data() };
+            }
+          }
+          if (!informeDestino) return { error: 'report-not-found' };
+
+          if (!admin) {
+            const procesosAsignados = obtenerProcesosAsignados(perfil, user);
+            const subprocesosAsignados = obtenerSubprocesosAsignados(perfil);
+            if (!registroDentroDelAlcance(
+              procesosAsignados,
+              subprocesosAsignados,
+              obtenerMacroprocesos(informeDestino),
+              subprocesosDe(informeDestino),
+              informeDestino.subprocesosPorMacroproceso
+            )) return { error: 'report-forbidden' };
+          }
+        }
+
         const autor = normalizar(
           anterior.correoCreador || anterior.creadoPor || anterior.historialCambios?.[0]?.usuario
         );
@@ -364,7 +401,7 @@ export default async function handler(req, res) {
           ...cambios,
           id: anterior.id,
           ref: anterior.ref,
-          idInforme: anterior.idInforme,
+          idInforme: cambiaInforme ? String(informeDestino.id) : anterior.idInforme,
           correoCreador: anterior.correoCreador || anterior.creadoPor || user.email,
           creadoPor: anterior.creadoPor || anterior.correoCreador || user.email,
           historialCambios: camposCambiados.length ? [
@@ -392,6 +429,9 @@ export default async function handler(req, res) {
 
       if (resultado.error === 'not-found') return sendError(res, 'No se encontró el hallazgo.', 404);
       if (resultado.error === 'forbidden') return sendError(res, 'Solo el creador o un administrador puede editar este hallazgo.', 403);
+      if (resultado.error === 'report-required') return sendError(res, 'Selecciona un informe de auditoría válido.', 400);
+      if (resultado.error === 'report-not-found') return sendError(res, 'No se encontró el informe de auditoría seleccionado.', 404);
+      if (resultado.error === 'report-forbidden') return sendError(res, 'No tienes acceso al proceso y subproceso del informe seleccionado.', 403);
 
       await notificarSemaforo();
       logger.info('Hallazgo actualizado', { id, usuario: user.email });
