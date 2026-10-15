@@ -102,6 +102,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [mostrarMotivoCorreccion, setMostrarMotivoCorreccion] = useState(false);
   const [motivoCorreccion, setMotivoCorreccion] = useState('');
   const [guardandoDecisionRevision, setGuardandoDecisionRevision] = useState(false);
+  const [guardandoAccionKey, setGuardandoAccionKey] = useState(null);
   const handleDescargarPdfConLoader = async (idInf, refInforme) => {
     if (generandoPdfId) return; // Evita clics dobles
     try {
@@ -1445,6 +1446,262 @@ if (existingActivities.length > 0) {
       return { ...prev, [hallazgoId]: { ...prev[hallazgoId], actividades: currentActividades } };
     });
   };
+
+  const guardarAccionIndividual = async (hallazgoId, index) => {
+    const key = `${hallazgoId}-${index}`;
+    if (guardandoAccionKey) return;
+    if (uploadingCell === key) {
+      showNotification('Espera a que termine la carga de la evidencia antes de guardar.', 'error');
+      return;
+    }
+
+    const actividad = matrixState[hallazgoId]?.actividades?.[index];
+    const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
+    if (!actividad || !hallazgo) return;
+    if (!actividad.accion?.trim()) {
+      showNotification('Escribe la descripción de la acción antes de guardarla.', 'error');
+      return;
+    }
+
+    const esNueva = String(actividad.id).startsWith('new-');
+    const planOriginal = esNueva
+      ? null
+      : safePlanes.find(plan => String(plan.id) === String(actividad.id));
+    const progreso = Number(actividad.progreso);
+    if (!Number.isInteger(progreso) || progreso < 0 || progreso > 100) {
+      showNotification('El avance debe ser un número entero entre 0 y 100.', 'error');
+      return;
+    }
+
+    const correoNormalizado = value => String(value || '').trim().toLowerCase();
+    const correoResponsable = String(actividad.correoResponsable || '').trim();
+    const correoRevisor = String(actividad.correoRevisor || '').trim();
+    if (esNueva && (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoResponsable) ||
+      correoNormalizado(correoResponsable) !== correoNormalizado(actividad.correoConfirmacion) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoRevisor) ||
+      correoNormalizado(correoRevisor) !== correoNormalizado(actividad.correoRevisorConfirmacion)
+    )) {
+      showNotification('Verifica que los correos del ejecutor y del revisor sean válidos y coincidan.', 'error');
+      return;
+    }
+
+    const camposGuardables = [
+      'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion', 'progreso',
+      'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
+    ];
+    const cambios = {
+      id: actividad.id,
+      accion: actividad.accion.trim(),
+      sede: actividad.sede || 'No especificada',
+      fechaInicio: actividad.fechaInicio || null,
+      fecha: actividad.fecha || null,
+      evidenciaUrl: actividad.evidenciaUrl || '',
+      tipoAccion: actividad.tipoAccion || 'Acción Correctiva',
+      progreso,
+      matrizRiesgos: actividad.matrizRiesgos || 'No aplica',
+      matrizAspectos: actividad.matrizAspectos || 'No aplica',
+      matrizPeligros: actividad.matrizPeligros || 'No aplica',
+      matrizLegal: actividad.matrizLegal || 'No aplica',
+    };
+    const informeActual = informesAuditoria.find(informe => (
+      String(informe.id) === String(formInformeId) ||
+      String(informe.ref || '').trim().toLowerCase() === String(formInformeId).trim().toLowerCase()
+    ));
+    const camposDiseno = camposGuardables.filter(campo => !['progreso', 'evidenciaUrl'].includes(campo));
+    const cambioDiseno = Boolean(planOriginal && camposDiseno.some(campo => (
+      JSON.stringify(planOriginal[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
+    ))) || Boolean(planOriginal && (
+      correoNormalizado(actividad.correoResponsable) !== correoNormalizado(planOriginal.correoResponsable) ||
+      correoNormalizado(actividad.correoRevisor) !== correoNormalizado(planOriginal.correoRevisor) ||
+      correoNormalizado(actividad.correoAuditor) !== correoNormalizado(planOriginal.correoAuditor || informeActual?.correoAuditor)
+    ));
+    const llegaAlCien = progreso === 100 && (
+      Number(planOriginal?.progreso || 0) < 100 || planOriginal?.estadoWorkflow === 'En Ejecución'
+    );
+    const idInformeReal = String(
+      informesAuditoria.find(informe => (
+        String(informe.id) === String(formInformeId) ||
+        String(informe.ref || '').trim().toLowerCase() === String(formInformeId).trim().toLowerCase()
+      ))?.id || formInformeId
+    );
+
+    setGuardandoAccionKey(key);
+    try {
+      const requiereNotificacion = (esNueva && enviarNotificaciones) || llegaAlCien || (!isAdmin && cambioDiseno);
+      let correoPreparado = !requiereNotificacion;
+      if (requiereNotificacion && prepararEnvioGmail) {
+        try {
+          correoPreparado = Boolean(await prepararEnvioGmail());
+        } catch {
+          correoPreparado = false;
+        }
+      }
+
+      let planGuardado;
+      if (esNueva) {
+        const respuesta = await apiService.guardarMatrizPlanes({
+          idInforme: idInformeReal,
+          actualizaciones: [],
+          nuevas: [{
+            idHallazgo: hallazgo.id,
+            accion: cambios.accion,
+            sede: cambios.sede,
+            responsable: actividad.responsable || 'Sin Asignar',
+            correoResponsable,
+            correoConfirmacion: actividad.correoConfirmacion,
+            revisor: actividad.revisor || 'Sin Asignar',
+            correoRevisor,
+            correoRevisorConfirmacion: actividad.correoRevisorConfirmacion,
+            auditorAsignado: actividad.auditorAsignado || '',
+            correoAuditor: actividad.correoAuditor || '',
+            fechaInicio: cambios.fechaInicio,
+            fecha: cambios.fecha,
+            evidenciaUrl: cambios.evidenciaUrl,
+            tipoAccion: cambios.tipoAccion,
+            matrizRiesgos: cambios.matrizRiesgos,
+            matrizAspectos: cambios.matrizAspectos,
+            matrizPeligros: cambios.matrizPeligros,
+            matrizLegal: cambios.matrizLegal,
+          }],
+        });
+        planGuardado = respuesta?.planesNuevos?.[0];
+      } else {
+        const correoAuditorOriginal = planOriginal?.correoAuditor || informeActual?.correoAuditor || '';
+        const cambiosCorreo = {};
+        if (correoNormalizado(actividad.correoResponsable) !== correoNormalizado(planOriginal?.correoResponsable)) {
+          cambiosCorreo.correoResponsable = correoResponsable;
+          cambiosCorreo.correoConfirmacion = actividad.correoConfirmacion || '';
+        }
+        if (correoNormalizado(actividad.correoRevisor) !== correoNormalizado(planOriginal?.correoRevisor)) {
+          cambiosCorreo.correoRevisor = correoRevisor;
+          cambiosCorreo.correoRevisorConfirmacion = actividad.correoRevisorConfirmacion || '';
+        }
+        if (correoNormalizado(actividad.correoAuditor) !== correoNormalizado(correoAuditorOriginal)) {
+          cambiosCorreo.correoAuditor = String(actividad.correoAuditor || '').trim();
+        }
+        const cambiosFinales = {
+          ...cambios,
+          ...(isAdmin ? {
+            responsable: actividad.responsable || 'Sin Asignar',
+            revisor: actividad.revisor || 'Sin Asignar',
+          } : {}),
+          ...cambiosCorreo,
+        };
+        const camposComparados = [
+          ...camposGuardables,
+          ...(isAdmin ? ['responsable', 'revisor'] : []),
+          ...Object.keys(cambiosCorreo),
+        ];
+        const sinCambios = camposComparados.every(campo => (
+          JSON.stringify(planOriginal[campo] ?? null) === JSON.stringify(cambiosFinales[campo] ?? null)
+        ));
+        if (sinCambios) {
+          showNotification('Esta acción ya está guardada; no hay cambios pendientes.', 'success');
+          return;
+        }
+        const respuesta = await apiService.guardarMatrizPlanes({
+          idInforme: idInformeReal,
+          nuevas: [],
+          actualizaciones: [cambiosFinales],
+        });
+        planGuardado = respuesta?.planesActualizados?.[0];
+      }
+
+      if (!planGuardado) throw new Error('El servidor no confirmó el guardado de la acción.');
+      const planesActualizados = esNueva
+        ? [...safePlanes, planGuardado]
+        : safePlanes.map(plan => String(plan.id) === String(planGuardado.id) ? planGuardado : plan);
+      setPlanes(planesActualizados);
+
+      const matrizActualizada = {
+        ...matrixState,
+        [hallazgoId]: {
+          ...matrixState[hallazgoId],
+          actividades: matrixState[hallazgoId].actividades.map((item, itemIndex) => (
+            itemIndex === index
+              ? {
+                ...item,
+                ...planGuardado,
+                correoConfirmacion: actividad.correoConfirmacion || planGuardado.correoResponsable || '',
+                correoRevisorConfirmacion: actividad.correoRevisorConfirmacion || planGuardado.correoRevisor || '',
+              }
+              : item
+          )),
+        },
+      };
+      setMatrixState(matrizActualizada);
+      const hayCambiosPendientes = Object.values(matrizActualizada).some(node => (
+        node.aplica && node.actividades.some(item => {
+          const plan = planesActualizados.find(registro => String(registro.id) === String(item.id));
+          return !plan || [
+            ...camposGuardables,
+            'responsable', 'revisor', 'correoResponsable', 'correoRevisor', 'correoAuditor',
+          ].some(campo => (
+            JSON.stringify(plan[campo] ?? null) !== JSON.stringify(item[campo] ?? null)
+          ));
+        })
+      ));
+      setMatrixDirty(hayCambiosPendientes);
+
+      let notificacionEnviada = true;
+      try {
+        if (esNueva && enviarNotificaciones) {
+          const enlaceRevision = `${window.location.origin}/?reviewReportId=${encodeURIComponent(idInformeReal)}`;
+          const resultados = await Promise.all([
+            enviarNotificacionPlanConReintento({
+              ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
+              titulo_informe: 'Acción creada: pendiente de revisión',
+              proceso_auditado: `Se registró la acción "${planGuardado.accion}" y está pendiente de revisión por ${planGuardado.revisor}.`,
+              enlace_pdf: planGuardado.evidenciaUrl || enlaceRevision,
+              destinatarios: planGuardado.correoResponsable,
+            }, correoPreparado),
+            enviarNotificacionPlanConReintento({
+              ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
+              titulo_informe: 'Acción requerida: revisar plan de acción',
+              proceso_auditado: `Se registró la acción "${planGuardado.accion}"; ingrese para revisar el diseño.`,
+              enlace_pdf: enlaceRevision,
+              destinatarios: planGuardado.correoRevisor,
+            }, correoPreparado),
+          ]);
+          notificacionEnviada = resultados.every(Boolean);
+        } else if (planGuardado.estadoWorkflow === 'En Revisión (100%)' && llegaAlCien) {
+          const enlaceEvidencia = Array.isArray(planGuardado.evidenciaUrl)
+            ? planGuardado.evidenciaUrl.at(-1)
+            : planGuardado.evidenciaUrl;
+          notificacionEnviada = await enviarNotificacionPlanConReintento({
+            ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
+            titulo_informe: 'Plan al 100%: revisión de evidencias requerida',
+            proceso_auditado: `La acción "${planGuardado.accion}" llegó al 100%. Revise las evidencias para aprobar el cierre.`,
+            enlace_pdf: enlaceEvidencia || window.location.origin,
+            destinatarios: planGuardado.correoAuditor || informeActual?.correoAuditor,
+          }, correoPreparado);
+        } else if (!isAdmin && cambioDiseno && planGuardado.estadoWorkflow === 'Pendiente Revisión Jefatura') {
+          notificacionEnviada = await enviarNotificacionPlanConReintento({
+            ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
+            titulo_informe: 'Diseño corregido: pendiente de nueva revisión',
+            proceso_auditado: `La acción "${planGuardado.accion}" fue actualizada y requiere una nueva revisión.`,
+            enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(idInformeReal)}`,
+            destinatarios: planGuardado.correoRevisor,
+          }, correoPreparado);
+        }
+      } catch (error) {
+        console.error('No se pudo completar la notificación de la acción guardada:', error);
+        notificacionEnviada = false;
+      }
+
+      showNotification(
+        notificacionEnviada
+          ? 'Acción guardada. Puedes continuar con la siguiente.'
+          : 'Acción guardada, pero no se pudo confirmar el envío de la notificación.',
+        notificacionEnviada ? 'success' : 'error'
+      );
+    } catch (error) {
+      showNotification(error.message || 'No se pudo guardar esta acción.', 'error');
+    } finally {
+      setGuardandoAccionKey(null);
+    }
+  };
 const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).filter(a => a !== 'Sin Fecha'))].sort().reverse();
 
   const guardarEvaluacionEficaciaCierre = async () => {
@@ -2392,12 +2649,18 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               <div className="flex items-center gap-2">
                                 {!modoRevisionMatriz && (
                                   <>
-                                    <button 
-                                      type="submit" 
-                                      className="bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                                      title="Guarda los cambios de esta actividad de inmediato"
+                                    <button
+                                      type="button"
+                                      disabled={Boolean(guardandoAccionKey) || uploadingCell === `${h.id}-${index}`}
+                                      onClick={() => guardarAccionIndividual(h.id, index)}
+                                      className="bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
+                                      title="Guarda únicamente esta acción"
                                     >
-                                      <span>💾</span> Guardar
+                                      {guardandoAccionKey === `${h.id}-${index}`
+                                        ? 'Guardando…'
+                                        : uploadingCell === `${h.id}-${index}`
+                                          ? 'Subiendo evidencia…'
+                                          : <><span>💾</span> Guardar acción</>}
                                     </button>
                                     {node.actividades.length > 1 && (isAdmin || actividadNueva) && (
                                       <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-400 hover:text-red-600 hover:bg-red-50 font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors">

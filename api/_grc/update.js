@@ -151,8 +151,11 @@ export default async function handler(req, res) {
             }
           }
 
+          const camposEditablesPlan = admin
+            ? [...CAMPOS_EDITABLES_PLAN, 'responsable', 'revisor']
+            : CAMPOS_EDITABLES_PLAN;
           const cambios = Object.fromEntries(
-            CAMPOS_EDITABLES_PLAN.filter(campo => Object.hasOwn(peticion, campo))
+            camposEditablesPlan.filter(campo => Object.hasOwn(peticion, campo))
               .map(campo => [campo, peticion[campo]])
           );
           if (Object.hasOwn(cambios, 'accion') && !normalizar(cambios.accion)) return { error: 'invalid-action' };
@@ -165,7 +168,7 @@ export default async function handler(req, res) {
           const camposCambiados = Object.keys(cambios).filter(campo => (
             JSON.stringify(anterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
           ));
-          const atascadoAlCien = !admin && anterior.estadoWorkflow === 'En Ejecución' && Number(anterior.progreso) === 100;
+          const atascadoAlCien = anterior.estadoWorkflow === 'En Ejecución' && Number(anterior.progreso) === 100;
           if (camposCambiados.length === 0 && !atascadoAlCien) continue;
           const cambioProgreso = camposCambiados.includes('progreso');
           // Subir evidencia es ejecución, no una corrección del diseño aprobado.
@@ -176,11 +179,19 @@ export default async function handler(req, res) {
           const reenviaRevision = !admin && cambioDiseno;
           let estadoWorkflow = anterior.estadoWorkflow;
           const alCien = Number(cambios.progreso ?? anterior.progreso) === 100;
+          if (admin && (cambioProgreso || atascadoAlCien)) {
+            if (alCien && anterior.estadoWorkflow === 'En Ejecución') estadoWorkflow = 'En Revisión (100%)';
+            else if (!alCien && anterior.estadoWorkflow === 'En Revisión (100%)') estadoWorkflow = 'En Ejecución';
+          }
           if (!admin && !reenviaRevision && (cambioProgreso || atascadoAlCien)) {
             if (alCien) estadoWorkflow = 'En Revisión (100%)';
             else if (anterior.estadoWorkflow === 'En Revisión (100%)') estadoWorkflow = 'En Ejecución';
           }
-          const cambiaEstadoEjecucion = !admin && !reenviaRevision && (cambioProgreso || atascadoAlCien);
+          const cambiaEstadoEjecucion = (
+            !admin && !reenviaRevision && (cambioProgreso || atascadoAlCien)
+          ) || (
+            admin && (cambioProgreso || atascadoAlCien) && estadoWorkflow !== anterior.estadoWorkflow
+          );
           const historial = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
           planesActualizados.push({
             ...anterior,
