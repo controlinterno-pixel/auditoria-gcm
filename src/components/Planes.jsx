@@ -201,6 +201,8 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   // 🧭 PESTAÑAS DE CONTROL SUPERIOR
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
+  const [paginaGrupoDashboard, setPaginaGrupoDashboard] = useState(1);
+  const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(10);
   const [informePlanesExpandido, setInformePlanesExpandido] = useState(null);
   const [paginaHistorialMatriz, setPaginaHistorialMatriz] = useState(1);
   const [informesPorPaginaMatriz, setInformesPorPaginaMatriz] = useState(10);
@@ -2321,10 +2323,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                    const gVencidos = items.filter(p => p.esVencido).length;
                    const gCumplimiento = items.length > 0 ? Math.round((gCerrados / items.length) * 100) : 0;
                    const isExpanded = grupoExpandido === grupo;
+                   const totalPaginasGrupo = Math.max(1, Math.ceil(items.length / accionesPorPaginaDashboard));
+                   const paginaActualGrupo = Math.min(paginaGrupoDashboard, totalPaginasGrupo);
+                   const inicioPaginaGrupo = (paginaActualGrupo - 1) * accionesPorPaginaDashboard;
+                   const accionesPaginaGrupo = items.slice(inicioPaginaGrupo, inicioPaginaGrupo + accionesPorPaginaDashboard);
+                   const primeraAccionGrupo = inicioPaginaGrupo + 1;
+                   const ultimaAccionGrupo = Math.min(inicioPaginaGrupo + accionesPorPaginaDashboard, items.length);
 
                    return (
                      <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
-                       <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
+                       <div onClick={() => { setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); }} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
                          <div className="flex items-center space-x-3">
                            <span className="text-xl">📅</span>
                            <h4 className="text-sm sm:text-base font-black text-slate-800">{grupo} <span className="text-slate-400 font-medium text-xs">({items.length} planes)</span></h4>
@@ -2361,7 +2369,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       </tr>
     </thead>
     <tbody className="divide-y divide-slate-50">
-      {items.map(p => {
+      {accionesPaginaGrupo.map(p => {
         const asuntoReclamo = encodeURIComponent(`❌ URGENTE: Plan VENCIDO (PLA-${p.id.toString().slice(-4)})`);
         const cuerpoReclamo = encodeURIComponent(`Estimado/a ${p.responsable || 'Líder'},\n\nLe recordamos que el plan de acción: "${p.accion}" venció el ${p.fecha}.\n\nPor favor ingrese a la plataforma para actualizar el estado.\n\nAtentamente,\nAuditoría GCM`);
 
@@ -2422,6 +2430,25 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     </tbody>
   </table>
 </div>
+                           <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-slate-600">
+                               <span aria-live="polite">Mostrando <strong className="text-slate-800">{primeraAccionGrupo}-{ultimaAccionGrupo}</strong> de <strong className="text-slate-800">{items.length}</strong> acciones</span>
+                               <label className="flex items-center gap-2 font-medium">
+                                 Acciones por página
+                                 <select value={accionesPorPaginaDashboard} onChange={event => { setAccionesPorPaginaDashboard(Number(event.target.value)); setPaginaGrupoDashboard(1); }} aria-label={`Acciones por página para ${grupo}`} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                   <option value={10}>10</option>
+                                   <option value={15}>15</option>
+                                 </select>
+                               </label>
+                             </div>
+                             {totalPaginasGrupo > 1 && (
+                               <nav className="flex items-center justify-between gap-2 sm:justify-end" aria-label={`Paginación de acciones de ${grupo}`}>
+                                 <button type="button" onClick={() => setPaginaGrupoDashboard(Math.max(1, paginaActualGrupo - 1))} disabled={paginaActualGrupo <= 1} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Anterior</button>
+                                 <span className="min-w-24 text-center text-xs font-semibold tabular-nums text-slate-600" aria-live="polite">Página {paginaActualGrupo} de {totalPaginasGrupo}</span>
+                                 <button type="button" onClick={() => setPaginaGrupoDashboard(Math.min(totalPaginasGrupo, paginaActualGrupo + 1))} disabled={paginaActualGrupo >= totalPaginasGrupo} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Siguiente</button>
+                               </nav>
+                             )}
+                           </div>
                          </div>
                        )}
                      </div>
