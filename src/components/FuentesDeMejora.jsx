@@ -799,35 +799,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
                           </p>
                         </div>
                       </div>
-
-                      {/* Detalles Técnicos Reales */}
-                      <div>
-                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 border-b border-slate-100 pb-1">Información Técnica</p>
-                        <div className="space-y-3 bg-white p-3 rounded-xl border border-slate-100">
-                          
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-slate-400 text-xs">🆔</span>
-                              <p className="text-[10px] font-bold text-slate-600">ID de Registro</p>
-                            </div>
-                            <p className="text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 break-all text-right">
-                              {logSeleccionado.fuenteRef}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-slate-400 text-xs">⏱️</span>
-                              <p className="text-[10px] font-bold text-slate-600">Timestamp</p>
-                            </div>
-                            <p className="text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 break-all text-right" title={logSeleccionado.timestamp || logSeleccionado.fecha}>
-                              {logSeleccionado.timestamp || logSeleccionado.fecha}
-                            </p>
-                          </div>
-
-                        </div>
-                      </div>
-
+                  
                       {/* Detalles Técnicos Reales */}
                       <div>
                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 border-b border-slate-100 pb-1">Información Técnica</p>
