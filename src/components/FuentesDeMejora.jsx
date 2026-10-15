@@ -44,6 +44,39 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
   const [histFiltroAccion, setHistFiltroAccion] = useState('Todas');
   const [histFiltroUsuario, setHistFiltroUsuario] = useState('Todos');
   const [histSearch, setHistSearch] = useState('');
+  const [mensajeExportacion, setMensajeExportacion] = useState('');
+
+  const exportarHistorialCsv = historial => {
+    if (!Array.isArray(historial) || historial.length === 0) return false;
+
+    const columnas = [
+      ['Fecha y hora', log => log.fecha || log.timestamp],
+      ['Referencia de fuente', log => log.fuenteRef],
+      ['Fuente', log => log.fuenteNombre],
+      ['Tipo de fuente', log => log.fuenteTipo],
+      ['Acción', log => log.accion],
+      ['Descripción / motivo', log => log.motivo || log.accion],
+      ['Usuario', log => log.usuario],
+      ['Estado', () => 'Completado'],
+      ['ID del cambio', log => log.idObj],
+      ['Timestamp', log => log.timestamp],
+    ];
+    const escaparCsv = valor => `"${String(valor ?? '').replace(/"/g, '""')}"`;
+    const filasCsv = [
+      columnas.map(([titulo]) => escaparCsv(titulo)).join(';'),
+      ...historial.map(log => columnas.map(([, obtenerValor]) => escaparCsv(obtenerValor(log))).join(';')),
+    ].join('\r\n');
+    const blob = new Blob([`\uFEFF${filasCsv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = `historial_fuentes_mejora_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    return true;
+  };
 
   // 🧠 MEMORIA FOTOGRÁFICA: Leemos todas las normas que ya existen en las fuentes creadas
   const [normasDisponibles, setNormasDisponibles] = useState(() => {
@@ -588,11 +621,23 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
                          <span className="text-slate-400 text-sm">📅</span>
                          <span className="text-[10px] font-bold text-slate-600">01/01/2026 - 31/12/2026</span>
                        </div>
-                       <button className="flex flex-col items-center justify-center text-blue-600 hover:text-blue-800 transition-colors">
+                       <button
+                         type="button"
+                         disabled={historialCompleto.length === 0}
+                         onClick={() => {
+                           const exportado = exportarHistorialCsv(historialCompleto);
+                           setMensajeExportacion(exportado
+                             ? `Se exportaron ${historialCompleto.length} cambios.`
+                             : 'No hay cambios para exportar.');
+                         }}
+                         aria-label={`Exportar ${historialCompleto.length} cambios filtrados del historial`}
+                         className="flex min-h-11 flex-col items-center justify-center rounded-lg px-2 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                       >
                          <span className="text-lg">📥</span>
                          <span className="text-[8px] font-black uppercase tracking-widest mt-0.5">Exportar historial</span>
                        </button>
                     </div>
+                    <p role="status" aria-live="polite" className="sr-only">{mensajeExportacion}</p>
                  </div>
 
                  {/* Barra de Filtros Reales */}

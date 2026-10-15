@@ -1,8 +1,12 @@
-import { toPng } from 'html-to-image';
+import { toJpeg, toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
-// 🔥 Agregamos 'bgColor' como tercer parámetro, por defecto el azul oscuro
-export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf', bgColor = '#0f172a') => {
+export const exportarA_PDF = async (
+  target,
+  fileName = 'Informe_GRC.pdf',
+  bgColor = '#0f172a',
+  { format = 'PNG', quality = 1, pixelRatio = 4, onProgress = () => {} } = {}
+) => {
   let element = null;
 
   if (typeof target === 'string') {
@@ -15,37 +19,50 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf', bgColo
 
   if (!element) {
     console.error('❌ Error en PDF: No se pudo identificar el elemento HTML a exportar.');
-    return;
+    return false;
   }
 
-  try {
-    const originalStyles = {
-      position: element.style.position,
-      height: element.style.height,
-      maxHeight: element.style.maxHeight,
-      overflow: element.style.overflow,
-      width: element.style.width,
-    };
+  const reportProgress = (stage) => {
+    try {
+      onProgress({ stage });
+    } catch {
+      // El reporte de progreso no debe interrumpir la exportación.
+    }
+  };
+  const originalStyles = {
+    position: element.style.position,
+    top: element.style.top,
+    left: element.style.left,
+    height: element.style.height,
+    maxHeight: element.style.maxHeight,
+    overflow: element.style.overflow,
+    width: element.style.width,
+  };
+  let rows = [];
+  let originalRowMargins = new Map();
 
-   element.style.position = 'absolute';
+  try {
+    reportProgress('Preparando el informe…');
+    element.style.position = 'absolute';
     element.style.top = '0';
     element.style.left = '0';
-    element.style.width = '1350px'; 
-    element.style.height = 'max-content';             
+    element.style.width = '1350px';
+    element.style.height = 'max-content';
     element.style.maxHeight = 'none';
     element.style.overflow = 'visible';
 
     // =========================================================================
     // 🧠 ALGORITMO ANTI-GUILLOTINA (Saltos de página inteligentes)
     // =========================================================================
-    const A4_WIDTH_MM = 297; 
+    const A4_WIDTH_MM = 297;
     const A4_HEIGHT_MM = 210;
     // Calculamos dinámicamente la altura exacta del corte según el ancho real del elemento (1350px)
     const TARGET_WIDTH_PX = element.scrollWidth || 1350;
-    const PAGE_HEIGHT_PX = Math.floor(TARGET_WIDTH_PX * (A4_HEIGHT_MM / A4_WIDTH_MM)); 
+    const PAGE_HEIGHT_PX = Math.floor(TARGET_WIDTH_PX * (A4_HEIGHT_MM / A4_WIDTH_MM));
 
     // Buscamos todas las filas que tengan la clase que pusimos (break-inside-avoid)
-    const rows = Array.from(element.querySelectorAll('.break-inside-avoid'));
+    rows = Array.from(element.querySelectorAll('.break-inside-avoid'));
+    originalRowMargins = new Map(rows.map(row => [row, row.style.marginTop]));
     
     // Limpiamos márgenes previos por si el usuario presiona el botón 2 veces seguidas
     rows.forEach(row => { row.style.marginTop = '0px'; });
@@ -74,25 +91,23 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf', bgColo
     }
     // =========================================================================
 
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    reportProgress('Renderizando páginas…');
 
-    const dataUrl = await toPng(element, {
-      quality: 1.0,
-      pixelRatio: 4, // 🚀 Aumenta la resolución a 4x Ultra HD Cristalino
+    const opcionesImagen = {
+      quality,
+      pixelRatio,
       backgroundColor: bgColor, 
-    });
+    };
+    const formatoImagen = format === 'JPEG' ? 'JPEG' : 'PNG';
+    const dataUrl = formatoImagen === 'JPEG'
+      ? await toJpeg(element, opcionesImagen)
+      : await toPng(element, opcionesImagen);
 
-    // Restaurar los estilos originales y limpiar los espacios en blanco inyectados
-    element.style.position = originalStyles.position;
-    element.style.height = originalStyles.height;
-    element.style.maxHeight = originalStyles.maxHeight;
-    element.style.overflow = originalStyles.overflow;
-    element.style.width = originalStyles.width;
-    rows.forEach(row => { row.style.marginTop = '0px'; });
-
-    const pdf = new jsPDF('l', 'mm', 'a4'); 
-    const imgWidth = 297; 
-    const pageHeight = 210; 
+    reportProgress('Comprimiendo el documento…');
+    const pdf = new jsPDF('l', 'mm', 'a4');
+    const imgWidth = 297;
+    const pageHeight = 210;
     
     const imgProps = pdf.getImageProperties(dataUrl);
     const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
@@ -106,21 +121,35 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf', bgColo
     };
 
     pintarFondoPdf();
-    pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+    const alias = 'informe-institucional';
+    const compression = formatoImagen === 'JPEG' ? 'FAST' : undefined;
+    pdf.addImage(dataUrl, formatoImagen, 0, position, imgWidth, imgHeight, alias, compression);
     heightLeft -= pageHeight;
 
     while (heightLeft > 0) {
-      position -= pageHeight; 
+      position -= pageHeight;
       pdf.addPage();
-      pintarFondoPdf(); 
-      pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+      pintarFondoPdf();
+      pdf.addImage(dataUrl, formatoImagen, 0, position, imgWidth, imgHeight, alias, compression);
       heightLeft -= pageHeight;
     }
 
-    pdf.save(fileName);
+    reportProgress('Guardando archivo…');
+    await pdf.save(fileName, { returnPromise: true });
+    reportProgress('Descarga lista.');
     console.log('✅ ¡PDF generado con éxito y saltos de página calculados!');
-    
+    return true;
   } catch (error) {
     console.error('❌ Error crítico al generar el PDF:', error);
+    return false;
+  } finally {
+    element.style.position = originalStyles.position;
+    element.style.top = originalStyles.top;
+    element.style.left = originalStyles.left;
+    element.style.height = originalStyles.height;
+    element.style.maxHeight = originalStyles.maxHeight;
+    element.style.overflow = originalStyles.overflow;
+    element.style.width = originalStyles.width;
+    rows.forEach(row => { row.style.marginTop = originalRowMargins.get(row) || ''; });
   }
 };

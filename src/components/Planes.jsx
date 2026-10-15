@@ -85,6 +85,7 @@ export default function Planes({
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
   const [generandoPdfId, setGenerandoPdfId] = useState(null); // 👈 ¡Faltaba declarar este estado!
+  const [pdfProgress, setPdfProgress] = useState('Preparando el informe…');
   const [evalDetalleModal, setEvalDetalleModal] = useState(null);
   const [historialModal, setHistorialModal] = useState({ activo: false, plan: null });
   const [modalEficaciaCierre, setModalEficaciaCierre] = useState({
@@ -105,12 +106,24 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     if (generandoPdfId) return; // Evita clics dobles
     try {
       setGenerandoPdfId(idInf); // Activa la pantalla de carga
+      setPdfProgress('Preparando el informe…');
       await new Promise(resolve => setTimeout(resolve, 100)); 
       const element = document.getElementById(`pdf-export-plan-${idInf}`);
-      await exportarA_PDF(element, `Plan_Mejoramiento_${refInforme}.pdf`, '#ffffff');
+      const generado = await exportarA_PDF(
+        element,
+        `Plan_Mejoramiento_${refInforme}.pdf`,
+        '#ffffff',
+        {
+          format: 'JPEG',
+          quality: 0.88,
+          pixelRatio: 2,
+          onProgress: ({ stage }) => setPdfProgress(stage),
+        }
+      );
+      if (!generado) throw new Error('No se pudo generar el archivo.');
     } catch (error) {
       console.error("Error al generar PDF:", error);
-      alert("❌ Ocurrió un error al generar el PDF. Por favor reintente.");
+      alert('No se pudo generar el PDF. Verifique e intente nuevamente.');
     } finally {
       setGenerandoPdfId(null); // Desactiva el loader al terminar
     }
@@ -2343,7 +2356,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     </div>
 
                     {node.aplica && (
-                      <div className="space-y-4">
+                      <div className="space-y-5">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => {
   const actividadNueva = String(act.id).startsWith('new-');
   const correoActual = String(user?.email || '').trim().toLowerCase();
@@ -2363,14 +2376,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             </div>
                           )}
                           <div 
-                            className="bg-white border border-slate-200 border-l-[6px] border-l-[#0f172a] rounded-2xl p-5 pl-6 shadow-[0_8px_25px_-5px_rgba(15,23,42,0.08)] space-y-4 relative transition-all duration-500 hover:shadow-[0_12px_35px_-5px_rgba(15,23,42,0.12)]"
+                            className="relative space-y-4 rounded-xl border-2 border-emerald-900/25 border-l-[8px] border-l-[#0A3B32] bg-gradient-to-br from-white via-white to-emerald-50/40 p-5 pl-6 shadow-[0_2px_8px_-3px_rgba(15,23,42,0.16)] ring-1 ring-emerald-900/5 transition-colors hover:border-emerald-900/40"
                           >
                             {/* CABECERA SUTIL DE LA ACTIVIDAD */}
-                            <div className="flex justify-between items-center border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white -ml-6 -mr-5 -mt-5 px-6 py-3.5 rounded-tr-2xl rounded-tl-md mb-4">
-                              <div className="flex items-center space-x-3">
-                                <div className="flex items-center gap-1.5 text-[11px] font-black text-[#0f172a] uppercase tracking-widest">
-                                  <span className="text-sm">📝</span>
-                                  <span>Actividad #{index + 1}</span>
+                            <div className="flex justify-between items-center border-b border-emerald-900/15 bg-gradient-to-r from-emerald-50 to-white -ml-6 -mr-5 -mt-5 px-5 py-3 rounded-tr-lg rounded-tl-md mb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 text-[11px] font-black text-[#0A3B32] uppercase tracking-widest">
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#0A3B32] text-xs font-black text-white shadow-sm">{index + 1}</span>
+                                  <span>Actividad</span>
                                 </div>
                                 <span className={`px-2.5 py-0.5 rounded-md font-mono font-bold text-[10px] tracking-widest border shadow-sm transition-colors ${String(act.id).startsWith('new-') ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`}>
                                   PLA-{String(act.id).startsWith('new-') ? 'NUEVO' : String(act.id).slice(-4)}
@@ -3812,13 +3825,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       {generandoPdfId && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] flex items-center justify-center animate-in fade-in duration-200">
           <div className="bg-white p-6 rounded-2xl shadow-2xl border border-slate-200 flex flex-col items-center gap-4 max-w-sm w-full mx-4 text-center animate-in zoom-in-95">
-            <div className="w-12 h-12 border-4 border-[#0A3B32] border-t-transparent rounded-full animate-spin"></div>
-            <div>
+            <div className="w-10 h-10 border-4 border-[#0A3B32] border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
+            <div aria-live="polite" aria-atomic="true">
               <h4 className="font-black text-slate-800 text-sm uppercase tracking-wider">Generando Reporte Oficial</h4>
-              <p className="text-slate-500 text-xs font-bold mt-1">Procesando y formateando los datos de auditoría...</p>
+              <p className="text-slate-500 text-xs font-bold mt-1">{pdfProgress}</p>
             </div>
-            <div className="bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-mono font-bold text-slate-600">
-              Por favor espere un momento 📄
+            <div className="w-full h-1.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Generando PDF">
+              <div className="h-full w-full rounded-full bg-[#0A3B32] animate-pulse" />
             </div>
           </div>
         </div>
