@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import ModalNuevaFuente from './ModalNuevaFuente';
 
 // Eliminamos los datos iniciales estáticos para que empiece vacío.
 const normasIniciales = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
+const FUENTES_POR_PAGINA = 15;
 
 const fechaComparable = (fecha) => {
   const valor = String(fecha || '').trim();
@@ -24,12 +26,71 @@ const obtenerSiguienteCodigo = (fuentes) => {
   return `FA-${String(siguiente).padStart(3, '0')}`;
 };
 
+const PanelDistribucion = ({ titulo, datos, totalCentro, etiquetaCentro, seleccion, onSeleccionar }) => {
+  const maximo = Math.max(1, ...datos.map(dato => dato.value));
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="mb-3 border-b border-slate-200 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-600">{titulo}</h3>
+      <div className="relative h-36 w-full" aria-hidden="true">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={datos}
+              dataKey="value"
+              nameKey="name"
+              innerRadius={42}
+              outerRadius={65}
+              paddingAngle={2}
+              stroke="#ffffff"
+              strokeWidth={2}
+              onClick={sector => onSeleccionar(sector.name)}
+              style={{ cursor: 'pointer', outline: 'none' }}
+            >
+              {datos.map(dato => <Cell key={dato.name} fill={dato.color} />)}
+            </Pie>
+            <Tooltip formatter={value => [`${value} fuentes`, 'Cantidad']} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="text-2xl font-black leading-none text-slate-800">{totalCentro}</span>
+          <span className="mt-1 text-[8px] font-bold uppercase text-slate-500">{etiquetaCentro}</span>
+        </div>
+      </div>
+
+      <div className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">
+        {datos.length === 0 ? (
+          <p className="py-3 text-center text-[10px] italic text-slate-500">No hay datos para distribuir.</p>
+        ) : datos.map(dato => (
+          <button
+            key={dato.name}
+            type="button"
+            aria-pressed={seleccion === dato.name}
+            aria-label={`Filtrar por ${titulo.toLowerCase()}: ${dato.name}, ${dato.value} fuentes`}
+            onClick={() => onSeleccionar(dato.name)}
+            className={`flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-left text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${seleccion === dato.name ? 'bg-slate-100' : 'hover:bg-slate-50'}`}
+          >
+            <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: dato.color }} />
+            <span className="w-24 shrink-0 truncate font-semibold text-slate-700" title={dato.name}>{dato.name}</span>
+            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+              <span className="block h-full rounded-full" style={{ width: `${(dato.value / maximo) * 100}%`, backgroundColor: dato.color }} />
+            </span>
+            <span className="w-7 shrink-0 text-right font-bold tabular-nums text-slate-800">{dato.value}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+};
+
 export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveFuentes, onCreateFuente, user = null }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroNorma, setFiltroNorma] = useState('TODOS');
+  const [filtroFuenteDashboard, setFiltroFuenteDashboard] = useState('TODOS');
   const [filtroEstado, setFiltroEstado] = useState('TODOS');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
+  const [paginaDashboard, setPaginaDashboard] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fuentesActuales, setFuentesActuales] = useState(fuentes);
   
@@ -117,7 +178,20 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
     return acc;
   }, {});
   const normasArray = Object.entries(conteoNormas).sort((a,b) => b[1] - a[1]);
-  const coloresDona = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-teal-500', 'bg-orange-500'];
+  const coloresDona = ['#2563eb', '#059669', '#7c3aed', '#0d9488', '#f97316', '#e11d48', '#0891b2', '#64748b'];
+  const normasGrafica = normasArray.map(([name, value], index) => ({
+    name,
+    value,
+    color: coloresDona[index % coloresDona.length],
+  }));
+  const conteoTiposFuente = fuentesActuales.reduce((conteo, fuente) => {
+    const tipo = fuente.tipoFuente || fuente.tipo || 'Auditoría Interna';
+    conteo[tipo] = (conteo[tipo] || 0) + 1;
+    return conteo;
+  }, {});
+  const fuentesPorTipo = Object.entries(conteoTiposFuente)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, value], index) => ({ name, value, color: coloresDona[index % coloresDona.length] }));
 
   const fuentesFiltradas = fuentesActuales.filter((fuente) => {
     // Convertimos de forma segura las normas a un texto plano para poder buscarlas
@@ -147,11 +221,27 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
       return (
         (!searchTerm.trim() || textoBusqueda.includes(searchTerm.trim().toLowerCase())) &&
         (filtroNorma === 'TODOS' || normasArray.includes(filtroNorma)) &&
+        (filtroFuenteDashboard === 'TODOS' || (fuente.tipoFuente || fuente.tipo || 'Auditoría Interna') === filtroFuenteDashboard) &&
         (filtroEstado === 'TODOS' || fuente.estado === filtroEstado) &&
         (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
         (!fechaHasta || (fecha && fecha <= fechaHasta))
       );
     });
+
+  const totalPaginasDashboard = Math.max(1, Math.ceil(fuentesFiltradas.length / FUENTES_POR_PAGINA));
+  const paginaActualDashboard = Math.min(paginaDashboard, totalPaginasDashboard);
+  const inicioPaginaDashboard = (paginaActualDashboard - 1) * FUENTES_POR_PAGINA;
+  const fuentesPagina = fuentesFiltradas.slice(inicioPaginaDashboard, inicioPaginaDashboard + FUENTES_POR_PAGINA);
+  const primeraFuenteDashboard = fuentesFiltradas.length > 0 ? inicioPaginaDashboard + 1 : 0;
+  const ultimaFuenteDashboard = Math.min(inicioPaginaDashboard + FUENTES_POR_PAGINA, fuentesFiltradas.length);
+  const alternarFiltroNorma = norma => {
+    setFiltroNorma(actual => actual === norma ? 'TODOS' : norma);
+    setPaginaDashboard(1);
+  };
+  const alternarFiltroFuente = tipo => {
+    setFiltroFuenteDashboard(actual => actual === tipo ? 'TODOS' : tipo);
+    setPaginaDashboard(1);
+  };
 
   const handleAddNorma = (normaInput) => {
     // Nos aseguramos de extraer un string válido, incluso si nos envían un arreglo
@@ -337,14 +427,14 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
             placeholder="Buscar por auditor, norma, proceso o alcance..." 
             className="w-full bg-white border border-slate-200 text-sm text-slate-700 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-[#0A3B32] focus:ring-1 focus:ring-[#0A3B32] shadow-sm font-bold placeholder-slate-400"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setPaginaDashboard(1); }}
           />
         </div>
         
         <div className="flex items-center gap-3">
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1">Norma / Estándar</span>
-            <select value={filtroNorma} onChange={(e) => setFiltroNorma(e.target.value)} className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
+            <select value={filtroNorma} onChange={(e) => { setFiltroNorma(e.target.value); setPaginaDashboard(1); }} className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
               <option value="TODOS">Todos</option>
               {[...new Set([...normasDisponibles, ...normasArray.map(([norma]) => norma)])].map((norma) => (
                 <option key={norma} value={norma}>{norma}</option>
@@ -352,8 +442,15 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
             </select>
           </div>
           <div className="flex flex-col">
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1">Tipo de fuente</span>
+            <select value={filtroFuenteDashboard} onChange={event => { setFiltroFuenteDashboard(event.target.value); setPaginaDashboard(1); }} className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
+              <option value="TODOS">Todos</option>
+              {fuentesPorTipo.map(({ name }) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1">Estado</span>
-            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
+            <select value={filtroEstado} onChange={(e) => { setFiltroEstado(e.target.value); setPaginaDashboard(1); }} className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
               <option value="TODOS">Todos</option>
               <option value="Activa">Activa</option>
               <option value="Borrador">Borrador</option>
@@ -364,9 +461,9 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1">Fecha de auditoría</span>
             <div className="flex items-center gap-1">
-              <input type="date" aria-label="Fecha desde" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2.5 px-2 outline-none focus:border-[#0A3B32] shadow-sm" />
+              <input type="date" aria-label="Fecha desde" value={fechaDesde} onChange={(e) => { setFechaDesde(e.target.value); setPaginaDashboard(1); }} className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2.5 px-2 outline-none focus:border-[#0A3B32] shadow-sm" />
               <span className="text-slate-400 text-xs">-</span>
-              <input type="date" aria-label="Fecha hasta" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2.5 px-2 outline-none focus:border-[#0A3B32] shadow-sm" />
+              <input type="date" aria-label="Fecha hasta" value={fechaHasta} onChange={(e) => { setFechaHasta(e.target.value); setPaginaDashboard(1); }} className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2.5 px-2 outline-none focus:border-[#0A3B32] shadow-sm" />
             </div>
           </div>
         </div>
@@ -396,7 +493,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
                   <tr>
                     <td colSpan="8" className="p-12 text-center text-slate-400 italic font-bold">{fuentesActuales.length === 0 ? (isAdmin ? 'No hay fuentes creadas. Presiona "+ Nueva Fuente" para empezar.' : 'No hay fuentes registradas.') : 'No hay fuentes que coincidan con los filtros seleccionados.'}</td>
                   </tr>
-                ) : fuentesFiltradas.map((f, _i) => (
+                ) : fuentesPagina.map((f, _i) => (
                   <tr key={f.codigo || f.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
                     <td className="p-4 font-black text-slate-800 bg-slate-50/50">{f.codigo || f.id}</td>
@@ -435,41 +532,38 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
               </tbody>
             </table>
           </div>
-          <div className="bg-slate-50 p-4 flex items-center justify-between border-t border-slate-200 text-[10px] font-bold text-slate-500">
-            <span>Mostrando {fuentesFiltradas.length} de {fuentesActuales.length} fuentes de mejora</span>
+          <div className="bg-slate-50 p-4 flex flex-col gap-3 border-t border-slate-200 text-[10px] font-bold text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <span aria-live="polite">Mostrando {primeraFuenteDashboard}-{ultimaFuenteDashboard} de {fuentesFiltradas.length} fuentes filtradas ({fuentesActuales.length} en total)</span>
+            {totalPaginasDashboard > 1 && (
+              <nav className="flex items-center justify-between gap-2 sm:justify-end" aria-label="Paginación de fuentes de mejora">
+                <button type="button" onClick={() => setPaginaDashboard(Math.max(1, paginaActualDashboard - 1))} disabled={paginaActualDashboard <= 1} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Anterior</button>
+                <span className="min-w-24 text-center text-xs font-semibold tabular-nums text-slate-600" aria-live="polite">Página {paginaActualDashboard} de {totalPaginasDashboard}</span>
+                <button type="button" onClick={() => setPaginaDashboard(Math.min(totalPaginasDashboard, paginaActualDashboard + 1))} disabled={paginaActualDashboard >= totalPaginasDashboard} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Siguiente</button>
+              </nav>
+            )}
           </div>
         </div>
 
         {/* PANELES LATERALES DERECHOS (Dinámicos al estado) */}
         <div className="lg:col-span-1 space-y-6">
           {/* Panel 1: Gráfica de Dona Dinámica */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">Distribución por Norma</h3>
-            <div className="flex flex-col items-center justify-center gap-6">
-              <div className="relative w-32 h-32 rounded-full border-[12px] border-slate-100 flex items-center justify-center border-t-blue-500 border-r-emerald-500 border-b-purple-500 border-l-orange-500 shadow-inner">
-                <div className="text-center">
-                  <span className="block text-3xl font-black text-slate-800 leading-none">{totalFuentes}</span>
-                  <span className="block text-[8px] text-slate-400 uppercase tracking-widest mt-1">Fuentes</span>
-                </div>
-              </div>
-              
-              <div className="w-full space-y-3 text-[10px] font-bold max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                {normasArray.length === 0 ? (
-                  <p className="text-center text-slate-400 italic">No hay normas registradas.</p>
-                ) : (
-                  normasArray.map(([norma, count], idx) => (
-                    <div key={norma} className="flex justify-between items-center">
-                      <span className="flex items-center gap-2 text-slate-600 truncate" title={norma}>
-                        <span className={`w-2 h-2 ${coloresDona[idx % coloresDona.length]} rounded-full shadow-sm shrink-0`}></span> 
-                        <span className="truncate w-24">{norma}</span>
-                      </span>
-                      <span className="text-slate-800 shrink-0">{count} <span className="text-slate-400 font-medium ml-1">({Math.round((count/totalFuentes)*100)}%)</span></span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+          <PanelDistribucion
+            titulo="Distribución por Norma"
+            datos={normasGrafica}
+            totalCentro={totalFuentes}
+            etiquetaCentro="Fuentes"
+            seleccion={filtroNorma === 'TODOS' ? '' : filtroNorma}
+            onSeleccionar={alternarFiltroNorma}
+          />
+
+          <PanelDistribucion
+            titulo="Distribución por Fuente"
+            datos={fuentesPorTipo}
+            totalCentro={totalFuentes}
+            etiquetaCentro="Fuentes"
+            seleccion={filtroFuenteDashboard === 'TODOS' ? '' : filtroFuenteDashboard}
+            onSeleccionar={alternarFiltroFuente}
+          />
 
           {/* Panel 2: Barras de Progreso Dinámicas */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">

@@ -240,6 +240,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroPrioridad, setDashFiltroPrioridad] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
+  const [dashFiltroFuente, setDashFiltroFuente] = useState('Todos');
 
  // 🔌 MOTOR DE FORMULARIO MATRICIAL ORIGINAL
   const [formInformeId, setFormInformeId] = useState('');
@@ -359,8 +360,8 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const planesEnriquecidos = useMemo(() => safePlanes.flatMap(p => {
     const hallazgo = hallazgosPorId.get(String(p.idHallazgo));
     const idInforme = hallazgo?.idInforme || p.idInforme;
-    const informeExiste = idInforme && informesAuditoria.some(informe => String(informe.id) === String(idInforme));
-    if (!hallazgo || !informeExiste) return [];
+    const informe = informesAuditoria.find(item => String(item.id) === String(idInforme));
+    if (!hallazgo || !informe) return [];
     const limite = p.fecha ? new Date(`${p.fecha}T00:00:00`) : null;
     const esVencido = p.progreso < 100 && limite && limite.getTime() < timestampInicioDia;
 
@@ -372,10 +373,11 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
       subprocesos: Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso || 'General'],
       sede: hallazgo.sede || 'Hotel',
       severidad: hallazgo.severidad || 'Medio',
+      tipoFuente: resolverCategoriaFuente(informe.tipoFuente, fuentesMejora),
       esVencido,
       anioTexto: p.fecha ? p.fecha.split('-')[0] : 'Sin Fecha'
     }];
-  }), [safePlanes, hallazgosPorId, informesAuditoria, timestampInicioDia]);
+  }), [safePlanes, hallazgosPorId, informesAuditoria, fuentesMejora, timestampInicioDia]);
 
   const tareasPendientesPorInforme = useMemo(() => {
     const planPorId = new Map(planesEnriquecidos.map(plan => [String(plan.id), plan]));
@@ -476,8 +478,9 @@ const handleNotificarPlan = (planId) => {
     if (dashFiltroSubproceso !== 'Todos' && !(p.subprocesos || [p.subproceso]).includes(dashFiltroSubproceso)) return false;
     if (dashFiltroPrioridad !== 'Todos' && p.severidad !== dashFiltroPrioridad) return false;
     if (dashFiltroResponsable !== 'Todos' && p.responsable !== dashFiltroResponsable) return false;
+    if (dashFiltroFuente !== 'Todos' && p.tipoFuente !== dashFiltroFuente) return false;
     return true;
-  }), [planesEnriquecidos, dashFiltroAnio, dashFiltroProceso, dashFiltroSubproceso, dashFiltroPrioridad, dashFiltroResponsable]);
+  }), [planesEnriquecidos, dashFiltroAnio, dashFiltroProceso, dashFiltroSubproceso, dashFiltroPrioridad, dashFiltroResponsable, dashFiltroFuente]);
 
   // 2. Filtrado Final (Incluye el clic en las tarjetas de estado)
   const planesDashboard = useMemo(() => planesFiltradosBase.filter(p => {
@@ -515,6 +518,7 @@ const handleNotificarPlan = (planId) => {
       if (agruparPor === 'Estado') key = p.progreso === 100 ? 'Cerrados' : p.esVencido ? 'Vencidos' : 'En Proceso';
       if (agruparPor === 'Responsable') key = p.responsable;
       if (agruparPor === 'Prioridad') key = p.severidad;
+      if (agruparPor === 'Tipo de Fuente') key = p.tipoFuente || 'Sin fuente';
 
       if (!acc[key]) acc[key] = [];
       acc[key].push(p);
@@ -537,7 +541,7 @@ const handleNotificarPlan = (planId) => {
 
   const limpiarFiltrosDashboard = () => {
     setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSubproceso('Todos'); setDashFiltroEstado('Todos');
-    setDashFiltroPrioridad('Todos'); setDashFiltroResponsable('Todos');
+    setDashFiltroPrioridad('Todos'); setDashFiltroResponsable('Todos'); setDashFiltroFuente('Todos');
   };
 
 // 💾 PROCESOR DE ENVÍO MATRICIAL UNIFICADO CON VALIDACIÓN Y CORREOS AUTOMÁTICOS
@@ -2229,7 +2233,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       { id: 'Subproceso', label: 'Vista por Subproceso', icon: '🗂️' }, // ✨ NUEVO BOTÓN
                       { id: 'Estado', label: 'Vista por Estado', icon: '🚩' },
                       { id: 'Prioridad', label: 'Vista por Prioridad', icon: '⚠️' },
-                      { id: 'Responsable', label: 'Vista Responsable', icon: '👤' }
+                      { id: 'Responsable', label: 'Vista Responsable', icon: '👤' },
+                      { id: 'Tipo de Fuente', label: 'Vista por Tipo de Fuente', icon: '📄' }
                     ].map(btn => (
                       <button 
                         key={btn.id}
@@ -2262,6 +2267,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       {[...new Set(planesEnriquecidos.map(p => p.proceso).filter(Boolean))].sort().map(p => (
                         <option key={p} value={p}>{p}</option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Tipo de fuente</label>
+                    <select value={dashFiltroFuente} onChange={event => setDashFiltroFuente(event.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      {TIPOS_FUENTE_HISTORIAL.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
                     </select>
                   </div>
                   
@@ -2312,7 +2325,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
 
             {/* 2. Acordeones Dinámicos Centrales */}
-            <div className="lg:col-span-2 space-y-4">
+            <div className="lg:col-span-2 flex min-h-0 flex-col gap-4">
                {gruposOrdenados.length === 0 ? (
                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">No hay planes que coincidan con los filtros.</div>
                ) : (
@@ -2331,7 +2344,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                    const ultimaAccionGrupo = Math.min(inicioPaginaGrupo + accionesPorPaginaDashboard, items.length);
 
                    return (
-                     <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+                     <div key={grupo} className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all ${isExpanded ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
                        <div onClick={() => { setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); }} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
                          <div className="flex items-center space-x-3">
                            <span className="text-xl">📅</span>
@@ -2348,14 +2361,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                        </div>
 
                        {isExpanded && (
-                         <div className="p-4 sm:p-5 bg-white animate-in slide-in-from-top-2 duration-300">
+                         <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5 bg-white animate-in slide-in-from-top-2 duration-300">
                            <div className="grid grid-cols-5 gap-2 mb-4 border-b pb-4 text-center text-[10px] font-black text-slate-400 uppercase">
                              <div><p>Cerrados</p><p className="text-base text-emerald-600 font-black mt-0.5">{gCerrados}</p></div>
                              <div className="border-l"><p>En Proceso</p><p className="text-base text-amber-500 font-black mt-0.5">{gProceso}</p></div>
                              <div className="border-l"><p>Vencidos</p><p className="text-base text-red-500 font-black mt-0.5">{gVencidos}</p></div>
                              <div className="border-l col-span-2 bg-slate-50 rounded-xl p-1"><p>Cumplimiento</p><p className="text-base text-emerald-700 font-black mt-0.5">{gCumplimiento}%</p></div>
                            </div>
-<div className="overflow-x-auto">
+<div className="min-h-0 flex-1 overflow-auto">
   <table className="w-full text-[10px] text-left">
     <thead className="text-slate-400 uppercase tracking-widest border-b border-slate-100">
       <tr>
@@ -2430,7 +2443,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     </tbody>
   </table>
 </div>
-                           <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                           <div className="mt-auto flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
                              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-slate-600">
                                <span aria-live="polite">Mostrando <strong className="text-slate-800">{primeraAccionGrupo}-{ultimaAccionGrupo}</strong> de <strong className="text-slate-800">{items.length}</strong> acciones</span>
                                <label className="flex items-center gap-2 font-medium">
