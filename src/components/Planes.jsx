@@ -6,6 +6,7 @@ import { useCatalogos } from '../context/useCatalogos';
 import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 
 const normalizarIdentidad = valor => String(valor || '')
   .trim()
@@ -194,21 +195,22 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const cambiarVistaSegura = (nuevaVista) => {
     if (nuevaVista === vistaActiva) return; // Si ya está ahí, no hace nada
 
-    // Si está en el formulario ('nuevo') y hay un informe cargado
     if (vistaActiva === 'nuevo' && formInformeId && !modoRevisionMatriz) {
-      if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
+      guardNavigationPlanes(() => {
+        setMatrixDirty(false);
         setEditPlan(null);
         setFormInformeId(''); // Limpiamos la matriz
         setMatrixState({});
         setModoRevisionMatriz(false);
         setVistaActiva(nuevaVista); // Permitimos la salida
-      }
+      });
     } else {
       // Si no está en el formulario, o está en modo lectura, cambia de vista libremente
       setEditPlan(null);
       setFormInformeId('');
       setMatrixState({});
       setModoRevisionMatriz(false);
+      setMatrixDirty(false);
       setVistaActiva(nuevaVista);
     }
   };
@@ -225,15 +227,45 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
  // 🔌 MOTOR DE FORMULARIO MATRICIAL ORIGINAL
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
+  const [matrixDirty, setMatrixDirty] = useState(false);
   const [uploadingCell, setUploadingCell] = useState(null);
   const [, setUploadProgress] = useState(0);
   const [modoRevisionMatriz, setModoRevisionMatriz] = useState(false); // ✨ NUEVO ESTADO
+  const guardNavigationPlanes = useUnsavedChangesGuard(
+    matrixDirty && vistaActiva === 'nuevo' && Boolean(formInformeId) && !modoRevisionMatriz,
+    'la matriz de planes'
+  );
   
   // ⚖️ ESTADOS PARA EVALUACIÓN HOLÍSTICA DEL PLAN (METODOLOGÍA EXCEL)
   const [modalEval, setModalEval] = useState({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false });
   const dictamenRef = useRef(null);
   const [criterios, setCriterios] = useState({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   const [justificacion, setJustificacion] = useState('');
+  const guardEvaluacionIntegral = useUnsavedChangesGuard(
+    modalEval.activo && !modalEval.isReadOnly && (Object.values(criterios).some(valor => Number(valor) !== 100) || Boolean(justificacion.trim())),
+    'la evaluación integral'
+  );
+  const guardMotivoCorreccion = useUnsavedChangesGuard(
+    modoRevisionMatriz && mostrarMotivoCorreccion && Boolean(motivoCorreccion),
+    'el motivo de corrección'
+  );
+  const guardEficaciaCierre = useUnsavedChangesGuard(
+    modalEficaciaCierre.activo && Boolean(modalEficaciaCierre.conclusion.trim() || modalEficaciaCierre.fueEficaz || modalEficaciaCierre.requiereAcciones === 'si' || modalEficaciaCierre.observaciones.trim()),
+    'la evaluación de eficacia'
+  );
+  const cerrarModalEvaluacionIntegral = () => guardEvaluacionIntegral(() => {
+    setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false });
+    setJustificacion('');
+    setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
+  });
+  const cerrarModalEficacia = () => guardEficaciaCierre(() => setModalEficaciaCierre({
+    activo: false,
+    plan: null,
+    conclusion: '',
+    fueEficaz: '',
+    requiereAcciones: 'no',
+    observaciones: '',
+  }));
 
   const obtenerCorreoAuditorEvaluador = (informe, planes = []) => {
     const correoInforme = String(informe?.correoAuditor || informe?.correoAuditorResponsable || '').trim().toLowerCase();
@@ -742,6 +774,7 @@ const handleNotificarPlan = (planId) => {
        setEditPlan(null);
         setFormInformeId('');
         setMatrixState({});
+        setMatrixDirty(false);
         setVistaActiva('historial');
         const hayReenvioDiseno = planesActualizados.some(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
         const hayAvanceAlCien = planesActualizados.some(plan => plan.estadoWorkflow === 'En Revisión (100%)');
@@ -1265,6 +1298,11 @@ if (existingActivities.length > 0) {
   }, [editPlan, safeHallazgos, handleInformeChange, formInformeId, vistaActiva]);
 
   const [modalNoAplica, setModalNoAplica] = useState({ activo: false, hallazgoId: null, justificacionTemporal: '' });
+  const guardNoAplica = useUnsavedChangesGuard(
+    modalNoAplica.activo && Boolean(modalNoAplica.justificacionTemporal.trim()),
+    'la justificación de inaplicabilidad'
+  );
+  const cerrarModalNoAplica = () => guardNoAplica(() => setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' }));
 
   const handleToggleAplica = (hallazgoId, value) => {
     if (value === false) {
@@ -1275,6 +1313,7 @@ if (existingActivities.length > 0) {
         justificacionTemporal: matrixState[hallazgoId]?.justificacionNoAplica || ''
       });
     } else {
+      setMatrixDirty(true);
       setMatrixState(prev => ({ ...prev, [hallazgoId]: { ...prev[hallazgoId], aplica: true } }));
     }
   };
@@ -1283,6 +1322,7 @@ if (existingActivities.length > 0) {
     if (modalNoAplica.justificacionTemporal.trim() === '') {
       return alert("❌ Debe ingresar una justificación válida para marcar el hallazgo como No Aplica.");
     }
+    setMatrixDirty(true);
     setMatrixState(prev => ({
       ...prev,
       [modalNoAplica.hallazgoId]: {
@@ -1296,6 +1336,7 @@ if (existingActivities.length > 0) {
 
   // 🧠 MODIFICADO: MANTIENE LA CONSISTENCIA DE HERENCIA SI AGREGAN MÁS ACTIVIDADES
  const handleAddActivity = (hallazgoId) => {
+  setMatrixDirty(true);
     const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(hallazgoId));
     const informeBase = informesAuditoria.find(inf => String(inf.id) === String(formInformeId));
     
@@ -1328,6 +1369,7 @@ if (existingActivities.length > 0) {
   };
 
   const handleRemoveActivity = (hallazgoId, index) => {
+    setMatrixDirty(true);
     setMatrixState(prev => {
       const currentActividades = [...prev[hallazgoId].actividades];
       currentActividades.splice(index, 1);
@@ -1336,6 +1378,7 @@ if (existingActivities.length > 0) {
   };
 
   const handleUpdateActivityField = (hallazgoId, index, field, value) => {
+    setMatrixDirty(true);
     setMatrixState(prev => {
       const currentActividades = prev[hallazgoId].actividades.map((act, idx) => {
         if (idx !== index) return act;
@@ -1685,8 +1728,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
          </div>
           {/* 👉 AQUÍ TERMINA LA BARRA DE BÚSQUEDA RÁPIDA */}
 
-          <button onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
-          <button onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Matriz</button>
+          <button type="button" aria-current={vistaActiva === 'dashboard' ? 'page' : undefined} onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
+          <button type="button" aria-current={vistaActiva === 'historial' ? 'page' : undefined} onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Matriz</button>
           
           {/* Oculto temporalmente el botón "Nuevo Plan" ya que la creación es automática por Hallazgo */}
           {/* isAdmin && (
@@ -2253,7 +2296,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           </div>
 
           {formInformeId && (
-<form id="matrix-master-form" onSubmit={handleMasterMatrixSubmit} className="space-y-6">
+<form id="matrix-master-form" onChangeCapture={() => setMatrixDirty(true)} onSubmit={handleMasterMatrixSubmit} className="space-y-6">
 {safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
                 const node = matrixState[h.id] || { aplica: true, actividades: [] };
                 return (
@@ -2685,7 +2728,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                        </>
                      ) : (
                        <>
-                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => setMostrarMotivoCorreccion(false)} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Volver</button>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => guardMotivoCorreccion(() => { setMotivoCorreccion(''); setMostrarMotivoCorreccion(false); })} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Volver</button>
                          <button type="button" disabled={guardandoDecisionRevision || !motivoCorreccion.trim()} onClick={() => resolverDecisionRevision('corregir')} className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50 flex items-center gap-2">{guardandoDecisionRevision ? 'Enviando…' : 'Enviar corrección al Gestor'}</button>
                        </>
                      )}
@@ -2706,15 +2749,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     
                     <button 
                       type="button" 
-                      onClick={() => {
-                        if(window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
-                          setEditPlan(null);
-                          setFormInformeId(''); // Limpia la selección del informe
-                          setMatrixState({}); // Limpia los datos digitados
-                          setModoRevisionMatriz(false);
-                          setVistaActiva('historial');
-                        }
-                      }}
+                      onClick={() => cambiarVistaSegura('historial')}
                       className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all w-full md:w-auto"
                     >
                       ❌ Salir sin guardar
@@ -3598,15 +3633,15 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       {/* ⚖️ MODAL DE EVALUACIÓN HOLÍSTICA PONDERADA (METODOLOGÍA EXCEL)        */}
       {/* ===================================================================== */}
       {modalEval.activo && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-labelledby="evaluacion-integral-titulo" className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
             
             <div className="bg-[#0A3B32] p-5 flex justify-between items-center shrink-0">
               <div>
-                <h3 className="text-white font-black text-lg flex items-center gap-2"><span>⚖️</span> Evaluación Ponderada del Plan de Acción</h3>
+                <h3 id="evaluacion-integral-titulo" className="text-white font-black text-lg flex items-center gap-2"><span aria-hidden="true">⚖️</span> Evaluación Ponderada del Plan de Acción</h3>
                 <p className="text-emerald-100 text-[10px] font-medium tracking-wide uppercase mt-0.5">Metodología COSO/ISO 31000 - Evaluando {modalEval?.planes?.length || 0} actividad(es).</p>
               </div>
-              <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="text-emerald-100 hover:text-white font-black text-xl px-2 transition-colors">✕</button>
+              <button type="button" onClick={cerrarModalEvaluacionIntegral} aria-label="Cerrar evaluación integral" className="min-h-11 min-w-11 text-emerald-100 hover:text-white font-black text-xl px-2 transition-colors">✕</button>
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
@@ -3746,12 +3781,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               </span>
               <div className="flex gap-3 w-full md:w-auto">
                 {modalEval.isReadOnly ? (
-                  <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="w-full md:w-auto px-8 py-3 rounded-xl text-xs font-black text-white bg-slate-800 hover:bg-slate-900 transition-colors uppercase tracking-widest shadow-sm">
+                  <button type="button" onClick={cerrarModalEvaluacionIntegral} className="min-h-11 w-full md:w-auto px-8 py-3 rounded-xl text-xs font-black text-white bg-slate-800 hover:bg-slate-900 transition-colors uppercase tracking-widest shadow-sm">
                     Cerrar Visualización
                   </button>
                 ) : (
                   <>
-                    <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
+                    <button type="button" onClick={cerrarModalEvaluacionIntegral} className="min-h-11 w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
                       Cancelar
                     </button>
                     <button onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${(puntajeHolistico || 0) >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
@@ -3880,19 +3915,22 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       )}
      {/* 🛑 MODAL SUTIL PARA JUSTIFICACIÓN "NO APLICA" */}
       {modalNoAplica?.activo && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div role="dialog" aria-modal="true" aria-labelledby="no-aplica-titulo" onKeyDown={event => { if (event.key === 'Escape') cerrarModalNoAplica(); }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95">
             <div className="bg-slate-800 p-4 flex justify-between items-center text-white shrink-0">
-              <h4 className="font-black text-sm flex items-center gap-2">
+              <h4 id="no-aplica-titulo" className="font-black text-sm flex items-center gap-2">
                 <span>🛑</span> Justificación de Inaplicabilidad
               </h4>
-              <button onClick={() => setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' })} className="text-slate-300 hover:text-white font-black text-lg px-2">✕</button>
+              <button type="button" aria-label="Cerrar justificación" onClick={cerrarModalNoAplica} className="min-h-11 min-w-11 text-slate-300 hover:text-white font-black text-lg px-2">✕</button>
             </div>
             <div className="p-6 space-y-4">
               <p className="text-xs text-slate-600 font-medium">
                 Por favor, detalla los argumentos técnicos, normativos o de proceso por los cuales este hallazgo <strong>no requiere</strong> un plan de acción correctivo. Esta observación quedará registrada en el historial de auditoría.
               </p>
-              <textarea 
+              <label htmlFor="justificacion-no-aplica" className="block text-xs font-bold text-slate-700">Justificación</label>
+              <textarea
+                id="justificacion-no-aplica"
+                autoFocus
                 value={modalNoAplica.justificacionTemporal}
                 onChange={(e) => setModalNoAplica(prev => ({ ...prev, justificacionTemporal: e.target.value }))}
                 placeholder="Ej: El hallazgo fue subsanado en campo el día de la visita, según consta en el acta X..."
@@ -3900,7 +3938,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               />
             </div>
             <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={() => setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' })} className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Cancelar</button>
+              <button type="button" onClick={cerrarModalNoAplica} className="min-h-11 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Cancelar</button>
               <button type="button" onClick={confirmarNoAplica} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Guardar Observación</button>
             </div>
           </div>
@@ -3925,7 +3963,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               <button
                 type="button"
                 disabled={guardandoEficaciaCierre}
-                onClick={() => setModalEficaciaCierre({ activo: false, plan: null, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '' })}
+                onClick={cerrarModalEficacia}
                 aria-label="Cerrar evaluación de eficacia"
                 className="rounded-lg px-2 text-xl font-bold text-emerald-100 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
               >
@@ -4032,7 +4070,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               <button
                 type="button"
                 disabled={guardandoEficaciaCierre}
-                onClick={() => setModalEficaciaCierre({ activo: false, plan: null, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '' })}
+                onClick={cerrarModalEficacia}
                 className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
               >
                 Cancelar

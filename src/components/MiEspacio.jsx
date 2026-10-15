@@ -52,9 +52,14 @@ export default function MiEspacio({
   user, safeProgramas = [], safePlanes = [], safeHallazgos = [], safeComites = [], safeCronograma = [],
   safeRiesgos = [], safeEvaluaciones = [], informesAuditoria = [],
   setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm,
+  guardNavigation = callback => callback?.(),
   selectedProceso, setSelectedProceso
 }) {
   const { mapaProcesos } = useCatalogos();
+  const navegarA = (tab, actualizarSubvista = () => {}) => guardNavigation(() => {
+    if (setActiveTab) setActiveTab(tab);
+    actualizarSubvista();
+  });
   const procesosOficiales = useMemo(() => Object.keys(mapaProcesos).reduce((acumulado, macro) => {
     acumulado.push(macro);
     const subprocesos = mapaProcesos[macro];
@@ -190,13 +195,13 @@ export default function MiEspacio({
         
         <div className="flex flex-wrap gap-3 relative z-20">
           <button 
-            onClick={() => { if(setActiveTab) setActiveTab('resultados_tab'); if(setSubTabResultados) setSubTabResultados('informes'); if(scrollToForm) scrollToForm(); }} 
+            onClick={() => navegarA('resultados_tab', () => { if(setSubTabResultados) setSubTabResultados('informes'); if(scrollToForm) scrollToForm(); })}
             className="bg-slate-900/60 hover:bg-slate-800 backdrop-blur-md text-blue-400 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-blue-500/50 transition-all shadow-xl"
           >
             FILTRAR INFORMES
           </button>
           <button 
-            onClick={() => { if(setActiveTab) setActiveTab('planes_tab'); if(setSubTabPlanes) setSubTabPlanes('planes'); }} 
+            onClick={() => navegarA('planes_tab', () => { if(setSubTabPlanes) setSubTabPlanes('planes'); })}
             className="bg-indigo-900/70 hover:bg-indigo-800 backdrop-blur-md text-purple-200 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-purple-400/50 transition-all shadow-xl"
           >
             GESTIONAR PLANES
@@ -209,7 +214,7 @@ export default function MiEspacio({
         
         {/* Card 1: Hallazgos Abiertos */}
         <div 
-          onClick={() => { if(setActiveTab) setActiveTab('resultados_tab'); if(setSubTabResultados) setSubTabResultados('hallazgos'); }} 
+          onClick={() => navegarA('resultados_tab', () => { if(setSubTabResultados) setSubTabResultados('hallazgos'); })}
           className="bg-[#1c0d15] hover:bg-[#25101b] transition-all border border-red-500/20 p-6 rounded-2xl shadow-lg cursor-pointer flex flex-col justify-between"
         >
           <div className="flex justify-between items-center">
@@ -224,7 +229,7 @@ export default function MiEspacio({
 
         {/* Card 2: Planes Vencidos */}
         <div 
-          onClick={() => { if(setActiveTab) setActiveTab('planes_tab'); if(setSubTabPlanes) setSubTabPlanes('planes'); }} 
+          onClick={() => navegarA('planes_tab', () => { if(setSubTabPlanes) setSubTabPlanes('planes'); })}
           className="bg-[#1c140d] hover:bg-[#281d13] transition-all border border-amber-500/20 p-6 rounded-2xl shadow-lg cursor-pointer flex flex-col justify-between"
         >
           <div className="flex justify-between items-center">
@@ -239,7 +244,7 @@ export default function MiEspacio({
 
         {/* Card 3: En Revisión por Auditor */}
         <div 
-          onClick={() => { if(setActiveTab) setActiveTab('planes_tab'); if(setSubTabPlanes) setSubTabPlanes('planes'); }} 
+          onClick={() => navegarA('planes_tab', () => { if(setSubTabPlanes) setSubTabPlanes('planes'); })}
           className="bg-[#0b171c] hover:bg-[#10232b] transition-all border border-cyan-500/20 p-6 rounded-2xl shadow-lg cursor-pointer flex flex-col justify-between"
         >
           <div className="flex justify-between items-center">
@@ -254,7 +259,7 @@ export default function MiEspacio({
 
         {/* Card 4: Sesiones de Comité */}
         <div 
-          onClick={() => setActiveTab && setActiveTab('gobernanza_tab')} 
+          onClick={() => navegarA('gobernanza_tab')}
           className="bg-[#0e0c1a] hover:bg-[#141126] transition-all border border-purple-500/20 p-6 rounded-2xl shadow-lg cursor-pointer flex flex-col justify-between"
         >
           <div className="flex justify-between items-center">
@@ -285,7 +290,7 @@ export default function MiEspacio({
           ].map((st, i) => (
             <div 
               key={`step-${i}`}
-              onClick={() => setActiveTab && setActiveTab(st.tab)}
+              onClick={() => navegarA(st.tab)}
               className="p-4 rounded-2xl border border-slate-800/80 bg-[#060b16]/80 hover:border-blue-500/50 hover:bg-[#0c162b] transition-all cursor-pointer flex flex-col justify-between h-28 group"
             >
               <div className="flex justify-between items-center">
@@ -381,9 +386,7 @@ export default function MiEspacio({
                       {expedienteSeleccionado.programas.map((p, i) => (
                         <div 
                           key={i} 
-                          onClick={() => {
-                            if(setActiveTab) setActiveTab('plan_anual_tab'); 
-                          }}
+                          onClick={() => navegarA('plan_anual_tab')}
                           className="flex justify-between items-center bg-[#060b16] hover:bg-[#0c162b] p-3 rounded-xl border border-slate-800 hover:border-indigo-500/40 shadow-inner cursor-pointer transition-all group/item"
                           title="Ir a Planificación para consultar este programa"
                         >
@@ -452,11 +455,7 @@ export default function MiEspacio({
                       {expedienteSeleccionado.hallazgos.map((h, i) => (
                         <div 
                           key={i} 
-                          onClick={() => {
-                            if(setActiveTab) setActiveTab('resultados_tab'); 
-                            if(setSubTabResultados) setSubTabResultados('hallazgos');
-                            if(scrollToForm) scrollToForm();
-                          }}
+                          onClick={() => navegarA('resultados_tab', () => { if(setSubTabResultados) setSubTabResultados('hallazgos'); if(scrollToForm) scrollToForm(); })}
                           className="flex justify-between items-center bg-[#060b16] hover:bg-[#0c162b] p-3 rounded-xl border border-slate-800 hover:border-red-500/40 shadow-inner cursor-pointer transition-all group/item"
                           title="Clic para viajar y gestionar este Hallazgo"
                         >
@@ -488,11 +487,7 @@ export default function MiEspacio({
                       {expedienteSeleccionado.planes.map((p, i) => (
                         <div 
                           key={i} 
-                          onClick={() => {
-                            if(setActiveTab) setActiveTab('planes_tab'); 
-                            if(setSubTabPlanes) setSubTabPlanes('planes');
-                            if(scrollToForm) scrollToForm();
-                          }}
+                          onClick={() => navegarA('planes_tab', () => { if(setSubTabPlanes) setSubTabPlanes('planes'); if(scrollToForm) scrollToForm(); })}
                           className="flex flex-col sm:flex-row justify-between sm:items-center bg-[#060b16] hover:bg-[#0c162b] p-3.5 rounded-xl border border-slate-800 hover:border-amber-500/40 shadow-inner gap-3 cursor-pointer transition-all group/plan"
                           title="Clic para viajar y gestionar este Plan de Acción"
                         >

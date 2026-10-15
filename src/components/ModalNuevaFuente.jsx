@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useCatalogos } from '../context/useCatalogos';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import { TIPOS_FUENTE } from '../constants/diccionariosGRC';
 
 const NORMAS_PREDETERMINADAS = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
@@ -42,6 +43,7 @@ export default function ModalNuevaFuente({
   const [isDirty, setIsDirty] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  useUnsavedChangesGuard(isOpen && isDirty && !isReadOnly, 'la fuente de mejora');
   const [formData, setFormData] = useState(() => {
     const valoresIniciales = {
       tipoFuente: 'Auditoría Interna',
@@ -99,18 +101,6 @@ export default function ModalNuevaFuente({
       motivoEdicion: '', // ✨ Siempre forzamos a que esté vacío al abrir para escribir un nuevo motivo
     };
   });
-
-  useEffect(() => {
-    if (!isOpen || !isDirty) return undefined;
-
-    const handleBeforeUnload = (event) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty, isOpen]);
 
   if (!isOpen) return null;
 

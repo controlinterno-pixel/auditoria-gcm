@@ -420,8 +420,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
         comentarios: formData.get('comentarios') || '', 
         historialCambios: [...(editEvaluacion.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evaluación modificada' }] 
       };
-      updated = safeEvaluaciones.map(ev => String(ev.id) === String(editEvaluacion.id) ? mod : ev); 
-      setEditEvaluacion(null);
+      updated = safeEvaluaciones.map(ev => String(ev.id) === String(editEvaluacion.id) ? mod : ev);
     } else {
       const nuevo = { 
         id: Date.now(), 
@@ -440,8 +439,6 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       };
       updated = [nuevo, ...safeEvaluaciones];
     }
-    setEvaluaciones(updated); 
-
     let updatedHallazgos = safeHallazgos;
     let updatedRiesgos = safeRiesgos;
     
@@ -457,7 +454,6 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           seguimientoBitacora: notaBitacora + bitacoraPrevia
         };
         updatedRiesgos = safeRiesgos.map(r => String(r.id) === String(riesgoAsociado.id) ? riesgoActualizado : r);
-        setRiesgos(updatedRiesgos);
       }
 
       if (generarHallazgo) {
@@ -482,7 +478,6 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           historialCambios: [{ fecha: ts, usuario: user?.email || 'Sistema', accion: 'Autogenerado por defecto en Test de Control' }] 
         };
         updatedHallazgos = [...safeHallazgos, nuevoHallazgo];
-        setHallazgos(updatedHallazgos);
         showNotification("Test guardado, Bitácora de riesgo actualizada y Hallazgo derivado con éxito.", "success");
       } else {
         showNotification("Test guardado y Bitácora de riesgo actualizada (Sin hallazgo).");
@@ -491,9 +486,15 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       showNotification("Evaluación guardada exitosamente. Control fuerte y eficaz.");
     }
 
-    await saveToCloud({ evaluaciones: updated, hallazgos: updatedHallazgos, riesgos: updatedRiesgos }); 
+    const guardado = await saveToCloud({ evaluaciones: updated, hallazgos: updatedHallazgos, riesgos: updatedRiesgos });
+    if (!guardado) return false;
+    setEvaluaciones(updated);
+    if (editEvaluacion) setEditEvaluacion(null);
+    if (updatedHallazgos !== safeHallazgos) setHallazgos(updatedHallazgos);
+    if (updatedRiesgos !== safeRiesgos) setRiesgos(updatedRiesgos);
     e.target.reset(); 
     setFormResetKey(Date.now()); 
+    return true;
   };
 
   const handleComiteSubmit = async (e) => {
@@ -502,13 +503,20 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
     let updated;
     if (editComite) {
       const mod = { ...editComite, nombre: formData.get('nombre'), tipo: formData.get('tipo'), fecha: formData.get('fecha'), presentacionUrl: formData.get('presentacionUrl'), actaUrl: formData.get('actaUrl'), compromisos: formData.get('compromisos'), historialCambios: [...(editComite.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Modificado' }] };
-      updated = safeComites.map(c => c.id === editComite.id ? mod : c); setEditComite(null);
+      updated = safeComites.map(c => c.id === editComite.id ? mod : c);
     } else {
       const fechaCorte = new Date(formData.get('fecha') + 'T00:00:00');
       const nuevo = { id: Date.now(), nombre: formData.get('nombre'), tipo: formData.get('tipo'), fecha: formData.get('fecha'), presentacionUrl: formData.get('presentacionUrl'), actaUrl: formData.get('actaUrl'), compromisos: formData.get('compromisos'), anio: fechaCorte.getFullYear(), mes: defaultMeses[fechaCorte.getMonth()], historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Radicado sesión' }] };
       updated = [nuevo, ...safeComites];
     }
-    setComites(updated); await saveToCloud({ comites: updated }); e.target.reset(); setFormResetKey(Date.now()); showNotification("Sesión de comité guardada.");
+    const guardado = await saveToCloud({ comites: updated });
+    if (!guardado) return false;
+    setComites(updated);
+    if (editComite) setEditComite(null);
+    e.target.reset();
+    setFormResetKey(Date.now());
+    showNotification("Sesión de comité guardada.");
+    return true;
   };
 
   const handleIncidenteSubmit = async (e) => {
@@ -519,12 +527,19 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
     let updated;
     if (editIncidente) {
       const mod = { ...editIncidente, proceso: formData.get('proceso'), idRiesgo: parseInt(formData.get('idRiesgo')), titulo: formData.get('titulo'), descripcion: formData.get('descripcion'), montoSobrante: sobranteVal, montoFaltante: faltanteVal, impacto: formData.get('impacto'), evidenciaUrl: formData.get('evidenciaUrlInput') || editIncidente.evidenciaUrl, historialCambios: [...(editIncidente.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evento modificado' }] };
-      updated = safeIncidentes.map(i => i.id === editIncidente.id ? mod : i); setEditIncidente(null);
+      updated = safeIncidentes.map(i => i.id === editIncidente.id ? mod : i);
     } else {
       const nuevo = { id: Date.now(), proceso: formData.get('proceso'), idRiesgo: parseInt(formData.get('idRiesgo')), fecha: new Date().toISOString().split('T')[0], titulo: formData.get('titulo'), descripcion: formData.get('descripcion'), montoSobrante: sobranteVal, montoFaltante: faltanteVal, impacto: formData.get('impacto'), reportadoPor: user?.email, evidenciaUrl: formData.get('evidenciaUrlInput'), estado: 'Abierto', anio: new Date().getFullYear(), mes: "Junio", historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evento de pérdida registrado' }] };
       updated = [...safeIncidentes, nuevo];
     }
-    setIncidentes(updated); await saveToCloud({ incidentes: updated }); e.target.reset(); setFormResetKey(Date.now()); showNotification("Evento registrado.");
+    const guardado = await saveToCloud({ incidentes: updated });
+    if (!guardado) return false;
+    setIncidentes(updated);
+    if (editIncidente) setEditIncidente(null);
+    e.target.reset();
+    setFormResetKey(Date.now());
+    showNotification("Evento registrado.");
+    return true;
   };
 
   const handleCronogramaSubmit = async (e) => {
@@ -537,41 +552,58 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
     let updatedList;
     if (editCronograma) {
       const modificado = { ...editCronograma, anio: parseInt(formData.get('anio')), codigo: formData.get('codigo'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), apoyo: formData.get('apoyo'), periodo: formData.get('periodo'), enfoque: formData.get('enfoque'), cumplimiento: parseInt(formData.get('cumplimiento') || 0), meses: mesesSeleccionados };
-      updatedList = safeCronograma.map(c => c.id === editCronograma.id ? modificado : c); setEditCronograma(null);
+      updatedList = safeCronograma.map(c => c.id === editCronograma.id ? modificado : c);
     } else {
       const nuevo = { id: Date.now(), anio: parseInt(formData.get('anio')), codigo: formData.get('codigo'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), apoyo: formData.get('apoyo'), periodo: formData.get('periodo'), enfoque: formData.get('enfoque'), cumplimiento: parseInt(formData.get('cumplimiento') || 0), meses: mesesSeleccionados };
       updatedList = [...safeCronograma, nuevo];
     }
-    setCronograma(updatedList); await saveToCloud({ cronograma: updatedList }); e.target.reset(); showNotification("Plan Anual actualizado.");
+    const guardado = await saveToCloud({ cronograma: updatedList });
+    if (!guardado) return false;
+    setCronograma(updatedList);
+    if (editCronograma) setEditCronograma(null);
+    e.target.reset();
+    showNotification("Plan Anual actualizado.");
+    return true;
   };
 
   const handleApetitoSubmit = async (e) => {
-    e.preventDefault(); if (!isAdmin || !editApetito) return;
+    e.preventDefault(); if (!isAdmin || !editApetito) return false;
     const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     const apetito = parseFloat(formData.get('apetitoFinanciero') || 0);
     const tolerancia = parseFloat(formData.get('toleranciaFinanciera') || 0);
     const capacidad = parseFloat(formData.get('capacidadRiesgo') || 0);
     if (apetito > tolerancia || tolerancia > capacidad) {
-      showNotification("Error: Jerarquía incorrecta (Apetito ≤ Tolerancia ≤ Capacidad).", "error"); return;
+      showNotification("Error: Jerarquía incorrecta (Apetito ≤ Tolerancia ≤ Capacidad).", "error"); return false;
     }
     const modificado = { ...editApetito, posturaEstrategica: formData.get('posturaEstrategica'), kriScore: parseInt(formData.get('kriScore')), apetitoFinanciero: apetito, toleranciaFinanciera: tolerancia, capacidadRiesgo: capacidad, impactoOperativo: formData.get('impactoOperativo') || 'No definido', impactoReputacional: formData.get('impactoReputacional') || 'No definido', impactoLegal: formData.get('impactoLegal') || 'No definido', escalamiento: formData.get('escalamiento') || 'Jefe de Área', historialCambios: [...(editApetito.historialCambios || []), { fecha: ts, accion: 'Apetito parametrizado' }] };
     const updatedList = safeRiesgos.map(r => r.id === editApetito.id ? modificado : r);
-    setRiesgos(updatedList); setEditApetito(null); await saveToCloud({ riesgos: updatedList }); showNotification("Perfil de Apetito guardado.");
+    const guardado = await saveToCloud({ riesgos: updatedList });
+    if (!guardado) return false;
+    setRiesgos(updatedList);
+    setEditApetito(null);
+    showNotification("Perfil de Apetito guardado.");
+    return true;
   };
 
   const handleMonitoreoSubmit = async (e) => {
-    e.preventDefault(); if (!isAdmin) return;
+    e.preventDefault(); if (!isAdmin) return false;
     const formData = new FormData(e.target);
     let updatedList;
     if (editMonitoreo && editMonitoreo.id) {
       const modificado = { ...editMonitoreo, anio: parseInt(formData.get('anio')), indicador: formData.get('indicador').toUpperCase(), proceso: formData.get('proceso') || '', valor: parseInt(formData.get('valor') || 0), limite: parseInt(formData.get('limite') || 0), tendencia: formData.get('tendencia') || 'flat' };
-      updatedList = safeMonitoreo.map(m => m.id === editMonitoreo.id ? modificado : m); setEditMonitoreo(null);
+      updatedList = safeMonitoreo.map(m => m.id === editMonitoreo.id ? modificado : m);
     } else {
       const nuevo = { id: Date.now(), anio: parseInt(formData.get('anio')), indicador: formData.get('indicador').toUpperCase(), proceso: formData.get('proceso') || '', valor: parseInt(formData.get('valor') || 0), limite: parseInt(formData.get('limite') || 0), tendencia: formData.get('tendencia') || 'flat' };
       updatedList = [...safeMonitoreo, nuevo];
     }
-    setMonitoreo(updatedList); await saveToCloud({ monitoreo: updatedList }); e.target.reset(); showNotification("Indicador actualizado.");
+    const guardado = await saveToCloud({ monitoreo: updatedList });
+    if (!guardado) return false;
+    setMonitoreo(updatedList);
+    if (editMonitoreo?.id) setEditMonitoreo(null);
+    e.target.reset();
+    showNotification("Indicador actualizado.");
+    return true;
   };
 
 const handleInformeAuditoriaSubmit = async (e) => {

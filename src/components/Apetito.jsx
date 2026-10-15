@@ -1,5 +1,6 @@
 // Hola Gem, esta es una prueba de conexion en vivo. 27 de Septiembre.
 import { useState } from 'react';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 export default function Apetito({
   editApetito,
   setEditApetito,
@@ -60,6 +61,8 @@ export default function Apetito({
 
   // 💰 ESTADO Y LÓGICA PARA FORMATEAR MONEDA EN TIEMPO REAL
   const [finanzasTemp, setFinanzasTemp] = useState({});
+  const [formularioModificado, setFormularioModificado] = useState(false);
+  const guardNavigationApetito = useUnsavedChangesGuard(Boolean(editApetito && formularioModificado), 'el perfil de apetito');
 
   const idEdit = editApetito?.id || 'nuevo';
   const finanzas = {
@@ -104,10 +107,10 @@ export default function Apetito({
               <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">⚙️ Arquitectura COSO ERM</h3>
               <p className="text-xs font-bold text-slate-500 mt-1">Riesgo: [{editApetito.sede}] {editApetito.proceso}</p>
             </div>
-            <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
+            <button type="button" onClick={() => guardNavigationApetito(() => { setFormularioModificado(false); setEditApetito(null); })} className="min-h-6 text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
           </div>
           
-          <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
+          <form onChangeCapture={() => setFormularioModificado(true)} onSubmit={async event => { const guardado = await handleApetitoSubmit(event); if (guardado) setFormularioModificado(false); }} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">

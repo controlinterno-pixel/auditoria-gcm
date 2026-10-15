@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import { CARGOS_EMPRESA, CARGOS_POR_SEDE, MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 const correoValido = valor => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim()) && String(valor || '').trim().toLowerCase().endsWith('@termales.com.co');
@@ -64,11 +65,31 @@ export default function CargosProcesos({
   const [subprocesosTexto, setSubprocesosTexto] = useState('');
   const [sedeNueva, setSedeNueva] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [cargoModificado, setCargoModificado] = useState(false);
+  const [macroModificado, setMacroModificado] = useState(false);
+  const [sedeModificada, setSedeModificada] = useState(false);
 
   const listaCargos = Array.isArray(catalogoCargos) ? catalogoCargos : CARGOS_VACIOS;
   const mapaSeguro = mapaProcesos && typeof mapaProcesos === 'object' ? mapaProcesos : {};
   const macrosDisponibles = Object.keys(mapaSeguro).sort((a, b) => a.localeCompare(b, 'es'));
   const sedesDisponibles = Array.isArray(sedesEmpresa) ? sedesEmpresa : [];
+  const guardCargo = useUnsavedChangesGuard(modalAbierto && cargoModificado, 'la asignación del cargo');
+  const guardMacro = useUnsavedChangesGuard(macroModificado, 'el macroproceso');
+  const guardSede = useUnsavedChangesGuard(sedeModificada, 'la sede');
+  const descartarBorradoresCatalogo = () => {
+    setCargoModificado(false);
+    setMacroModificado(false);
+    setSedeModificada(false);
+    setModalAbierto(false);
+    setFormulario(formularioVacio);
+    setSedeNueva('');
+    setMacroNombre(macroSeleccionado);
+    setSubprocesosTexto((mapaSeguro[macroSeleccionado] || []).join('\n'));
+  };
+  const cambiarVistaCatalogo = siguienteVista => guardSede(() => {
+    descartarBorradoresCatalogo();
+    setVistaActiva(siguienteVista);
+  });
   const requiereCompletarCatalogo = sedesDisponibles.length === 0 || cargosIniciales.some(cargo => (
     !listaCargos.some(registro => nombreCargoNormalizado(registro.cargo) === nombreCargoNormalizado(cargo))
   ));
@@ -126,15 +147,18 @@ export default function CargosProcesos({
   const agregarSede = async event => {
     event.preventDefault();
     const nombre = sedeNueva.trim();
-    if (!nombre) return;
+    if (!nombre) return false;
     if (sedesDisponibles.some(sede => nombreSedeNormalizado(sede) === nombreSedeNormalizado(nombre))) {
       showNotification('Esa sede ya está registrada.', 'error');
-      return;
+      return false;
     }
     if (await guardarCatalogos(listaCargos, mapaSeguro, [...sedesDisponibles, nombre]) !== false) {
       setSedeNueva('');
+      setSedeModificada(false);
       showNotification('Sede agregada al catálogo.', 'success');
+      return true;
     }
+    return false;
   };
 
   const eliminarSede = async sede => {
@@ -148,11 +172,13 @@ export default function CargosProcesos({
   const abrirNuevoCargo = () => {
     setCargoEditando(null);
     setFormulario(formularioVacio);
+    setCargoModificado(false);
     setModalAbierto(true);
   };
 
   const abrirEdicionCargo = registro => {
     setCargoEditando(registro);
+    setCargoModificado(false);
     setFormulario({
       cargo: registro.cargo || '',
       correoCorporativo: registro.correoCorporativo || '',
@@ -168,7 +194,7 @@ export default function CargosProcesos({
     const correoLimpio = formulario.correoCorporativo.trim().toLowerCase();
     if (!cargoLimpio || !correoValido(correoLimpio) || !formulario.macroproceso || formulario.subprocesos.length === 0) {
       showNotification('Completa cargo, correo corporativo, macroproceso y al menos un subproceso.', 'error');
-      return;
+      return false;
     }
 
     const { sedes: _sedesLegacy, ...datosCargoEditando } = cargoEditando || {};
@@ -188,9 +214,12 @@ export default function CargosProcesos({
       : [actualizado, ...listaCargos];
 
     if (await guardarCatalogos(cargosSiguientes, mapaSeguro) !== false) {
+      setCargoModificado(false);
       setModalAbierto(false);
       showNotification(cargoEditando ? 'Cargo actualizado.' : 'Cargo agregado.', 'success');
+      return true;
     }
+    return false;
   };
 
   const eliminarCargo = async registro => {
@@ -222,7 +251,7 @@ export default function CargosProcesos({
     const subprocesos = [...new Set(subprocesosTexto.split('\n').map(valor => valor.trim()).filter(Boolean))];
     if (!nombreNuevo || subprocesos.length === 0) {
       showNotification('Indica el macroproceso y al menos un subproceso.', 'error');
-      return;
+      return false;
     }
 
     const mapaSiguiente = { ...mapaSeguro };
@@ -242,8 +271,11 @@ export default function CargosProcesos({
       setMacroSeleccionado(nombreNuevo);
       setMacroNombre(nombreNuevo);
       setSubprocesosTexto(subprocesos.join('\n'));
+      setMacroModificado(false);
       showNotification('Estructura de procesos guardada.', 'success');
+      return true;
     }
+    return false;
   };
 
   const eliminarMacroproceso = async () => {
@@ -295,10 +327,10 @@ export default function CargosProcesos({
         </section>
       ) : (
         <>
-          <div className="flex border-b border-slate-200">
-            <button type="button" onClick={() => setVistaActiva('cargos')} className={`border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'cargos' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Cargos y correos</button>
-            <button type="button" onClick={() => setVistaActiva('procesos')} className={`border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'procesos' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Macroprocesos y subprocesos</button>
-            <button type="button" onClick={() => setVistaActiva('sedes')} className={`border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'sedes' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Sedes</button>
+          <div className="flex border-b border-slate-200" role="tablist" aria-label="Secciones de catálogos">
+            <button type="button" role="tab" aria-selected={vistaActiva === 'cargos'} aria-current={vistaActiva === 'cargos' ? 'page' : undefined} onClick={() => cambiarVistaCatalogo('cargos')} className={`min-h-11 border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'cargos' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Cargos y correos</button>
+            <button type="button" role="tab" aria-selected={vistaActiva === 'procesos'} aria-current={vistaActiva === 'procesos' ? 'page' : undefined} onClick={() => cambiarVistaCatalogo('procesos')} className={`min-h-11 border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'procesos' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Macroprocesos y subprocesos</button>
+            <button type="button" role="tab" aria-selected={vistaActiva === 'sedes'} aria-current={vistaActiva === 'sedes' ? 'page' : undefined} onClick={() => cambiarVistaCatalogo('sedes')} className={`min-h-11 border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'sedes' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Sedes</button>
           </div>
 
           {vistaActiva === 'cargos' ? (
@@ -347,14 +379,14 @@ export default function CargosProcesos({
                 <h2 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-700">Macroprocesos registrados</h2>
                 <div className="space-y-1">
                   {macrosDisponibles.map(macro => (
-                    <button key={macro} type="button" onClick={() => seleccionarMacro(macro)} className={`w-full rounded-lg px-3 py-2 text-left text-xs font-bold ${macroSeleccionado === macro ? 'bg-blue-50 text-blue-800' : 'text-slate-600 hover:bg-slate-50'}`}>
+                    <button key={macro} type="button" onClick={() => guardMacro(() => { setMacroModificado(false); seleccionarMacro(macro); })} aria-current={macroSeleccionado === macro ? 'true' : undefined} className={`min-h-11 w-full rounded-lg px-3 py-2 text-left text-xs font-bold ${macroSeleccionado === macro ? 'bg-blue-50 text-blue-800' : 'text-slate-600 hover:bg-slate-50'}`}>
                       <span>{macro}</span><span className="float-right text-[10px] text-slate-400">{mapaSeguro[macro]?.length || 0}</span>
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={() => { setMacroSeleccionado(''); setMacroNombre(''); setSubprocesosTexto(''); }} className="mt-3 rounded border border-blue-200 px-3 py-2 text-[10px] font-black text-blue-800 hover:bg-blue-50">+ Nuevo macroproceso</button>
+                <button type="button" onClick={() => guardMacro(() => { setMacroModificado(false); setMacroSeleccionado(''); setMacroNombre(''); setSubprocesosTexto(''); })} className="mt-3 min-h-11 rounded border border-blue-200 px-3 py-2 text-[10px] font-black text-blue-800 hover:bg-blue-50">+ Nuevo macroproceso</button>
               </div>
-              <form onSubmit={guardarMacroproceso} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <form onChangeCapture={() => setMacroModificado(true)} onSubmit={async event => { await guardarMacroproceso(event); }} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-xs font-black uppercase tracking-wide text-slate-700">{macroSeleccionado ? 'Editar macroproceso' : 'Crear macroproceso'}</h2>
                 <label className="block text-[10px] font-bold text-slate-600">Nombre del macroproceso
                   <input required value={macroNombre} onChange={event => setMacroNombre(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs" />
@@ -370,7 +402,7 @@ export default function CargosProcesos({
             </section>
           ) : (
             <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-              <form onSubmit={agregarSede} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <form onChangeCapture={() => setSedeModificada(true)} onSubmit={agregarSede} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-xs font-black uppercase tracking-wide text-slate-700">Registrar una sede</h2>
                 <p className="text-[10px] text-slate-500">Las sedes son opciones independientes y no se asignan a cargos ni procesos.</p>
                 <label className="block text-[10px] font-bold text-slate-600">Nombre de la sede
@@ -400,10 +432,10 @@ export default function CargosProcesos({
 
       {modalAbierto && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="cargo-modal-titulo">
-          <form onSubmit={guardarCargo} className="w-full max-w-xl space-y-4 rounded-xl bg-white p-5 shadow-2xl">
+          <form onChangeCapture={() => setCargoModificado(true)} onSubmit={guardarCargo} className="w-full max-w-xl space-y-4 rounded-xl bg-white p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-3">
               <h2 id="cargo-modal-titulo" className="text-sm font-black text-slate-900">{cargoEditando ? 'Editar asignación' : 'Agregar asignación'}</h2>
-              <button type="button" aria-label="Cerrar" onClick={() => setModalAbierto(false)} className="text-xl text-slate-500 hover:text-slate-900">×</button>
+              <button type="button" aria-label="Cerrar y salir del formulario de cargo" onClick={() => guardCargo(() => { setCargoModificado(false); setFormulario(formularioVacio); setModalAbierto(false); })} className="min-h-11 min-w-11 text-xl text-slate-500 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">×</button>
             </div>
             <label className="block text-[10px] font-bold text-slate-600">Cargo
               <input required maxLength="120" value={formulario.cargo} onChange={event => setFormulario(prev => ({ ...prev, cargo: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs" />
@@ -443,7 +475,7 @@ export default function CargosProcesos({
               </fieldset>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
-              <button type="button" onClick={() => setModalAbierto(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700">Cancelar</button>
+              <button type="button" onClick={() => guardCargo(() => { setCargoModificado(false); setFormulario(formularioVacio); setModalAbierto(false); })} className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700">Cancelar</button>
               <button type="submit" disabled={guardando} className="rounded-lg bg-blue-700 px-4 py-2 text-xs font-black text-white disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar cargo'}</button>
             </div>
           </form>

@@ -1,4 +1,5 @@
 import { useMemo, useCallback, lazy, Suspense, useState, useEffect } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
@@ -54,6 +55,7 @@ import { FilterInput, StepIndicatorHUD, HeaderFiltros } from './components/UICom
 import Navbar from './components/Navbar';
 import SidebarNavigation from './components/SidebarNavigation';
 import MiPerfil from './components/MiPerfil';
+import { useNavigationGuard } from './hooks/useUnsavedChangesGuard.js';
 
 import { enviarCorreoGmail, prepararAutorizacionGmail } from './services/gmailService';
 import { useGrcData } from './hooks/useGrcData';
@@ -159,9 +161,52 @@ export default function App() {
     editApetito, setEditApetito, editMonitoreo, setEditMonitoreo, activeTooltip, setActiveTooltip,
     editInformeAuditoria, setEditInformeAuditoria, editComite, setEditComite
   } = ui;
+  const guardNavigation = useNavigationGuard();
+  const setActiveTabWithGuard = useCallback((nextTab) => {
+    return guardNavigation(() => {
+      if (nextTab !== activeTab) setActiveTab(nextTab);
+    });
+  }, [activeTab, guardNavigation, setActiveTab]);
   const reviewReportId = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('reviewReportId')
     : null;
+  const nombresVistas = {
+    tablero: 'Mi Espacio GRC',
+    dashboard_riesgos: 'GRC Dashboard',
+    plan_anual_tab: {
+      plan_anual: 'Cronograma anual',
+      programas: 'Programas de Auditoría',
+      riesgos: 'Matriz de Riesgos',
+      apetito: 'Apetito de Riesgo',
+    },
+    evaluaciones: 'Trabajo de Campo',
+    resultados_tab: {
+      fuentes_mejora: 'Fuentes de Mejora',
+      informes: 'Informes Emitidos',
+      hallazgos: 'Hallazgos Registrados',
+      cargos_procesos: 'Cargos y Procesos',
+    },
+    planes_tab: {
+      planes: 'Planes de Acción',
+      incidentes: 'Eventos de Pérdida',
+    },
+    gobernanza_tab: {
+      comites: 'Sesiones de Comité',
+      trazabilidad: 'Trazabilidad',
+      auditoria_auto: 'Auditoría Automatizada',
+    },
+    config: 'Configuración',
+    mi_perfil: 'Mi Perfil',
+  };
+  const contextoVista = {
+    plan_anual_tab: subTabPlanificar,
+    resultados_tab: subTabResultados,
+    planes_tab: subTabPlanes,
+    gobernanza_tab: subTabGobernanza,
+  }[activeTab];
+  const nombreVistaActual = typeof nombresVistas[activeTab] === 'string'
+    ? nombresVistas[activeTab]
+    : nombresVistas[activeTab]?.[contextoVista] || 'Módulo GRC';
   const puedeVerFuentesMejora = isAdmin || perfilUsuario?.permisos?.includes('sub_fuentes_mejora') === true;
   const puedeVerCronograma = isAdmin || perfilUsuario?.permisos?.includes('sub_cronograma') === true;
   const puedeCrearInformes = isAdmin || perfilUsuario?.permisos?.includes('sub_informes') === true;
@@ -451,6 +496,10 @@ return (
         </button>
       )}
 
+<a href="#main-scroll-area" className="sr-only fixed left-3 top-3 z-[200] rounded-lg bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-lg focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-blue-600">
+  Saltar al contenido principal
+</a>
+
 <SidebarNavigation 
         isPresentationMode={isPresentationMode}
         isCollapsed={isSidebarCollapsed}
@@ -459,6 +508,7 @@ return (
         setMenuAbierto={setMenuAbierto}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        guardNavigation={guardNavigation}
         subTabPlanificar={subTabPlanificar}
         setSubTabPlanificar={setSubTabPlanificar}
         subTabResultados={subTabResultados}
@@ -494,9 +544,30 @@ return (
 {/*  Tracks de gobernanza guiada del Workflow en la cabecera */}
         {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}
         
-<main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-4 sm:p-6 xl:p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
+<main id="main-scroll-area" tabIndex={-1} aria-label="Contenido principal" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-4 sm:p-6 xl:p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
           <Suspense fallback={<div className="flex justify-center items-center p-12 text-slate-400 font-bold text-sm uppercase tracking-widest animate-pulse">⏳ Cargando módulo...</div>}>
 <div key={`${activeTab}-${subTabPlanificar}-${subTabResultados}-${subTabPlanes}-${subTabGobernanza}`} className={`${isPresentationMode ? 'max-w-none' : 'max-w-[1600px]'} mx-auto transition-all duration-500`}>
+          <nav aria-label="Ubicación actual" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
+            <ol className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+              <li>
+                <button type="button" onClick={() => setActiveTabWithGuard('tablero')} className="min-h-8 rounded px-2 font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+                  Mi Espacio GRC
+                </button>
+              </li>
+              {activeTab !== 'tablero' && (
+                <li aria-current="page" className="flex min-w-0 items-center gap-2 font-bold text-slate-900">
+                  <span aria-hidden="true" className="text-slate-400">/</span>
+                  <span className="truncate">{nombreVistaActual}</span>
+                </li>
+              )}
+            </ol>
+            {activeTab !== 'tablero' && (
+              <button type="button" onClick={() => setActiveTabWithGuard('tablero')} className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+                <ArrowLeft size={15} aria-hidden="true" />
+                Volver a Mi Espacio
+              </button>
+            )}
+          </nav>
           {/* 🏠 FASE 0: MI ESPACIO DE TRABAJO (Bandeja Ejecutiva + Expediente Único + Dashboard) */}
             {activeTab === 'tablero' && (
               <MiEspacio
@@ -510,7 +581,8 @@ return (
                 safeEvaluaciones={safeEvaluaciones}
                 informesAuditoria={informesAuditoria}
                 activeTab={activeTab}
-                setActiveTab={setActiveTab}
+                setActiveTab={setActiveTabWithGuard}
+                guardNavigation={guardNavigation}
                 setSubTabResultados={setSubTabResultados}
                 setSubTabPlanes={setSubTabPlanes}
                 scrollToForm={scrollToForm}
@@ -537,7 +609,7 @@ return (
                 selectedAnios={selectedAnios} selectedMeses={selectedMeses}
                 toggleAnio={toggleAnio} toggleMes={toggleMes}
                 setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses}
-                setActiveTab={setActiveTab}
+                setActiveTab={setActiveTabWithGuard}
                 setSelectedProcesoExpediente={setSelectedProcesoExpediente}
               />
             )}
@@ -855,7 +927,16 @@ return (
                 
 <ModalIA aiModal={aiModal} setAiModal={setAiModal} />
       <ModalDetalleGrafico chartDetail={chartDetail} setChartDetail={setChartDetail} />      
-      {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
+      {notification && (
+        <div
+          role={notification.type === 'error' ? 'alert' : 'status'}
+          aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+          className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}
+        >
+          {notification.message}
+        </div>
+      )}
     </div>
   </CatalogosProvider>
   );

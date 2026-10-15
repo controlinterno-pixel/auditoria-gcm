@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCatalogos } from '../context/useCatalogos';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
 import { useDataFetching } from '../hooks/useDataFetching';
@@ -45,6 +46,8 @@ export default function Evaluaciones({
   handleDeleteItem
 }) {
   const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
+  const [formularioModificado, setFormularioModificado] = useState(false);
+  const guardNavigationEvaluaciones = useUnsavedChangesGuard(formularioModificado, 'la evaluación de control');
   // 🌟 ESTADOS DE SELECCIÓN EN CASCADA
   const listadoMacros = Object.keys(MAPA_PROCESOS);
   const [procesoSel, setProcesoSel] = useState('');
@@ -178,7 +181,9 @@ const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
     e.preventDefault();
 
     // Invoca la función global de guardado en Firebase / App.jsx
-    await handleEvaluacionSubmit(e);
+    const guardado = await handleEvaluacionSubmit(e);
+    if (!guardado) return;
+    setFormularioModificado(false);
 
     // 🌟 NUEVO: Si es Riesgo Emergente, auto-generamos el Hallazgo en memoria
     if (riesgoIdSel === 'EMERGENTE' && informeSel) {
@@ -230,7 +235,7 @@ const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
 
           {editEvaluacion && (
             <button
-              onClick={() => { setEditEvaluacion(null); setRiesgoIdSel(''); setControlSel(''); }}
+              onClick={() => guardNavigationEvaluaciones(() => { setFormularioModificado(false); setEditEvaluacion(null); setRiesgoIdSel(''); setControlSel(''); })}
               className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-bold transition-all"
             >
               ✕ Cancelar Edición
@@ -238,7 +243,7 @@ const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
           )}
         </div>
 
-        <form onSubmit={onSubmitLocal} className="space-y-6">
+        <form onChangeCapture={() => setFormularioModificado(true)} onSubmit={onSubmitLocal} className="space-y-6">
           
           {/* CAMPOS OCULTOS PARA INTERCEPTOR DE APP.JSX */}
           <input type="hidden" name="idRiesgo" value={riesgoIdSel} />

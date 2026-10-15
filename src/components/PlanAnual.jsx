@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { exportarA_PDF } from '../utils/pdfUtils'; // <-- Ajusta esta ruta si tu pdfUtils está en otra carpeta
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 
 export default function PlanAnual({
   isAdmin,
@@ -30,6 +31,10 @@ const currentYear = new Date().getFullYear();
 
   const ganttRef = useRef();
   const [isExporting, setIsExporting] = useState(false);
+  const [cronogramaModificado, setCronogramaModificado] = useState(false);
+  const [monitoreoModificado, setMonitoreoModificado] = useState(false);
+  const guardCronograma = useUnsavedChangesGuard(cronogramaModificado && isAdmin, 'el cronograma anual');
+  const guardMonitoreo = useUnsavedChangesGuard(monitoreoModificado && isAdmin, 'el indicador de monitoreo');
 
 const descargarCronogramaPDF = () => {
     setIsExporting(true);
@@ -158,13 +163,13 @@ const descargarCronogramaPDF = () => {
               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                  <div className="bg-[#004d40] text-white p-3 flex justify-between items-center">
                    <span className="text-[10px] font-black uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Gestor de KRIs</span></span>
-                   {isAdmin && <button onClick={() => setEditMonitoreo({})} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
+                   {isAdmin && <button type="button" onClick={() => { setMonitoreoModificado(false); setEditMonitoreo({}); }} aria-label="Añadir indicador KRI" className="min-h-6 min-w-6 text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
                  </div>
                  <div className="divide-y divide-slate-100 p-2">
                    
                    {/* FORMULARIO DE KRIs EDITADO */}
                    {editMonitoreo && isAdmin && (
-                     <form onSubmit={handleMonitoreoSubmit} key={editMonitoreo?.id ? `edit-monitoreo-${editMonitoreo.id}-${formResetKey}` : `new-monitoreo-${formResetKey}`} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
+                     <form onChangeCapture={() => setMonitoreoModificado(true)} onSubmit={async event => { const guardado = await handleMonitoreoSubmit(event); if (guardado) setMonitoreoModificado(false); }} key={editMonitoreo?.id ? `edit-monitoreo-${editMonitoreo.id}-${formResetKey}` : `new-monitoreo-${formResetKey}`} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
                        <div className="flex space-x-2 mb-2">
                          <input name="anio" type="number" defaultValue={editMonitoreo.anio || (selectedAnios && selectedAnios.length > 0 ? selectedAnios[0] : 2026)} placeholder="Año" required className="w-1/3 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none font-bold text-[#004d40]" />
                          <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Nombre KRI..." required className="w-2/3 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
@@ -180,7 +185,7 @@ const descargarCronogramaPDF = () => {
                          <option value="flat">Estable</option>
                        </select>
                        <div className="flex justify-between items-center mt-1">
-                         <button type="button" onClick={() => setEditMonitoreo(null)} className="text-[10px] text-red-500 hover:text-red-700 font-bold px-2">Cancelar</button>
+                         <button type="button" onClick={() => guardMonitoreo(() => { setMonitoreoModificado(false); setEditMonitoreo(null); })} className="min-h-6 text-[10px] text-red-500 hover:text-red-700 font-bold px-2">Cancelar</button>
                          <button type="submit" className="text-[10px] bg-[#004d40] text-white px-3 py-1.5 rounded shadow-sm hover:bg-[#00695c] font-bold">{editMonitoreo.id ? 'Actualizar' : 'Guardar'}</button>
                        </div>
                      </form>
@@ -263,7 +268,7 @@ const descargarCronogramaPDF = () => {
                                <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
                                {isAdmin && (
                                  <td className="p-3 text-center whitespace-nowrap">
-                                   <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 mx-1 text-sm transition-colors">✏️</button>
+                                   <button type="button" onClick={() => { setCronogramaModificado(false); setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm(); }} aria-label={`Editar cronograma ${c.codigo}`} className="min-h-11 min-w-11 text-orange-500 hover:text-orange-700 mx-1 text-sm transition-colors">✏️</button>
                                    <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-slate-400 hover:text-red-700 mx-1 text-sm transition-colors">🗑️</button>
                                  </td>
                                )}
@@ -283,9 +288,9 @@ const descargarCronogramaPDF = () => {
         <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
           <div className="flex justify-between items-center border-b pb-3 mb-4">
             <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editCronograma ? '✏️ Editando Proceso del Plan' : '➕ Agregar Proceso al Cronograma'}</h3>
-            {editCronograma && <button onClick={() => setEditCronograma(null)} className="text-xs text-red-500 font-bold hover:text-red-700">✖ Cancelar</button>}
+            {editCronograma && <button type="button" onClick={() => guardCronograma(() => { setCronogramaModificado(false); setEditCronograma(null); })} className="min-h-6 text-xs text-red-500 font-bold hover:text-red-700">✖ Cancelar</button>}
           </div>
-          <form onSubmit={handleCronogramaSubmit} key={editCronograma ? `edit-crono-${editCronograma.id}-${formResetKey}` : `new-crono-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-5 gap-4 text-xs">
+          <form onChangeCapture={() => setCronogramaModificado(true)} onSubmit={async event => { const guardado = await handleCronogramaSubmit(event); if (guardado) setCronogramaModificado(false); }} key={editCronograma ? `edit-crono-${editCronograma.id}-${formResetKey}` : `new-crono-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-5 gap-4 text-xs">
             <div><label className="font-bold text-gray-600 block mb-1">Identificación</label><input name="codigo" defaultValue={editCronograma?.codigo || nextConsecutivo} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-mono font-bold bg-slate-50" /></div>
             <div>
               <label className="font-bold text-gray-600 block mb-1">Año</label>
@@ -396,7 +401,7 @@ const descargarCronogramaPDF = () => {
                        })}
                       {(isAdmin && !isExporting) && (
                         <td className="border border-slate-300 p-2 text-center bg-slate-50 flex items-center justify-center space-x-1">
-                           <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 bg-white border border-orange-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-colors" title="Modificar Plan">✏️</button>
+                           <button type="button" onClick={() => { setCronogramaModificado(false); setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm(); }} aria-label={`Modificar plan ${c.codigo}`} className="min-h-11 min-w-11 text-orange-500 hover:text-orange-700 bg-white border border-orange-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-colors" title="Modificar Plan">✏️</button>
                            
                            {/* NUEVO BOTÓN CONTEXTUAL DEL PROGRAMA */}
                            <button 

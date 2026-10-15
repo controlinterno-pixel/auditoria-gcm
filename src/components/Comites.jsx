@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { apiService } from '../services/apiService';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 const TIPOS_COMITE = [
   "Comité de Auditoría de Accionistas",
   "Junta Directiva",
@@ -23,6 +24,8 @@ export default function Comites({
 }) {
   // 🗂️ ESTADO DEL ACORDEÓN
   const [grupoExpandido, setGrupoExpandido] = useState(null);
+  const [formularioModificado, setFormularioModificado] = useState(false);
+  const guardNavigationComites = useUnsavedChangesGuard(formularioModificado, 'la sesión del comité');
 
   // ☁️ ESTADOS Y MOTOR DE SUBIDA (API TERMALES)
   const [uploadProgressPres, setUploadProgressPres] = useState(0);
@@ -63,10 +66,12 @@ export default function Comites({
 
       if (type === 'presentacion') {
         setPresentacionSubidaUrl(urlFinal);
+        setFormularioModificado(true);
         setIsUploadingPres(false);
         setUploadProgressPres(100);
       } else {
         setActaSubidaUrl(urlFinal);
+        setFormularioModificado(true);
         setIsUploadingActa(false);
         setUploadProgressActa(100);
       }
@@ -94,13 +99,13 @@ export default function Comites({
             {editComite ? `✏️ Editando Sesión: ${editComite.nombre}` : '➕ RADICAR NUEVA SESIÓN DE COMITÉ'}
           </h3>
           {editComite && (
-            <button onClick={() => setEditComite(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">
+            <button type="button" onClick={() => guardNavigationComites(() => { setFormularioModificado(false); setEditComite(null); })} className="min-h-6 text-xs text-slate-500 hover:text-red-600 font-bold">
               ✖ Cancelar Edición
             </button>
           )}
         </div>
 
-<form onSubmit={handleComiteSubmit} key={editComite ? `edit-${editComite.id}-${formResetKey}` : `nuevo-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">          
+<form onChangeCapture={() => setFormularioModificado(true)} onSubmit={async event => { const guardado = await handleComiteSubmit(event); if (guardado) setFormularioModificado(false); }} key={editComite ? `edit-${editComite.id}-${formResetKey}` : `nuevo-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
           <div>
             <label className="font-bold text-gray-600 block mb-1">Nombre de la Sesión / Tema Central</label>
             <input 

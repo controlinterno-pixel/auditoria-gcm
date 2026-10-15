@@ -4,6 +4,7 @@ import { useCatalogos } from '../context/useCatalogos';
 
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
   const map = new Map();
   [...listaActual, ...nuevos].forEach((item) => {
@@ -336,6 +337,7 @@ if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuen
   const [motivoCambio, setMotivoCambio] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [modoVistaCompleta, setModoVistaCompleta] = useState(false);
+  useUnsavedChangesGuard(isDirty && vistaActiva === 'nuevo' && !modoVistaCompleta, 'el informe de auditoría');
   const [historialExpandido, setHistorialExpandido] = useState(true);
   const [historialCompacto, setHistorialCompacto] = useState(true);
   const [historialVersionOpen, setHistorialVersionOpen] = useState({});
@@ -527,18 +529,6 @@ if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuen
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [editInformeAuditoria]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (event) => {
-      if (!isDirty) return;
-      event.preventDefault();
-      event.returnValue = '';
-      return '';
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty]);
 
   const confirmarSalidaSinGuardar = (callback) => {
     if (!isDirty) {
@@ -1178,8 +1168,8 @@ const handleFileUpload = async (e, type) => {
 
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          <button onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
-          <button onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
+          <button type="button" aria-current={vistaActiva === 'dashboard' ? 'page' : undefined} onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
+          <button type="button" aria-current={vistaActiva === 'historial' ? 'page' : undefined} onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
           
           {puedeCrearInformes && (
             <button onClick={handleCrearNuevoInforme} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}>

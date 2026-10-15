@@ -4,6 +4,7 @@ import {
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
 import { useCatalogos } from '../context/useCatalogos';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import { analizarRiesgoConIA } from '../services/aiEngine';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
@@ -200,7 +201,13 @@ export default function Riesgos({
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
+  const [formularioModificado, setFormularioModificado] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const guardNavigationRiesgos = useUnsavedChangesGuard(formularioModificado && vistaActiva === 'nuevo', 'el riesgo');
+  const cambiarVistaSeguraRiesgos = (nuevaVista) => guardNavigationRiesgos(() => {
+    setFormularioModificado(false);
+    setVistaActiva(nuevaVista);
+  });
 // 🛡️ Estado para el modal explicativo de eficacia del control
   const [controlSeleccionadoIA, setControlSeleccionadoIA] = useState(null);
   // 🚀 ESTADOS PARA EL EXPEDIENTE EXPANDIBLE (ACCORDEÓN 360°)
@@ -226,7 +233,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   const [idHallazgoOrigen, setIdHallazgoOrigen] = useState(null);
   
   // 🔢 FUNCIÓN BLINDADA PARA CALCULAR EL CONSECUTIVO EXACTO Y CAPTURAR RIESGO EMERGENTE
-  const handleNuevoRiesgo = () => {
+  const handleNuevoRiesgo = () => guardNavigationRiesgos(() => {
+    setFormularioModificado(false);
     setEditRiesgo(null);
     
     const maxId = safeRiesgos.reduce((max, r) => {
@@ -263,7 +271,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     }
 
     setVistaActiva('nuevo');
-  };
+  });
   // 🌟 NUEVOS ESTADOS EN CASCADA PARA PROCESOS
   const listadoMacros = Object.keys(MAPA_PROCESOS);
   const [macroproceso, setMacroproceso] = useState(listadoMacros[0] || '');
@@ -878,6 +886,7 @@ const handleRiesgoSubmit = async (e) => {
 
       setRiesgos(updatedList);
       showNotification(`Riesgo corporativo ${editRiesgo ? 'actualizado' : 'creado'} con éxito.`, "success");
+      setFormularioModificado(false);
       setVistaActiva('dashboard');
       setEditRiesgo(null);
       
@@ -1773,8 +1782,8 @@ const renderMatriz = () => {
         
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Dashboard</button>
-          <button onClick={() => setVistaActiva('matriz')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'matriz' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📋 Ver Matriz</button>
+          <button type="button" aria-current={vistaActiva === 'dashboard' ? 'page' : undefined} onClick={() => cambiarVistaSeguraRiesgos('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Dashboard</button>
+          <button type="button" aria-current={vistaActiva === 'matriz' ? 'page' : undefined} onClick={() => cambiarVistaSeguraRiesgos('matriz')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'matriz' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📋 Ver Matriz</button>
           
           <button onClick={exportarAExcel} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-emerald-600/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-600/40 shadow-sm flex items-center backdrop-blur-sm">
             <span className="mr-2">📥</span> Descargar Excel
@@ -1794,7 +1803,7 @@ const renderMatriz = () => {
       {vistaActiva === 'matriz' && renderMatriz()}
 
       {vistaActiva === 'nuevo' && (
-        <form onSubmit={handleRiesgoSubmit} className="space-y-6">
+        <form onChangeCapture={() => setFormularioModificado(true)} onSubmit={handleRiesgoSubmit} className="space-y-6">
           
          {/* DATOS GENERALES EXTENDIDOS */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -2164,7 +2173,7 @@ const renderMatriz = () => {
           </div>
 
           <div className="flex justify-end pt-2 border-t border-slate-200">
-            <button type="button" onClick={() => setVistaActiva('dashboard')} className="mr-3 px-6 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 text-xs">Cancelar</button>
+            <button type="button" onClick={() => cambiarVistaSeguraRiesgos('dashboard')} className="mr-3 min-h-11 px-6 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 text-xs">Cancelar</button>
             <button type="submit" disabled={isSubmitting} className="bg-[#0A3B32] hover:bg-[#062620] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-md disabled:opacity-50">
               {isSubmitting ? 'Guardando...' : (editRiesgo ? 'Actualizar Matriz' : 'Guardar en la Nube')}
             </button>

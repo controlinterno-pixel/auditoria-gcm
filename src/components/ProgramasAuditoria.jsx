@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCatalogos } from '../context/useCatalogos';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
 import { useDataFetching } from '../hooks/useDataFetching';
@@ -15,6 +16,8 @@ export default function ProgramasAuditoria({
 }) {
   const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
   const [vistaActiva, setVistaActiva] = useState('kanban'); // 'kanban' o 'formulario'
+  const [formularioModificado, setFormularioModificado] = useState(false);
+  const guardNavigationProgramas = useUnsavedChangesGuard(formularioModificado && vistaActiva === 'formulario', 'el programa de auditoría');
   const [step, setStep] = useState(1);
   const [editPrograma, setEditPrograma] = useState(null);
 
@@ -82,6 +85,7 @@ export default function ProgramasAuditoria({
   const programasAprobados = programasFiltrados.filter(p => p.estado === 'Aprobado');
 
   const handleNuevoPrograma = () => {
+    setFormularioModificado(false);
     setEditPrograma(null);
     setEntidad('RECREFAM S.A.S. (Termales Santa Rosa de Cabal)');
     setVigencia('');
@@ -102,6 +106,7 @@ export default function ProgramasAuditoria({
   };
 
   const handleEditarPrograma = (prog) => {
+    setFormularioModificado(false);
     setEditPrograma(prog);
     setEntidad(prog.entidad || '');
     setVigencia(prog.vigencia || '');
@@ -231,10 +236,13 @@ const handleGuardarPrograma = async () => {
       updatedList = [...safeProgramas, nuevo];
     }
 
+    const guardado = await saveToCloud({ programas: updatedList });
+    if (!guardado) return false;
     setProgramas(updatedList);
-    await saveToCloud({ programas: updatedList });
     alert(`✅ Programa guardado con éxito con consecutivo ${editPrograma?.ref || updatedList[updatedList.length - 1].ref}`);
+    setFormularioModificado(false);
     setVistaActiva('kanban');
+    return true;
   };
 
 // --- 📥 FUNCIÓN EXPORTAR EXCEL (CSV) ---
@@ -305,7 +313,7 @@ const handleGuardarPrograma = async () => {
         </div>
         <div>
           {vistaActiva === 'formulario' ? (
-            <button onClick={() => setVistaActiva('kanban')} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors shadow-sm">
+            <button type="button" onClick={() => guardNavigationProgramas(() => { setFormularioModificado(false); setVistaActiva('kanban'); })} className="min-h-11 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors shadow-sm">
               🔙 Volver al Tablero
             </button>
           ) : (
@@ -528,7 +536,7 @@ const handleGuardarPrograma = async () => {
       )}
       {/* VISTA 2: ASISTENTE DE CREACIÓN (STEPPER) */}
       {vistaActiva === 'formulario' && (
-        <div className="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden max-w-5xl mx-auto mb-10">
+        <div onChangeCapture={() => setFormularioModificado(true)} className="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden max-w-5xl mx-auto mb-10">
           
           {/* Cabecera Stepper */}
           <div className="bg-slate-900 text-white p-6 flex items-center justify-center space-x-8 text-xs font-black uppercase tracking-widest">

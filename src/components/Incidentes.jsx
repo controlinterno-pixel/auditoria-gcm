@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCatalogos } from '../context/useCatalogos';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 // 1. Importamos el componente reutilizable
 import FileUploader from '../components/FileUploader';
 
@@ -21,6 +22,8 @@ export default function Incidentes({
   safeRiesgos = [] // Recibimos los riesgos desde el Dashboard (Main)
 }) {
   const { mapaProcesos } = useCatalogos();
+  const [formularioModificado, setFormularioModificado] = useState(false);
+  const guardNavigationIncidentes = useUnsavedChangesGuard(formularioModificado && isAdmin, 'el evento de pérdida');
   const procesosOficiales = Object.keys(mapaProcesos).reduce((acumulado, macro) => {
     acumulado.push(macro);
     (mapaProcesos[macro] || []).forEach(subproceso => {
@@ -53,10 +56,10 @@ export default function Incidentes({
              <h3 className="text-xs font-bold text-slate-700 uppercase">
                {editIncidente ? `✏️ Editando Evento #${editIncidente.id}` : '➕ Registrar Evento de Pérdida'}
              </h3>
-             {editIncidente && <button onClick={() => setEditIncidente(null)} className="text-xs text-red-500 font-bold hover:text-red-700">✖ Cancelar</button>}
+             {editIncidente && <button type="button" onClick={() => guardNavigationIncidentes(() => { setFormularioModificado(false); setEditIncidente(null); })} className="min-h-6 text-xs text-red-500 font-bold hover:text-red-700">✖ Cancelar</button>}
           </div>
           
-          <form onSubmit={handleIncidenteSubmit} key={editIncidente ? `edit-incidente-${editIncidente.id}-${formResetKey}` : `new-incidente-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+          <form onChangeCapture={() => setFormularioModificado(true)} onSubmit={async event => { const guardado = await handleIncidenteSubmit(event); if (guardado) setFormularioModificado(false); }} key={editIncidente ? `edit-incidente-${editIncidente.id}-${formResetKey}` : `new-incidente-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
             
             {/* Selector de Proceso (Homologado) */}
             <div className="md:col-span-2">
