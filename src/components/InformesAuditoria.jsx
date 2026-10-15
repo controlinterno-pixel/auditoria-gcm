@@ -1149,7 +1149,7 @@ const handleFileUpload = async (e, type) => {
             
             <div className="pt-1">
               <h2 className="text-3xl font-black text-white drop-shadow-md tracking-tight">
-                Informes y Hallazgos
+                Informes
               </h2>
               <p className="text-[13px] text-slate-300 font-medium mt-1.5 leading-relaxed max-w-md">
                 Convierte la información en decisiones de alto impacto.
