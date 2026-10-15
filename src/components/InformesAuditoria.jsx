@@ -1430,12 +1430,35 @@ const handleFileUpload = async (e, type) => {
                           const iconIndex = fuentesArray.findIndex(fuente => fuente.referencias.has(referenciaInforme));
                           const colorClass = ['text-blue-600 bg-blue-50 border-blue-200', 'text-purple-600 bg-purple-50 border-purple-200', 'text-emerald-600 bg-emerald-50 border-emerald-200', 'text-amber-600 bg-amber-50 border-amber-200', 'text-rose-600 bg-rose-50 border-rose-200', 'text-cyan-600 bg-cyan-50 border-cyan-200'][iconIndex % 6] || 'text-slate-600 bg-slate-50 border-slate-200';
                           const cambios = Array.isArray(inf.historialCambios) ? inf.historialCambios.length : 0;
+                          // NUEVO: Obtener la fuente real y extraer el nombre de la categoría y su norma
+const fuenteReal = fuentesPorReferencia.get(referenciaInforme);
+const nombreFuente = resolverCategoriaFuente(inf.tipoFuente, fuentesMejoraDisponibles) || inf.tipoFuente || 'Auditoría Interna';
+
+let textoNorma = '';
+if (fuenteReal) {
+  // Manejamos la norma ya sea un array o un texto (norma o tipoNorma)
+  const normasArray = Array.isArray(fuenteReal.norma) 
+    ? fuenteReal.norma 
+    : (fuenteReal.norma ? [fuenteReal.norma] : (fuenteReal.tipoNorma ? [fuenteReal.tipoNorma] : []));
+    
+  if (normasArray.length > 0) {
+    textoNorma = ` (${normasArray.join(', ')})`;
+  }
+}
+
+// Texto final que se mostrará en la pastilla
+const textoMostrar = `${nombreFuente}${textoNorma}`;
                           return (
                             <tr key={inf.id} className="group cursor-pointer transition-colors hover:bg-slate-50/50" onClick={() => setInformeDetalleModal(inf)}>
                               <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" onClick={event => event.stopPropagation()} /></td>
                               <td className="p-4 font-mono font-black text-slate-800"><span className="transition-colors group-hover:text-blue-600">{inf.ref}</span></td>
                               <td className="max-w-[180px] truncate p-4 font-bold leading-tight text-slate-700" title={inf.titulo}>{inf.titulo}</td>
-                              <td className="p-4"><span className={`flex w-max items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-black uppercase tracking-wider ${colorClass}`}><span>{iconosArray[iconIndex % iconosArray.length] || '📄'}</span>{inf.tipoFuente || 'Auditoría Interna'}</span></td>
+                              <td className="p-4">
+  <span className={`flex w-max items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-black uppercase tracking-wider ${colorClass}`} title={textoMostrar}>
+    <span>{iconosArray[iconIndex % iconosArray.length] || '📄'}</span>
+    {textoMostrar}
+  </span>
+</td>
                               <td className="max-w-[160px] truncate p-4 font-bold text-slate-500" title={inf.procesoLimpio}>{inf.procesoLimpio}</td>
                               <td className="p-4 text-center font-bold text-slate-500">{inf.fecha}</td>
                               <td className="p-4 text-center"><span className={`flex items-center justify-center gap-1 text-[10px] font-bold ${inf.socializado === 'Sí' ? 'text-emerald-600' : 'text-amber-500'}`}><span>{inf.socializado === 'Sí' ? '👥' : '⚠'}</span>{inf.socializado === 'Sí' ? 'Completada' : 'Pendiente'}</span></td>
