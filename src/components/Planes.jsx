@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Search } from 'lucide-react';
+import { BadgeCheck, ClipboardCheck, Play, Search } from 'lucide-react';
 
 import { useCatalogos } from '../context/useCatalogos';
 import { exportarA_PDF } from '../utils/pdfUtils';
@@ -312,6 +312,31 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
       anioTexto: p.fecha ? p.fecha.split('-')[0] : 'Sin Fecha'
     }];
   }), [safePlanes, hallazgosPorId, informesAuditoria, timestampInicioDia]);
+
+  const tareasPendientesPorInforme = useMemo(() => {
+    const planPorId = new Map(planesEnriquecidos.map(plan => [String(plan.id), plan]));
+    const pendientesPorInforme = new Map();
+    const gruposPendientes = [
+      ['revision', misPlanesRevision],
+      ['aprobacion', misPlanesAprobacion],
+      ['ejecucion', misPlanesEjecucion],
+    ];
+
+    gruposPendientes.forEach(([tipo, planes]) => {
+      planes.forEach(plan => {
+        const planEnriquecido = planPorId.get(String(plan.id));
+        const idInforme = planEnriquecido?.idInforme || plan.idInforme;
+        if (!idInforme) return;
+
+        const claveInforme = String(idInforme);
+        const pendientes = pendientesPorInforme.get(claveInforme) || { revision: 0, aprobacion: 0, ejecucion: 0 };
+        pendientes[tipo] += 1;
+        pendientesPorInforme.set(claveInforme, pendientes);
+      });
+    });
+
+    return pendientesPorInforme;
+  }, [planesEnriquecidos, misPlanesRevision, misPlanesAprobacion, misPlanesEjecucion]);
 
   const evaluacionesIntegralesPendientes = informesAuditoria.flatMap(informe => {
     if (!esFuenteProgramaAuditoria(informe)) return [];
@@ -2845,9 +2870,25 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   const nVencidos = planesDelInforme.filter(p => p.esVencido).length;
                   const nProceso = planesDelInforme.length - nCerrados - nVencidos;
                   const isExpanded = informePlanesExpandido === idInf;
+                  const pendientesInforme = tareasPendientesPorInforme.get(String(idInf));
+                  const tipoPendientePrioritario = pendientesInforme?.revision
+                    ? 'revision'
+                    : pendientesInforme?.aprobacion
+                      ? 'aprobacion'
+                      : pendientesInforme?.ejecucion
+                        ? 'ejecucion'
+                        : '';
+                  const estiloPendiente = tipoPendientePrioritario === 'revision'
+                    ? { card: 'border-amber-300 ring-1 ring-amber-200 shadow-[0_0_18px_rgba(245,158,11,0.16)]', rail: 'bg-amber-500' }
+                    : tipoPendientePrioritario === 'aprobacion'
+                      ? { card: 'border-blue-300 ring-1 ring-blue-200 shadow-[0_0_18px_rgba(59,130,246,0.16)]', rail: 'bg-blue-600' }
+                      : tipoPendientePrioritario === 'ejecucion'
+                        ? { card: 'border-emerald-300 ring-1 ring-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.16)]', rail: 'bg-emerald-600' }
+                        : { card: 'border-slate-200', rail: '' };
 
                   return (
-                    <div key={`inf-plan-card-${idInf}`} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-shadow hover:shadow-md">
+                    <div key={`inf-plan-card-${idInf}`} className={`relative bg-white rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md ${estiloPendiente.card}`}>
+                      {tipoPendientePrioritario && <span aria-hidden="true" className={`absolute inset-y-0 left-0 z-10 w-1 ${estiloPendiente.rail}`} />}
                       
                       {/* Fila Resumen del Informe (Línea de Trazabilidad Principal) */}
                       <div 
@@ -2856,7 +2897,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                         tabIndex={0}
                         aria-expanded={isExpanded}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInformePlanesExpandido(isExpanded ? null : idInf); } }}
-                        className={`p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between cursor-pointer transition-colors gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${isExpanded ? 'bg-slate-50/80 border-b border-slate-100' : 'hover:bg-slate-50'}`}
+                        className={`p-3.5 pl-4 flex flex-col md:flex-row items-start md:items-center justify-between cursor-pointer transition-colors gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${isExpanded ? 'bg-slate-50/80 border-b border-slate-100' : 'hover:bg-slate-50'}`}
                       >
                         <div className="flex items-center space-x-3 flex-1 min-w-0">
                           <span className="text-xl shrink-0">📂</span>
@@ -2867,6 +2908,31 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               <span className="text-[10px] bg-slate-100 text-slate-600 font-black px-2 py-0.5 rounded uppercase max-w-[200px] truncate" title={procesoInforme}>🏛️ {procesoInforme}</span>
                             </div>
                             <h4 className="text-xs font-black text-slate-800 mt-1 truncate" title={tituloInforme}>{tituloInforme}</h4>
+                            {pendientesInforme && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {pendientesInforme.revision > 0 && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-900">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 motion-safe:animate-pulse" />
+                                    <ClipboardCheck size={12} aria-hidden="true" />
+                                    Revisar diseño <span className="tabular-nums">{pendientesInforme.revision}</span>
+                                  </span>
+                                )}
+                                {pendientesInforme.aprobacion > 0 && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-900">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-600 motion-safe:animate-pulse" />
+                                    <BadgeCheck size={12} aria-hidden="true" />
+                                    Aprobar cierre <span className="tabular-nums">{pendientesInforme.aprobacion}</span>
+                                  </span>
+                                )}
+                                {pendientesInforme.ejecucion > 0 && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-900">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 motion-safe:animate-pulse" />
+                                    <Play size={11} aria-hidden="true" />
+                                    Ejecutar plan <span className="tabular-nums">{pendientesInforme.ejecucion}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
 
