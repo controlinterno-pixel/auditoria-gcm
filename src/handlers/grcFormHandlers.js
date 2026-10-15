@@ -6,6 +6,11 @@ const convertirListaSubprocesos = valores => (
     ? valores.map(valor => String(valor || '').trim()).filter(Boolean)
     : String(valores || '').split(',').map(valor => valor.trim()).filter(Boolean)
 );
+const convertirListaMacroprocesos = valores => [...new Set(
+  (Array.isArray(valores) ? valores : String(valores || '').split(','))
+    .map(valor => String(valor || '').trim())
+    .filter(Boolean)
+)];
 
 export const createFormHandlers = ({
   user,
@@ -138,16 +143,45 @@ export const createFormHandlers = ({
       evidenciasOut = [{ url: evidenciaUrlOut, nombre: 'Evidencia anterior' }];
     }
     const normaReferenciaOut = formData.get('normaReferencia') || editHallazgo?.normaReferencia || '';
-    const procesoVal = formData.get('proceso') || formData.get('Proceso') || 'Sin proceso';
-    let subprocesosVal = [];
+    const procesoRecibido = formData.get('proceso') || formData.get('Proceso') || '';
+    let macroprocesosVal = [];
+    try {
+      const macroprocesosRaw = JSON.parse(String(formData.get('macroprocesos') || '[]'));
+      if (Array.isArray(macroprocesosRaw)) macroprocesosVal = convertirListaMacroprocesos(macroprocesosRaw);
+    } catch {
+      macroprocesosVal = [];
+    }
+    if (macroprocesosVal.length === 0) {
+      macroprocesosVal = convertirListaMacroprocesos(
+        editHallazgo?.macroprocesos || editHallazgo?.macroproceso || procesoRecibido.split('/')[0]
+      );
+    }
+    const macroprocesoVal = macroprocesosVal[0] || 'Sin proceso';
+    let subprocesosGlobales = [];
     try {
       const subprocesosRaw = JSON.parse(String(formData.get('subprocesos') || '[]'));
-      if (Array.isArray(subprocesosRaw)) subprocesosVal = convertirListaSubprocesos(subprocesosRaw);
+      if (Array.isArray(subprocesosRaw)) subprocesosGlobales = convertirListaSubprocesos(subprocesosRaw);
     } catch {
-      subprocesosVal = [];
+      subprocesosGlobales = [];
     }
+    let relacionSubprocesosRaw = {};
+    try {
+      const relacionRaw = JSON.parse(String(formData.get('subprocesosPorMacroproceso') || '{}'));
+      if (relacionRaw && typeof relacionRaw === 'object' && !Array.isArray(relacionRaw)) relacionSubprocesosRaw = relacionRaw;
+    } catch {
+      relacionSubprocesosRaw = {};
+    }
+    const subprocesosPorMacroprocesoVal = Object.fromEntries(macroprocesosVal.map((macroproceso, indice) => {
+      const clave = Object.keys(relacionSubprocesosRaw).find(valor => (
+        valor.trim().toLowerCase() === macroproceso.trim().toLowerCase()
+      ));
+      const valores = clave ? relacionSubprocesosRaw[clave] : indice === 0 ? subprocesosGlobales : [];
+      return [macroproceso, convertirListaSubprocesos(valores)];
+    }));
+    const subprocesosVal = convertirListaSubprocesos(Object.values(subprocesosPorMacroprocesoVal).flat());
     const subprocesoVal = subprocesosVal[0] || formData.get('subproceso') || formData.get('Subproceso') || 'General';
-    if (subprocesosVal.length === 0 && subprocesoVal) subprocesosVal = convertirListaSubprocesos(subprocesoVal);
+    const subprocesosMacroprocesoPrincipal = subprocesosPorMacroprocesoVal[macroprocesoVal] || [];
+    const procesoVal = procesoRecibido || `${macroprocesoVal}${subprocesosMacroprocesoPrincipal.length ? ` / ${subprocesosMacroprocesoPrincipal.join(', ')}` : ''}`;
     const metodologiaCausaVal = formData.get('metodologiaCausa') || editHallazgo?.metodologiaCausa || '5 Porqués';
     const analisisCausaVal = formData.get('analisisCausa') ?? editHallazgo?.analisisCausa ?? '';
     
@@ -165,8 +199,11 @@ export const createFormHandlers = ({
         sede: formData.get('sede'), 
         ref: formData.get('ref'), 
         proceso: procesoVal,
+        macroproceso: macroprocesoVal,
+        macroprocesos: macroprocesosVal,
         subproceso: subprocesoVal,
         subprocesos: subprocesosVal,
+        subprocesosPorMacroproceso: subprocesosPorMacroprocesoVal,
         responsable: formData.get('responsable'), 
         auditor: formData.get('auditor') || editHallazgo?.auditor || '', 
         normaReferencia: normaReferenciaOut,
@@ -190,8 +227,11 @@ export const createFormHandlers = ({
         sede: formData.get('sede'), 
         ref: formData.get('ref'), 
         proceso: procesoVal,
+        macroproceso: macroprocesoVal,
+        macroprocesos: macroprocesosVal,
         subproceso: subprocesoVal,
         subprocesos: subprocesosVal,
+        subprocesosPorMacroproceso: subprocesosPorMacroprocesoVal,
         responsable: formData.get('responsable'), 
         auditor: formData.get('auditor') || '', 
         normaReferencia: normaReferenciaOut,

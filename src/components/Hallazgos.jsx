@@ -15,6 +15,11 @@ const convertirSubprocesosEnLista = subprocesos => (
     ? subprocesos.map(subproceso => String(subproceso || '').trim()).filter(Boolean)
     : String(subprocesos || '').split(',').map(subproceso => subproceso.trim()).filter(Boolean)
 );
+const convertirMacroprocesosEnLista = macroprocesos => [...new Set(
+  (Array.isArray(macroprocesos) ? macroprocesos : String(macroprocesos || '').split(','))
+    .map(macroproceso => String(macroproceso || '').trim())
+    .filter(Boolean)
+)];
 
 export default function Hallazgos({
   isAdmin,
@@ -51,6 +56,7 @@ export default function Hallazgos({
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [formularioModificado, setFormularioModificado] = useState(false);
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
+  const [paginaGrupoDashboard, setPaginaGrupoDashboard] = useState(1);
   const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
   const [paginaHistorial, setPaginaHistorial] = useState(1);
   const [informesPorPagina, setInformesPorPagina] = useState(10);
@@ -77,6 +83,7 @@ export default function Hallazgos({
   const [dashFiltroSeveridad, setDashFiltroSeveridad] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
+  const [dashFiltroTipoFuente, setDashFiltroTipoFuente] = useState('Todos');
 
   // ⏳ ESTADOS LOCALES PARA FILTROS DE HISTORIAL
   const [filtroAnio, setFiltroAnio] = useState('');
@@ -97,9 +104,8 @@ export default function Hallazgos({
   );
 
   // 🌟 ESTADOS DERIVADOS DE MACRO Y SUBPROCESO
-  const [procesoFormState, setProcesoFormState] = useState({});
-  const [subprocesoFormState, setSubprocesoFormState] = useState({});
-  const [subprocesosFormState, setSubprocesosFormState] = useState({});
+  const [macroprocesosFormState, setMacroprocesosFormState] = useState({});
+  const [subprocesosPorMacroprocesoFormState, setSubprocesosPorMacroprocesoFormState] = useState({});
   const [informeOrigenState, setInformeOrigenState] = useState({});
   const [metodologiaCausaState, setMetodologiaCausaState] = useState({});
   const [autoFillData] = useState(() => {
@@ -130,16 +136,64 @@ export default function Hallazgos({
   const informeOrigenSeleccionado = informeOrigenState[idEdicion] ?? String(editHallazgo?.idInforme || autoFillData?.idInforme || '');
   const metodologiaCausa = metodologiaCausaState[idEdicion] ?? (editHallazgo?.metodologiaCausa || autoFillData?.metodologiaCausa || '5 Porqués');
 
-  const procesoForm = procesoFormState[idEdicion] ?? (editHallazgo?.proceso || autoFillData?.proceso || '');
-  const subprocesoForm = subprocesoFormState[idEdicion] ?? (editHallazgo?.subproceso || autoFillData?.subproceso || 'General');
-  const subprocesosGuardados = editHallazgo?.subprocesos ?? autoFillData?.subprocesos;
-  const subprocesosForm = subprocesosFormState[idEdicion] ?? convertirSubprocesosEnLista(
-    subprocesosGuardados ?? editHallazgo?.subproceso ?? autoFillData?.subproceso ?? subprocesoForm
+  const territorioInicial = editHallazgo || autoFillData || {};
+  const procesoLegadoPartes = String(territorioInicial.proceso || '').split('/').map(parte => parte.trim());
+  const macroprocesosGuardados = convertirMacroprocesosEnLista(territorioInicial.macroprocesos).length > 0
+    ? territorioInicial.macroprocesos
+    : territorioInicial.macroproceso || procesoLegadoPartes[0];
+  const macroprocesosForm = macroprocesosFormState[idEdicion] ?? convertirMacroprocesosEnLista(macroprocesosGuardados);
+  const subprocesosGuardados = territorioInicial.subprocesos ?? territorioInicial.subproceso ?? procesoLegadoPartes.slice(1).join('/');
+  const subprocesosGuardadosPorMacroproceso = territorioInicial.subprocesosPorMacroproceso || {};
+  const subprocesosPorMacroprocesoForm = subprocesosPorMacroprocesoFormState[idEdicion] ?? Object.fromEntries(
+    macroprocesosForm.map((macroproceso, indice) => {
+      const claveGuardada = Object.keys(subprocesosGuardadosPorMacroproceso).find(clave => (
+        clave.trim().toLowerCase() === macroproceso.trim().toLowerCase()
+      ));
+      const subprocesos = claveGuardada
+        ? subprocesosGuardadosPorMacroproceso[claveGuardada]
+        : indice === 0 ? subprocesosGuardados : [];
+      return [macroproceso, convertirSubprocesosEnLista(subprocesos)];
+    })
   );
+  const subprocesosForm = [...new Set(Object.values(subprocesosPorMacroprocesoForm).flat())];
+  const macroprocesoForm = macroprocesosForm[0] || '';
+  const subprocesosMacroprocesoPrincipal = subprocesosPorMacroprocesoForm[macroprocesoForm] || [];
+  const procesoLegacyForm = macroprocesoForm
+    ? `${macroprocesoForm}${subprocesosMacroprocesoPrincipal.length ? ` / ${subprocesosMacroprocesoPrincipal.join(', ')}` : ''}`
+    : '';
+  const subprocesoForm = subprocesosForm[0] || 'General';
+  const macroprocesosDisponibles = [...new Set([...Object.keys(MAPA_PROCESOS), ...macroprocesosForm])].sort();
 
-  const setProcesoForm = (val) => setProcesoFormState(prev => ({ ...prev, [idEdicion]: val }));
-  const setSubprocesoForm = (val) => setSubprocesoFormState(prev => ({ ...prev, [idEdicion]: val }));
-  const setSubprocesosForm = (val) => setSubprocesosFormState(prev => ({ ...prev, [idEdicion]: val }));
+  const actualizarTerritorioForm = (macroprocesosSiguientes, relacionSiguiente) => {
+    const macros = convertirMacroprocesosEnLista(macroprocesosSiguientes);
+    const relacion = Object.fromEntries(macros.map(macroproceso => [
+      macroproceso,
+      convertirSubprocesosEnLista(relacionSiguiente[macroproceso] || []),
+    ]));
+    setMacroprocesosFormState(prev => ({ ...prev, [idEdicion]: macros }));
+    setSubprocesosPorMacroprocesoFormState(prev => ({ ...prev, [idEdicion]: relacion }));
+  };
+
+  const alternarMacroproceso = (macroproceso, seleccionado) => {
+    const macrosActuales = macroprocesosForm;
+    const relacionActual = { ...subprocesosPorMacroprocesoForm };
+    if (seleccionado) {
+      const opciones = MAPA_PROCESOS[macroproceso] || [];
+      relacionActual[macroproceso] = opciones.length === 1 ? [opciones[0]] : [];
+      actualizarTerritorioForm([...macrosActuales, macroproceso], relacionActual);
+      return;
+    }
+    delete relacionActual[macroproceso];
+    actualizarTerritorioForm(macrosActuales.filter(item => item !== macroproceso), relacionActual);
+  };
+
+  const alternarSubproceso = (macroproceso, subproceso, seleccionado) => {
+    const actuales = subprocesosPorMacroprocesoForm[macroproceso] || [];
+    const siguientes = seleccionado
+      ? [...actuales, subproceso]
+      : actuales.filter(item => item !== subproceso);
+    actualizarTerritorioForm(macroprocesosForm, { ...subprocesosPorMacroprocesoForm, [macroproceso]: siguientes });
+  };
 
   const sedesMultiples = sedesState[idEdicion] ?? (editHallazgo?.sede
     ? (editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede])
@@ -152,8 +206,6 @@ export default function Hallazgos({
     setSedeTemp('');
   };
 
- const subprocesosDisponibles = procesoForm ? MAPA_PROCESOS[procesoForm] || [] : [];
-  const subprocesoDeshabilitado = !procesoForm || subprocesosDisponibles.length === 0;
   const informeOrigen = informesAuditoria.find(informe => String(informe.id) === String(informeOrigenSeleccionado));
   const fuenteOrigen = fuentesMejoraDisponibles.find(fuente => (
     String(fuente.codigo || fuente.id) === String(informeOrigen?.tipoFuente || '')
@@ -245,19 +297,35 @@ export default function Hallazgos({
   const hallazgosEnriquecidos = hFiltrados.map(h => {
     const informeBase = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
     const fechaReal = informeBase?.fecha || h.fecha || 'Sin Fecha';
-    // Generar campo unificado para soporte a datos viejos y nuevos
-    const procesoLimpio = h.proceso || 'Sin Proceso';
-    return { ...h, fechaReal, anioReal: fechaReal !== 'Sin Fecha' ? fechaReal.split('-')[0] : 'Sin Fecha', procesoLimpio };
+    const macroprocesosExistentes = convertirMacroprocesosEnLista(h.macroprocesos);
+    const macroprocesos = macroprocesosExistentes.length > 0
+      ? macroprocesosExistentes
+      : convertirMacroprocesosEnLista(h.macroproceso || String(h.proceso || '').split('/')[0]);
+    const tipoFuente = resolverCategoriaFuente(
+      informeBase?.tipoFuente || h.tipoFuente || '',
+      fuentesMejoraDisponibles
+    );
+    const mapaSubprocesos = h.subprocesosPorMacroproceso && Object.keys(h.subprocesosPorMacroproceso).length > 0
+      ? h.subprocesosPorMacroproceso
+      : macroprocesos.length > 0
+        ? { [macroprocesos[0]]: convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso) }
+        : {};
+    const procesoLimpio = macroprocesos.join(', ') || 'Sin Proceso';
+    return { ...h, macroprocesos, subprocesosPorMacroproceso: mapaSubprocesos, tipoFuente, fechaReal, anioReal: fechaReal !== 'Sin Fecha' ? fechaReal.split('-')[0] : 'Sin Fecha', procesoLimpio };
   });
 
   // 1. Filtrar los datos del Dashboard según el menú lateral
   const hallazgosDashboard = hallazgosEnriquecidos.filter(h => {
     if (dashFiltroAnio !== 'Todos' && h.anioReal !== dashFiltroAnio) return false;
-    if (dashFiltroProceso !== 'Todos' && h.procesoLimpio !== dashFiltroProceso) return false;
-    if (dashFiltroSubproceso !== 'Todos' && !convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso).includes(dashFiltroSubproceso)) return false;
+    if (dashFiltroProceso !== 'Todos' && !h.macroprocesos.includes(dashFiltroProceso)) return false;
+    const subprocesosDelFiltro = dashFiltroProceso !== 'Todos' && h.subprocesosPorMacroproceso
+      ? h.subprocesosPorMacroproceso[dashFiltroProceso] || []
+      : convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso);
+    if (dashFiltroSubproceso !== 'Todos' && !subprocesosDelFiltro.includes(dashFiltroSubproceso)) return false;
     if (dashFiltroSeveridad !== 'Todos' && h.severidad !== dashFiltroSeveridad) return false;
     if (dashFiltroEstado !== 'Todos' && h.estado !== dashFiltroEstado) return false;
     if (dashFiltroResponsable !== 'Todos' && !convertirResponsablesEnLista(h.responsable).includes(dashFiltroResponsable)) return false;
+    if (dashFiltroTipoFuente !== 'Todos' && h.tipoFuente !== dashFiltroTipoFuente) return false;
     return true;
   });
 
@@ -280,6 +348,7 @@ export default function Hallazgos({
     if (agruparPor === 'Estado') key = h.estado || 'Abierto';
     if (agruparPor === 'Nivel de Riesgo') key = h.severidad || 'Bajo';
     if (agruparPor === 'Responsable') key = h.responsable || 'Sin Asignar';
+    if (agruparPor === 'Tipo de Fuente') key = h.tipoFuente || 'Sin fuente';
 
     if (!acc[key]) acc[key] = [];
     acc[key].push(h);
@@ -289,14 +358,17 @@ export default function Hallazgos({
 
   // 4. Lógica para el Top 5 de Procesos
   const conteoProcesos = hallazgosDashboard.reduce((acc, h) => {
-    acc[h.procesoLimpio] = (acc[h.procesoLimpio] || 0) + 1;
+    h.macroprocesos.forEach(macroproceso => {
+      acc[macroproceso] = (acc[macroproceso] || 0) + 1;
+    });
     return acc;
   }, {});
   const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   const limpiarFiltrosDashboard = () => {
     setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSubproceso('Todos'); setDashFiltroSeveridad('Todos');
-    setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
+    setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos'); setDashFiltroTipoFuente('Todos');
+    setPaginaGrupoDashboard(1);
   };
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
   const hallazgosFiltradosPorFecha = hallazgosEnriquecidos.filter(h => {
@@ -488,11 +560,12 @@ export default function Hallazgos({
                       { id: 'Subproceso', label: 'Vista por Subproceso', icon: '🗂️' }, // ✨ NUEVO BOTÓN
                       { id: 'Estado', label: 'Vista por Estado', icon: '🚩' },
                       { id: 'Nivel de Riesgo', label: 'Vista por Nivel', icon: '⚠️' },
-                      { id: 'Responsable', label: 'Vista Responsable', icon: '👤' }
+                      { id: 'Responsable', label: 'Vista Responsable', icon: '👤' },
+                      { id: 'Tipo de Fuente', label: 'Vista por Tipo de Fuente', icon: '📄' }
                     ].map(btn => (
                       <button 
                         key={btn.id}
-                        onClick={() => { setAgruparPor(btn.id); setGrupoExpandido(null); }}
+                        onClick={() => { setAgruparPor(btn.id); setGrupoExpandido(null); setPaginaGrupoDashboard(1); }}
                         className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-3 ${agruparPor === btn.id ? 'bg-[#f0fdf4] text-[#0A3B32] shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
                       >
                         <span className="text-sm grayscale opacity-70">{btn.icon}</span><span>{btn.label}</span>
@@ -506,7 +579,7 @@ export default function Hallazgos({
                   
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Año</label>
-                    <select value={dashFiltroAnio} onChange={e=>setDashFiltroAnio(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                    <select value={dashFiltroAnio} onChange={e=>{ setDashFiltroAnio(e.target.value); setPaginaGrupoDashboard(1); }} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
                       {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
@@ -516,11 +589,19 @@ export default function Hallazgos({
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
                     <select 
                       value={dashFiltroProceso} 
-                      onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} 
+                      onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); setPaginaGrupoDashboard(1); }}
                       className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
                     >
                       <option value="Todos">Todos</option>
                       {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Tipo de fuente</label>
+                    <select value={dashFiltroTipoFuente} onChange={e => { setDashFiltroTipoFuente(e.target.value); setPaginaGrupoDashboard(1); }} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      {TIPOS_FUENTE_HISTORIAL.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
                     </select>
                   </div>
 
@@ -529,7 +610,7 @@ export default function Hallazgos({
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Subproceso</label>
                     <select 
                       value={dashFiltroSubproceso} 
-                      onChange={e => setDashFiltroSubproceso(e.target.value)} 
+                      onChange={e => { setDashFiltroSubproceso(e.target.value); setPaginaGrupoDashboard(1); }}
                       className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
                     >
                       <option value="Todos">Todos</option>
@@ -541,7 +622,7 @@ export default function Hallazgos({
 
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Nivel de Riesgo</label>
-                    <select value={dashFiltroSeveridad} onChange={e=>setDashFiltroSeveridad(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                    <select value={dashFiltroSeveridad} onChange={e=>{ setDashFiltroSeveridad(e.target.value); setPaginaGrupoDashboard(1); }} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
                       <option value="Crítico">Crítico</option>
                       <option value="Alto">Alto</option>
@@ -552,7 +633,7 @@ export default function Hallazgos({
 
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Estado</label>
-                    <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                    <select value={dashFiltroEstado} onChange={e=>{ setDashFiltroEstado(e.target.value); setPaginaGrupoDashboard(1); }} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
                       <option value="Abierto">Abierto</option>
                       <option value="Cerrado">Cerrado</option>
@@ -587,14 +668,20 @@ export default function Hallazgos({
                    const gMedios = hzs.filter(h => h.severidad === 'Medio').length;
                    const gBajos = hzs.filter(h => h.severidad === 'Bajo' || !h.severidad).length;
                    const gCerrados = hzs.filter(h => h.estado === 'Cerrado').length;
+                   const totalPaginasGrupo = Math.max(1, Math.ceil(hzs.length / 15));
+                   const paginaActualGrupo = Math.min(paginaGrupoDashboard, totalPaginasGrupo);
+                   const inicioPaginaGrupo = (paginaActualGrupo - 1) * 15;
+                   const hallazgosPagina = hzs.slice(inicioPaginaGrupo, inicioPaginaGrupo + 15);
+                   const primerHallazgoGrupo = inicioPaginaGrupo + 1;
+                   const ultimoHallazgoGrupo = Math.min(inicioPaginaGrupo + 15, hzs.length);
                    
                    const isExpanded = grupoExpandido === grupo;
 
                    return (
                      <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
-                       <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
+                       <div onClick={() => { setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); }} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
                          <div className="flex items-center space-x-3 flex-1 pr-4">
-                           <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : agruparPor === 'Nivel de Riesgo' ? '⚠️' : '👤'}</span>
+                           <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : agruparPor === 'Nivel de Riesgo' ? '⚠️' : agruparPor === 'Tipo de Fuente' ? '📄' : '👤'}</span>
                            <h4 className="text-sm sm:text-base font-black text-slate-800 leading-tight">{grupo} <span className="text-slate-400 font-medium text-xs ml-1 whitespace-nowrap">({hzs.length})</span></h4>
                            {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm shrink-0">Actual</span>}
                          </div>
@@ -653,7 +740,7 @@ export default function Hallazgos({
                                  </tr>
                                </thead>
                                <tbody className="divide-y divide-slate-50">
-                               {hzs.slice(0, 10).map(h => (
+                               {hallazgosPagina.map(h => (
                                    <tr 
                                      key={h.id} 
                                      onClick={() => {
@@ -669,7 +756,7 @@ export default function Hallazgos({
                                      <td className="py-2.5 font-mono font-black text-slate-700 align-top group-hover/row:text-red-700">{h.ref}</td>
                                      <td className="py-2.5 font-bold text-slate-600 pr-3 leading-tight align-top group-hover/row:text-red-900" title={h.titulo}>{h.titulo}</td>
                                      <td className="py-2.5 pr-3 leading-tight align-top">
-                                        <span className="block font-medium text-slate-500">{h.proceso || h.proceso}</span>
+                                        <span className="block font-medium text-slate-500">{h.macroprocesos?.join(', ') || h.proceso || 'Sin Proceso'}</span>
                                         {convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso).filter(subproceso => subproceso !== 'General').length > 0 && <span className="block text-[8px] font-bold text-slate-400 mt-0.5">↳ {convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso).filter(subproceso => subproceso !== 'General').join(', ')}</span>}
                                      </td>
                                      <td className="py-2.5 text-center align-top">
@@ -698,13 +785,16 @@ export default function Hallazgos({
                              </table>
                            </div>
                            
-                           {hzs.length > 10 && (
-                             <div className="mt-4 text-center bg-slate-50 rounded-xl p-2 border border-slate-100">
-                               <button onClick={() => { setFiltroAnio(agruparPor==='Año'?grupo:''); setVistaActiva('historial'); }} className="text-[10px] font-black uppercase tracking-widest text-[#0A3B32] hover:underline flex items-center justify-center w-full">
-                                 Ver los {hzs.length} hallazgos completos <span className="ml-1 text-sm">➔</span>
-                               </button>
-                             </div>
-                           )}
+                           <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                             <span className="text-[10px] text-slate-600" aria-live="polite">Mostrando <strong className="text-slate-800">{primerHallazgoGrupo}-{ultimoHallazgoGrupo}</strong> de <strong className="text-slate-800">{hzs.length}</strong> hallazgos</span>
+                             {totalPaginasGrupo > 1 && (
+                               <nav className="flex items-center justify-between gap-2 sm:justify-end" aria-label={`Paginación de hallazgos de ${grupo}`}>
+                                 <button type="button" onClick={() => setPaginaGrupoDashboard(Math.max(1, paginaActualGrupo - 1))} disabled={paginaActualGrupo <= 1} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Anterior</button>
+                                 <span className="min-w-24 text-center text-xs font-semibold tabular-nums text-slate-600" aria-live="polite">Página {paginaActualGrupo} de {totalPaginasGrupo}</span>
+                                 <button type="button" onClick={() => setPaginaGrupoDashboard(Math.min(totalPaginasGrupo, paginaActualGrupo + 1))} disabled={paginaActualGrupo >= totalPaginasGrupo} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Siguiente</button>
+                               </nav>
+                             )}
+                           </div>
                          </div>
                        )}
                      </div>
@@ -797,6 +887,11 @@ export default function Hallazgos({
               window.alert('Selecciona al menos un subproceso antes de guardar el hallazgo.');
               return;
             }
+            if (!esSoloLectura && macroprocesosForm.length === 0) {
+              e.preventDefault();
+              window.alert('Selecciona al menos un macroproceso antes de guardar el hallazgo.');
+              return;
+            }
             const guardado = await handleHallazgoSubmit(e);
             if (guardado) {
               setFormularioModificado(false);
@@ -805,7 +900,7 @@ export default function Hallazgos({
           }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
             {/* Input Oculto de Compatibilidad (Legacy) */}
-            <input type="hidden" name="proceso" value={procesoForm} />
+            <input type="hidden" name="proceso" value={procesoLegacyForm} />
             
             {/* ================= FILA 1: DATOS MAESTROS REBALANCED (1 + 1 + 2 = 4) ================= */}
             <div className="md:col-span-1">
@@ -882,12 +977,17 @@ export default function Hallazgos({
 
                   const infEncontrado = informesAuditoria.find(inf => String(inf.id) === String(idInfSeleccionado));
                   if (infEncontrado) {
-                    const macroAuto = infEncontrado.macroproceso || infEncontrado.proceso || '';
-                    const subAuto = infEncontrado.subproceso || 'General';
-
-                    setProcesoFormState(prev => ({ ...prev, [idEdicion]: macroAuto }));
-                    setSubprocesoFormState(prev => ({ ...prev, [idEdicion]: subAuto }));
-                    setSubprocesosFormState(prev => ({ ...prev, [idEdicion]: convertirSubprocesosEnLista(subAuto) }));
+                    const partesProcesoInforme = String(infEncontrado.proceso || '').split('/').map(parte => parte.trim());
+                    const macrosAuto = convertirMacroprocesosEnLista(
+                      infEncontrado.macroprocesos || infEncontrado.macroproceso || partesProcesoInforme[0]
+                    );
+                    const subprocesosAuto = convertirSubprocesosEnLista(
+                      infEncontrado.subprocesos ?? infEncontrado.subproceso ?? (partesProcesoInforme.slice(1).join('/') || 'General')
+                    );
+                    const relacionAuto = infEncontrado.subprocesosPorMacroproceso || Object.fromEntries(
+                      macrosAuto.map((macroproceso, indice) => [macroproceso, indice === 0 ? subprocesosAuto : []])
+                    );
+                    actualizarTerritorioForm(macrosAuto, relacionAuto);
                   }
                 }} 
                 required 
@@ -928,56 +1028,61 @@ export default function Hallazgos({
               />
             </div>
             
-           {/* 🔍 MACROPROCESO / PROCESO */}
-            <div className="md:col-span-1">
-               <label className="font-bold text-gray-600 block mb-1">Proceso / Macroproceso</label>
-               <select 
-  name="proceso" 
-  disabled={esSoloLectura}
-  value={procesoForm}
-                 onChange={(e) => {
-                   const nuevoProceso = e.target.value;
-                   const subprocesos = MAPA_PROCESOS[nuevoProceso] || [];
-                   setProcesoForm(nuevoProceso);
-                   const seleccionInicial = subprocesos.length === 1 ? [subprocesos[0]] : [];
-                   setSubprocesosForm(seleccionInicial);
-                   setSubprocesoForm(seleccionInicial[0] || '');
-                 }} 
-                 required 
-                 className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700"
-               >
-                 <option value="">-- Seleccione --</option>
-                 {Object.keys(MAPA_PROCESOS).map(m => <option key={m} value={m}>{m}</option>)}
-               </select>
+            <div className="md:col-span-2">
+              <fieldset disabled={esSoloLectura} className="rounded-lg border border-slate-300 bg-white p-2 disabled:bg-slate-100">
+                <legend className="px-1 font-bold text-gray-600">Macroprocesos / Procesos</legend>
+                <div className="grid max-h-36 grid-cols-1 gap-x-3 gap-y-1 overflow-y-auto sm:grid-cols-2">
+                  {macroprocesosDisponibles.map(macroproceso => (
+                    <label key={macroproceso} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-bold text-slate-700 hover:bg-red-50">
+                      <input
+                        type="checkbox"
+                        checked={macroprocesosForm.includes(macroproceso)}
+                        onChange={event => alternarMacroproceso(macroproceso, event.target.checked)}
+                        className="mt-0.5 accent-red-600"
+                      />
+                      <span>{macroproceso}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <input type="hidden" name="macroproceso" value={macroprocesoForm} />
+              <input type="hidden" name="macroprocesos" value={JSON.stringify(macroprocesosForm)} />
             </div>
 
-            {/* 🔍 SUBPROCESOS */}
-            <div className="md:col-span-1">
-               <fieldset disabled={subprocesoDeshabilitado || esSoloLectura} className="rounded-lg border border-slate-300 bg-white p-2 disabled:bg-slate-100">
-                 <legend className="px-1 font-bold text-gray-600">Subprocesos</legend>
-                 <div className="max-h-28 space-y-1 overflow-y-auto">
-                   {subprocesosDisponibles.map(subproceso => (
-                     <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-bold text-slate-700 hover:bg-red-50">
-                       <input
-                         type="checkbox"
-                         checked={subprocesosForm.includes(subproceso)}
-                         onChange={event => {
-                           const seleccionados = event.target.checked
-                             ? [...new Set([...subprocesosForm, subproceso])]
-                             : subprocesosForm.filter(valor => valor !== subproceso);
-                           setSubprocesosForm(seleccionados);
-                           setSubprocesoForm(seleccionados[0] || '');
-                         }}
-                         className="mt-0.5 accent-red-600"
-                       />
-                       <span>{subproceso}</span>
-                     </label>
-                   ))}
-                   {subprocesosDisponibles.length === 0 && <p className="text-[10px] text-slate-400">Selecciona primero un macroproceso.</p>}
-                 </div>
-               </fieldset>
-               <input type="hidden" name="subproceso" value={subprocesosForm[0] || ''} />
-               <input type="hidden" name="subprocesos" value={JSON.stringify(subprocesosForm)} />
+            <div className="md:col-span-2">
+              <fieldset disabled={esSoloLectura || macroprocesosForm.length === 0} className="rounded-lg border border-slate-300 bg-white p-2 disabled:bg-slate-100">
+                <legend className="px-1 font-bold text-gray-600">Subprocesos por macroproceso</legend>
+                <div className="max-h-40 space-y-3 overflow-y-auto">
+                  {macroprocesosForm.map(macroproceso => {
+                    const subprocesosDisponibles = MAPA_PROCESOS[macroproceso] || [];
+                    const subprocesosSeleccionados = subprocesosPorMacroprocesoForm[macroproceso] || [];
+                    return (
+                      <section key={macroproceso}>
+                        <h4 className="mb-1 text-[10px] font-black text-slate-600">{macroproceso}</h4>
+                        {subprocesosDisponibles.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-x-3 sm:grid-cols-2">
+                            {subprocesosDisponibles.map(subproceso => (
+                              <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-bold text-slate-700 hover:bg-red-50">
+                                <input
+                                  type="checkbox"
+                                  checked={subprocesosSeleccionados.includes(subproceso)}
+                                  onChange={event => alternarSubproceso(macroproceso, subproceso, event.target.checked)}
+                                  className="mt-0.5 accent-red-600"
+                                />
+                                <span>{subproceso}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ) : <p className="text-[10px] text-slate-400">No hay subprocesos en el catálogo para este macroproceso.</p>}
+                      </section>
+                    );
+                  })}
+                  {macroprocesosForm.length === 0 && <p className="text-[10px] text-slate-400">Selecciona uno o más macroprocesos para ver sus subprocesos.</p>}
+                </div>
+              </fieldset>
+              <input type="hidden" name="subproceso" value={subprocesoForm} />
+              <input type="hidden" name="subprocesos" value={JSON.stringify(subprocesosForm)} />
+              <input type="hidden" name="subprocesosPorMacroproceso" value={JSON.stringify(subprocesosPorMacroprocesoForm)} />
             </div>
 
             {/* ================= FILA 3: ASIGNACIÓN COMPUESTA (2 + 2 = 4) ================= */}
@@ -1381,7 +1486,7 @@ export default function Hallazgos({
                                     <div className="font-black text-slate-800">{h.ref}</div>
                                   </td>
                                   <td className="p-3">
-                                    <div className="font-bold text-slate-700 truncate max-w-[150px]" title={h.proceso || h.proceso}>{h.proceso || h.proceso}</div>
+                                    <div className="font-bold text-slate-700 truncate max-w-[150px]" title={h.macroprocesos?.join(', ') || h.proceso}>{h.macroprocesos?.join(', ') || h.proceso}</div>
                                     {convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso).filter(subproceso => subproceso !== 'General').length > 0 && <div className="text-[8px] text-slate-500 font-bold mt-0.5">↳ {convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso).filter(subproceso => subproceso !== 'General').join(', ')}</div>}
                                     <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-1">{h.sede || 'Hotel'}</div>
                                   </td>

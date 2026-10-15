@@ -16,7 +16,7 @@ const CAMPOS_EDITABLES = [
   'actaSocializacionUrl', 'anexos', 'anexosMultiples', 'correoEnviadoA',
 ];
 const CAMPOS_EDITABLES_HALLAZGO = [
-  'sede', 'proceso', 'subproceso', 'subprocesos', 'responsable', 'auditor',
+  'sede', 'proceso', 'macroproceso', 'macroprocesos', 'subproceso', 'subprocesos', 'subprocesosPorMacroproceso', 'responsable', 'auditor',
   'normaReferencia', 'tipoFuente', 'detalleFuente', 'metodologiaCausa',
   'analisisCausa', 'titulo', 'severidad', 'evidenciaUrl', 'evidencias',
   'causa', 'claseObservacion',
