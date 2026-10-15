@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { Search } from 'lucide-react';
 
 import { useCatalogos } from '../context/useCatalogos';
 import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
+import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 
 const normalizarIdentidad = valor => String(valor || '')
   .trim()
@@ -73,7 +75,8 @@ export default function Planes({
   setSearchTerm = () => {},
   columnFilters = {},
   handleColFilterChange = () => {},
-  informesAuditoria = []
+  informesAuditoria = [],
+  fuentesMejora = []
 }) {
   const { catalogoCargos = [], cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
 
@@ -183,6 +186,9 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [informePlanesExpandido, setInformePlanesExpandido] = useState(null);
+  const [paginaHistorialMatriz, setPaginaHistorialMatriz] = useState(1);
+  const [informesPorPaginaMatriz, setInformesPorPaginaMatriz] = useState(10);
+  const [filtroFuenteMatriz, setFiltroFuenteMatriz] = useState('');
 
  // ✨ NUEVA FUNCIÓN: Protege contra salidas accidentales al cambiar de pestaña
   const cambiarVistaSegura = (nuevaVista) => {
@@ -2715,77 +2721,119 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
         // ✨ FIX ARQUITECTÓNICO: Incluir también informes que tienen Hallazgos pero AÚN NO tienen planes creados
         const informesConHallazgos = safeHallazgos.map(h => String(h.idInforme));
         const listaInformesIds = [...new Set([...Object.keys(planesPorInforme), ...informesConHallazgos])].filter(id => id && id !== 'undefined' && id !== 'null');
+        const informesPorId = new Map(informesAuditoria.map(informe => [String(informe.id), informe]));
+        const informesFiltradosPorFuente = listaInformesIds.filter(id => {
+          if (!filtroFuenteMatriz) return true;
+          const informe = informesPorId.get(String(id));
+          return Boolean(informe && resolverCategoriaFuente(informe.tipoFuente, fuentesMejora) === filtroFuenteMatriz);
+        });
+        const totalInformesMatriz = informesFiltradosPorFuente.length;
+        const totalPaginasMatriz = Math.max(1, Math.ceil(totalInformesMatriz / informesPorPaginaMatriz));
+        const paginaMatrizActual = Math.min(paginaHistorialMatriz, totalPaginasMatriz);
+        const inicioPaginaMatriz = (paginaMatrizActual - 1) * informesPorPaginaMatriz;
+        const informesPaginaMatriz = informesFiltradosPorFuente.slice(inicioPaginaMatriz, inicioPaginaMatriz + informesPorPaginaMatriz);
+        const primerInformeMatriz = totalInformesMatriz === 0 ? 0 : inicioPaginaMatriz + 1;
+        const ultimoInformeMatriz = Math.min(inicioPaginaMatriz + informesPorPaginaMatriz, totalInformesMatriz);
 
         return (
           <div className="space-y-4 animate-in slide-in-from-left-8 duration-500">
             {/* 🎛️ BARRA DE FILTROS Y BÚSQUEDA SUPERIOR CORRESPONDIENTE */}
-            <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-              <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
-                 <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest ml-2">Seguimiento de Actividades por Informe Emitido</h3>
-                 <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
+            <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <h3 className="text-sm font-bold text-slate-800">Seguimiento por informe emitido</h3>
+                <span className="text-xs font-semibold text-slate-500" aria-live="polite">
+                  {totalInformesMatriz} {totalInformesMatriz === 1 ? 'informe' : 'informes'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[1.1fr_1.1fr_1.1fr_1.1fr_.9fr_1.4fr]">
                     
                     {/* ✨ NUEVO: FILTRO DINÁMICO DE PROCESO */}
-                    <select 
-                      value={columnFilters['proceso'] || ''} 
-                      onChange={(e) => {
-                        handleColFilterChange('proceso', e.target.value);
-                        handleColFilterChange('subproceso', ''); // Resetea el subproceso automáticamente
-                      }} 
-                      className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer"
-                    >
-                      <option value="">🏛️ Todos los Procesos</option>
-                      {[...new Set(planesEnriquecidos.map(p => p.proceso).filter(Boolean))].sort().map(p => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
+                    <label className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-slate-500">Proceso</span>
+                      <select
+                        value={columnFilters['proceso'] || ''}
+                        onChange={(e) => {
+                          setPaginaHistorialMatriz(1);
+                          handleColFilterChange('proceso', e.target.value);
+                          handleColFilterChange('subproceso', '');
+                        }}
+                        className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                      >
+                        <option value="">Todos los procesos</option>
+                        {[...new Set(planesEnriquecidos.map(p => p.proceso).filter(Boolean))].sort().map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </label>
 
                     {/* ✨ NUEVO: FILTRO DINÁMICO DE SUBPROCESO */}
-                    <select 
-                      value={columnFilters['subproceso'] || ''} 
-                      onChange={(e) => handleColFilterChange('subproceso', e.target.value)} 
-                      className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer max-w-[140px] truncate"
-                    >
-                      <option value="">🗂️ Todos los Subprocesos</option>
-                      {[...new Set(
-                        planesEnriquecidos
-                          .filter(p => !columnFilters['proceso'] || p.proceso === columnFilters['proceso'])
-                          .map(p => p.subproceso)
-                          .filter(Boolean)
-                      )].sort().map(sp => (
-                        <option key={sp} value={sp}>{sp}</option>
-                      ))}
-                    </select>
+                    <label className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-slate-500">Subproceso</span>
+                      <select
+                        value={columnFilters['subproceso'] || ''}
+                        onChange={(e) => { setPaginaHistorialMatriz(1); handleColFilterChange('subproceso', e.target.value); }}
+                        className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                      >
+                        <option value="">Todos los subprocesos</option>
+                        {[...new Set(
+                          planesEnriquecidos
+                            .filter(p => !columnFilters['proceso'] || p.proceso === columnFilters['proceso'])
+                            .map(p => p.subproceso)
+                            .filter(Boolean)
+                        )].sort().map(sp => (
+                          <option key={sp} value={sp}>{sp}</option>
+                        ))}
+                      </select>
+                    </label>
 
-                    <select value={columnFilters['auditorAsignado'] || ''} onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-blue-50 font-black text-blue-800 shadow-sm cursor-pointer max-w-[150px] truncate">
-                      <option value="">🛡️ Todos los Auditores</option>
-                      {[...new Set(planesEnriquecidos.map(p => p.auditorAsignado).filter(Boolean))].sort().map(aud => (
-                        <option key={aud} value={aud}>{aud}</option>
-                      ))}
-                    </select>
-                    <select value={columnFilters['estadoWorkflow'] || ''} onChange={(e) => handleColFilterChange('estadoWorkflow', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-amber-50 font-black text-amber-800 shadow-sm cursor-pointer">
-                      <option value="">📋 Todas las Fases</option>
-                      <option value="Borrador">✏️ Borrador</option>
-                      <option value="En Revisión">⏳ En Revisión</option>
-                      <option value="Cerrado">✅ Cerradas</option>
-                    </select>
-                    <div className="relative w-full sm:w-auto">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400 text-[10px]">🔍</span>
-                      <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-slate-800 w-full sm:w-44 shadow-sm" />
-                    </div>
-                 </div>
+                    <label className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-slate-500">Auditor</span>
+                      <select value={columnFilters['auditorAsignado'] || ''} onChange={(e) => { setPaginaHistorialMatriz(1); handleColFilterChange('auditorAsignado', e.target.value); }} className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                        <option value="">Todos los auditores</option>
+                        {[...new Set(planesEnriquecidos.map(p => p.auditorAsignado).filter(Boolean))].sort().map(aud => (
+                          <option key={aud} value={aud}>{aud}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-slate-500">Tipo de fuente</span>
+                      <select value={filtroFuenteMatriz} onChange={(e) => { setFiltroFuenteMatriz(e.target.value); setPaginaHistorialMatriz(1); }} className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                        <option value="">Todas las fuentes</option>
+                        {TIPOS_FUENTE_HISTORIAL.map(fuente => <option key={fuente} value={fuente}>{fuente}</option>)}
+                      </select>
+                    </label>
+
+                    <label className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-slate-500">Fase</span>
+                      <select value={columnFilters['estadoWorkflow'] || ''} onChange={(e) => { setPaginaHistorialMatriz(1); handleColFilterChange('estadoWorkflow', e.target.value); }} className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                        <option value="">Todas las fases</option>
+                        <option value="Borrador">Borrador</option>
+                        <option value="En Revisión">En revisión</option>
+                        <option value="Cerrado">Cerrada</option>
+                      </select>
+                    </label>
+
+                    <label className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-slate-500">Buscar</span>
+                      <span className="relative mt-1 block">
+                        <Search size={15} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input type="text" aria-label="Buscar informes y actividades" placeholder="Informe, actividad o responsable" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPaginaHistorialMatriz(1); }} className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors placeholder:font-normal placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                      </span>
+                    </label>
               </div>
             </div>
 
             {/* 📂 LISTADO DE INFORMES CON ACTIVIDADES ASOCIADAS */}
             {listaInformesIds.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">
-                No se encontraron informes con planes de acción para los criterios seleccionados.
+              <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-sm font-medium text-slate-500 shadow-sm">
+                No se encontraron informes para los filtros seleccionados.
               </div>
             ) : (
-              <div className="space-y-3">
-                {listaInformesIds.map(idInf => {
+              <div className="space-y-2">
+                {informesPaginaMatriz.map(idInf => {
                   const planesDelInforme = planesPorInforme[idInf] || []; // ✨ Salvaguarda para informes sin planes
-                  const informeBase = informesAuditoria.find(inf => String(inf.id) === String(idInf));
+                  const informeBase = informesPorId.get(String(idInf));
                   
                  // Mapear trazabilidad del informe padre
                   const codigoInforme = informeBase ? informeBase.ref : "INF-S/N";
@@ -2799,12 +2847,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   const isExpanded = informePlanesExpandido === idInf;
 
                   return (
-                    <div key={`inf-plan-card-${idInf}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
+                    <div key={`inf-plan-card-${idInf}`} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-shadow hover:shadow-md">
                       
                       {/* Fila Resumen del Informe (Línea de Trazabilidad Principal) */}
                       <div 
                         onClick={() => setInformePlanesExpandido(isExpanded ? null : idInf)}
-                        className={`p-4 flex flex-col md:flex-row items-start md:items-center justify-between cursor-pointer transition-colors gap-3 ${isExpanded ? 'bg-slate-50/80 border-b border-slate-100' : 'hover:bg-slate-50'}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInformePlanesExpandido(isExpanded ? null : idInf); } }}
+                        className={`p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between cursor-pointer transition-colors gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${isExpanded ? 'bg-slate-50/80 border-b border-slate-100' : 'hover:bg-slate-50'}`}
                       >
                         <div className="flex items-center space-x-3 flex-1 min-w-0">
                           <span className="text-xl shrink-0">📂</span>
@@ -3454,6 +3506,24 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 })}
               </div>
             )}
+
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-600">
+                <span aria-live="polite">Mostrando <strong className="text-slate-800">{primerInformeMatriz}-{ultimoInformeMatriz}</strong> de <strong className="text-slate-800">{totalInformesMatriz}</strong> informes</span>
+                <label className="flex items-center gap-2 font-medium">
+                  Informes por página
+                  <select value={informesPorPaginaMatriz} onChange={(e) => { setInformesPorPaginaMatriz(Number(e.target.value)); setPaginaHistorialMatriz(1); }} aria-label="Informes por página" className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                  </select>
+                </label>
+              </div>
+              <nav className="flex items-center justify-between gap-2 sm:justify-end" aria-label="Paginación del historial matriz">
+                <button type="button" onClick={() => setPaginaHistorialMatriz(Math.max(1, paginaMatrizActual - 1))} disabled={paginaMatrizActual <= 1} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Anterior</button>
+                <span className="min-w-24 text-center text-xs font-semibold tabular-nums text-slate-600" aria-live="polite">Página {paginaMatrizActual} de {totalPaginasMatriz}</span>
+                <button type="button" onClick={() => setPaginaHistorialMatriz(Math.min(totalPaginasMatriz, paginaMatrizActual + 1))} disabled={paginaMatrizActual >= totalPaginasMatriz} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Siguiente</button>
+              </nav>
+            </div>
           </div>
         );
       })()}
