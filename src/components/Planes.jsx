@@ -202,7 +202,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [paginaGrupoDashboard, setPaginaGrupoDashboard] = useState(1);
-  const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(10);
+const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20);
   const [informePlanesExpandido, setInformePlanesExpandido] = useState(null);
   const [paginaHistorialMatriz, setPaginaHistorialMatriz] = useState(1);
   const [informesPorPaginaMatriz, setInformesPorPaginaMatriz] = useState(10);
@@ -2451,6 +2451,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                  <select value={accionesPorPaginaDashboard} onChange={event => { setAccionesPorPaginaDashboard(Number(event.target.value)); setPaginaGrupoDashboard(1); }} aria-label={`Acciones por página para ${grupo}`} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                    <option value={10}>10</option>
                                    <option value={15}>15</option>
+                                   <option value={20}>20</option>
+                                   <option value={30}>30</option>
+                                   <option value={50}>50</option>
                                  </select>
                                </label>
                              </div>
