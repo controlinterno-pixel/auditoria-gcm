@@ -101,9 +101,14 @@ export default async function handler(req, res) {
 
       const snapshots = isGlobalUser
         ? [await adminDb.collection('riesgos').get()]
-        : await Promise.all(procesosAsignadosOriginales.map(proceso => (
-          adminDb.collection('riesgos').where('proceso', '==', proceso).get()
-        )));
+        : await Promise.all([...new Set(procesosAsignadosOriginales.flatMap(proceso => [
+          proceso,
+          String(proceso).split('/')[0].trim(),
+        ]))].flatMap(proceso => ([
+          adminDb.collection('riesgos').where('proceso', '==', proceso).get(),
+          adminDb.collection('riesgos').where('macroproceso', '==', proceso).get(),
+          adminDb.collection('riesgos').where('macroprocesos', 'array-contains', proceso).get(),
+        ])));
       const riesgosPorId = new Map();
       snapshots.forEach(snapshot => snapshot.forEach(documento => {
         riesgosPorId.set(documento.id, { docId: documento.id, ...documento.data() });
@@ -150,8 +155,12 @@ export default async function handler(req, res) {
       const riesgoRef = adminDb.collection('riesgos').doc(String(id));
       const guardado = await adminDb.runTransaction(async (transaction) => {
         const riesgoExistente = await transaction.get(riesgoRef);
+        const datosRiesgoExistente = riesgoExistente.data() || {};
+        const macroprocesoExistente = datosRiesgoExistente.macroproceso
+          || datosRiesgoExistente.macroprocesos?.[0]
+          || String(datosRiesgoExistente.proceso || '').split('/')[0].trim();
         if (!isAdmin && riesgoExistente.exists && !procesosAsignados.includes(
-          normalizarProcesoAlcance(riesgoExistente.data()?.proceso)
+          normalizarProcesoAlcance(macroprocesoExistente)
         )) {
           return false;
         }

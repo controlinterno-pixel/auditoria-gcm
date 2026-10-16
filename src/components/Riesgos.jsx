@@ -9,6 +9,67 @@ import { analizarRiesgoConIA } from '../services/aiEngine';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
 
+const normalizarTextoProceso = valor => String(valor || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .trim()
+  .toLowerCase();
+
+const convertirCampoProcesoEnLista = valor => (
+  Array.isArray(valor)
+    ? valor.map(item => String(item || '').trim()).filter(Boolean)
+    : String(valor || '').split(',').map(item => item.trim()).filter(Boolean)
+);
+
+const resolverNombreCatalogo = (valor, opciones) => {
+  const textoNormalizado = normalizarTextoProceso(valor);
+  return opciones.find(opcion => normalizarTextoProceso(opcion) === textoNormalizado) || String(valor || '').trim();
+};
+
+const normalizarUbicacionRiesgo = (riesgo, mapaProcesos) => {
+  const partesProcesoLegado = String(riesgo.proceso || '').split('/').map(parte => parte.trim()).filter(Boolean);
+  const macroprocesosGuardados = convertirCampoProcesoEnLista(riesgo.macroprocesos);
+  const candidatosMacroproceso = macroprocesosGuardados.length > 0
+    ? macroprocesosGuardados
+    : convertirCampoProcesoEnLista(riesgo.macroproceso || partesProcesoLegado[0] || 'Sin proceso');
+  const nombresMacroproceso = Object.keys(mapaProcesos || {});
+  const macroprocesos = [...new Set(candidatosMacroproceso.map(macroproceso => {
+    const parteMacroproceso = String(macroproceso || '').split('/')[0].trim();
+    return resolverNombreCatalogo(parteMacroproceso, nombresMacroproceso) || 'Sin proceso';
+  }))];
+  const relacionesGuardadas = riesgo.subprocesosPorMacroproceso && typeof riesgo.subprocesosPorMacroproceso === 'object'
+    ? riesgo.subprocesosPorMacroproceso
+    : {};
+  const subprocesosLegados = convertirCampoProcesoEnLista(riesgo.subprocesos).length > 0
+    ? convertirCampoProcesoEnLista(riesgo.subprocesos)
+    : convertirCampoProcesoEnLista(riesgo.subproceso || partesProcesoLegado.slice(1).join('/'));
+  const subprocesosPorMacroproceso = Object.fromEntries(macroprocesos.map((macroproceso, indice) => {
+    const claveRelacion = Object.keys(relacionesGuardadas).find(clave => (
+      normalizarTextoProceso(clave) === normalizarTextoProceso(macroproceso)
+    ));
+    const valoresRelacion = claveRelacion ? relacionesGuardadas[claveRelacion] : indice === 0 ? subprocesosLegados : [];
+    const subprocesosDisponibles = Array.isArray(mapaProcesos?.[macroproceso]) ? mapaProcesos[macroproceso] : [];
+    const subprocesos = [...new Set(convertirCampoProcesoEnLista(valoresRelacion).map(subproceso => (
+      resolverNombreCatalogo(subproceso, subprocesosDisponibles)
+    )).filter(Boolean))];
+    if (subprocesos.length === 0 && subprocesosDisponibles.length === 1 && subprocesosDisponibles[0] === 'General') {
+      subprocesos.push('General');
+    }
+    return [macroproceso, subprocesos];
+  }));
+  const subprocesos = [...new Set(Object.values(subprocesosPorMacroproceso).flat())];
+
+  return {
+    ...riesgo,
+    proceso: macroprocesos[0] || 'Sin proceso',
+    macroproceso: macroprocesos[0] || 'Sin proceso',
+    macroprocesos,
+    subproceso: subprocesosPorMacroproceso[macroprocesos[0]]?.[0] || '',
+    subprocesos,
+    subprocesosPorMacroproceso,
+  };
+};
+
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
 const EXPLICACIONES_CAMPOS = {
   proceso: {
@@ -257,8 +318,9 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     if (tempPromoted) {
       try {
         const data = JSON.parse(tempPromoted);
-        if (data.proceso) setMacroproceso(data.proceso);
-        if (data.subproceso) setSubproceso(data.subproceso);
+        const ubicacionPromovida = normalizarUbicacionRiesgo(data, MAPA_PROCESOS);
+        if (ubicacionPromovida.macroproceso !== 'Sin proceso') setMacroproceso(ubicacionPromovida.macroproceso);
+        setSubprocesosSeleccionados(ubicacionPromovida.subprocesos);
         if (data.causaInmediata) setCausaInmediata(data.causaInmediata);
         if (data.sede) setSedeForm(Array.isArray(data.sede) ? data.sede : [data.sede]);
         if (data.responsable) setResponsablesMultiples(Array.isArray(data.responsable) ? data.responsable : [data.responsable]);
@@ -277,22 +339,30 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   // 🌟 NUEVOS ESTADOS EN CASCADA PARA PROCESOS
   const listadoMacros = Object.keys(MAPA_PROCESOS);
   const [macroproceso, setMacroproceso] = useState(listadoMacros[0] || '');
-  const [subproceso, setSubproceso] = useState(MAPA_PROCESOS[listadoMacros[0]]?.[0] || '');
+  const [subprocesosSeleccionados, setSubprocesosSeleccionados] = useState(MAPA_PROCESOS[listadoMacros[0]]?.slice(0, 1) || []);
+  const macroprocesosDisponibles = [...new Set([...listadoMacros, macroproceso].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
 
   // Función inteligente para manejar el cambio del proceso
   const handleMacroprocesoChange = (e) => {
-    const nuevoMacro = e.target.value;
+    const nuevoMacro = resolverNombreCatalogo(e.target.value, Object.keys(MAPA_PROCESOS));
     setMacroproceso(nuevoMacro);
-    
-    if (MAPA_PROCESOS[nuevoMacro] && MAPA_PROCESOS[nuevoMacro].length > 0) {
-      setSubproceso(MAPA_PROCESOS[nuevoMacro][0]);
-    } else {
-      setSubproceso('');
-    }
+    const subprocesosDisponibles = MAPA_PROCESOS[nuevoMacro] || [];
+    const seleccionInicial = subprocesosDisponibles.length === 1 && subprocesosDisponibles[0] === 'General'
+      ? ['General']
+      : [];
+    setSubprocesosSeleccionados(seleccionInicial);
   };
 
-  const subprocesosDisponibles = MAPA_PROCESOS[macroproceso] || [];
+  const subprocesosCatalogo = MAPA_PROCESOS[macroproceso] || [];
+  const subprocesosDisponibles = [...new Set([...subprocesosCatalogo, ...subprocesosSeleccionados])];
   const tieneSubprocesosReales = subprocesosDisponibles.length > 1 || (subprocesosDisponibles.length === 1 && subprocesosDisponibles[0] !== "General");
+
+  const alternarSubprocesoRiesgo = (valor, seleccionado) => {
+    const siguientes = seleccionado
+      ? [...new Set([...subprocesosSeleccionados, valor])]
+      : subprocesosSeleccionados.filter(subprocesoActual => subprocesoActual !== valor);
+    setSubprocesosSeleccionados(siguientes);
+  };
 
   const [categoria, setCategoria] = useState('');
   const [clasificacionRiesgo, setClasificacionRiesgo] = useState(CLASIFICACIONES_MANUAL[0]);
@@ -768,13 +838,14 @@ FORMATO DE SALIDA JSON EXACTO:
  const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setCustomId(riesgo.id); // 🔥 RECUPERAMOS EL ID PARA EL FORMULARIO
+   const ubicacion = normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS);
       
 // 🏢 Recuperar Sede (Soporta versiones viejas de texto único y versiones nuevas de selección múltiple)
     setSedeForm(Array.isArray(riesgo.sede) ? riesgo.sede : (riesgo.sede ? [riesgo.sede] : []));
     
     // 🌟 Recuperar proceso y Subproceso (Manteniendo compatibilidad con datos viejos)
-    setMacroproceso(riesgo.macroproceso || riesgo.proceso || listadoMacros[0]);
-    setSubproceso(riesgo.subproceso || 'General');
+    setMacroproceso(ubicacion.macroproceso || listadoMacros[0] || '');
+    setSubprocesosSeleccionados(ubicacion.subprocesos);
 
     setCategoria(riesgo.categoria);
     setClasificacionRiesgo(riesgo.clasificacionRiesgo || CLASIFICACIONES_MANUAL[0]);
@@ -821,12 +892,22 @@ const handleRiesgoSubmit = async (e) => {
       return;
     }
 
+    const macroprocesoCanonico = resolverNombreCatalogo(macroproceso, Object.keys(MAPA_PROCESOS)) || macroproceso.trim();
+    const subprocesosCanonicos = [...new Set(subprocesosSeleccionados.map(subprocesoSeleccionado => (
+      resolverNombreCatalogo(subprocesoSeleccionado, MAPA_PROCESOS[macroprocesoCanonico] || [])
+    )).filter(Boolean))];
+    if (!macroprocesoCanonico || macroprocesoCanonico === 'Sin proceso' || subprocesosCanonicos.length === 0) {
+      showNotification("Selecciona un macroproceso y al menos un subproceso del catálogo.", "error");
+      return;
+    }
+
     setIsSubmitting(true);
     const ts = new Date().toLocaleString();
 
     try {
       let updatedList = [...safeRiesgos];
       const textoControlesConsolidados = controles.map((c, index) => `C${index + 1}. [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n\n');
+      const subprocesoPrincipal = subprocesosCanonicos[0] || '';
 
       const nuevoRiesgo = {
         ...(editRiesgo || {}),
@@ -834,9 +915,12 @@ const handleRiesgoSubmit = async (e) => {
         idHallazgoOrigen: editRiesgo ? (editRiesgo.idHallazgoOrigen || null) : idHallazgoOrigen,
         origen: idHallazgoOrigen ? `Hallazgo Emergente (HAL-${idHallazgoOrigen})` : (editRiesgo?.origen || 'Identificación Interna'),
         sede: sedeForm,      
-        proceso: macroproceso,
-        macroproceso: macroproceso,
-        subproceso: subproceso,
+        proceso: macroprocesoCanonico,
+        macroproceso: macroprocesoCanonico,
+        macroprocesos: [macroprocesoCanonico],
+        subproceso: subprocesoPrincipal,
+        subprocesos: subprocesosCanonicos,
+        subprocesosPorMacroproceso: { [macroprocesoCanonico]: subprocesosCanonicos },
         categoria,
         clasificacionRiesgo,
         normativa,
@@ -912,24 +996,29 @@ const handleRiesgoSubmit = async (e) => {
       { nivel: 2, etiqueta: 'Menor' },
       { nivel: 1, etiqueta: 'Insignificante' },
     ];
-    const procesosUnicos = [...new Set(safeRiesgos.map(r => r.proceso || r.macroproceso || 'Sin proceso'))].sort((a, b) => a.localeCompare(b, 'es'));
-    const subprocesosUnicos = [...new Set(safeRiesgos
-      .filter(r => filtroProceso === 'Todos' || (r.proceso || r.macroproceso || 'Sin proceso') === filtroProceso)
-      .map(r => r.subproceso || 'General'))].sort((a, b) => a.localeCompare(b, 'es'));
-    const clasificacionesUnicas = [...new Set(safeRiesgos.map(r => r.clasificacionRiesgo || r.categoria || 'Sin clasificación'))].sort((a, b) => a.localeCompare(b, 'es'));
+    const riesgosNormalizados = safeRiesgos.map(riesgo => normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS));
+    const procesosUnicos = [...new Set(riesgosNormalizados.flatMap(riesgo => riesgo.macroprocesos))].sort((a, b) => a.localeCompare(b, 'es'));
+    const subprocesosUnicos = [...new Set(riesgosNormalizados.flatMap(riesgo => (
+      filtroProceso === 'Todos'
+        ? riesgo.subprocesos
+        : riesgo.subprocesosPorMacroproceso[filtroProceso] || []
+    )))].sort((a, b) => a.localeCompare(b, 'es'));
+    const clasificacionesUnicas = [...new Set(riesgosNormalizados.map(r => r.clasificacionRiesgo || r.categoria || 'Sin clasificación'))].sort((a, b) => a.localeCompare(b, 'es'));
     const scoreRiesgo = riesgo => extraerNivelMatriz(riesgo.probabilidadResidual, 'probabilidad') * extraerNivelMatriz(riesgo.impactoResidual, 'impacto');
     const nivelRiesgo = riesgo => {
       const score = scoreRiesgo(riesgo);
       return score >= 16 ? 'Extremo' : score >= 10 ? 'Alto' : score >= 5 ? 'Moderado' : 'Bajo';
     };
-    const riesgosDashboard = safeRiesgos.filter(riesgo => {
-      const proceso = riesgo.proceso || riesgo.macroproceso || 'Sin proceso';
-      const subproceso = riesgo.subproceso || 'General';
+    const riesgosDashboard = riesgosNormalizados.filter(riesgo => {
+      const macroprocesos = riesgo.macroprocesos.length > 0 ? riesgo.macroprocesos : ['Sin proceso'];
+      const subprocesos = filtroProceso === 'Todos'
+        ? riesgo.subprocesos
+        : riesgo.subprocesosPorMacroproceso[filtroProceso] || [];
       const clasificacion = riesgo.clasificacionRiesgo || riesgo.categoria || 'Sin clasificación';
       const nivel = nivelRiesgo(riesgo);
-      const textoBusqueda = `${riesgo.id} ${riesgo.descripcion || riesgo.escenarioFinal || ''} ${proceso} ${subproceso} ${clasificacion}`.toLowerCase();
-      return (filtroProceso === 'Todos' || proceso === filtroProceso)
-        && (filtroSubproceso === 'Todos' || subproceso === filtroSubproceso)
+      const textoBusqueda = `${riesgo.id} ${riesgo.descripcion || riesgo.escenarioFinal || ''} ${macroprocesos.join(' ')} ${subprocesos.join(' ')} ${clasificacion}`.toLowerCase();
+      return (filtroProceso === 'Todos' || macroprocesos.includes(filtroProceso))
+        && (filtroSubproceso === 'Todos' || subprocesos.includes(filtroSubproceso))
         && (filtroClasificacion === 'Todas' || clasificacion === filtroClasificacion)
         && (filtroNivelDashboard === 'Todos' || nivel === filtroNivelDashboard)
         && (!searchTerm || textoBusqueda.includes(searchTerm.toLowerCase()));
@@ -962,8 +1051,10 @@ const handleRiesgoSubmit = async (e) => {
       return String(a.fechaSeguimiento || '9999').localeCompare(String(b.fechaSeguimiento || '9999'));
     });
     const conteoProcesos = riesgosDashboard.reduce((conteo, riesgo) => {
-      const proceso = riesgo.proceso || riesgo.macroproceso || 'Sin proceso';
-      conteo[proceso] = (conteo[proceso] || 0) + 1;
+      const macroprocesos = riesgo.macroprocesos.length > 0 ? riesgo.macroprocesos : ['Sin proceso'];
+      macroprocesos.forEach(macroproceso => {
+        conteo[macroproceso] = (conteo[macroproceso] || 0) + 1;
+      });
       return conteo;
     }, {});
     const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 6);
@@ -1189,7 +1280,7 @@ const handleRiesgoSubmit = async (e) => {
                     </span>
                     <span className="mt-1 block text-xs font-bold leading-snug text-slate-800">{riesgo.descripcion || riesgo.escenarioFinal || 'Riesgo sin descripción'}</span>
                     <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
-                      <span>{riesgo.proceso || riesgo.macroproceso || 'Sin proceso'}</span>
+                      <span>{filtroProceso !== 'Todos' ? filtroProceso : riesgo.macroprocesos.join(', ') || 'Sin proceso'}</span>
                       <span>{controles || (riesgo.descripcionControl ? 1 : 0)} controles</span>
                       <span>Mitigación {calcularMitigacionRiesgo(riesgo)}%</span>
                       {riesgo.fechaSeguimiento && <span>Seguimiento {riesgo.fechaSeguimiento}</span>}
@@ -1248,7 +1339,7 @@ const handleRiesgoSubmit = async (e) => {
                   <span className="font-mono text-[10px] font-bold text-slate-400">{String(indice + 1).padStart(2, '0')}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-[11px] font-bold text-slate-800">{riesgo.descripcion || riesgo.escenarioFinal || `Riesgo RSK-${riesgo.id}`}</span>
-                    <span className="block truncate text-[9px] text-slate-500">{riesgo.proceso || riesgo.macroproceso || 'Sin proceso'} · RSK-{riesgo.id}{riesgo.fechaSeguimiento ? ` · ${riesgo.fechaSeguimiento}` : ''}</span>
+                    <span className="block truncate text-[9px] text-slate-500">{riesgo.macroprocesos.join(', ') || 'Sin proceso'} · RSK-{riesgo.id}{riesgo.fechaSeguimiento ? ` · ${riesgo.fechaSeguimiento}` : ''}</span>
                   </span>
                   <span className="rounded-md bg-slate-100 px-2 py-1 text-center text-[10px] font-black tabular-nums text-slate-800">S {scoreRiesgo(riesgo)}</span>
                 </button>
@@ -1296,28 +1387,31 @@ const renderMatriz = () => {
     }
 
 // 🔍 Filtrado dinámico en tiempo real
-    const riesgosFiltrados = safeRiesgos.filter(r => {
+    const riesgosNormalizados = safeRiesgos.map(riesgo => normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS));
+    const riesgosFiltrados = riesgosNormalizados.filter(r => {
       const matchSearch = (r.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (r.proceso || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (r.subproceso || '').toLowerCase().includes(searchTerm.toLowerCase()) || // ✨ Incluimos subproceso en la búsqueda de texto
+                          r.macroprocesos.join(' ').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          r.subprocesos.join(' ').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           String(r.id).includes(searchTerm);
-      const matchProceso = filtroProceso === 'Todos' || r.proceso === filtroProceso;
-      const matchSubproceso = filtroSubproceso === 'Todos' || r.subproceso === filtroSubproceso; // ✨ Condición del nuevo filtro
+      const matchProceso = filtroProceso === 'Todos' || r.macroprocesos.includes(filtroProceso);
+      const subprocesosDelProceso = filtroProceso === 'Todos'
+        ? r.subprocesos
+        : r.subprocesosPorMacroproceso[filtroProceso] || [];
+      const matchSubproceso = filtroSubproceso === 'Todos' || subprocesosDelProceso.includes(filtroSubproceso);
       const matchClasificacion = filtroClasificacion === 'Todas' || r.clasificacionRiesgo === filtroClasificacion;
       const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
       const matchNivel = filtroNivel === 'Todos' || zoneRes.label === filtroNivel;
       return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel;
     });
 
-    const procesosUnicos = Array.from(new Set(safeRiesgos.map(r => r.proceso).filter(Boolean)));
+    const procesosUnicos = [...new Set(riesgosNormalizados.flatMap(r => r.macroprocesos))].sort((a, b) => a.localeCompare(b, 'es'));
     
     // ✨ Derivamos los subprocesos dinámicamente basados en el proceso seleccionado
-    const subprocesosUnicos = Array.from(new Set(
-      safeRiesgos
-        .filter(r => filtroProceso === 'Todos' || r.proceso === filtroProceso)
-        .map(r => r.subproceso)
-        .filter(Boolean)
-    ));
+    const subprocesosUnicos = [...new Set(
+      riesgosNormalizados.flatMap(r => filtroProceso === 'Todos'
+        ? r.subprocesos
+        : r.subprocesosPorMacroproceso[filtroProceso] || [])
+    )].sort((a, b) => a.localeCompare(b, 'es'));
 
     return (
       <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-300">
@@ -1489,7 +1583,7 @@ const renderMatriz = () => {
                           <span className="text-slate-400 text-xs">🏢</span>
                         </div>
                         <p className="text-[10px] font-bold text-slate-500 mt-0.5 line-clamp-1">
-                          {r.proceso || 'Gestión Operativa'}
+                          {r.macroprocesos.join(', ') || 'Gestión Operativa'}
                         </p>
                         <span className="inline-block mt-1 text-[8px] font-black uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                           Activo
@@ -1499,7 +1593,7 @@ const renderMatriz = () => {
                       {/* RIESGO (DESCRIPCIÓN) */}
                       <div className="col-span-3 pr-2">
                         <span className="inline-block text-[8px] font-black uppercase px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded mb-1">
-                          {r.subproceso && r.subproceso !== 'General' ? r.subproceso : (r.categoria || 'Operativo')}
+                          {r.subprocesos.length > 0 && r.subprocesos.some(subprocesoActual => subprocesoActual !== 'General') ? r.subprocesos.join(', ') : (r.categoria || 'Operativo')}
                         </span>
                         {/* 👇 Se eliminó line-clamp-2 de la línea de abajo 👇 */}
                         <p className="text-xs font-medium text-slate-800 leading-snug">
@@ -2111,34 +2205,29 @@ const renderMatriz = () => {
                     className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white font-bold text-slate-800"
                   >
                     <option value="" disabled>Seleccione...</option>
-                    {listadoMacros.map(macro => (
+                    {macroprocesosDisponibles.map(macro => (
                       <option key={macro} value={macro}>{macro}</option>
                     ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 mt-1">
-                    Subproceso Específico
-                  </label>
-                  <select 
-                    value={subproceso} 
-                    onChange={(e) => setSubproceso(e.target.value)} 
-                    disabled={!tieneSubprocesosReales || !macroproceso}
-                    className={`w-full text-xs p-2 border rounded-lg transition-colors ${
-                      (!tieneSubprocesosReales || !macroproceso)
-                        ? 'bg-slate-100 cursor-not-allowed border-slate-200 text-slate-400' 
-                        : 'bg-white border-slate-300 text-slate-800 font-semibold focus:ring-2 focus:ring-[#0A3B32]'      
-                    }`}
-                  >
-                    {!macroproceso && <option value="">Esperando selección...</option>}
-                    {macroproceso && subprocesosDisponibles.map(sub => (
-                      <option key={sub} value={sub}>
-                        {!tieneSubprocesosReales && sub === "General" ? "No aplica subdivisión" : sub}
-                      </option>
+                <fieldset disabled={!macroproceso || subprocesosDisponibles.length === 0} className="rounded-lg border border-slate-300 bg-white p-2 disabled:bg-slate-100">
+                  <legend className="px-1 text-[10px] font-black text-slate-500 uppercase tracking-wider">Subprocesos</legend>
+                  <div className="max-h-32 space-y-1 overflow-y-auto">
+                    {subprocesosDisponibles.map(sub => (
+                      <label key={sub} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50">
+                        <input
+                          type="checkbox"
+                          checked={subprocesosSeleccionados.includes(sub)}
+                          onChange={event => alternarSubprocesoRiesgo(sub, event.target.checked)}
+                          className="mt-0.5 accent-emerald-700"
+                        />
+                        <span>{sub === 'General' && !tieneSubprocesosReales ? 'General (sin subdivisión)' : sub}</span>
+                      </label>
                     ))}
-                  </select>
-                </div>
+                    {subprocesosDisponibles.length === 0 && <p className="text-[10px] text-slate-400">Selecciona primero un macroproceso con subprocesos registrados.</p>}
+                  </div>
+                </fieldset>
               </div>
 
               <div>
