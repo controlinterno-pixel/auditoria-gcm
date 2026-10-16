@@ -265,8 +265,10 @@ export default async function handler(req, res) {
         hallazgos: hallazgosPermitidos,
         planes: planesPermitidos,
         
+        // La matriz de riesgos es corporativa y de consulta completa para todo usuario autenticado.
+        riesgos: Array.isArray(data.riesgos) ? data.riesgos : [],
+
         // Colecciones con RLS Estándar
-        riesgos: aplicarRLS(data.riesgos, userEmail, userCargo, userProcesses),
         evaluaciones: aplicarRLS(data.evaluaciones, userEmail, userCargo, userProcesses),
         incidentes: aplicarRLS(data.incidentes, userEmail, userCargo, userProcesses),
         
