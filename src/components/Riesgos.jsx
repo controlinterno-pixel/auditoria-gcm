@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 import { 
   CLASIFICACIONES_MANUAL 
@@ -217,6 +217,9 @@ export default function Riesgos({
   const [filtroSubproceso, setFiltroSubproceso] = useState('Todos');
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas');
   const [filtroNivel, setFiltroNivel] = useState('Todos');
+  const [filtroNivelDashboard, setFiltroNivelDashboard] = useState('Todos');
+  const [matrizDashboardTipo, setMatrizDashboardTipo] = useState('residual');
+  const [cuadranteDashboard, setCuadranteDashboard] = useState(null);
   const toggleExpediente = (id) => {
     if (expandedRiesgoId === id) {
       setExpandedRiesgoId(null);
@@ -415,6 +418,19 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     }
     
     return { label: 'Bajo', color: 'bg-emerald-500 text-white' };
+  };
+
+  const extraerNivelMatriz = (valor, eje) => {
+    const texto = String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const etiquetas = eje === 'probabilidad'
+      ? { rara: 1, 'rara vez': 1, improbable: 2, posible: 3, media: 3, probable: 4, alta: 4, 'casi seguro': 5, frecuente: 5 }
+      : { insignificante: 1, leve: 1, menor: 2, moderado: 3, medio: 3, mayor: 4, alto: 4, catastrofico: 5, critico: 5 };
+    if (etiquetas[texto]) return etiquetas[texto];
+
+    const numero = typeof valor === 'number' ? valor : Number.parseFloat(texto.replace(',', '.'));
+    if (!Number.isFinite(numero) || numero <= 0) return 1;
+    if (numero <= 5) return Math.max(1, Math.round(numero));
+    return Math.min(5, Math.max(1, Math.ceil(numero / 20)));
   };
 
   const handleDeleteRiesgo = async (id) => {
@@ -814,7 +830,7 @@ const handleRiesgoSubmit = async (e) => {
 
       const nuevoRiesgo = {
         ...(editRiesgo || {}),
-        id: editRiesgo ? editRiesgo.id : (customId || Date.now()),
+        id: editRiesgo ? editRiesgo.id : customId,
         idHallazgoOrigen: editRiesgo ? (editRiesgo.idHallazgoOrigen || null) : idHallazgoOrigen,
         origen: idHallazgoOrigen ? `Hallazgo Emergente (HAL-${idHallazgoOrigen})` : (editRiesgo?.origen || 'Identificación Interna'),
         sede: sedeForm,      
@@ -881,18 +897,108 @@ const handleRiesgoSubmit = async (e) => {
 
 
   const renderDashboard = () => {
-    const totalRiesgos = safeRiesgos.length;
-    const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
-    const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
-    const moderados = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Moderado').length;
-    const bajos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Bajo').length;
+    const niveles = ['Extremo', 'Alto', 'Moderado', 'Bajo'];
+    const probabilidades = [
+      { nivel: 1, etiqueta: 'Rara vez' },
+      { nivel: 2, etiqueta: 'Improbable' },
+      { nivel: 3, etiqueta: 'Posible' },
+      { nivel: 4, etiqueta: 'Probable' },
+      { nivel: 5, etiqueta: 'Casi seguro' },
+    ];
+    const impactos = [
+      { nivel: 5, etiqueta: 'Catastrófico' },
+      { nivel: 4, etiqueta: 'Mayor' },
+      { nivel: 3, etiqueta: 'Moderado' },
+      { nivel: 2, etiqueta: 'Menor' },
+      { nivel: 1, etiqueta: 'Insignificante' },
+    ];
+    const procesosUnicos = [...new Set(safeRiesgos.map(r => r.proceso || r.macroproceso || 'Sin proceso'))].sort((a, b) => a.localeCompare(b, 'es'));
+    const subprocesosUnicos = [...new Set(safeRiesgos
+      .filter(r => filtroProceso === 'Todos' || (r.proceso || r.macroproceso || 'Sin proceso') === filtroProceso)
+      .map(r => r.subproceso || 'General'))].sort((a, b) => a.localeCompare(b, 'es'));
+    const clasificacionesUnicas = [...new Set(safeRiesgos.map(r => r.clasificacionRiesgo || r.categoria || 'Sin clasificación'))].sort((a, b) => a.localeCompare(b, 'es'));
+    const scoreRiesgo = riesgo => extraerNivelMatriz(riesgo.probabilidadResidual, 'probabilidad') * extraerNivelMatriz(riesgo.impactoResidual, 'impacto');
+    const nivelRiesgo = riesgo => {
+      const score = scoreRiesgo(riesgo);
+      return score >= 16 ? 'Extremo' : score >= 10 ? 'Alto' : score >= 5 ? 'Moderado' : 'Bajo';
+    };
+    const riesgosDashboard = safeRiesgos.filter(riesgo => {
+      const proceso = riesgo.proceso || riesgo.macroproceso || 'Sin proceso';
+      const subproceso = riesgo.subproceso || 'General';
+      const clasificacion = riesgo.clasificacionRiesgo || riesgo.categoria || 'Sin clasificación';
+      const nivel = nivelRiesgo(riesgo);
+      const textoBusqueda = `${riesgo.id} ${riesgo.descripcion || riesgo.escenarioFinal || ''} ${proceso} ${subproceso} ${clasificacion}`.toLowerCase();
+      return (filtroProceso === 'Todos' || proceso === filtroProceso)
+        && (filtroSubproceso === 'Todos' || subproceso === filtroSubproceso)
+        && (filtroClasificacion === 'Todas' || clasificacion === filtroClasificacion)
+        && (filtroNivelDashboard === 'Todos' || nivel === filtroNivelDashboard)
+        && (!searchTerm || textoBusqueda.includes(searchTerm.toLowerCase()));
+    });
 
-    const conteoProcesos = safeRiesgos.reduce((acc, r) => {
-      acc[r.proceso] = (acc[r.proceso] || 0) + 1;
-      return acc;
+    const totalRiesgos = riesgosDashboard.length;
+    const conteoNiveles = Object.fromEntries(niveles.map(nivel => [
+      nivel,
+      riesgosDashboard.filter(r => nivelRiesgo(r) === nivel).length,
+    ]));
+    const extremos = conteoNiveles.Extremo;
+    const altos = conteoNiveles.Alto;
+    const moderados = conteoNiveles.Moderado;
+    const bajos = conteoNiveles.Bajo;
+    const controlesEstructurados = riesgosDashboard.flatMap(r => Array.isArray(r.controlesDetallados) ? r.controlesDetallados.filter(Boolean) : []);
+    const controlesRegistrados = riesgosDashboard.reduce((total, riesgo) => {
+      const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.filter(Boolean).length : 0;
+      return total + (controles || (riesgo.descripcionControl ? 1 : 0));
+    }, 0);
+    const riesgosSinControl = riesgosDashboard.filter(r => !Array.isArray(r.controlesDetallados) || r.controlesDetallados.length === 0).length;
+    const eficaciaPromedio = controlesEstructurados.length > 0
+      ? Math.round(controlesEstructurados.reduce((total, control) => total + calcularEficaciaControl(control), 0) / controlesEstructurados.length)
+      : 0;
+    const mitigacionPromedio = totalRiesgos > 0
+      ? Math.round(riesgosDashboard.reduce((total, riesgo) => total + calcularMitigacionRiesgo(riesgo), 0) / totalRiesgos)
+      : 0;
+    const riesgosPrioritarios = [...riesgosDashboard].sort((a, b) => {
+      const diferenciaScore = scoreRiesgo(b) - scoreRiesgo(a);
+      if (diferenciaScore !== 0) return diferenciaScore;
+      return String(a.fechaSeguimiento || '9999').localeCompare(String(b.fechaSeguimiento || '9999'));
+    });
+    const conteoProcesos = riesgosDashboard.reduce((conteo, riesgo) => {
+      const proceso = riesgo.proceso || riesgo.macroproceso || 'Sin proceso';
+      conteo[proceso] = (conteo[proceso] || 0) + 1;
+      return conteo;
     }, {});
+    const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const maxProceso = Math.max(...topProcesos.map(([, cantidad]) => cantidad), 1);
+    const nivelActivo = matrizDashboardTipo === 'residual' ? 'Residual' : 'Inherente';
+    const obtenerCoordenada = (riesgo, eje) => extraerNivelMatriz(
+      eje === 'probabilidad'
+        ? (matrizDashboardTipo === 'residual' ? riesgo.probabilidadResidual : riesgo.probabilidadInherente)
+        : (matrizDashboardTipo === 'residual' ? riesgo.impactoResidual : riesgo.impactoInherente),
+      eje,
+    );
+    const riesgosEnCuadrante = cuadranteDashboard
+      ? riesgosDashboard.filter(riesgo => obtenerCoordenada(riesgo, 'probabilidad') === cuadranteDashboard.probabilidad
+        && obtenerCoordenada(riesgo, 'impacto') === cuadranteDashboard.impacto)
+      : riesgosPrioritarios.slice(0, 4);
+    const riesgosVencidos = riesgosDashboard.filter(riesgo => riesgo.fechaSeguimiento
+      && new Date(`${riesgo.fechaSeguimiento}T23:59:59`) < new Date()
+      && riesgo.estado !== 'Cerrado').length;
 
-    const topProcesos = Object.entries(conteoProcesos).sort((a,b) => b[1] - a[1]).slice(0, 5);
+    const colorCelda = puntaje => {
+      if (puntaje >= 16) return 'border-rose-400/45 bg-rose-950/75 text-rose-200 hover:bg-rose-900/80';
+      if (puntaje >= 10) return 'border-orange-400/40 bg-orange-950/65 text-orange-200 hover:bg-orange-900/75';
+      if (puntaje >= 5) return 'border-amber-400/40 bg-amber-950/55 text-amber-200 hover:bg-amber-900/70';
+      return 'border-emerald-400/35 bg-emerald-950/65 text-emerald-200 hover:bg-emerald-900/80';
+    };
+
+    const limpiarFiltrosDashboard = () => {
+      setSearchTerm('');
+      setFiltroProceso('Todos');
+      setFiltroSubproceso('Todos');
+      setFiltroClasificacion('Todas');
+      setFiltroNivel('Todos');
+      setFiltroNivelDashboard('Todos');
+      setCuadranteDashboard(null);
+    };
 
     const solicitarDictamenIA = async () => {
       setProcesandoIA(true);
@@ -909,7 +1015,7 @@ const handleRiesgoSubmit = async (e) => {
 
         const datosResumen = {
           proceso: "Diagnóstico Corporativo Global",
-          descripcion: `Evaluación de la matriz corporativa con un total de ${totalRiesgos} riesgos registrados. Principales procesos expuestos: ${topProcesos.map(([p, c]) => `${p} (${c} riesgos)`).join(', ')}. Distribución actual de severidad residual: Extremos (${extremos}), Altos (${altos}), Moderados (${moderados}), Bajos (${bajos}).`,
+          descripcion: `Evaluación de los ${totalRiesgos} riesgos visibles en el Dashboard. Principales procesos expuestos: ${topProcesos.map(([proceso, cantidad]) => `${proceso} (${cantidad} riesgos)`).join(', ')}. Distribución residual: Extremos (${extremos}), Altos (${altos}), Moderados (${moderados}), Bajos (${bajos}). Controles registrados: ${controlesRegistrados}; eficacia promedio estructurada: ${eficaciaPromedio}%; mitigación promedio: ${mitigacionPromedio}%.`,
           probabilidadInherente: 80,
           impactoInherente: 80
         };
@@ -926,52 +1032,231 @@ const handleRiesgoSubmit = async (e) => {
         setProcesandoIA(false);
       }
     };
-   return (
-      <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 relative">
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Riesgos</p>
-            <p className="text-3xl font-black text-slate-800">{totalRiesgos}</p>
+    return (
+      <div className="space-y-5 animate-in fade-in duration-300 relative font-sans text-slate-800">
+        <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <h3 className="text-lg font-black text-slate-900">Panorama de riesgos</h3>
+            <p className="mt-1 text-xs text-slate-500">Exposición, controles y seguimiento de la matriz corporativa.</p>
           </div>
-          <div className="bg-red-50 p-4 rounded-2xl shadow-sm border border-red-200">
-            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Extremos</p>
-            <p className="text-3xl font-black text-red-700">{extremos}</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="grid gap-1 text-[10px] font-bold text-slate-500">
+              Proceso
+              <select value={filtroProceso} onChange={event => { setFiltroProceso(event.target.value); setFiltroSubproceso('Todos'); setCuadranteDashboard(null); }} className="min-h-10 min-w-44 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                <option value="Todos">Todos los procesos</option>
+                {procesosUnicos.map(proceso => <option key={proceso} value={proceso}>{proceso}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[10px] font-bold text-slate-500">
+              Subproceso
+              <select value={filtroSubproceso} onChange={event => setFiltroSubproceso(event.target.value)} className="min-h-10 min-w-40 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                <option value="Todos">Todos</option>
+                {subprocesosUnicos.map(subproceso => <option key={subproceso} value={subproceso}>{subproceso}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[10px] font-bold text-slate-500">
+              Clasificación
+              <select value={filtroClasificacion} onChange={event => setFiltroClasificacion(event.target.value)} className="min-h-10 min-w-40 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                <option value="Todas">Todas</option>
+                {clasificacionesUnicas.map(clasificacion => <option key={clasificacion} value={clasificacion}>{clasificacion}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[10px] font-bold text-slate-500">
+              Nivel residual
+              <select value={filtroNivelDashboard} onChange={event => { setFiltroNivelDashboard(event.target.value); setCuadranteDashboard(null); }} className="min-h-10 min-w-36 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                <option value="Todos">Todos</option>
+                {niveles.map(nivel => <option key={nivel} value={nivel}>{nivel}</option>)}
+              </select>
+            </label>
+            <button type="button" onClick={limpiarFiltrosDashboard} className="min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-600 hover:border-slate-500 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">Restablecer</button>
           </div>
-          <div className="bg-orange-50 p-4 rounded-2xl shadow-sm border border-orange-200">
-            <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Altos</p>
-            <p className="text-3xl font-black text-orange-700">{altos}</p>
-          </div>
-          <div className="bg-amber-50 p-4 rounded-2xl shadow-sm border border-amber-200">
-            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Moderados</p>
-            <p className="text-3xl font-black text-amber-700">{moderados}</p>
-          </div>
-          <div className="bg-emerald-50 p-4 rounded-2xl shadow-sm border border-emerald-200">
-            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Bajos</p>
-            <p className="text-3xl font-black text-emerald-700">{bajos}</p>
-          </div>
-        </div>
+        </section>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div className="flex justify-between items-center mb-4 border-b pb-2">
-            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">Procesos con mayor exposición</h3>
-            <button onClick={solicitarDictamenIA} className="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 px-2 py-1 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ Analizar con IA</button>
-          </div>
-          
-          <div className="space-y-3">
-            {topProcesos.map(([proc, count], idx) => (
-              <div key={idx} className="flex items-center text-xs">
-                <span className="w-1/3 truncate text-slate-600 font-bold pr-2">{proc}</span>
-                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${(count/(totalRiesgos || 1))*100}%`}}></div>
-                </div>
-                <span className="w-12 text-right font-black text-slate-800">{count}</span>
+        <section aria-label="Indicadores de riesgo" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+          {[
+            { nivel: 'Todos', titulo: 'Riesgos visibles', valor: totalRiesgos, color: 'border-slate-300 text-slate-900', detalle: 'Limpiar nivel' },
+            { nivel: 'Extremo', titulo: 'Extremos', valor: extremos, color: 'border-rose-300 text-rose-700', detalle: 'Atención inmediata' },
+            { nivel: 'Alto', titulo: 'Altos', valor: altos, color: 'border-orange-300 text-orange-700', detalle: 'Requieren tratamiento' },
+            { nivel: 'Moderado', titulo: 'Moderados', valor: moderados, color: 'border-amber-300 text-amber-700', detalle: 'Monitorear' },
+            { nivel: 'Bajo', titulo: 'Bajos', valor: bajos, color: 'border-emerald-300 text-emerald-700', detalle: 'Dentro de control' },
+          ].map(indicador => (
+            <button
+              type="button"
+              key={indicador.nivel}
+              aria-pressed={filtroNivelDashboard === indicador.nivel}
+              onClick={() => { setFiltroNivelDashboard(indicador.nivel); setCuadranteDashboard(null); }}
+              className={`min-h-28 rounded-xl border-l-4 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${indicador.color} ${filtroNivelDashboard === indicador.nivel ? 'ring-2 ring-emerald-700/70' : ''}`}
+            >
+              <span className="block text-[11px] font-bold text-slate-500">{indicador.titulo}</span>
+              <span className="mt-1 block text-3xl font-black tabular-nums">{indicador.valor}</span>
+              <span className="mt-1 block text-[10px] text-slate-500">{indicador.detalle}</span>
+            </button>
+          ))}
+        </section>
+
+        <section aria-label="Mapa de riesgo y detalle de cuadrante" className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
+          <div className="overflow-hidden rounded-xl border border-slate-800 bg-[#0B1730] p-4 text-white shadow-lg sm:p-5">
+            <div className="mb-4 flex flex-col gap-3 border-b border-slate-700 pb-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-white">Mapa de riesgos 5×5</h3>
+                <p className="mt-1 text-[11px] text-slate-400">Selecciona una celda para abrir los riesgos de esa coordenada.</p>
               </div>
-            ))}
-            {topProcesos.length === 0 && (
-              <p className="text-xs text-slate-400 italic text-center py-4">No hay riesgos mapeados en la matriz aún.</p>
-            )}
+              <div role="group" aria-label="Momento de evaluación" className="inline-flex w-fit rounded-lg border border-slate-700 bg-slate-900 p-1">
+                {[
+                  { id: 'inherente', texto: 'Inherente' },
+                  { id: 'residual', texto: 'Residual' },
+                ].map(opcion => (
+                  <button type="button" key={opcion.id} aria-pressed={matrizDashboardTipo === opcion.id} onClick={() => setMatrizDashboardTipo(opcion.id)} className={`min-h-8 rounded-md px-3 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 ${matrizDashboardTipo === opcion.id ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>
+                    {opcion.texto}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-semibold text-slate-300" aria-label="Leyenda de severidad">
+              {[
+                { label: 'Bajo · 1–4', color: 'bg-emerald-400' },
+                { label: 'Moderado · 5–9', color: 'bg-amber-400' },
+                { label: 'Alto · 10–15', color: 'bg-orange-400' },
+                { label: 'Extremo · 16–25', color: 'bg-rose-400' },
+              ].map(leyenda => <span key={leyenda.label} className="inline-flex items-center gap-1.5"><span className={`h-2 w-2 rounded-sm ${leyenda.color}`} />{leyenda.label}</span>)}
+            </div>
+
+            <div className="overflow-x-auto pb-2">
+              <div className="min-w-[560px]">
+                <div className="grid grid-cols-[100px_repeat(5,minmax(0,1fr))] gap-1.5">
+                  <div className="flex items-end justify-end pb-2 pr-2 text-right text-[9px] font-bold text-slate-400">Impacto ↓<br />Probabilidad →</div>
+                  {probabilidades.map(probabilidad => <div key={probabilidad.nivel} className="flex min-h-9 items-end justify-center pb-1 text-center text-[9px] font-semibold text-slate-300">{probabilidad.nivel} · {probabilidad.etiqueta}</div>)}
+                  {impactos.map(impacto => (
+                    <Fragment key={impacto.nivel}>
+                      <div className="flex items-center justify-end pr-2 text-right text-[10px] font-semibold text-slate-300">{impacto.nivel} · {impacto.etiqueta}</div>
+                      {probabilidades.map(probabilidad => {
+                        const puntaje = probabilidad.nivel * impacto.nivel;
+                        const conteo = riesgosDashboard.filter(riesgo => obtenerCoordenada(riesgo, 'probabilidad') === probabilidad.nivel
+                          && obtenerCoordenada(riesgo, 'impacto') === impacto.nivel).length;
+                        const seleccionado = cuadranteDashboard?.probabilidad === probabilidad.nivel && cuadranteDashboard?.impacto === impacto.nivel;
+                        return (
+                          <button
+                            type="button"
+                            key={`${probabilidad.nivel}-${impacto.nivel}`}
+                            aria-pressed={seleccionado}
+                            aria-label={`${conteo} riesgos; probabilidad ${probabilidad.etiqueta}; impacto ${impacto.etiqueta}; puntaje ${puntaje}`}
+                            onClick={() => setCuadranteDashboard(seleccionado ? null : { probabilidad: probabilidad.nivel, impacto: impacto.nivel })}
+                            className={`relative flex h-14 flex-col items-center justify-center rounded-md border text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-16 ${colorCelda(puntaje)} ${seleccionado ? 'z-10 ring-2 ring-white ring-offset-2 ring-offset-[#0B1730]' : ''}`}
+                          >
+                            <span className="text-xl font-black tabular-nums leading-none">{conteo}</span>
+                            <span className="mt-1 text-[8px] font-semibold opacity-80">P×I {puntaje}</span>
+                          </button>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
+                </div>
+                <p className="mt-2 text-center text-[9px] font-semibold text-slate-400">Probabilidad</p>
+              </div>
+            </div>
           </div>
-        </div>
+
+          <aside className="flex min-h-[390px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" aria-live="polite">
+            <div className="border-b border-slate-200 px-4 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">{cuadranteDashboard ? 'Riesgos del cuadrante' : 'Riesgos prioritarios'}</h3>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {cuadranteDashboard
+                      ? `${nivelActivo}: P${cuadranteDashboard.probabilidad} × I${cuadranteDashboard.impacto} · puntaje ${cuadranteDashboard.probabilidad * cuadranteDashboard.impacto}`
+                      : 'Mayor puntaje residual dentro de los filtros actuales'}
+                  </p>
+                </div>
+                {cuadranteDashboard && <button type="button" onClick={() => setCuadranteDashboard(null)} className="min-h-8 rounded-md px-2 text-[10px] font-bold text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">Limpiar celda</button>}
+              </div>
+              <div className="mt-3 flex items-end gap-2">
+                <span className="text-3xl font-black tabular-nums text-slate-900">{riesgosEnCuadrante.length}</span>
+                <span className="pb-1 text-[11px] text-slate-500">{cuadranteDashboard ? 'riesgos en esta coordenada' : 'riesgos para revisar primero'}</span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto p-3">
+              {riesgosEnCuadrante.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500">No hay riesgos en esta coordenada con los filtros actuales.</p>
+              ) : riesgosEnCuadrante.map(riesgo => {
+                const nivel = nivelRiesgo(riesgo);
+                const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : 0;
+                return (
+                  <button type="button" key={riesgo.id} onClick={() => handleEditRiesgo(riesgo)} className="block w-full rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-emerald-500 hover:bg-emerald-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] font-black text-emerald-800">RSK-{riesgo.id}</span>
+                      <span className={`rounded px-2 py-0.5 text-[9px] font-black ${nivel === 'Extremo' ? 'bg-rose-100 text-rose-800' : nivel === 'Alto' ? 'bg-orange-100 text-orange-800' : nivel === 'Moderado' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'}`}>{nivel}</span>
+                    </span>
+                    <span className="mt-1 block text-xs font-bold leading-snug text-slate-800">{riesgo.descripcion || riesgo.escenarioFinal || 'Riesgo sin descripción'}</span>
+                    <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                      <span>{riesgo.proceso || riesgo.macroproceso || 'Sin proceso'}</span>
+                      <span>{controles || (riesgo.descripcionControl ? 1 : 0)} controles</span>
+                      <span>Mitigación {calcularMitigacionRiesgo(riesgo)}%</span>
+                      {riesgo.fechaSeguimiento && <span>Seguimiento {riesgo.fechaSeguimiento}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500">Selecciona un registro para abrir su ficha de edición.</div>
+          </aside>
+        </section>
+
+        <section aria-label="Indicadores complementarios" className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
+          {[
+            { titulo: 'Controles registrados', valor: controlesRegistrados, nota: `${controlesEstructurados.length} estructurados` },
+            { titulo: 'Eficacia promedio', valor: `${eficaciaPromedio}%`, nota: 'Según atributos del control' },
+            { titulo: 'Mitigación promedio', valor: `${mitigacionPromedio}%`, nota: 'Reducción frente al riesgo inherente' },
+            { titulo: 'Seguimientos vencidos', valor: riesgosVencidos, nota: `${riesgosSinControl} riesgos sin controles estructurados` },
+          ].map(indicador => (
+            <div key={indicador.titulo} className="bg-white px-4 py-3">
+              <span className="block text-[10px] font-bold text-slate-500">{indicador.titulo}</span>
+              <span className="mt-1 block text-xl font-black tabular-nums text-slate-900">{indicador.valor}</span>
+              <span className="mt-1 block text-[9px] text-slate-500">{indicador.nota}</span>
+            </div>
+          ))}
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Exposición por proceso</h3>
+                <p className="mt-1 text-[10px] text-slate-500">Selecciona un proceso para cruzarlo con toda la vista.</p>
+              </div>
+              <button type="button" onClick={solicitarDictamenIA} className="min-h-9 rounded-lg border border-emerald-700 px-3 text-[10px] font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">Analizar con IA</button>
+            </div>
+            <div className="space-y-1">
+              {topProcesos.length === 0 ? <p className="py-5 text-center text-xs text-slate-500">No hay procesos con riesgos en esta vista.</p> : topProcesos.map(([proceso, cantidad]) => (
+                <button type="button" key={proceso} aria-pressed={filtroProceso === proceso} onClick={() => { setFiltroProceso(filtroProceso === proceso ? 'Todos' : proceso); setFiltroSubproceso('Todos'); setCuadranteDashboard(null); }} className={`grid min-h-10 w-full grid-cols-[minmax(110px,0.9fr)_minmax(60px,1.8fr)_36px] items-center gap-3 rounded-md px-2 text-left text-[11px] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${filtroProceso === proceso ? 'bg-emerald-50' : ''}`}>
+                  <span className="truncate font-semibold text-slate-700">{proceso}</span>
+                  <span className="h-2 overflow-hidden rounded-sm bg-slate-100"><span className="block h-full rounded-sm bg-[#0A3B32]" style={{ width: `${(cantidad / maxProceso) * 100}%` }} /></span>
+                  <span className="text-right font-black tabular-nums text-slate-800">{cantidad}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 border-b border-slate-200 pb-3">
+              <h3 className="text-sm font-black text-slate-900">Riesgos de mayor exposición</h3>
+              <p className="mt-1 text-[10px] text-slate-500">Ordenados por puntaje residual; selecciona para abrir el registro.</p>
+            </div>
+            <div className="space-y-1">
+              {riesgosPrioritarios.slice(0, 5).map((riesgo, indice) => (
+                <button type="button" key={riesgo.id} onClick={() => handleEditRiesgo(riesgo)} className="grid min-h-12 w-full grid-cols-[28px_minmax(0,1fr)_54px] items-center gap-2 rounded-md px-2 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                  <span className="font-mono text-[10px] font-bold text-slate-400">{String(indice + 1).padStart(2, '0')}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[11px] font-bold text-slate-800">{riesgo.descripcion || riesgo.escenarioFinal || `Riesgo RSK-${riesgo.id}`}</span>
+                    <span className="block truncate text-[9px] text-slate-500">{riesgo.proceso || riesgo.macroproceso || 'Sin proceso'} · RSK-{riesgo.id}{riesgo.fechaSeguimiento ? ` · ${riesgo.fechaSeguimiento}` : ''}</span>
+                  </span>
+                  <span className="rounded-md bg-slate-100 px-2 py-1 text-center text-[10px] font-black tabular-nums text-slate-800">S {scoreRiesgo(riesgo)}</span>
+                </button>
+              ))}
+              {riesgosPrioritarios.length === 0 && <p className="py-5 text-center text-xs text-slate-500">No hay riesgos que coincidan con los filtros.</p>}
+            </div>
+          </div>
+        </section>
       </div>
     );
   };
