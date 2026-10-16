@@ -1,7 +1,8 @@
 import { Fragment, useState } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 import { 
-  CLASIFICACIONES_MANUAL 
+  CLASIFICACIONES_MANUAL,
+  MAPA_PROCESOS as MAPA_PROCESOS_PREDETERMINADO,
 } from '../constants/diccionariosGRC';
 import { useCatalogos } from '../context/useCatalogos';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
@@ -25,6 +26,10 @@ const resolverNombreCatalogo = (valor, opciones) => {
   const textoNormalizado = normalizarTextoProceso(valor);
   return opciones.find(opcion => normalizarTextoProceso(opcion) === textoNormalizado) || String(valor || '').trim();
 };
+
+const obtenerClaveNormalizada = (objeto, clave) => Object.keys(objeto || {}).find(nombre => (
+  normalizarTextoProceso(nombre) === normalizarTextoProceso(clave)
+));
 
 const normalizarUbicacionRiesgo = (riesgo, mapaProcesos) => {
   const partesProcesoLegado = String(riesgo.proceso || '').split('/').map(parte => parte.trim()).filter(Boolean);
@@ -1061,16 +1066,20 @@ const handleRiesgoSubmit = async (e) => {
       { nivel: 2, etiqueta: 'Menor' },
       { nivel: 1, etiqueta: 'Insignificante' },
     ];
-    const riesgosNormalizados = safeRiesgos.map(riesgo => normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS));
-    const procesosUnicos = [...new Set([...Object.keys(MAPA_PROCESOS), ...riesgosNormalizados.flatMap(riesgo => riesgo.macroprocesos)])]
+    const mapaProcesosDashboard = Object.keys(MAPA_PROCESOS).length > 0 ? MAPA_PROCESOS : MAPA_PROCESOS_PREDETERMINADO;
+    const riesgosNormalizados = safeRiesgos.map(riesgo => normalizarUbicacionRiesgo(riesgo, mapaProcesosDashboard));
+    const procesosUnicos = [...new Set([...Object.keys(mapaProcesosDashboard), ...riesgosNormalizados.flatMap(riesgo => riesgo.macroprocesos)])]
       .sort((a, b) => a.localeCompare(b, 'es'));
+    const macroprocesoSeleccionado = filtroProceso === 'Todos'
+      ? null
+      : obtenerClaveNormalizada(mapaProcesosDashboard, filtroProceso) || filtroProceso;
     const subprocesosCatalogoDashboard = filtroProceso === 'Todos'
-      ? Object.values(MAPA_PROCESOS).flat()
-      : MAPA_PROCESOS[filtroProceso] || [];
+      ? Object.values(mapaProcesosDashboard).flat()
+      : mapaProcesosDashboard[macroprocesoSeleccionado] || [];
     const subprocesosUnicos = [...new Set([...subprocesosCatalogoDashboard, ...riesgosNormalizados.flatMap(riesgo => (
       filtroProceso === 'Todos'
         ? riesgo.subprocesos
-        : riesgo.subprocesosPorMacroproceso[filtroProceso] || []
+        : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || []
     ))])].sort((a, b) => a.localeCompare(b, 'es'));
     const clasificacionesUnicas = [...new Set(riesgosNormalizados.map(r => r.clasificacionRiesgo || r.categoria || 'Sin clasificación'))].sort((a, b) => a.localeCompare(b, 'es'));
     const scoreRiesgo = riesgo => extraerNivelMatriz(riesgo.probabilidadResidual, 'probabilidad') * extraerNivelMatriz(riesgo.impactoResidual, 'impacto');
@@ -1082,12 +1091,16 @@ const handleRiesgoSubmit = async (e) => {
       const macroprocesos = riesgo.macroprocesos.length > 0 ? riesgo.macroprocesos : ['Sin proceso'];
       const subprocesos = filtroProceso === 'Todos'
         ? riesgo.subprocesos
-        : riesgo.subprocesosPorMacroproceso[filtroProceso] || [];
+        : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || [];
       const clasificacion = riesgo.clasificacionRiesgo || riesgo.categoria || 'Sin clasificación';
       const nivel = nivelRiesgo(riesgo);
       const textoBusqueda = `${riesgo.id} ${riesgo.descripcion || riesgo.escenarioFinal || ''} ${macroprocesos.join(' ')} ${subprocesos.join(' ')} ${clasificacion}`.toLowerCase();
-      return (filtroProceso === 'Todos' || macroprocesos.includes(filtroProceso))
-        && (filtroSubproceso === 'Todos' || subprocesos.includes(filtroSubproceso))
+      return (filtroProceso === 'Todos' || macroprocesos.some(macroproceso => (
+        normalizarTextoProceso(macroproceso) === normalizarTextoProceso(macroprocesoSeleccionado)
+      )))
+        && (filtroSubproceso === 'Todos' || subprocesos.some(subproceso => (
+          normalizarTextoProceso(subproceso) === normalizarTextoProceso(filtroSubproceso)
+        )))
         && (filtroClasificacion === 'Todas' || clasificacion === filtroClasificacion)
         && (filtroNivelDashboard === 'Todos' || nivel === filtroNivelDashboard)
         && (!searchTerm || textoBusqueda.includes(searchTerm.toLowerCase()));
@@ -1201,7 +1214,7 @@ const handleRiesgoSubmit = async (e) => {
           </div>
           <div className="flex flex-wrap items-end gap-2">
             <label className="grid gap-1 text-[10px] font-bold text-slate-500">
-              Proceso
+              Macroproceso
               <select value={filtroProceso} onChange={event => { setFiltroProceso(event.target.value); setFiltroSubproceso('Todos'); setCuadranteDashboard(null); }} className="min-h-10 min-w-44 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
                 <option value="Todos">Todos los procesos</option>
                 {procesosUnicos.map(proceso => <option key={proceso} value={proceso}>{proceso}</option>)}
