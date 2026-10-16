@@ -21,6 +21,31 @@ const convertirMacroprocesosEnLista = macroprocesos => [...new Set(
     .filter(Boolean)
 )];
 
+const obtenerTiempoInforme = fecha => {
+  const valor = String(fecha || '').trim();
+  if (!valor) return null;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+  if (iso) return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  const local = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(valor);
+  if (local) return Date.UTC(Number(local[3]), Number(local[2]) - 1, Number(local[1]));
+  const tiempo = Date.parse(valor);
+  return Number.isFinite(tiempo) ? tiempo : null;
+};
+
+const compararInformesRecientes = (a, b) => {
+  const fechaA = obtenerTiempoInforme(a.fecha);
+  const fechaB = obtenerTiempoInforme(b.fecha);
+  if (fechaA !== fechaB) {
+    if (fechaA === null) return 1;
+    if (fechaB === null) return -1;
+    return fechaB - fechaA;
+  }
+  return String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', {
+    numeric: true,
+    sensitivity: 'base',
+  });
+};
+
 export default function Hallazgos({
   isAdmin,
   user = null,
@@ -133,7 +158,25 @@ export default function Hallazgos({
   };
 
   const fuentesMejoraDisponibles = Array.isArray(fuentesMejora) ? fuentesMejora : [];
-  const informeOrigenSeleccionado = informeOrigenState[idEdicion] ?? String(editHallazgo?.idInforme || autoFillData?.idInforme || '');
+  const informesOrdenadosRecientes = [...informesAuditoria].sort(compararInformesRecientes);
+  const informeOrigenPorDefecto = editHallazgo
+    ? String(editHallazgo.idInforme || '')
+    : String(autoFillData?.idInforme || informesOrdenadosRecientes[0]?.id || '');
+  const informeOrigenSeleccionado = informeOrigenState[idEdicion] ?? informeOrigenPorDefecto;
+  const iniciarNuevoHallazgo = () => {
+    const informeInicial = String(autoFillData?.idInforme || informesOrdenadosRecientes[0]?.id || '');
+    setInformeOrigenState(prev => {
+      const siguiente = { ...prev };
+      if (informeInicial) siguiente.nuevo = informeInicial;
+      else delete siguiente.nuevo;
+      return siguiente;
+    });
+    setFormularioModificado(false);
+    setEditHallazgo(null);
+    setEsSoloLectura(false);
+    limpiarResponsablesNuevo();
+    setVistaActiva('nuevo');
+  };
   const metodologiaCausa = metodologiaCausaState[idEdicion] ?? (editHallazgo?.metodologiaCausa || autoFillData?.metodologiaCausa || '5 Porqués');
 
   const territorioInicial = editHallazgo || autoFillData || {};
@@ -441,21 +484,10 @@ export default function Hallazgos({
             <button 
               type="button"
               onClick={() => { 
-                const abrirNuevo = () => {
-                  setFormularioModificado(false);
-                  setVistaActiva('nuevo');
-                  setEditHallazgo(null);
-                  setEsSoloLectura(false);
-                  limpiarResponsablesNuevo();
-                };
                 if (vistaActiva === 'nuevo' && !esSoloLectura) {
-                  guardNavigationHallazgos(abrirNuevo);
+                  guardNavigationHallazgos(iniciarNuevoHallazgo);
                 } else {
-                    setEditHallazgo(null); 
-                    setEsSoloLectura(false); 
-                    limpiarResponsablesNuevo();
-                    setFormularioModificado(false);
-                    setVistaActiva('nuevo');
+                  iniciarNuevoHallazgo();
                 }
               }} 
               className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}
@@ -1003,7 +1035,7 @@ export default function Hallazgos({
                 className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700"
               >
                 <option value="">-- Seleccione el Informe Radicado --</option>
-                {informesAuditoria.map((inf) => (
+                {informesOrdenadosRecientes.map((inf) => (
                   <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
                 ))}
               </select>

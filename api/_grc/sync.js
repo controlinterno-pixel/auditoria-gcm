@@ -312,7 +312,16 @@ export default async function handler(req, res) {
     }
 
   } catch (error) {
-    logger.error('Error interno en sync.js', error, { endpoint: req.url });
-    return sendError(res, 'Error interno al procesar la base de datos.', 500);
+    // Imprimimos el error como texto plano para que Vercel no lo oculte
+    console.error("=== ALERTA DE ERROR EN SYNC.JS ===");
+    console.error("MOTIVO EXACTO DEL FALLO: " + error.message);
+    console.error("LÍNEA DEL ERROR (STACK): " + error.stack);
+    console.error("==================================");
+
+    // Devolvemos la respuesta de error genérica al frontend
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error interno al procesar la base de datos.'
+    });
   }
 }
