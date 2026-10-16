@@ -484,7 +484,7 @@ export default function Hallazgos({
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {confirmacionGuardado && (
-        <div role="status" aria-live="polite" aria-atomic="true" className="flex items-center justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+        <div role="status" aria-live="polite" aria-atomic="true" className="success-notice-glow flex items-center justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
               <CheckCircle2 size={19} aria-hidden="true" />

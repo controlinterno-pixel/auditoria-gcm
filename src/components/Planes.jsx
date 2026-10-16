@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { BadgeCheck, ClipboardCheck, Play, Search } from 'lucide-react';
+import { BadgeCheck, CheckCircle2, ClipboardCheck, Play, Search, X } from 'lucide-react';
 
 import { useCatalogos } from '../context/useCatalogos';
 import { exportarA_PDF } from '../utils/pdfUtils';
@@ -149,6 +149,16 @@ export default function Planes({
   const [motivoCorreccion, setMotivoCorreccion] = useState('');
   const [guardandoDecisionRevision, setGuardandoDecisionRevision] = useState(false);
   const [guardandoAccionKey, setGuardandoAccionKey] = useState(null);
+  const [confirmacionAccionGuardada, setConfirmacionAccionGuardada] = useState('');
+
+  useEffect(() => {
+    if (!confirmacionAccionGuardada) return undefined;
+    const mainArea = document.getElementById('main-scroll-area');
+    if (mainArea) mainArea.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const temporizador = window.setTimeout(() => setConfirmacionAccionGuardada(''), 7000);
+    return () => window.clearTimeout(temporizador);
+  }, [confirmacionAccionGuardada]);
   const handleDescargarPdfConLoader = async (idInf, refInforme) => {
     if (generandoPdfId) return;
     try {
@@ -1537,6 +1547,17 @@ if (existingActivities.length > 0) {
     });
   };
 
+  const volverAlHistorialTrasGuardarAccion = (mensaje, idInforme) => {
+    setConfirmacionAccionGuardada(mensaje);
+    setEditPlan(null);
+    setFormInformeId('');
+    setMatrixState({});
+    setMatrixDirty(false);
+    setModoRevisionMatriz(false);
+    setInformePlanesExpandido(String(idInforme));
+    setVistaActiva('historial');
+  };
+
   const guardarAccionIndividual = async (hallazgoId, index) => {
     const key = `${hallazgoId}-${index}`;
     if (guardandoAccionKey) return;
@@ -1688,7 +1709,7 @@ if (existingActivities.length > 0) {
           JSON.stringify(planOriginal[campo] ?? null) === JSON.stringify(cambiosFinales[campo] ?? null)
         ));
         if (sinCambios) {
-          showNotification('Esta acción ya está guardada; no hay cambios pendientes.', 'success');
+          volverAlHistorialTrasGuardarAccion('Esta acción ya estaba guardada. Puedes retomar las demás desde este historial.', idInformeReal);
           return;
         }
         const respuesta = await apiService.guardarMatrizPlanes({
@@ -1704,42 +1725,12 @@ if (existingActivities.length > 0) {
         ? [...safePlanes, planGuardado]
         : safePlanes.map(plan => String(plan.id) === String(planGuardado.id) ? planGuardado : plan);
       setPlanes(planesActualizados);
-
-      const matrizActualizada = {
-        ...matrixState,
-        [hallazgoId]: {
-          ...matrixState[hallazgoId],
-          actividades: matrixState[hallazgoId].actividades.map((item, itemIndex) => (
-            itemIndex === index
-              ? {
-                ...item,
-                ...planGuardado,
-                correoConfirmacion: actividad.correoConfirmacion || planGuardado.correoResponsable || '',
-                correoRevisorConfirmacion: actividad.correoRevisorConfirmacion || planGuardado.correoRevisor || '',
-              }
-              : item
-          )),
-        },
-      };
-      setMatrixState(matrizActualizada);
-      const hayCambiosPendientes = Object.values(matrizActualizada).some(node => (
-        node.aplica && node.actividades.some(item => {
-          const plan = planesActualizados.find(registro => String(registro.id) === String(item.id));
-          return !plan || [
-            ...camposGuardables,
-            'responsable', 'revisor', 'correoResponsable', 'correoRevisor', 'correoAuditor',
-          ].some(campo => (
-            JSON.stringify(plan[campo] ?? null) !== JSON.stringify(item[campo] ?? null)
-          ));
-        })
-      ));
-      setMatrixDirty(hayCambiosPendientes);
       setGuardandoAccionKey(null);
-      showNotification(
+      volverAlHistorialTrasGuardarAccion(
         requiereNotificacion
-          ? 'Acción guardada correctamente. Las notificaciones se están procesando.'
-          : 'Acción guardada correctamente. Puedes continuar con la siguiente.',
-        'success'
+          ? 'La acción quedó registrada. Las demás siguen pendientes para retomarlas desde el historial.'
+          : 'La acción quedó registrada. Puedes retomar las demás desde el historial.',
+        idInformeReal
       );
 
       if (promesaPreparacionGmail) {
@@ -2040,6 +2031,22 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {confirmacionAccionGuardada && (
+        <div role="status" aria-live="polite" aria-atomic="true" className="success-notice-glow flex items-center justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <CheckCircle2 size={19} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold">Guardado exitoso</p>
+              <p className="text-xs text-emerald-800">{confirmacionAccionGuardada}</p>
+            </div>
+          </div>
+          <button type="button" onClick={() => setConfirmacionAccionGuardada('')} aria-label="Cerrar confirmación de guardado" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+            <X size={17} aria-hidden="true" />
+          </button>
+        </div>
+      )}
       
 {/* 📋 CABECERA PRINCIPAL CON BANNER DE IMAGEN ESTILO PREMIUM */}
       <div 
