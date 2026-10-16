@@ -161,25 +161,6 @@ export default function App() {
     if (autoScrollDelayRef.current) window.clearTimeout(autoScrollDelayRef.current);
   }, []);
 
-  useEffect(() => {
-    const areaPrincipal = mainScrollAreaRef.current;
-    if (!areaPrincipal) return undefined;
-
-    const observer = new MutationObserver(cambios => {
-      const controlExpandido = cambios
-        .map(cambio => cambio.target)
-        .find(elemento => elemento instanceof HTMLElement && elemento.getAttribute('aria-expanded') === 'true');
-      if (controlExpandido) programarScrollDeEnfoque(controlExpandido);
-    });
-    observer.observe(areaPrincipal, {
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['aria-expanded'],
-    });
-
-    return () => observer.disconnect();
-  }, [isCloudLoaded, showWelcome, user, programarScrollDeEnfoque]);
-  
   // 🛡️ ESTADO DE BLOQUEO: Previene la "condición de carrera" al recargar con F5
   const [authInitialized, setAuthInitialized] = useState(false);
 
@@ -213,6 +194,25 @@ export default function App() {
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();
   const notificacionesPendientesUsuario = reintentosNotificacion.filter(item => item.propietario === String(user?.email || '').trim().toLowerCase());
+
+  useEffect(() => {
+    const areaPrincipal = mainScrollAreaRef.current;
+    if (!areaPrincipal) return undefined;
+
+    const observer = new MutationObserver(cambios => {
+      const controlExpandido = cambios
+        .map(cambio => cambio.target)
+        .find(elemento => elemento instanceof HTMLElement && elemento.getAttribute('aria-expanded') === 'true');
+      if (controlExpandido) programarScrollDeEnfoque(controlExpandido);
+    });
+    observer.observe(areaPrincipal, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-expanded'],
+    });
+
+    return () => observer.disconnect();
+  }, [isCloudLoaded, showWelcome, user, programarScrollDeEnfoque]);
 
   // 2. Escucha a Firebase y libera la carga (Depende de 'user')
   useEffect(() => {
