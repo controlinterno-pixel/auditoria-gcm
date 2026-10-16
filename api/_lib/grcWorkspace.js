@@ -3,8 +3,11 @@ import { adminDb } from './firebaseAdmin.js';
 
 const workspaceRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
 const informesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc_informes');
-// NUEVA ARQUITECTURA: Referencia a la futura subcolección escalable
+
+// SUBCOLECCIONES ESCALABLES
 const coleccionInformesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('informes');
+const coleccionPlanesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('planes_accion'); // NUEVO
+
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
 const workspaceReadCache = new Map();
 const workspaceReadInFlight = new Map();
@@ -35,10 +38,17 @@ const leerInformesFragmentados = async (refColeccion, procesosAsignados) => {
   return [...informesPorId.values()];
 };
 
+// NUEVO: Función para leer planes desde la subcolección
+const leerPlanesFragmentados = async (refColeccion) => {
+  const snapshot = await refColeccion.get();
+  return snapshot.docs.map(documento => ({ id: documento.id, ...documento.data() }));
+};
+
 async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsignados = null) {
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
-  const refColeccion = coleccionInformesRef();
+  const refColeccionInformes = coleccionInformesRef();
+  const refColeccionPlanes = coleccionPlanesRef();
 
   const snapshotWorkspace = transaction
     ? await transaction.get(refWorkspace)
@@ -48,40 +58,44 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
     ? await transaction.get(refInformes)
     : await refInformes.get();
 
-  // PATRÓN HÍBRIDO: Firestore no permite leer colecciones en transacciones.
-  // Si es una petición GET (sync.js), leemos la subcolección nueva.
+  // Lectura híbrida: Legacy + Subcolecciones
   let informesIndependientes = [];
+  let planesIndependientes = [];
   if (!transaction) {
-    informesIndependientes = await leerInformesFragmentados(refColeccion, procesosAsignados);
+    informesIndependientes = await leerInformesFragmentados(refColeccionInformes, procesosAsignados);
+    planesIndependientes = await leerPlanesFragmentados(refColeccionPlanes);
   }
 
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
   const informesSeparados = snapshotInformes.exists
     ? snapshotInformes.get('informesAuditoria')
     : null;
-  const informesLegados = Array.isArray(datosWorkspace.informesAuditoria)
-    ? datosWorkspace.informesAuditoria
-    : [];
+    
+  const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : [];
+  const planesLegados = Array.isArray(datosWorkspace.planesAccion) ? datosWorkspace.planesAccion : [];
 
-  // FUSIÓN SEGURA: Unimos el array heredado con los documentos fragmentados
-  const informesBase = Array.isArray(informesSeparados) ? informesSeparados : informesLegados;
-  const informesCombinados = [...informesBase, ...informesIndependientes];
+  const informesCombinados = [...(Array.isArray(informesSeparados) ? informesSeparados : informesLegados), ...informesIndependientes];
+  const planesCombinados = [...planesLegados, ...planesIndependientes];
 
-  // 🛡️ DEDUPLICACIÓN EN MEMORIA: Evita duplicados visuales en el frontend durante la migración
+  // Deduplicación en memoria
   const mapaInformes = new Map();
-  informesCombinados.forEach(inf => {
-    if (inf && inf.id) mapaInformes.set(String(inf.id), inf);
-  });
+  informesCombinados.forEach(inf => { if (inf && inf.id) mapaInformes.set(String(inf.id), inf); });
+  
+  const mapaPlanes = new Map();
+  planesCombinados.forEach(plan => { if (plan && plan.id) mapaPlanes.set(String(plan.id), plan); });
 
   return {
     workspaceRef: refWorkspace,
     informesRef: refInformes,
-    coleccionInformesRef: refColeccion, // Se expone para futuras escrituras
+    coleccionInformesRef: refColeccionInformes,
+    coleccionPlanesRef: refColeccionPlanes,
     workspaceExists: snapshotWorkspace.exists || snapshotInformes.exists,
     tieneInformesLegados: Array.isArray(datosWorkspace.informesAuditoria),
+    tienePlanesLegados: Array.isArray(datosWorkspace.planesAccion),
     data: {
       ...datosWorkspace,
       informesAuditoria: Array.from(mapaInformes.values()),
+      planesAccion: Array.from(mapaPlanes.values()),
     },
   };
 }
@@ -118,7 +132,6 @@ export async function leerWorkspaceGrc(transaction = null, { usarCache = false, 
 }
 
 export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
-  // 🛡️ ESCRITURA FRAGMENTADA (Transacciones): Cada informe va a su propio documento.
   if (Array.isArray(informesAuditoria)) {
     informesAuditoria.forEach(informe => {
       if (informe && informe.id) {
@@ -128,7 +141,6 @@ export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
     });
   }
 
-  // 💥 DESTRUCCIÓN DEL MURO DE 1MB: Borramos el mega-arreglo heredado
   transaction.set(workspace.informesRef, { informesAuditoria: FieldValue.delete() }, { merge: true });
   if (workspace.tieneInformesLegados) {
     transaction.set(workspace.workspaceRef, { informesAuditoria: FieldValue.delete() }, { merge: true });
@@ -138,7 +150,8 @@ export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
 export async function guardarWorkspaceParcial(partialData) {
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
-  const refColeccion = coleccionInformesRef();
+  const refColeccionInformes = coleccionInformesRef();
+  const refColeccionPlanes = coleccionPlanesRef();
   
   const [snapshotWorkspace, snapshotInformes] = await Promise.all([
     refWorkspace.get(),
@@ -146,72 +159,83 @@ export async function guardarWorkspaceParcial(partialData) {
   ]);
   
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+  
+  // Procesamiento Informes
   const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : null;
   const incluyeInformes = Object.hasOwn(partialData, 'informesAuditoria') && Array.isArray(partialData.informesAuditoria);
-  
-  const informesActualizados = incluyeInformes 
-    ? partialData.informesAuditoria 
-    : (informesLegados && !snapshotInformes.exists ? informesLegados : null);
-  const informesEliminados = [...new Set(
-    (Array.isArray(partialData.informesEliminados) ? partialData.informesEliminados : [])
-      .map(id => String(id || '').trim())
-      .filter(Boolean)
-  )];
+  const informesActualizados = incluyeInformes ? partialData.informesAuditoria : (informesLegados && !snapshotInformes.exists ? informesLegados : null);
+  const informesEliminados = [...new Set((Array.isArray(partialData.informesEliminados) ? partialData.informesEliminados : []).map(id => String(id || '').trim()).filter(Boolean))];
+
+  // Procesamiento Planes de Acción
+  const planesLegados = Array.isArray(datosWorkspace.planesAccion) ? datosWorkspace.planesAccion : null;
+  const incluyePlanes = Object.hasOwn(partialData, 'planesAccion') && Array.isArray(partialData.planesAccion);
+  const planesActualizados = incluyePlanes ? partialData.planesAccion : (planesLegados ? planesLegados : null);
+  const planesEliminados = [...new Set((Array.isArray(partialData.planesEliminados) ? partialData.planesEliminados : []).map(id => String(id || '').trim()).filter(Boolean))];
     
   const datosRestantes = { ...partialData };
   delete datosRestantes.informesAuditoria;
   delete datosRestantes.informesEliminados;
+  delete datosRestantes.planesAccion; // Aseguramos que NO se guarde en el documento padre
+  delete datosRestantes.planesEliminados;
 
+  const operaciones = [];
+
+  // Encolar operaciones de informes
   if (informesActualizados || incluyeInformes) {
     const listaInformes = Array.isArray(informesActualizados) ? informesActualizados : [];
-    
-    const chunkSize = 400;
     const idsEliminados = new Set(informesEliminados);
-    const informesPorId = new Map(
-      listaInformes
-        .filter(informe => informe && informe.id && !idsEliminados.has(String(informe.id)))
-        .map(informe => [String(informe.id), informe])
-    );
-    const operaciones = [
-      ...[...informesPorId].map(([id, informe]) => ({ tipo: 'guardar', id, informe })),
-      ...informesEliminados.map(id => ({ tipo: 'eliminar', referencia: refColeccion.doc(id) })),
-    ];
+    listaInformes.forEach(informe => {
+      if (informe && informe.id && !idsEliminados.has(String(informe.id))) {
+        operaciones.push({ tipo: 'guardar', referencia: refColeccionInformes.doc(String(informe.id)), data: informe });
+      }
+    });
+    informesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', referencia: refColeccionInformes.doc(id) }));
+  }
 
-    // Keep each batch below Firestore's 500-write limit, including legacy cleanup writes.
+  // Encolar operaciones de planes de acción
+  if (planesActualizados || incluyePlanes) {
+    const listaPlanes = Array.isArray(planesActualizados) ? planesActualizados : [];
+    const idsEliminados = new Set(planesEliminados);
+    listaPlanes.forEach(plan => {
+      if (plan && plan.id && !idsEliminados.has(String(plan.id))) {
+        operaciones.push({ tipo: 'guardar', referencia: refColeccionPlanes.doc(String(plan.id)), data: plan });
+      }
+    });
+    planesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', referencia: refColeccionPlanes.doc(id) }));
+  }
+
+  // Ejecución en lotes seguros (Batches de 400 operaciones máximo)
+  const chunkSize = 400;
+  if (operaciones.length > 0) {
     for (let i = 0; i < operaciones.length; i += chunkSize) {
       const chunk = operaciones.slice(i, i + chunkSize);
       const batch = adminDb.batch();
       
       chunk.forEach(operacion => {
         if (operacion.tipo === 'guardar') {
-          batch.set(refColeccion.doc(operacion.id), operacion.informe, { merge: true });
+          batch.set(operacion.referencia, operacion.data, { merge: true });
         } else {
           batch.delete(operacion.referencia);
         }
       });
 
+      // Limpiar datos legados en el documento monolítico
       if (i + chunkSize >= operaciones.length) {
         batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
-        if (Array.isArray(datosWorkspace.informesAuditoria)) {
-          datosRestantes.informesAuditoria = FieldValue.delete();
-        }
+        if (Array.isArray(datosWorkspace.informesAuditoria)) datosRestantes.informesAuditoria = FieldValue.delete();
+        if (Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
         batch.set(refWorkspace, datosRestantes, { merge: true });
       }
       
       await batch.commit();
     }
-    
-    if (operaciones.length === 0) {
-       const batch = adminDb.batch();
-       batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
-       if (Array.isArray(datosWorkspace.informesAuditoria)) {
-         datosRestantes.informesAuditoria = FieldValue.delete();
-       }
-       batch.set(refWorkspace, datosRestantes, { merge: true });
-       await batch.commit();
-    }
-    return;
+  } else {
+    // Si no hay actualizaciones de listas, solo persistimos los metadatos y limpiamos la basura
+    const batch = adminDb.batch();
+    batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
+    if (Array.isArray(datosWorkspace.informesAuditoria)) datosRestantes.informesAuditoria = FieldValue.delete();
+    if (Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
+    batch.set(refWorkspace, datosRestantes, { merge: true });
+    await batch.commit();
   }
-
-  await refWorkspace.set(datosRestantes, { merge: true });
 }

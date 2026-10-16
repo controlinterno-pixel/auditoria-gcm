@@ -478,7 +478,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   }, [detallePanelPlanes]);
 
 // 🕒 Registrar envío de recordatorio en la trazabilidad del plan
-const handleNotificarPlan = (planId) => {
+const handleNotificarPlan = async (planId) => {
   const planNotificable = safePlanes.find(plan => String(plan.id) === String(planId));
   if (!puedeReclamarPlan(planNotificable)) return;
   const ts = new Date().toLocaleString();
@@ -495,8 +495,10 @@ const handleNotificarPlan = (planId) => {
     }
     return p;
   });
+  const guardado = await saveToCloud({ planes: updated });
+  if (!guardado) return;
   setPlanes(updated);
-  saveToCloud({ planes: updated });
+  showNotification('Recordatorio registrado en el historial.', 'success');
 };
   // 1. Filtrado Base (Desde el menú lateral)
   const planesFiltradosBase = useMemo(() => planesEnriquecidos.filter(p => {
@@ -1010,11 +1012,12 @@ const diccionarioCorreos = {
     const requiereCorreoAdmin = enviarNotificaciones &&
       (notificacionesRadicadas.length > 0 || notificacionesRevision100.length > 0);
     let correoPreparadoAdmin = true;
+    let promesaPreparacionCorreoAdmin = null;
     if (requiereCorreoAdmin && prepararEnvioGmail) {
       try {
-        correoPreparadoAdmin = Boolean(await prepararEnvioGmail());
+        promesaPreparacionCorreoAdmin = Promise.resolve(prepararEnvioGmail()).catch(() => false);
       } catch {
-        correoPreparadoAdmin = false;
+        promesaPreparacionCorreoAdmin = Promise.resolve(false);
       }
     }
 
@@ -1027,6 +1030,17 @@ const diccionarioCorreos = {
     if (!guardado) return;
     setPlanes(updatedPlanesList);
     if (hallazgosModificados && setHallazgos) setHallazgos(updatedHallazgos);
+    handleInformeChange(formInformeId, updatedPlanesList, updatedHallazgos);
+    setEditPlan(null);
+    setFormInformeId('');
+    setMatrixState({});
+    setModoRevisionMatriz(false);
+    setVistaActiva('historial');
+    showNotification('Matriz guardada correctamente. Las notificaciones se están procesando.', 'success');
+
+    if (promesaPreparacionCorreoAdmin) {
+      correoPreparadoAdmin = Boolean(await promesaPreparacionCorreoAdmin);
+    }
 
   // ... código anterior (saveToCloud) ...
 
@@ -1070,15 +1084,9 @@ const diccionarioCorreos = {
       }
     }
 
-  alert(todasNotificacionesEnviadas
-      ? "🎉 ¡Matriz guardada y notificaciones enviadas!"
-      : "La matriz se guardó, pero no se pudieron enviar todas las notificaciones.");
-    handleInformeChange(formInformeId, updatedPlanesList, updatedHallazgos);
-    setEditPlan(null);
-    setFormInformeId('');
-    setMatrixState({});
-    setModoRevisionMatriz(false);
-    setVistaActiva('historial');
+    if (!todasNotificacionesEnviadas) {
+      showNotification('La matriz quedó guardada, pero algunas notificaciones están pendientes de reintento.', 'error');
+    }
   };
 
  // 🛡️ NUEVA FUNCIÓN: EVALUACIÓN HOLÍSTICA Y PONDERADA DEL PLAN DE ACCIÓN
@@ -1224,12 +1232,11 @@ if (!isAdmin && !puedeCrearPlanes) {
       }
     });
 
-    // Actualizamos los estados globales y de la nube
+    const guardado = await saveToCloud({ planes: updatedPlanesList });
+    if (!guardado) return;
     setPlanes(updatedPlanesList);
-    setModalEval(prev => ({ ...prev, planes: updatedModalPlanes })); // Refresca el modal al instante
-    await saveToCloud({ planes: updatedPlanesList });
-    
-    alert("✅ La evaluación fue eliminada exitosamente del historial.");
+    setModalEval(prev => ({ ...prev, planes: updatedModalPlanes }));
+    showNotification('Evaluación eliminada y guardada correctamente.', 'success');
   };
   
   // =========================================================
@@ -1604,17 +1611,6 @@ if (existingActivities.length > 0) {
           }],
         });
         planGuardado = respuesta?.planesNuevos?.[0];
-        setGuardandoAccionKey(null);
-        showNotification(
-          requiereNotificacion
-            ? 'Acción guardada correctamente. Las notificaciones se están procesando.'
-            : 'Acción guardada correctamente. Puedes continuar con la siguiente.',
-          'success'
-        );
-
-        if (promesaPreparacionGmail) {
-          correoPreparado = Boolean(await promesaPreparacionGmail);
-        }
       } else {
         const correoAuditorOriginal = planOriginal?.correoAuditor || informeActual?.correoAuditor || '';
         const cambiosCorreo = {};
@@ -1692,6 +1688,17 @@ if (existingActivities.length > 0) {
         })
       ));
       setMatrixDirty(hayCambiosPendientes);
+      setGuardandoAccionKey(null);
+      showNotification(
+        requiereNotificacion
+          ? 'Acción guardada correctamente. Las notificaciones se están procesando.'
+          : 'Acción guardada correctamente. Puedes continuar con la siguiente.',
+        'success'
+      );
+
+      if (promesaPreparacionGmail) {
+        correoPreparado = Boolean(await promesaPreparacionGmail);
+      }
 
       let notificacionEnviada = true;
       try {
