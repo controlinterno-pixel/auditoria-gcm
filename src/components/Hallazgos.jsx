@@ -178,7 +178,10 @@ export default function Hallazgos({
 
   useEffect(() => {
     if (!confirmacionGuardado) return undefined;
-    const temporizador = window.setTimeout(() => setConfirmacionGuardado(''), 5000);
+    const mainArea = document.getElementById('main-scroll-area');
+    if (mainArea) mainArea.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const temporizador = window.setTimeout(() => setConfirmacionGuardado(''), 7000);
     return () => window.clearTimeout(temporizador);
   }, [confirmacionGuardado]);
 
@@ -209,6 +212,7 @@ export default function Hallazgos({
     : '';
   const informeOrigenSeleccionado = informeOrigenState[idEdicion] ?? informeOrigenPorDefecto;
   const iniciarNuevoHallazgo = () => {
+    setConfirmacionGuardado('');
     setInformeOrigenState(prev => ({ ...prev, nuevo: '' }));
     setMacroprocesosFormState(prev => ({ ...prev, nuevo: [] }));
     setSubprocesosPorMacroprocesoFormState(prev => ({ ...prev, nuevo: {} }));
@@ -1000,8 +1004,15 @@ export default function Hallazgos({
             const guardado = await handleHallazgoSubmit(e);
             if (guardado) {
               setConfirmacionGuardado(estabaEditando ? 'Los cambios del hallazgo quedaron registrados.' : 'El hallazgo nuevo quedó registrado.');
+              setFiltroAnio('');
+              setFiltroMes('');
+              setFiltroTipoFuente('');
+              setSearchTerm('');
+              Object.keys(columnFilters).forEach(clave => handleColFilterChange(clave, ''));
+              setPaginaHistorial(1);
+              setInformeHistorialExpandido(null);
               setFormularioModificado(false);
-              setVistaActiva('dashboard');
+              setVistaActiva('historial');
             }
           }} key={`${editHallazgo?.id || 'nuevo-hallazgo'}-${versionFormularioNuevo}`} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
