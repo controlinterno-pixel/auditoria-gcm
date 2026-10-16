@@ -328,6 +328,20 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     return esFuenteProgramaAuditoria(informe);
   };
 
+  const paqueteListoParaEvaluacion = (informe, planes = []) => (
+    esFuenteProgramaAuditoria(informe) && planes.length > 0 && planes.every(plan => (
+      Number(plan.progreso) === 100 && plan.estadoWorkflow === 'En Revisión (100%)'
+    ))
+  );
+
+  const paqueteTieneEvaluacionAprobada = (planes = []) => (
+    planes.length > 0 && planes.every(plan => (
+      plan.evaluacionHolistica?.tipo === 'evaluacion-final-ejecucion' &&
+      plan.evaluacionHolistica?.aprobado === true &&
+      Number(plan.evaluacionHolistica?.puntaje) > 80
+    ))
+  );
+
   const esAuditorAsignadoEvaluador = (informe, planes = []) => {
     const correoActual = String(user?.email || '').trim().toLowerCase();
     const correoAsignado = obtenerCorreoAuditorEvaluador(informe, planes);
@@ -338,7 +352,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   };
 
   const iniciarEvaluacionIntegral = (informe, planes) => {
-    if (!esFuenteProgramaAuditoria(informe) || !esAuditorAsignadoEvaluador(informe, planes)) return;
+    if (!paqueteListoParaEvaluacion(informe, planes) || !esAuditorAsignadoEvaluador(informe, planes)) return;
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
     setJustificacion('');
     setModalEval({
@@ -412,11 +426,11 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     if (!esFuenteProgramaAuditoria(informe)) return [];
     const planes = planesEnriquecidos.filter(plan => String(plan.idInforme) === String(informe.id));
     if (
-      planes.length === 0 ||
-      planes.every(plan => plan.evaluacionHolistica) ||
+      !paqueteListoParaEvaluacion(informe, planes) ||
+      paqueteTieneEvaluacionAprobada(planes) ||
       !esAuditorAsignadoEvaluador(informe, planes)
     ) return [];
-    return [{ informe, planes, actividadesPendientes: planes.filter(plan => !plan.evaluacionHolistica).length }];
+    return [{ informe, planes, actividadesPendientes: planes.length }];
   });
 
   useEffect(() => {
@@ -1075,21 +1089,21 @@ const diccionarioCorreos = {
     const informeEvaluado = informesAuditoria.find(informe => String(informe.id) === String(modalEval.idInforme));
     if (
       modalEval.isReadOnly ||
-      !esFuenteProgramaAuditoria(informeEvaluado) ||
+      !paqueteListoParaEvaluacion(informeEvaluado, modalEval.planes) ||
       !esAuditorAsignadoEvaluador(informeEvaluado, modalEval.planes)
     ) {
-      alert('❌ Solo el auditor asignado como aprobador puede evaluar este plan integral de un programa de auditoría.');
+      alert('La evaluación solo está disponible para el auditor asignado cuando todas las acciones estén al 100% y validadas por el revisor.');
       return;
     }
 
-    if (puntajeHolistico < 80 && justificacion.trim() === '') {
-      return alert("❌ Debe proporcionar una justificación técnica detallada para rechazar el plan (Puntaje menor a 80%).");
+    const esAprobado = puntajeHolistico > 80;
+    if (!esAprobado && justificacion.trim() === '') {
+      return alert('Debes justificar técnicamente la evaluación cuando el puntaje sea de 80% o menos.');
     }
     if (!window.confirm(`¿Confirmar evaluación de este paquete de acciones con un score de ${puntajeHolistico}%?`)) return;
 
     const ts = new Date().toLocaleString();
     let updatedPlanesList = [...safePlanes];
-    const esAprobado = puntajeHolistico >= 80;
 const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || 'controlinterno@empresa.com');
     // Actualizamos en lote TODAS las actividades (Acumulando el Historial de Calificaciones)
     let evaluacionesAplicadas = 0;
@@ -1097,7 +1111,8 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
       const idx = updatedPlanesList.findIndex(p => String(p.id) === String(plan.id));
       if (idx !== -1) {
         evaluacionesAplicadas += 1;
-        const nuevaEval = { 
+        const nuevaEval = {
+          tipo: 'evaluacion-final-ejecucion',
           fecha: ts,
           puntaje: puntajeHolistico,
           justificacion: justificacion,
@@ -1112,7 +1127,9 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
 
         updatedPlanesList[idx] = {
           ...updatedPlanesList[idx],
-          estadoWorkflow: esAprobado ? 'En Ejecución' : 'Borrador',
+          estadoWorkflow: esAprobado ? 'En Revisión (100%)' : 'En Ejecución',
+          progreso: esAprobado ? 100 : 90,
+          ...(esAprobado ? {} : { validadoPorRevisorCorreo: '', validadoPorRevisorEn: '' }),
           evaluacionHolistica: nuevaEval,
           historialEvaluaciones: nuevoHistorial, // 👈 Se guarda el historial completo
           historialCambios: [
@@ -1120,9 +1137,9 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
             { 
               fecha: ts, 
               usuario: 'Auditor', 
-              accion: esAprobado 
-                ? `✅ DISEÑO DEL PLAN APROBADO (Score Calidad: ${puntajeHolistico}%).` 
-                : `❌ DISEÑO DEL PLAN RECHAZADO (Score Calidad: ${puntajeHolistico}%). Motivo: ${justificacion}` 
+              accion: esAprobado
+                ? `✅ EVALUACIÓN INTEGRAL APROBADA. Cierre habilitado (Score: ${puntajeHolistico}%).`
+                : `❌ EVALUACIÓN INTEGRAL NO APROBADA. Se devuelve a ejecución (Score: ${puntajeHolistico}%). Motivo: ${justificacion}`
             }
           ]
         };
@@ -1138,20 +1155,20 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
 
   // 📧 Redactar borrador en Gmail automáticamente para adjuntar PDF
     const tituloLimpio = esAprobado 
-      ? `DICTAMEN APROBATORIO: Evaluación de Plan de Acción (${puntajeHolistico}/100)` 
-      : `REQUERIMIENTO DE REESTRUCTURACIÓN: Plan de Acción Inviable (${puntajeHolistico}/100)`;
+      ? `DICTAMEN APROBATORIO: Evaluación final del Plan de Acción (${puntajeHolistico}/100)`
+      : `REQUERIMIENTO DE AJUSTE: Evaluación final del Plan de Acción (${puntajeHolistico}/100)`;
     
     const mensajeLimpio = esAprobado 
-      ? `Estimado/a Líder de Proceso,\n\nAdjunto a este correo encontrará el Dictamen de Auditoría Oficial en formato PDF.\n\n1. CALIFICACIÓN GLOBAL (SCORE: ${puntajeHolistico}/100)\nDe acuerdo con el marco metodológico de Riesgos, el plan de mejoramiento ha sido evaluado como VIABLE.\n\n2. DICTAMEN DE AUDITORÍA:\n"${justificacion || 'Las acciones propuestas atacan la causa raíz y plantean tiempos coherentes.'}"\n\n3. RESOLUCIÓN:\nSe autoriza formalmente a la Dirección responsable el inicio de la fase de ejecución y el futuro cargue de evidencias en la plataforma GCM.\n\nAtentamente,\nAuditoría Interna`
-      : `Estimado/a Líder de Proceso,\n\nAdjunto a este correo encontrará el Dictamen de Auditoría Oficial en formato PDF.\n\n1. CALIFICACIÓN GLOBAL (SCORE: ${puntajeHolistico}/100 - CRÍTICO)\nDe acuerdo con el marco metodológico de Riesgos y las Normas Globales de Auditoría Interna, el plan propuesto es técnicamente inoperante en su estado actual.\n\n2. JUSTIFICACIÓN TÉCNICA DEL RECHAZO:\n"${justificacion}"\n\n3. DICTAMEN Y REQUERIMIENTO:\nSe RECHAZA el plan y se solicita a la Dirección responsable su reestructuración inmediata en la plataforma GCM, incorporando acciones de choque inmediatas y controles medibles para evitar la materialización del riesgo.\n\nAtentamente,\nAuditoría Interna`;
+      ? `Estimado/a Líder de Proceso,\n\nLa evaluación final del paquete de acciones obtuvo ${puntajeHolistico}/100, superando el umbral requerido.\n\nDictamen de Auditoría:\n"${justificacion || 'Las acciones y evidencias cumplen los criterios definidos para el cierre.'}"\n\nEl auditor asignado ya puede cerrar las acciones en la plataforma GCM.\n\nAtentamente,\nAuditoría Interna`
+      : `Estimado/a Líder de Proceso,\n\nLa evaluación final del paquete de acciones obtuvo ${puntajeHolistico}/100 y no superó el umbral requerido (>80%).\n\nJustificación de Auditoría:\n"${justificacion}"\n\nEl paquete volvió a ejecución al 90% para realizar los ajustes y solicitar una nueva validación del revisor.\n\nAtentamente,\nAuditoría Interna`;
 
     // Abre una nueva pestaña directamente con la ventana de redacción de Gmail
     const mailtoLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${correoResponsableLider || ''}&su=${encodeURIComponent(tituloLimpio)}&body=${encodeURIComponent(mensajeLimpio)}`;
     window.open(mailtoLink, '_blank');
 
     alert(esAprobado
-      ? '✅ Evaluación guardada y paquete aprobado. Se abrió el borrador del dictamen en Gmail.'
-      : '❌ Evaluación guardada y plan rechazado. Se abrió el borrador de solicitud de ajuste en Gmail.');
+      ? 'Evaluación aprobada. El auditor ya puede cerrar las acciones del paquete. Se abrió el borrador del dictamen en Gmail.'
+      : 'Evaluación no aprobada. El paquete volvió a ejecución al 90% para realizar ajustes. Se abrió el borrador de solicitud en Gmail.');
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
     setJustificacion('');
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
@@ -1877,12 +1894,22 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             correoPreparado = false;
           }
         }
+        const informePaquete = informesAuditoria.find(item => String(item.id) === String(revisionInformeId));
+        const planesPaqueteActualizados = planesEnriquecidos
+          .filter(plan => String(plan.idInforme) === String(revisionInformeId))
+          .map(plan => actualizadosPorId.get(String(plan.id)) || plan);
+        const evaluarPaquete = decision === 'aprobar'
+          && paqueteListoParaEvaluacion(informePaquete, planesPaqueteActualizados);
+        const correoAuditorPaquete = evaluarPaquete
+          ? obtenerCorreoAuditorEvaluador(informePaquete, planesPaqueteActualizados)
+          : '';
         for (const plan of planesActualizados) {
           const estadoAnterior = estadoAnteriorPorId.get(String(plan.id));
           const esValidacionFinal = estadoAnterior === ESTADO_PENDIENTE_VALIDACION_REVISOR;
           const validacionPendienteRevisor = plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR;
           const pasaAlAprobador = esValidacionFinal && decision === 'aprobar' && plan.estadoWorkflow === 'En Revisión (100%)';
           const informe = informesAuditoria.find(item => String(item.id) === String(plan.idInforme));
+          if (pasaAlAprobador && esFuenteProgramaAuditoria(informe)) continue;
           const destinatario = pasaAlAprobador
             ? plan.correoAuditor || informe?.correoAuditor || informe?.correoAuditorResponsable
             : validacionPendienteRevisor ? plan.correoRevisor : plan.correoResponsable;
@@ -1918,6 +1945,25 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             if (!enviado) todasNotificacionesEnviadas = false;
           } catch {
             todasNotificacionesEnviadas = false;
+          }
+        }
+        if (evaluarPaquete) {
+          if (!correoAuditorPaquete) {
+            todasNotificacionesEnviadas = false;
+          } else {
+            try {
+              const enviado = await enviarNotificacionPlanConReintento({
+                ref_consecutivo: informePaquete.ref || `INF-${revisionInformeId}`,
+                asunto: 'Evaluación final requerida: paquete validado al 100%',
+                titulo_informe: 'Diligenciar evaluación integral antes del cierre',
+                proceso_auditado: `El revisor aprobó el 100% de las ${planesPaqueteActualizados.length} acciones del informe ${informePaquete.ref || revisionInformeId}. Diligencie la evaluación integral del paquete. Solo un resultado superior al 80% habilita el cierre de las acciones.`,
+                enlace_pdf: window.location.origin,
+                destinatarios: correoAuditorPaquete,
+              }, correoPreparado);
+              if (!enviado) todasNotificacionesEnviadas = false;
+            } catch {
+              todasNotificacionesEnviadas = false;
+            }
           }
         }
         if (todasNotificacionesEnviadas) {
@@ -2096,11 +2142,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div>
               <h3 className="flex items-center gap-2 text-sm font-black text-amber-900">
                 <span aria-hidden="true">🔔</span>
-                Evaluación integral pendiente
+                Evaluación final pendiente
                 <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px]">{evaluacionesIntegralesPendientes.length}</span>
               </h3>
               <p className="mt-1 text-xs font-medium text-amber-800">
-                Tienes planes de programas de auditoría que requieren tu evaluación como auditor asignado.
+                El revisor validó todas las acciones al 100%. Diligencia la evaluación final del paquete antes de cerrar las acciones.
               </p>
             </div>
           </div>
@@ -3293,6 +3339,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               <div className="space-y-2">
                 {informesPaginaMatriz.map(idInf => {
                   const planesDelInforme = planesPorInforme[idInf] || []; // ✨ Salvaguarda para informes sin planes
+                  const planesPaqueteCompleto = planesEnriquecidos.filter(plan => String(plan.idInforme) === String(idInf));
                   const informeBase = informesPorId.get(String(idInf));
                   
                  // Mapear trazabilidad del informe padre
@@ -3531,6 +3578,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {/* NIVEL 3: AUDITOR -> Revisa el 100% y cierra o rechaza el plan             */}
                                           {/* ========================================================================= */}
                                           {enRevisionAuditor(p) && esAuditor && (
+                                            !esPlanProgramaAuditoria(p) || paqueteTieneEvaluacionAprobada(
+                                              planesEnriquecidos.filter(plan => String(plan.idInforme) === String(p.idInforme))
+                                            )
+                                          ) && (
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
                                               <button type="button" onClick={async () => {
                                                 if (!esPlanProgramaAuditoria(p)) {
@@ -3605,57 +3656,62 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           </table>
                           
                          {/* ⚖️ BOTÓN MAESTRO DE EVALUACIÓN HOLÍSTICA (DISEÑO Y MEMORIA) */}
-                          {planesDelInforme.length > 0 &&
-                            esFuenteProgramaAuditoria(informeBase) &&
-                            esAuditorAsignadoEvaluador(informeBase, planesDelInforme) && (() => {
-                            const planConEval = planesDelInforme.find(p => p.evaluacionHolistica);
+                          {planesPaqueteCompleto.length > 0 &&
+                            paqueteListoParaEvaluacion(informeBase, planesPaqueteCompleto) &&
+                            esAuditorAsignadoEvaluador(informeBase, planesPaqueteCompleto) && (() => {
+                            const planConEval = planesPaqueteCompleto.find(p => p.evaluacionHolistica);
                             const evalGuardada = planConEval ? planConEval.evaluacionHolistica : null;
+                            const evaluacionFinalAprobada = paqueteTieneEvaluacionAprobada(planesPaqueteCompleto);
 
                             return (
                               <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row justify-between items-center shadow-sm gap-3 animate-in fade-in">
                                 <div className="text-center md:text-left">
-                                  <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Gobernanza y Calificación de Diseño (COSO)</p>
-                                  {evalGuardada ? (
+                                  <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Evaluación final del paquete de acciones</p>
+                                  {evaluacionFinalAprobada ? (
                                     <p className="text-[9px] text-emerald-600 font-bold mt-0.5">
-                                      ✅ Evaluado el {evalGuardada.fecha} con un Score de {evalGuardada.puntaje}%.
+                                      ✅ Evaluación final aprobada el {evalGuardada.fecha} con {evalGuardada.puntaje}%. Ya se puede cerrar el paquete.
+                                    </p>
+                                  ) : evalGuardada?.tipo === 'evaluacion-final-ejecucion' ? (
+                                    <p className="text-[9px] text-rose-600 font-bold mt-0.5">
+                                      ⚠️ Evaluación anterior no aprobada ({evalGuardada.puntaje}%). Requiere ajuste y nueva validación del revisor.
                                     </p>
                                   ) : (
                                     <p className="text-[9px] text-slate-500 font-medium mt-0.5">
-                                      Evalúe la calidad, completitud y coherencia del paquete de acciones formulado.
+                                      Evalúe la ejecución validada. Solo una calificación superior al 80% habilita el cierre.
                                     </p>
                                   )}
                                 </div>
                                 
                                {evalGuardada ? (
                                   <div className="flex gap-2 w-full md:w-auto">
-                                    <button 
+                                    <button
                                       onClick={() => {
                                         setCriterios(evalGuardada?.criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
                                         setJustificacion(evalGuardada?.justificacion || '');
-                                        setModalEval({ 
-                                          activo: true, idInforme: idInf, planes: planesDelInforme || [],
-                                          totalActividades: planesDelInforme?.length || 0, isReadOnly: true 
+                                        setModalEval({
+                                          activo: true, idInforme: idInf, planes: planesPaqueteCompleto,
+                                          totalActividades: planesPaqueteCompleto.length, isReadOnly: true
                                         });
                                       }}
                                       className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2.5 rounded-xl text-xs font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
                                     >
                                       <span>👁️</span> Ver Calificación Realizada
                                     </button>
-                                    
-                                    <button 
+
+                                    {!evaluacionFinalAprobada && <button
                                       onClick={() => {
                                         setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
                                         setJustificacion('');
-                                        setModalEval({ 
-                                          activo: true, idInforme: idInf, planes: planesDelInforme || [], 
-                                          totalActividades: planesDelInforme?.length || 0, isReadOnly: false 
+                                        setModalEval({
+                                          activo: true, idInforme: idInf, planes: planesPaqueteCompleto,
+                                          totalActividades: planesPaqueteCompleto.length, isReadOnly: false
                                         });
                                       }}
                                       className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-2.5 rounded-xl text-[10px] font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-1 w-full md:w-auto justify-center"
-                                      title="Volver a evaluar si hubo un error"
+                                      title={evalGuardada.tipo === 'evaluacion-final-ejecucion' ? 'Volver a evaluar el paquete' : 'Diligenciar la evaluación final del paquete'}
                                     >
-                                      🔄 Re-Evaluar
-                                    </button>
+                                      {evalGuardada.tipo === 'evaluacion-final-ejecucion' ? '🔄 Re-Evaluar' : '⚖️ Evaluar paquete'}
+                                    </button>}
                                   </div>
                                 ) : (
                                   <button 
@@ -3663,8 +3719,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
                                       setJustificacion('');
                                       setModalEval({ 
-                                        activo: true, idInforme: idInf, planes: planesDelInforme || [], 
-                                        totalActividades: planesDelInforme?.length || 0, isReadOnly: false 
+                                        activo: true, idInforme: idInf, planes: planesPaqueteCompleto,
+                                        totalActividades: planesPaqueteCompleto.length, isReadOnly: false
                                       });
                                     }}
                                     className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
@@ -3714,18 +3770,18 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div className="break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
               <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">1. Calificación Global y Ponderada</h3>
               <div className="flex gap-6 items-center bg-slate-50 p-6 rounded-xl border border-slate-200">
-                <div className={`w-32 h-32 rounded-full flex flex-col items-center justify-center border-8 shrink-0 ${(puntajeHolistico || 0) >= 80 ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : (puntajeHolistico || 0) >= 50 ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-red-500 text-red-700 bg-red-50'}`}>
+                <div className={`w-32 h-32 rounded-full flex flex-col items-center justify-center border-8 shrink-0 ${(puntajeHolistico || 0) > 80 ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : (puntajeHolistico || 0) >= 50 ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-red-500 text-red-700 bg-red-50'}`}>
                   <span className="text-5xl font-black leading-none">{puntajeHolistico || 0}</span>
                   <span className="text-xs font-bold uppercase mt-1">Puntos / 100</span>
                 </div>
                 <div className="flex-1">
-                  <h4 className={`text-2xl font-black uppercase mb-2 ${(puntajeHolistico || 0) >= 80 ? 'text-emerald-700' : (puntajeHolistico || 0) >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
-                    {(puntajeHolistico || 0) >= 80 ? 'ESTADO: VIABLE (APROBADO)' : 'ESTADO: CRÍTICO (RECHAZADO)'}
+                  <h4 className={`text-2xl font-black uppercase mb-2 ${(puntajeHolistico || 0) > 80 ? 'text-emerald-700' : (puntajeHolistico || 0) >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
+                    {(puntajeHolistico || 0) > 80 ? 'ESTADO: APROBADO PARA CIERRE' : 'ESTADO: NO APROBADO'}
                   </h4>
                   <p className="text-base text-slate-700 font-medium leading-relaxed">
-                    {(puntajeHolistico || 0) >= 80 
-                      ? 'El plan propuesto cumple con los criterios de calidad técnica requeridos, demuestra un análisis de causa raíz adecuado y ha sido autorizado formalmente para iniciar su fase de ejecución.'
-                      : 'El plan propuesto es técnicamente inoperante en su estado actual y no garantiza la mitigación del riesgo. Se exige su rechazo inmediato y la reformulación obligatoria de las acciones correctivas en la plataforma institucional.'}
+                    {(puntajeHolistico || 0) > 80
+                      ? 'El paquete de acciones y evidencias supera el umbral requerido. El auditor asignado puede cerrar las acciones del paquete.'
+                      : 'El paquete no supera el umbral de aprobación. Se requiere justificar el resultado y devolver las acciones a ejecución para ajustes.'}
                   </p>
                 </div>
               </div>
@@ -4143,21 +4199,21 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     value={justificacion || ''}
                     onChange={(e) => setJustificacion(e.target.value)}
                     disabled={modalEval.isReadOnly}
-                    placeholder="Escriba el motivo de la calificación (Obligatorio si el puntaje es menor a 80%)..."
-                    className={`w-full border rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] transition-all shadow-sm ${modalEval.isReadOnly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ((puntajeHolistico || 0) < 80 && (!justificacion || justificacion.trim() === '') ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:border-[#0A3B32]')}`}
+                    placeholder="Escriba la justificación (obligatoria si el puntaje es 80% o menos)..."
+                    className={`w-full border rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] transition-all shadow-sm ${modalEval.isReadOnly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ((puntajeHolistico || 0) <= 80 && (!justificacion || justificacion.trim() === '') ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:bg-white focus:border-[#0A3B32]')}`}
                   />
-                  {!modalEval.isReadOnly && (puntajeHolistico || 0) < 80 && (!justificacion || justificacion.trim() === '') && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para rechazar.</span>}
+                  {!modalEval.isReadOnly && (puntajeHolistico || 0) <= 80 && (!justificacion || justificacion.trim() === '') && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para un resultado de 80% o menos.</span>}
                 </div>
                 
               <div className="w-full md:w-64 flex flex-col gap-4 shrink-0">
                   <div className="bg-slate-900 rounded-2xl p-5 flex flex-col justify-center items-center text-center shadow-lg relative overflow-hidden flex-1">
-                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-20 ${(puntajeHolistico || 0) >= 80 ? 'bg-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}></div>
+                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-20 ${(puntajeHolistico || 0) > 80 ? 'bg-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}></div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-2 relative z-10">Score Ponderado</p>
-                    <span className={`text-6xl font-black font-mono leading-none relative z-10 ${(puntajeHolistico || 0) >= 80 ? 'text-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                    <span className={`text-6xl font-black font-mono leading-none relative z-10 ${(puntajeHolistico || 0) > 80 ? 'text-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
                       {puntajeHolistico || 0}<span className="text-3xl text-slate-500 ml-1">%</span>
                     </span>
-                    <span className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider relative z-10 shadow-sm ${(puntajeHolistico || 0) >= 80 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50'}`}>
-                      {(puntajeHolistico || 0) >= 80 ? '✅ Plan Viable' : (puntajeHolistico || 0) >= 50 ? '⚠️ Requiere Ajustes' : '❌ Plan Inoperante'}
+                    <span className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider relative z-10 shadow-sm ${(puntajeHolistico || 0) > 80 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50'}`}>
+                      {(puntajeHolistico || 0) > 80 ? '✅ Aprobado para cierre' : (puntajeHolistico || 0) >= 50 ? '⚠️ Requiere ajustes' : '❌ No aprobado'}
                     </span>
                   </div>
                 </div>
@@ -4181,8 +4237,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     <button type="button" onClick={cerrarModalEvaluacionIntegral} className="min-h-11 w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
                       Cancelar
                     </button>
-                    <button onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${(puntajeHolistico || 0) >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                      {(puntajeHolistico || 0) >= 80 ? '✅ Aprobar Diseño' : '✕ Rechazar Diseño'}
+                    <button onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${(puntajeHolistico || 0) > 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                      {(puntajeHolistico || 0) > 80 ? '✅ Aprobar para cierre' : '✕ Devolver para ajustes'}
                     </button>
                   </>
                 )}

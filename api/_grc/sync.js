@@ -58,6 +58,22 @@ async function usuarioPuedeEvaluarPlanes(partialData, user) {
     const informe = informes.find(item => String(item.id) === String(idInforme));
     if (informe?.tipoFuente !== 'Programa de Auditoría' || !informe?.programaId) return false;
 
+    const planesDelPaquete = planesGuardados.filter(plan => {
+      const hallazgoPlan = hallazgosPorId.get(String(plan.idHallazgo));
+      return String(hallazgoPlan?.idInforme || plan.idInforme) === String(idInforme);
+    });
+    if (planesDelPaquete.length === 0 || !planesDelPaquete.every(plan => (
+      Number(plan.progreso) === 100 && plan.estadoWorkflow === 'En Revisión (100%)'
+    ))) return false;
+
+    const evaluacionFinal = planActualizado.evaluacionHolistica;
+    const puntajeEvaluacion = Number(evaluacionFinal?.puntaje);
+    if (
+      evaluacionFinal?.tipo !== 'evaluacion-final-ejecucion' ||
+      !Number.isFinite(puntajeEvaluacion) ||
+      Boolean(evaluacionFinal.aprobado) !== (puntajeEvaluacion > 80)
+    ) return false;
+
     const correoInforme = String(informe.correoAuditor || informe.correoAuditorResponsable || '').trim().toLowerCase();
     const correosPlanes = [...new Set(planesGuardados
       .filter(plan => {
