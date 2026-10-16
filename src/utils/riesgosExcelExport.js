@@ -47,19 +47,18 @@ const crearTabla = (libro, nombre, titulo, subtitulo, filas, encabezados) => {
   hoja.columns = encabezados.map(encabezado => {
     const longitudMaxima = filas.reduce((maximo, fila) => Math.max(maximo, String(fila[encabezado] ?? '').length), encabezado.length);
     return {
-      header: encabezado,
       key: encabezado,
       width: Math.min(42, Math.max(14, longitudMaxima + 2)),
       style: { alignment: { vertical: 'top', wrapText: true } },
     };
   });
-  hoja.addTable({
-    name: nombre.replace(/\s/g, ''),
-    ref: 'A4',
-    headerRow: true,
-    style: { theme: 'TableStyleMedium4', showRowStripes: true },
-    columns: encabezados.map(name => ({ name, filterButton: true })),
-    rows: filas.map(fila => encabezados.map(encabezado => fila[encabezado] ?? null)),
+  encabezados.forEach((encabezado, indice) => {
+    hoja.getCell(4, indice + 1).value = encabezado;
+  });
+  filas.forEach((fila, indiceFila) => {
+    encabezados.forEach((encabezado, indiceColumna) => {
+      hoja.getCell(indiceFila + 5, indiceColumna + 1).value = fila[encabezado] ?? null;
+    });
   });
   hoja.getRow(4).height = 34;
   hoja.getRow(4).eachCell(cell => {
@@ -68,6 +67,15 @@ const crearTabla = (libro, nombre, titulo, subtitulo, filas, encabezados) => {
     cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     cell.border = { bottom: { style: 'medium', color: { argb: COLORES.tinta } } };
   });
+  for (let indiceFila = 5; indiceFila < filas.length + 5; indiceFila += 1) {
+    hoja.getRow(indiceFila).eachCell({ includeEmpty: true }, cell => {
+      cell.alignment = { vertical: 'top', wrapText: true };
+      cell.border = { bottom: { style: 'hair', color: { argb: COLORES.borde } } };
+      if (indiceFila % 2 === 0) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondo } };
+      }
+    });
+  }
   return hoja;
 };
 
