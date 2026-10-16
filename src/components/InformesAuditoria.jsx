@@ -15,6 +15,30 @@ const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
   return [...map.values()];
 };
 
+const obtenerTiempoHistorial = valorFecha => {
+  const valor = String(valorFecha || '').trim();
+  if (!valor) return null;
+  const fechaLocal = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?)?$/i.exec(valor);
+  if (fechaLocal) {
+    const [, dia, mes, anio, hora = '0', minuto = '0', segundo = '0', periodo = ''] = fechaLocal;
+    let hora24 = Number(hora);
+    const periodoNormalizado = periodo.replace(/[\s.]/g, '').toLowerCase();
+    if (periodoNormalizado === 'pm' && hora24 < 12) hora24 += 12;
+    if (periodoNormalizado === 'am' && hora24 === 12) hora24 = 0;
+    return new Date(Number(anio), Number(mes) - 1, Number(dia), hora24, Number(minuto), Number(segundo)).getTime();
+  }
+  const tiempo = Date.parse(valor);
+  return Number.isFinite(tiempo) ? tiempo : null;
+};
+
+const obtenerUltimaActividadInforme = informe => {
+  const actividades = (Array.isArray(informe?.historialCambios) ? informe.historialCambios : [])
+    .map(cambio => obtenerTiempoHistorial(cambio?.timestamp || cambio?.fecha || cambio?.fechaHora))
+    .filter(tiempo => tiempo !== null);
+  if (actividades.length > 0) return Math.max(...actividades);
+  return obtenerTiempoHistorial(informe?.fechaHora) ?? obtenerTiempoHistorial(informe?.fecha);
+};
+
 const normalizarCatalogo = valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const convertirSubprocesosLista = valores => (
   Array.isArray(valores)
@@ -224,7 +248,20 @@ if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuen
     
     return true;
   });
-  const informesCandidatosHistorial = applyFilters(informesFiltradosPorFecha, searchTerm, columnFilters);
+  const informesCandidatosHistorial = [...applyFilters(informesFiltradosPorFecha, searchTerm, columnFilters)]
+    .sort((a, b) => {
+      const actividadA = obtenerUltimaActividadInforme(a);
+      const actividadB = obtenerUltimaActividadInforme(b);
+      if (actividadA !== actividadB) {
+        if (actividadA === null) return 1;
+        if (actividadB === null) return -1;
+        return actividadB - actividadA;
+      }
+      return String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    });
   const paginasHistorial = Math.max(1, Math.ceil(informesCandidatosHistorial.length / 10));
   const paginaHistorialActual = Math.min(paginaActual, paginasHistorial);
   const informesPaginaHistorial = informesCandidatosHistorial.slice((paginaHistorialActual - 1) * 10, paginaHistorialActual * 10);

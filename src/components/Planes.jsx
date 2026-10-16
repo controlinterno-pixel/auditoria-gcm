@@ -25,6 +25,29 @@ const obtenerTiempoInforme = fecha => {
   return Number.isFinite(tiempo) ? tiempo : null;
 };
 
+const obtenerTiempoActividad = valorFecha => {
+  const valor = String(valorFecha || '').trim();
+  if (!valor) return null;
+  const fechaLocal = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?)?$/i.exec(valor);
+  if (fechaLocal) {
+    const [, dia, mes, anio, hora = '0', minuto = '0', segundo = '0', periodo = ''] = fechaLocal;
+    let hora24 = Number(hora);
+    const periodoNormalizado = periodo.replace(/[\s.]/g, '').toLowerCase();
+    if (periodoNormalizado === 'pm' && hora24 < 12) hora24 += 12;
+    if (periodoNormalizado === 'am' && hora24 === 12) hora24 = 0;
+    return new Date(Number(anio), Number(mes) - 1, Number(dia), hora24, Number(minuto), Number(segundo)).getTime();
+  }
+  const tiempo = Date.parse(valor);
+  return Number.isFinite(tiempo) ? tiempo : null;
+};
+
+const obtenerUltimoCambio = registro => {
+  const tiempos = (Array.isArray(registro?.historialCambios) ? registro.historialCambios : [])
+    .map(cambio => obtenerTiempoActividad(cambio?.timestamp || cambio?.fecha || cambio?.fechaHora))
+    .filter(tiempo => tiempo !== null);
+  return tiempos.length > 0 ? Math.max(...tiempos) : null;
+};
+
 const compararInformesPorFecha = (a, b) => {
   const fechaA = obtenerTiempoInforme(a.fecha);
   const fechaB = obtenerTiempoInforme(b.fecha);
@@ -3259,6 +3282,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           acc[key].push(p);
           return acc;
         }, {});
+        Object.values(planesPorInforme).forEach(planes => planes.sort((a, b) => {
+          const actividadA = obtenerUltimoCambio(a);
+          const actividadB = obtenerUltimoCambio(b);
+          if (actividadA !== actividadB) {
+            if (actividadA === null) return 1;
+            if (actividadB === null) return -1;
+            return actividadB - actividadA;
+          }
+          return String(b.id || '').localeCompare(String(a.id || ''), 'es', { numeric: true, sensitivity: 'base' });
+        }));
 
         // Conservar informes con hallazgos sin planes, aplicando también los filtros activos.
         const hallazgosFiltrados = applyFilters(safeHallazgos, searchTerm, columnFilters);
@@ -3266,12 +3299,41 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
         const listaInformesIds = [...new Set([...Object.keys(planesPorInforme), ...informesConHallazgos])].filter(id => id && id !== 'undefined' && id !== 'null');
         const informesPorId = new Map(informesAuditoria.map(informe => [String(informe.id), informe]));
         const informesFiltradosPorFuente = listaInformesIds
-          .map(id => informesPorId.get(String(id)) || { id })
-          .filter(informe => !filtroFuenteMatriz || (
+          .map(id => {
+            const informe = informesPorId.get(String(id)) || { id };
+            const actividades = [
+              obtenerUltimoCambio(informe),
+              obtenerTiempoActividad(informe.fechaHora),
+              obtenerTiempoActividad(informe.fecha),
+              ...(planesPorInforme[id] || []).map(obtenerUltimoCambio),
+            ].filter(tiempo => tiempo !== null);
+            return {
+              informe,
+              ultimaActividad: actividades.length > 0 ? Math.max(...actividades) : null,
+              fechaInforme: obtenerTiempoInforme(informe.fecha),
+            };
+          })
+          .filter(({ informe }) => !filtroFuenteMatriz || (
             resolverCategoriaFuente(informe.tipoFuente, fuentesMejora) === filtroFuenteMatriz
           ))
-          .sort(compararInformesPorFecha)
-          .map(informe => String(informe.id));
+          .sort((a, b) => {
+            if (a.ultimaActividad !== b.ultimaActividad) {
+              if (a.ultimaActividad === null) return 1;
+              if (b.ultimaActividad === null) return -1;
+              return b.ultimaActividad - a.ultimaActividad;
+            }
+            if (a.fechaInforme !== b.fechaInforme) {
+              if (a.fechaInforme === null) return 1;
+              if (b.fechaInforme === null) return -1;
+              return b.fechaInforme - a.fechaInforme;
+            }
+            return String(b.informe.ref || b.informe.id || '').localeCompare(
+              String(a.informe.ref || a.informe.id || ''),
+              'es',
+              { numeric: true, sensitivity: 'base' }
+            );
+          })
+          .map(({ informe }) => String(informe.id));
         const totalInformesMatriz = informesFiltradosPorFuente.length;
         const totalPaginasMatriz = Math.max(1, Math.ceil(totalInformesMatriz / informesPorPaginaMatriz));
         const paginaMatrizActual = Math.min(paginaHistorialMatriz, totalPaginasMatriz);

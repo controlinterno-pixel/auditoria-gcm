@@ -32,6 +32,52 @@ const obtenerTiempoInforme = fecha => {
   return Number.isFinite(tiempo) ? tiempo : null;
 };
 
+const obtenerTiempoActividad = fecha => {
+  const valor = String(fecha || '').trim();
+  if (!valor) return null;
+  const local = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?)?$/i.exec(valor);
+  if (local) {
+    const [, dia, mes, anio, hora = '0', minuto = '0', segundo = '0', periodo = ''] = local;
+    let hora24 = Number(hora);
+    const periodoNormalizado = periodo.replace(/[\s.]/g, '').toLowerCase();
+    if (periodoNormalizado === 'pm' && hora24 < 12) hora24 += 12;
+    if (periodoNormalizado === 'am' && hora24 === 12) hora24 = 0;
+    return new Date(Number(anio), Number(mes) - 1, Number(dia), hora24, Number(minuto), Number(segundo)).getTime();
+  }
+  const tiempo = Date.parse(valor);
+  return Number.isFinite(tiempo) ? tiempo : null;
+};
+
+const obtenerTiempoUltimaActividad = hallazgo => {
+  const tiemposCambios = (Array.isArray(hallazgo?.historialCambios) ? hallazgo.historialCambios : [])
+    .map(cambio => obtenerTiempoActividad(cambio?.timestamp || cambio?.fecha))
+    .filter(tiempo => tiempo !== null);
+  return tiemposCambios.length > 0
+    ? Math.max(...tiemposCambios)
+    : obtenerTiempoActividad(hallazgo?.fecha);
+};
+
+const obtenerTerritorioInforme = informe => {
+  const partesProceso = String(informe?.proceso || '').split('/').map(parte => parte.trim());
+  const macroprocesos = convertirMacroprocesosEnLista(
+    informe?.macroprocesos || informe?.macroproceso || partesProceso[0]
+  );
+  const subprocesos = convertirSubprocesosEnLista(
+    informe?.subprocesos ?? informe?.subproceso ?? (partesProceso.slice(1).join('/') || 'General')
+  );
+  const relacionGuardada = informe?.subprocesosPorMacroproceso || {};
+  const relacion = Object.fromEntries(macroprocesos.map((macroproceso, indice) => {
+    const claveGuardada = Object.keys(relacionGuardada).find(clave => (
+      clave.trim().toLowerCase() === macroproceso.trim().toLowerCase()
+    ));
+    const subprocesosMacroproceso = claveGuardada
+      ? relacionGuardada[claveGuardada]
+      : indice === 0 ? subprocesos : [];
+    return [macroproceso, convertirSubprocesosEnLista(subprocesosMacroproceso)];
+  }));
+  return { macroprocesos, relacion };
+};
+
 const compararInformesRecientes = (a, b) => {
   const fechaA = obtenerTiempoInforme(a.fecha);
   const fechaB = obtenerTiempoInforme(b.fecha);
@@ -165,12 +211,16 @@ export default function Hallazgos({
   const informeOrigenSeleccionado = informeOrigenState[idEdicion] ?? informeOrigenPorDefecto;
   const iniciarNuevoHallazgo = () => {
     const informeInicial = String(autoFillData?.idInforme || informesOrdenadosRecientes[0]?.id || '');
+    const informe = informesAuditoria.find(item => String(item.id) === informeInicial);
+    const territorioInicialInforme = obtenerTerritorioInforme(informe || autoFillData);
     setInformeOrigenState(prev => {
       const siguiente = { ...prev };
       if (informeInicial) siguiente.nuevo = informeInicial;
       else delete siguiente.nuevo;
       return siguiente;
     });
+    setMacroprocesosFormState(prev => ({ ...prev, nuevo: territorioInicialInforme.macroprocesos }));
+    setSubprocesosPorMacroprocesoFormState(prev => ({ ...prev, nuevo: territorioInicialInforme.relacion }));
     setFormularioModificado(false);
     setEditHallazgo(null);
     setEsSoloLectura(false);
@@ -1018,17 +1068,8 @@ export default function Hallazgos({
 
                   const infEncontrado = informesAuditoria.find(inf => String(inf.id) === String(idInfSeleccionado));
                   if (infEncontrado) {
-                    const partesProcesoInforme = String(infEncontrado.proceso || '').split('/').map(parte => parte.trim());
-                    const macrosAuto = convertirMacroprocesosEnLista(
-                      infEncontrado.macroprocesos || infEncontrado.macroproceso || partesProcesoInforme[0]
-                    );
-                    const subprocesosAuto = convertirSubprocesosEnLista(
-                      infEncontrado.subprocesos ?? infEncontrado.subproceso ?? (partesProcesoInforme.slice(1).join('/') || 'General')
-                    );
-                    const relacionAuto = infEncontrado.subprocesosPorMacroproceso || Object.fromEntries(
-                      macrosAuto.map((macroproceso, indice) => [macroproceso, indice === 0 ? subprocesosAuto : []])
-                    );
-                    actualizarTerritorioForm(macrosAuto, relacionAuto);
+                    const territorioInforme = obtenerTerritorioInforme(infEncontrado);
+                    actualizarTerritorioForm(territorioInforme.macroprocesos, territorioInforme.relacion);
                   }
                 }} 
                 required 
@@ -1351,8 +1392,46 @@ export default function Hallazgos({
           acc[key].push(h);
           return acc;
         }, {});
+        Object.values(hallazgosPorInforme).forEach(hallazgos => hallazgos.sort((a, b) => {
+          const actividadA = obtenerTiempoUltimaActividad(a);
+          const actividadB = obtenerTiempoUltimaActividad(b);
+          if (actividadA !== actividadB) {
+            if (actividadA === null) return 1;
+            if (actividadB === null) return -1;
+            return actividadB - actividadA;
+          }
+          return String(b.id || '').localeCompare(String(a.id || ''), 'es', { numeric: true, sensitivity: 'base' });
+        }));
 
-        const listaInformesIds = Object.keys(hallazgosPorInforme);
+        const listaInformesIds = Object.entries(hallazgosPorInforme)
+          .map(([idInforme, hallazgos]) => {
+            const ultimaActividadHallazgo = hallazgos.reduce((ultima, hallazgo) => {
+              const actividad = obtenerTiempoUltimaActividad(hallazgo);
+              return actividad !== null && (ultima === null || actividad > ultima) ? actividad : ultima;
+            }, null);
+            const informe = informesAuditoria.find(item => String(item.id) === String(idInforme));
+            const ultimaActividadInforme = obtenerTiempoUltimaActividad(informe);
+            const actividades = [ultimaActividadHallazgo, ultimaActividadInforme].filter(tiempo => tiempo !== null);
+            return {
+              idInforme,
+              ultimaActividad: actividades.length > 0 ? Math.max(...actividades) : null,
+              fechaInforme: obtenerTiempoActividad(informe?.fecha),
+            };
+          })
+          .sort((a, b) => {
+            if (a.ultimaActividad !== b.ultimaActividad) {
+              if (a.ultimaActividad === null) return 1;
+              if (b.ultimaActividad === null) return -1;
+              return b.ultimaActividad - a.ultimaActividad;
+            }
+            if (a.fechaInforme !== b.fechaInforme) {
+              if (a.fechaInforme === null) return 1;
+              if (b.fechaInforme === null) return -1;
+              return b.fechaInforme - a.fechaInforme;
+            }
+            return b.idInforme.localeCompare(a.idInforme, 'es', { numeric: true, sensitivity: 'base' });
+          })
+          .map(item => item.idInforme);
         const totalInformes = listaInformesIds.length;
         const totalPaginas = Math.max(1, Math.ceil(totalInformes / informesPorPagina));
         const paginaActual = Math.min(paginaHistorial, totalPaginas);
