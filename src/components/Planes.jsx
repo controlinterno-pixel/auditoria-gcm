@@ -83,9 +83,9 @@ export default function Planes({
 }) {
   const { catalogoCargos = [], cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
 
-const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
+  const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
-  const [generandoPdfId, setGenerandoPdfId] = useState(null); // 👈 ¡Faltaba declarar este estado!
+  const [generandoPdfId, setGenerandoPdfId] = useState(null);
   const [pdfProgress, setPdfProgress] = useState('Preparando el informe…');
   const [evalDetalleModal, setEvalDetalleModal] = useState(null);
   const [historialModal, setHistorialModal] = useState({ activo: false, plan: null });
@@ -105,11 +105,11 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [guardandoDecisionRevision, setGuardandoDecisionRevision] = useState(false);
   const [guardandoAccionKey, setGuardandoAccionKey] = useState(null);
   const handleDescargarPdfConLoader = async (idInf, refInforme) => {
-    if (generandoPdfId) return; // Evita clics dobles
+    if (generandoPdfId) return;
     try {
-      setGenerandoPdfId(idInf); // Activa la pantalla de carga
+      setGenerandoPdfId(idInf);
       setPdfProgress('Preparando el informe…');
-      await new Promise(resolve => setTimeout(resolve, 100)); 
+      await new Promise(resolve => setTimeout(resolve, 100));
       const element = document.getElementById(`pdf-export-plan-${idInf}`);
       const generado = await exportarA_PDF(
         element,
@@ -124,21 +124,17 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
       );
       if (!generado) throw new Error('No se pudo generar el archivo.');
     } catch (error) {
-      console.error("Error al generar PDF:", error);
+      console.error('Error al generar PDF:', error);
       alert('No se pudo generar el PDF. Verifique e intente nuevamente.');
     } finally {
-      setGenerandoPdfId(null); // Desactiva el loader al terminar
+      setGenerandoPdfId(null);
     }
   };
 
- // 🔍 NUEVO SISTEMA DE BÚSQUEDA RÁPIDA CON AUTOCOMPLETADO
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-
   const textoBuscado = busquedaRapida.trim().toUpperCase();
   const digitosBuscados = busquedaRapida.replace(/\D/g, '');
   const numBuscado = digitosBuscados ? parseInt(digitosBuscados, 10) : null;
-
-  // Calculamos las coincidencias en tiempo real
   const hallazgosPorId = useMemo(
     () => new Map(safeHallazgos.map(hallazgo => [String(hallazgo.id), hallazgo])),
     [safeHallazgos]
@@ -773,8 +769,23 @@ const handleNotificarPlan = (planId) => {
         ];
         setPlanes(planesFinales);
         handleInformeChange(formInformeId, planesFinales, safeHallazgos);
-
         const enlaceRevision = `${window.location.origin}/?reviewReportId=${encodeURIComponent(formInformeId)}`;
+        const hayReenvioDiseno = planesActualizados.some(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
+        const hayAvanceAlCien = planesActualizados.some(plan => plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR);
+        const mensajeGuardado = actividadesNuevas.length > 0
+          ? `${planesCreados.length} plan(es) guardado(s) correctamente.`
+          : hayReenvioDiseno
+            ? 'Diseño guardado y enviado a revisión de jefatura.'
+            : hayAvanceAlCien
+              ? 'Avance guardado y enviado a validación del revisor.'
+              : 'Avance guardado correctamente.';
+        setEditPlan(null);
+        setFormInformeId('');
+        setMatrixState({});
+        setMatrixDirty(false);
+        setVistaActiva('historial');
+        showNotification(mensajeGuardado, 'success');
+
         let todasNotificacionesEnviadas = true;
         let correoPreparado = !requierePrepararGmail;
         if (promesaPreparacionGmail) {
@@ -838,23 +849,9 @@ const handleNotificarPlan = (planId) => {
           }
         }
 
-       setEditPlan(null);
-        setFormInformeId('');
-        setMatrixState({});
-        setMatrixDirty(false);
-        setVistaActiva('historial');
-        const hayReenvioDiseno = planesActualizados.some(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
-        const hayAvanceAlCien = planesActualizados.some(plan => plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR);
-        const mensajeGuardado = actividadesNuevas.length > 0
-          ? 'Planes creados y notificaciones enviadas.'
-          : hayReenvioDiseno
-            ? 'Diseño corregido y enviado a revisión de jefatura.'
-            : hayAvanceAlCien
-              ? 'Avance al 100% enviado a validación del revisor.'
-              : 'Avance guardado correctamente.';
-        alert(todasNotificacionesEnviadas
-          ? mensajeGuardado
-          : 'Los cambios se guardaron, pero no se pudieron enviar todas las notificaciones.');
+        if (!todasNotificacionesEnviadas) {
+          showNotification('La matriz quedó guardada, pero algunas notificaciones están pendientes de reintento.', 'error');
+        }
       } catch (error) {
         alert(error.message || 'No se pudieron crear los planes de acción.');
       }
@@ -1570,11 +1567,12 @@ if (existingActivities.length > 0) {
     try {
       const requiereNotificacion = (esNueva && enviarNotificaciones) || llegaAlCien || (!isAdmin && cambioDiseno);
       let correoPreparado = !requiereNotificacion;
+      let promesaPreparacionGmail = null;
       if (requiereNotificacion && prepararEnvioGmail) {
         try {
-          correoPreparado = Boolean(await prepararEnvioGmail());
+          promesaPreparacionGmail = Promise.resolve(prepararEnvioGmail()).catch(() => false);
         } catch {
-          correoPreparado = false;
+          promesaPreparacionGmail = Promise.resolve(false);
         }
       }
 
@@ -1606,6 +1604,17 @@ if (existingActivities.length > 0) {
           }],
         });
         planGuardado = respuesta?.planesNuevos?.[0];
+        setGuardandoAccionKey(null);
+        showNotification(
+          requiereNotificacion
+            ? 'Acción guardada correctamente. Las notificaciones se están procesando.'
+            : 'Acción guardada correctamente. Puedes continuar con la siguiente.',
+          'success'
+        );
+
+        if (promesaPreparacionGmail) {
+          correoPreparado = Boolean(await promesaPreparacionGmail);
+        }
       } else {
         const correoAuditorOriginal = planOriginal?.correoAuditor || informeActual?.correoAuditor || '';
         const cambiosCorreo = {};
@@ -1730,12 +1739,9 @@ if (existingActivities.length > 0) {
         notificacionEnviada = false;
       }
 
-      showNotification(
-        notificacionEnviada
-          ? 'Acción guardada. Puedes continuar con la siguiente.'
-          : 'Acción guardada, pero no se pudo confirmar el envío de la notificación.',
-        notificacionEnviada ? 'success' : 'error'
-      );
+      if (!notificacionEnviada) {
+        showNotification('La acción quedó guardada, pero la notificación no pudo confirmarse y quedó pendiente de reintento.', 'error');
+      }
     } catch (error) {
       showNotification(error.message || 'No se pudo guardar esta acción.', 'error');
     } finally {
@@ -2780,7 +2786,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const puedeEditarAsignacion = !modoRevisionMatriz && (isAdmin || actividadNueva);
   const puedeEditarCorreo = !modoRevisionMatriz && (isAdmin || actividadNueva || esResponsableActividad);
   const puedeEditarCorreoAuditor = !modoRevisionMatriz && (!actividadNueva && (isAdmin || esResponsableActividad));
-  const puedeEditarAvance = !modoRevisionMatriz && (isAdmin || actividadNueva || (
+  const puedeEditarAvance = !modoRevisionMatriz && !actividadNueva && (isAdmin || (
     esResponsableActividad && ['En Ejecución', 'En Revisión (100%)'].includes(act.estadoWorkflow)
   ));
   return (
@@ -3025,7 +3031,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               })()}
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Avance ({act.progreso}%)</label>
-                                <input type="number" min="0" max="100" step="1" value={act.progreso ?? 0} disabled={!puedeEditarAvance} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value === '' ? '' : Number(e.target.value))} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50 disabled:bg-slate-100 disabled:text-slate-500" />
+                                <input type="number" min="0" max="100" step="1" value={actividadNueva ? 0 : act.progreso ?? 0} disabled={!puedeEditarAvance} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value === '' ? '' : Number(e.target.value))} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50 disabled:bg-slate-100 disabled:text-slate-500" />
                               </div>
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Fecha Inicio</label>
