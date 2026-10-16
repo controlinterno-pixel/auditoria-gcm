@@ -131,6 +131,7 @@ export default function Hallazgos({
   const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
   const [paginaHistorial, setPaginaHistorial] = useState(1);
   const [informesPorPagina, setInformesPorPagina] = useState(10);
+  const [versionFormularioNuevo, setVersionFormularioNuevo] = useState(0);
 
   // ✨ NUEVA FUNCIÓN DE UX: Previene salir por accidente si hay cambios
   const cambiarVistaSegura = (nuevaVista) => {
@@ -179,15 +180,6 @@ export default function Hallazgos({
   const [subprocesosPorMacroprocesoFormState, setSubprocesosPorMacroprocesoFormState] = useState({});
   const [informeOrigenState, setInformeOrigenState] = useState({});
   const [metodologiaCausaState, setMetodologiaCausaState] = useState({});
-  const [autoFillData] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const tempAuto = sessionStorage.getItem('hallazgo_emergente_auto');
-      return tempAuto ? JSON.parse(tempAuto) : null;
-    } catch { 
-      return null; 
-    }
-  });
 
   useEffect(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('hallazgo_emergente_auto')) {
@@ -207,29 +199,27 @@ export default function Hallazgos({
   const informesOrdenadosRecientes = [...informesAuditoria].sort(compararInformesRecientes);
   const informeOrigenPorDefecto = editHallazgo
     ? String(editHallazgo.idInforme || '')
-    : String(autoFillData?.idInforme || informesOrdenadosRecientes[0]?.id || '');
+    : '';
   const informeOrigenSeleccionado = informeOrigenState[idEdicion] ?? informeOrigenPorDefecto;
   const iniciarNuevoHallazgo = () => {
-    const informeInicial = String(autoFillData?.idInforme || informesOrdenadosRecientes[0]?.id || '');
-    const informe = informesAuditoria.find(item => String(item.id) === informeInicial);
-    const territorioInicialInforme = obtenerTerritorioInforme(informe || autoFillData);
-    setInformeOrigenState(prev => {
-      const siguiente = { ...prev };
-      if (informeInicial) siguiente.nuevo = informeInicial;
-      else delete siguiente.nuevo;
-      return siguiente;
-    });
-    setMacroprocesosFormState(prev => ({ ...prev, nuevo: territorioInicialInforme.macroprocesos }));
-    setSubprocesosPorMacroprocesoFormState(prev => ({ ...prev, nuevo: territorioInicialInforme.relacion }));
+    setInformeOrigenState(prev => ({ ...prev, nuevo: '' }));
+    setMacroprocesosFormState(prev => ({ ...prev, nuevo: [] }));
+    setSubprocesosPorMacroprocesoFormState(prev => ({ ...prev, nuevo: {} }));
+    setMetodologiaCausaState(prev => ({ ...prev, nuevo: '' }));
+    setSedesState(prev => ({ ...prev, nuevo: [] }));
+    setArchivosSubidosState(prev => ({ ...prev, nuevo: [] }));
+    setSedeTemp('');
+    setResponsableTemp('');
     setFormularioModificado(false);
     setEditHallazgo(null);
     setEsSoloLectura(false);
     limpiarResponsablesNuevo();
+    setVersionFormularioNuevo(prev => prev + 1);
     setVistaActiva('nuevo');
   };
-  const metodologiaCausa = metodologiaCausaState[idEdicion] ?? (editHallazgo?.metodologiaCausa || autoFillData?.metodologiaCausa || '5 Porqués');
+  const metodologiaCausa = metodologiaCausaState[idEdicion] ?? editHallazgo?.metodologiaCausa ?? '';
 
-  const territorioInicial = editHallazgo || autoFillData || {};
+  const territorioInicial = editHallazgo || {};
   const procesoLegadoPartes = String(territorioInicial.proceso || '').split('/').map(parte => parte.trim());
   const macroprocesosGuardados = convertirMacroprocesosEnLista(territorioInicial.macroprocesos).length > 0
     ? territorioInicial.macroprocesos
@@ -306,7 +296,7 @@ export default function Hallazgos({
   const normaReferencia = fuenteOrigen?.norma || fuenteOrigen?.tipoNorma || informeOrigen?.norma || '';
 
   // ✨ NUEVO: Extracción de la Fuente de Mejora y su Detalle desde el Informe Origen
-  const tipoFuenteHallazgo = informeOrigen?.tipoFuente || editHallazgo?.tipoFuente || autoFillData?.tipoFuente || '';
+  const tipoFuenteHallazgo = informeOrigen?.tipoFuente || editHallazgo?.tipoFuente || '';
   const fuenteNormalizada = String(tipoFuenteHallazgo).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const metodologiaCausaDeshabilitada = esSoloLectura || fuenteNormalizada === 'programa de auditoria';
   const detalleFuenteHallazgo = informeOrigen?.detalleFuente || editHallazgo?.detalleFuente || '';
@@ -988,7 +978,7 @@ export default function Hallazgos({
               setFormularioModificado(false);
               setVistaActiva('dashboard');
             }
-          }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+          }} key={`${editHallazgo?.id || 'nuevo-hallazgo'}-${versionFormularioNuevo}`} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
             {/* Input Oculto de Compatibilidad (Legacy) */}
             <input type="hidden" name="proceso" value={procesoLegacyForm} />
@@ -1001,7 +991,8 @@ export default function Hallazgos({
 
             <div className="md:col-span-1">
               <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
-<select name="claseObservacion" disabled={esSoloLectura} defaultValue={editHallazgo?.claseObservacion || autoFillData?.claseObservacion || 'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed">
+<select name="claseObservacion" disabled={esSoloLectura} required defaultValue={editHallazgo?.claseObservacion || ''} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed">
+                <option value="">-- Seleccione una clase --</option>
                 <option value="Hallazgo">Hallazgo</option>
                 <option value="No Conformidad">No Conformidad</option>
                 <option value="Oportunidad de Mejora">Oportunidad de Mejora</option>
@@ -1215,7 +1206,8 @@ export default function Hallazgos({
                 <label className="font-black text-red-800 block mb-1 uppercase tracking-widest text-[10px]">⚠️ Nivel de Severidad</label>
                 <p className="text-[9px] text-red-600 font-medium">Clasificación del riesgo asociado a esta desviación.</p>
               </div>
-<select name="severidad" disabled={esSoloLectura} defaultValue={editHallazgo?.severidad || autoFillData?.severidad || 'Medio'} className="border border-red-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-800 w-48 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed">
+<select name="severidad" disabled={esSoloLectura} required defaultValue={editHallazgo?.severidad || ''} className="border border-red-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-800 w-48 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed">
+                <option value="">-- Seleccione nivel --</option>
                 <option value="Crítico">Crítico</option>
                 <option value="Alto">Alto</option>
                 <option value="Medio">Medio</option>
@@ -1225,7 +1217,7 @@ export default function Hallazgos({
 
             <div className="md:col-span-4">
               <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
-<textarea name="titulo" disabled={esSoloLectura} defaultValue={editHallazgo?.titulo || autoFillData?.titulo || ''} required rows="4" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed" />
+<textarea name="titulo" disabled={esSoloLectura} defaultValue={editHallazgo?.titulo || ''} required rows="4" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed" />
             </div>            
 
             {/* ✨ NUEVA SECCIÓN: ANÁLISIS DE CAUSAS RAÍZ */}
@@ -1238,10 +1230,12 @@ export default function Hallazgos({
                   <select 
   name="metodologiaCausa" 
   disabled={metodologiaCausaDeshabilitada}
+  required={!metodologiaCausaDeshabilitada}
   value={metodologiaCausa}
   onChange={(e) => setMetodologiaCausaState(prev => ({ ...prev, [idEdicion]: e.target.value }))}
   className="w-full border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-amber-600 outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
 >
+                    <option value="">-- Seleccione metodología --</option>
                     <option value="5 Porqués">Los 5 Porqués (ISO 9001)</option>
                     <option value="Ishikawa">Diagrama de Ishikawa (6M)</option>
                     <option value="Bow-Tie">Análisis Bow-Tie (Riesgos)</option>
@@ -1265,7 +1259,7 @@ export default function Hallazgos({
                  <textarea 
   name="analisisCausa" 
   disabled={metodologiaCausaDeshabilitada}
-  defaultValue={editHallazgo?.analisisCausa || autoFillData?.analisisCausa || ''} 
+  defaultValue={editHallazgo?.analisisCausa || ''}
   required 
   rows="6" 
   placeholder={
