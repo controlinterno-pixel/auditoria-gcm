@@ -47,6 +47,11 @@ async function usuarioPuedeEvaluarPlanes(partialData, user) {
     const planGuardado = planesPorId.get(String(planActualizado?.id));
     if (serializarEvaluacion(planGuardado) === serializarEvaluacion(planActualizado)) continue;
     if (!planGuardado) return false;
+    const correosEjecutores = String(planGuardado.correoResponsable || '')
+      .split(',')
+      .map(correo => correo.trim().toLowerCase())
+      .filter(Boolean);
+    if (correoUsuario && correosEjecutores.includes(correoUsuario)) return false;
 
     const hallazgo = hallazgosPorId.get(String(planGuardado.idHallazgo));
     const idInforme = hallazgo?.idInforme || planGuardado.idInforme;

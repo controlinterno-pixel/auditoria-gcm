@@ -542,8 +542,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
   const misPlanesRevision = planesConOrigen.filter(p => {
     const correoRevisor = (p.correoRevisor || '').trim().toLowerCase();
-    return correoRevisor === userEmailLower.trim() && 
-           (p.estadoWorkflow === 'Pendiente Revisión Jefatura' || p.estadoWorkflow === 'En Revisión (100%)');
+    return correoRevisor === userEmailLower.trim() && p.estadoWorkflow === 'Pendiente Revisión Jefatura';
   });
   const misTareasRevision = misPlanesRevision.length;
 

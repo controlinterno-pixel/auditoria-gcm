@@ -330,7 +330,10 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   const esAuditorAsignadoEvaluador = (informe, planes = []) => {
     const correoActual = String(user?.email || '').trim().toLowerCase();
     const correoAsignado = obtenerCorreoAuditorEvaluador(informe, planes);
-    return Boolean(correoActual && correoAsignado && correoActual === correoAsignado);
+    const esEjecutorDelPaquete = planes.some(plan => (
+      String(plan?.correoResponsable || '').trim().toLowerCase() === correoActual
+    ));
+    return Boolean(correoActual && correoAsignado && correoActual === correoAsignado && !esEjecutorDelPaquete);
   };
 
   const iniciarEvaluacionIntegral = (informe, planes) => {
