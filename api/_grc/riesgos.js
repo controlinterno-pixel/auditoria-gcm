@@ -4,7 +4,49 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { obtenerProcesosAsignados, normalizarProcesoAlcance } from '../_lib/assignmentScope.js';
+import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, normalizarProcesoAlcance, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
+
+const convertirListaProceso = valor => Array.isArray(valor)
+  ? valor.map(item => String(item || '').trim()).filter(Boolean)
+  : String(valor || '').split(',').map(item => item.trim()).filter(Boolean);
+
+const macroprocesosDeRiesgo = riesgo => {
+  const partesLegadas = String(riesgo.proceso || '').split('/').map(parte => parte.trim()).filter(Boolean);
+  const macroprocesos = convertirListaProceso(riesgo.macroprocesos).length > 0
+    ? convertirListaProceso(riesgo.macroprocesos)
+    : convertirListaProceso(riesgo.macroproceso || partesLegadas[0]);
+  return [...new Set(macroprocesos.map(macroproceso => macroproceso.split('/')[0].trim()).filter(Boolean))];
+};
+
+const subprocesosDeRiesgo = (riesgo, macroproceso) => {
+  const relaciones = riesgo.subprocesosPorMacroproceso && typeof riesgo.subprocesosPorMacroproceso === 'object'
+    ? riesgo.subprocesosPorMacroproceso
+    : {};
+  const claveRelacion = Object.keys(relaciones).find(clave => (
+    normalizarProcesoAlcance(clave) === normalizarProcesoAlcance(macroproceso)
+  ));
+  if (claveRelacion) return convertirListaProceso(relaciones[claveRelacion]);
+  const subprocesos = convertirListaProceso(riesgo.subprocesos).length > 0
+    ? convertirListaProceso(riesgo.subprocesos)
+    : convertirListaProceso(riesgo.subproceso);
+  if (subprocesos.length > 0) return subprocesos;
+  const partesLegadas = String(riesgo.proceso || '').split('/').map(parte => parte.trim()).filter(Boolean);
+  return partesLegadas.length > 1 ? partesLegadas.slice(1) : [];
+};
+
+const riesgoDentroDelAlcancePropietario = (riesgo, procesosAsignados, subprocesosAsignados) => {
+  const macroprocesos = macroprocesosDeRiesgo(riesgo);
+  if (procesosAsignados.length === 0 || macroprocesos.length === 0) return false;
+  if (subprocesosAsignados.length > 0 && macroprocesos.length > 1
+    && (!riesgo.subprocesosPorMacroproceso || typeof riesgo.subprocesosPorMacroproceso !== 'object')) return false;
+  return macroprocesos.every(macroproceso => registroDentroDelAlcance(
+    procesosAsignados,
+    subprocesosAsignados,
+    [macroproceso],
+    subprocesosDeRiesgo(riesgo, macroproceso),
+    riesgo.subprocesosPorMacroproceso,
+  ));
+};
 
 // 📊 Tabla 4 del Manual: Matriz de Calor Oficial
 const MATRIZ_CALOR_MANUAL = {
@@ -89,31 +131,8 @@ export default async function handler(req, res) {
   try {
     // 🔍 LECTURA CON RLS (GET)
     if (method === 'GET') {
-      const isGlobalUser = ['admin', 'auditor', 'gerente'].includes(user.rol?.toLowerCase());
-      const procesosAsignados = obtenerProcesosAsignados(user, user);
-      const procesosAsignadosOriginales = Array.isArray(user.procesosAsignados)
-        ? user.procesosAsignados.filter(Boolean)
-        : user.procesoAsignado ? [user.procesoAsignado] : [];
-
-      if (!isGlobalUser && procesosAsignados.length === 0) {
-        return sendSuccess(res, { riesgos: [] });
-      }
-
-      const snapshots = isGlobalUser
-        ? [await adminDb.collection('riesgos').get()]
-        : await Promise.all([...new Set(procesosAsignadosOriginales.flatMap(proceso => [
-          proceso,
-          String(proceso).split('/')[0].trim(),
-        ]))].flatMap(proceso => ([
-          adminDb.collection('riesgos').where('proceso', '==', proceso).get(),
-          adminDb.collection('riesgos').where('macroproceso', '==', proceso).get(),
-          adminDb.collection('riesgos').where('macroprocesos', 'array-contains', proceso).get(),
-        ])));
-      const riesgosPorId = new Map();
-      snapshots.forEach(snapshot => snapshot.forEach(documento => {
-        riesgosPorId.set(documento.id, { docId: documento.id, ...documento.data() });
-      }));
-      const riesgos = [...riesgosPorId.values()];
+      const snapshot = await adminDb.collection('riesgos').get();
+      const riesgos = snapshot.docs.map(documento => ({ docId: documento.id, ...documento.data() }));
 
       return sendSuccess(res, { riesgos });
     }
@@ -127,14 +146,13 @@ export default async function handler(req, res) {
         return sendError(res, 'El ID y el Proceso son campos obligatorios.', 400);
       }
 
-      // Validación RLS para usuarios no administradores
-      const isAdmin = ['admin', 'auditor'].includes(user.rol?.toLowerCase());
       const procesosAsignados = obtenerProcesosAsignados(user, user);
-      if (!isAdmin && procesosAsignados.length === 0) {
-        return sendError(res, 'No tiene un proceso asignado para modificar riesgos.', 403);
-      }
-      const procesoNormalizado = normalizarProcesoAlcance(proceso);
-      if (!isAdmin && !procesosAsignados.includes(procesoNormalizado)) {
+      const subprocesosAsignados = obtenerSubprocesosAsignados(user);
+      const riesgoSolicitado = {
+        ...riesgoData,
+        macroproceso: riesgoData.macroproceso || String(proceso).split('/')[0].trim(),
+      };
+      if (!riesgoDentroDelAlcancePropietario(riesgoSolicitado, procesosAsignados, subprocesosAsignados)) {
         return sendError(res, 'No tiene permisos para modificar riesgos de otro proceso.', 403);
       }
 
@@ -156,11 +174,10 @@ export default async function handler(req, res) {
       const guardado = await adminDb.runTransaction(async (transaction) => {
         const riesgoExistente = await transaction.get(riesgoRef);
         const datosRiesgoExistente = riesgoExistente.data() || {};
-        const macroprocesoExistente = datosRiesgoExistente.macroproceso
-          || datosRiesgoExistente.macroprocesos?.[0]
-          || String(datosRiesgoExistente.proceso || '').split('/')[0].trim();
-        if (!isAdmin && riesgoExistente.exists && !procesosAsignados.includes(
-          normalizarProcesoAlcance(macroprocesoExistente)
+        if (riesgoExistente.exists && !riesgoDentroDelAlcancePropietario(
+          datosRiesgoExistente,
+          procesosAsignados,
+          subprocesosAsignados,
         )) {
           return false;
         }
@@ -187,12 +204,24 @@ export default async function handler(req, res) {
       const { id } = req.query;
       if (!id) return sendError(res, 'ID de riesgo requerido.', 400);
 
-      const isAdmin = ['admin', 'auditor'].includes(user.rol?.toLowerCase());
+      const isAdmin = ['admin', 'administrador', 'auditor'].includes(user.rol?.toLowerCase());
       if (!isAdmin) {
         return sendError(res, 'Solo los administradores o auditores pueden eliminar riesgos.', 403);
       }
 
-      await adminDb.collection('riesgos').doc(String(id)).delete();
+      const procesosAsignados = obtenerProcesosAsignados(user, user);
+      const subprocesosAsignados = obtenerSubprocesosAsignados(user);
+      const riesgoRef = adminDb.collection('riesgos').doc(String(id));
+      const eliminado = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(riesgoRef);
+        if (!snapshot.exists) return 'not-found';
+        const riesgo = snapshot.data() || {};
+        if (!riesgoDentroDelAlcancePropietario(riesgo, procesosAsignados, subprocesosAsignados)) return false;
+        transaction.delete(riesgoRef);
+        return true;
+      });
+      if (eliminado === 'not-found') return sendError(res, 'No se encontró el riesgo solicitado.', 404);
+      if (!eliminado) return sendError(res, 'Solo el propietario del macroproceso puede eliminar este riesgo.', 403);
       logger.info('Riesgo eliminado de la matriz', { id, usuario: user.email });
 
       return sendSuccess(res, { message: 'Riesgo eliminado correctamente.' });

@@ -249,6 +249,8 @@ export default function Riesgos({
   hallazgos = [],        
   planesDeAccion = [],  
   isAdmin = false, 
+  user = null,
+  perfilUsuario = null,
  safeRiesgos: rawRiesgos, 
   setRiesgos = () => console.warn("Modo offline: setRiesgos no detectado"), 
   showNotification = () => {} 
@@ -256,6 +258,29 @@ export default function Riesgos({
    // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen
   const safeRiesgos = Array.isArray(rawRiesgos) ? rawRiesgos : [];
   const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
+  const procesosAsignadosPerfil = Array.isArray(perfilUsuario?.procesosAsignados) && perfilUsuario.procesosAsignados.length > 0
+    ? perfilUsuario.procesosAsignados
+    : perfilUsuario?.procesoAsignado;
+  const procesosAsignadosAuth = Array.isArray(user?.procesosAsignados) && user.procesosAsignados.length > 0
+    ? user.procesosAsignados
+    : user?.procesoAsignado;
+  const subprocesosAsignadosPerfil = Array.isArray(perfilUsuario?.subprocesosAsignados) && perfilUsuario.subprocesosAsignados.length > 0
+    ? perfilUsuario.subprocesosAsignados
+    : perfilUsuario?.subprocesoAsignado;
+  const subprocesosAsignadosUsuario = convertirCampoProcesoEnLista(subprocesosAsignadosPerfil || user?.subprocesosAsignados || user?.subprocesoAsignado)
+    .map(normalizarTextoProceso);
+  const procesosAsignadosUsuario = convertirCampoProcesoEnLista(procesosAsignadosPerfil || procesosAsignadosAuth)
+    .map(normalizarTextoProceso);
+  const puedeModificarRiesgo = riesgo => {
+    const ubicacionRiesgo = normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS);
+    const macroprocesosRiesgo = ubicacionRiesgo.macroprocesos
+      .filter(macroproceso => macroproceso !== 'Sin proceso')
+      .map(normalizarTextoProceso);
+    return macroprocesosRiesgo.length > 0
+      && macroprocesosRiesgo.every(macroproceso => procesosAsignadosUsuario.includes(macroproceso))
+      && (subprocesosAsignadosUsuario.length === 0 || ubicacionRiesgo.subprocesos.length > 0
+        && ubicacionRiesgo.subprocesos.every(subproceso => subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso))));
+  };
 
   // 🤖 ESTADOS PARA EL DICTAMEN DE INTELIGENCIA ARTIFICIAL EN EL DASHBOARD
   const [dictamenIA, setDictamenIA] = useState(null);
@@ -297,6 +322,19 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   
   // 🔢 FUNCIÓN BLINDADA PARA CALCULAR EL CONSECUTIVO EXACTO Y CAPTURAR RIESGO EMERGENTE
   const handleNuevoRiesgo = () => guardNavigationRiesgos(() => {
+    if (macroprocesosDisponibles.length === 0) {
+      showNotification('Tu perfil no tiene macroprocesos asignados para crear riesgos.', 'error');
+      return;
+    }
+    const macroprocesoPredeterminado = macroprocesosDisponibles[0];
+    const subprocesosPredeterminados = (MAPA_PROCESOS[macroprocesoPredeterminado] || []).filter(subproceso => (
+      subprocesosAsignadosUsuario.length === 0 || subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso))
+    ));
+    const seleccionInicial = subprocesosPredeterminados.length === 1 && subprocesosPredeterminados[0] === 'General'
+      ? ['General']
+      : subprocesosPredeterminados.slice(0, 1);
+    setMacroproceso(macroprocesoPredeterminado);
+    setSubprocesosSeleccionados(seleccionInicial);
     setFormularioModificado(false);
     setEditRiesgo(null);
     
@@ -319,8 +357,18 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       try {
         const data = JSON.parse(tempPromoted);
         const ubicacionPromovida = normalizarUbicacionRiesgo(data, MAPA_PROCESOS);
-        if (ubicacionPromovida.macroproceso !== 'Sin proceso') setMacroproceso(ubicacionPromovida.macroproceso);
-        setSubprocesosSeleccionados(ubicacionPromovida.subprocesos);
+        const macroprocesoPromovido = macroprocesosDisponibles.find(macro => (
+          normalizarTextoProceso(macro) === normalizarTextoProceso(ubicacionPromovida.macroproceso)
+        ));
+        if (macroprocesoPromovido) {
+          setMacroproceso(macroprocesoPromovido);
+          setSubprocesosSeleccionados(ubicacionPromovida.subprocesos.filter(subproceso => (
+            (!subprocesosAsignadosUsuario.length || subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso)))
+            && (MAPA_PROCESOS[macroprocesoPromovido] || []).some(opcion => (
+              normalizarTextoProceso(opcion) === normalizarTextoProceso(subproceso)
+            ))
+          )));
+        }
         if (data.causaInmediata) setCausaInmediata(data.causaInmediata);
         if (data.sede) setSedeForm(Array.isArray(data.sede) ? data.sede : [data.sede]);
         if (data.responsable) setResponsablesMultiples(Array.isArray(data.responsable) ? data.responsable : [data.responsable]);
@@ -338,9 +386,15 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   });
   // 🌟 NUEVOS ESTADOS EN CASCADA PARA PROCESOS
   const listadoMacros = Object.keys(MAPA_PROCESOS);
-  const [macroproceso, setMacroproceso] = useState(listadoMacros[0] || '');
-  const [subprocesosSeleccionados, setSubprocesosSeleccionados] = useState(MAPA_PROCESOS[listadoMacros[0]]?.slice(0, 1) || []);
-  const macroprocesosDisponibles = [...new Set([...listadoMacros, macroproceso].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const macroprocesoInicial = listadoMacros.find(nombre => procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre))) || '';
+  const [macroproceso, setMacroproceso] = useState(macroprocesoInicial);
+  const subprocesosIniciales = (MAPA_PROCESOS[macroprocesoInicial] || []).filter(subproceso => (
+    subprocesosAsignadosUsuario.length === 0 || subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso))
+  ));
+  const [subprocesosSeleccionados, setSubprocesosSeleccionados] = useState(subprocesosIniciales.slice(0, 1));
+  const macroprocesosDisponibles = [...new Set([...listadoMacros, macroproceso].filter(nombre => (
+    nombre && procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre))
+  )))].sort((a, b) => a.localeCompare(b, 'es'));
 
   // Función inteligente para manejar el cambio del proceso
   const handleMacroprocesoChange = (e) => {
@@ -353,7 +407,9 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     setSubprocesosSeleccionados(seleccionInicial);
   };
 
-  const subprocesosCatalogo = MAPA_PROCESOS[macroproceso] || [];
+  const subprocesosCatalogo = (MAPA_PROCESOS[macroproceso] || []).filter(subproceso => (
+    subprocesosAsignadosUsuario.length === 0 || subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso))
+  ));
   const subprocesosDisponibles = [...new Set([...subprocesosCatalogo, ...subprocesosSeleccionados])];
   const tieneSubprocesosReales = subprocesosDisponibles.length > 1 || (subprocesosDisponibles.length === 1 && subprocesosDisponibles[0] !== "General");
 
@@ -504,6 +560,11 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   };
 
   const handleDeleteRiesgo = async (id) => {
+    const riesgo = safeRiesgos.find(item => String(item.id) === String(id));
+    if (!riesgo || !puedeModificarRiesgo(riesgo)) {
+      showNotification('Solo puedes modificar riesgos de los macroprocesos que tienes asignados.', 'error');
+      return;
+    }
     if (window.confirm("⚠️ ¿Estás seguro de que deseas eliminar este riesgo de la matriz corporativa?")) {
       try {
         // 1. Eliminación en el servidor
@@ -836,6 +897,10 @@ FORMATO DE SALIDA JSON EXACTO:
     }
   };
  const handleEditRiesgo = (riesgo) => {
+    if (!puedeModificarRiesgo(riesgo)) {
+      showNotification('Solo puedes modificar riesgos de los macroprocesos que tienes asignados.', 'error');
+      return;
+    }
     setEditRiesgo(riesgo);
     setCustomId(riesgo.id); // 🔥 RECUPERAMOS EL ID PARA EL FORMULARIO
    const ubicacion = normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS);
@@ -1272,8 +1337,10 @@ const handleRiesgoSubmit = async (e) => {
               ) : riesgosEnCuadrante.map(riesgo => {
                 const nivel = nivelRiesgo(riesgo);
                 const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : 0;
+                const puedeEditar = puedeModificarRiesgo(riesgo);
+                const ElementoRiesgo = puedeEditar ? 'button' : 'article';
                 return (
-                  <button type="button" key={riesgo.id} onClick={() => handleEditRiesgo(riesgo)} className="block w-full rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-emerald-500 hover:bg-emerald-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                  <ElementoRiesgo {...(puedeEditar ? { type: 'button', onClick: () => handleEditRiesgo(riesgo) } : {})} key={riesgo.id} className={`block w-full rounded-lg border border-slate-200 p-3 text-left ${puedeEditar ? 'transition-colors hover:border-emerald-500 hover:bg-emerald-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700' : ''}`}>
                     <span className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[10px] font-black text-emerald-800">RSK-{riesgo.id}</span>
                       <span className={`rounded px-2 py-0.5 text-[9px] font-black ${nivel === 'Extremo' ? 'bg-rose-100 text-rose-800' : nivel === 'Alto' ? 'bg-orange-100 text-orange-800' : nivel === 'Moderado' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'}`}>{nivel}</span>
@@ -1285,7 +1352,7 @@ const handleRiesgoSubmit = async (e) => {
                       <span>Mitigación {calcularMitigacionRiesgo(riesgo)}%</span>
                       {riesgo.fechaSeguimiento && <span>Seguimiento {riesgo.fechaSeguimiento}</span>}
                     </span>
-                  </button>
+                  </ElementoRiesgo>
                 );
               })}
             </div>
@@ -1334,16 +1401,18 @@ const handleRiesgoSubmit = async (e) => {
               <p className="mt-1 text-[10px] text-slate-500">Ordenados por puntaje residual; selecciona para abrir el registro.</p>
             </div>
             <div className="space-y-1">
-              {riesgosPrioritarios.slice(0, 5).map((riesgo, indice) => (
-                <button type="button" key={riesgo.id} onClick={() => handleEditRiesgo(riesgo)} className="grid min-h-12 w-full grid-cols-[28px_minmax(0,1fr)_54px] items-center gap-2 rounded-md px-2 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+              {riesgosPrioritarios.slice(0, 5).map((riesgo, indice) => {
+                const puedeEditar = puedeModificarRiesgo(riesgo);
+                const ElementoRiesgo = puedeEditar ? 'button' : 'article';
+                return <ElementoRiesgo {...(puedeEditar ? { type: 'button', onClick: () => handleEditRiesgo(riesgo) } : {})} key={riesgo.id} className={`grid min-h-12 w-full grid-cols-[28px_minmax(0,1fr)_54px] items-center gap-2 rounded-md px-2 text-left ${puedeEditar ? 'hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700' : ''}`}>
                   <span className="font-mono text-[10px] font-bold text-slate-400">{String(indice + 1).padStart(2, '0')}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-[11px] font-bold text-slate-800">{riesgo.descripcion || riesgo.escenarioFinal || `Riesgo RSK-${riesgo.id}`}</span>
                     <span className="block truncate text-[9px] text-slate-500">{riesgo.macroprocesos.join(', ') || 'Sin proceso'} · RSK-{riesgo.id}{riesgo.fechaSeguimiento ? ` · ${riesgo.fechaSeguimiento}` : ''}</span>
                   </span>
                   <span className="rounded-md bg-slate-100 px-2 py-1 text-center text-[10px] font-black tabular-nums text-slate-800">S {scoreRiesgo(riesgo)}</span>
-                </button>
-              ))}
+                </ElementoRiesgo>;
+              })}
               {riesgosPrioritarios.length === 0 && <p className="py-5 text-center text-xs text-slate-500">No hay riesgos que coincidan con los filtros.</p>}
             </div>
           </div>
@@ -1647,8 +1716,8 @@ const renderMatriz = () => {
 
                      {/* GESTIÓN: Todos pueden editar ✏️, pero solo Administradores pueden borrar 🗑️ */}
 <div className="col-span-1 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
-  <button onClick={() => handleEditRiesgo(r)} className="p-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar">✏️</button>
-  {isAdmin && (
+  {puedeModificarRiesgo(r) && <button onClick={() => handleEditRiesgo(r)} className="p-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar riesgo y controles">✏️</button>}
+  {isAdmin && puedeModificarRiesgo(r) && (
     <button onClick={() => handleDeleteRiesgo(r.id)} className="p-1.5 hover:bg-red-100 text-red-600 rounded-lg text-xs" title="Eliminar">🗑️</button>
   )}
 </div>
@@ -1784,7 +1853,7 @@ const renderMatriz = () => {
   </button>
   
   {/* 2. BOTÓN EDITAR: Abre el formulario principal del Riesgo para recalcular todo */}
-  <button 
+  {puedeModificarRiesgo(r) && <button
     onClick={(e) => { 
       e.stopPropagation(); 
       if(showNotification) showNotification("Abriendo el formulario del riesgo para editar sus controles.", "success");
@@ -1793,7 +1862,7 @@ const renderMatriz = () => {
     className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold shadow-sm" 
     title="Editar Control">
     ✏️ Editar
-  </button>
+  </button>}
   
   {/* 3. BOTÓN IA: Conectado al prompt Enterprise GRC */}
   <button 
@@ -2155,9 +2224,9 @@ const renderMatriz = () => {
             <span className="mr-2">✨</span> Informe Global IA
           </button>
 
-          <button onClick={handleNuevoRiesgo} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg bg-[#0A3B32] text-white hover:bg-[#062620] border border-emerald-900">
+          {procesosAsignadosUsuario.length > 0 && <button onClick={handleNuevoRiesgo} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg bg-[#0A3B32] text-white hover:bg-[#062620] border border-emerald-900">
             <span className="mr-2">➕</span> Nuevo Riesgo
-          </button>
+          </button>}
         </div>
       </div>
 

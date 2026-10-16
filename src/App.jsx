@@ -852,6 +852,8 @@ return (
     {subTabPlanificar === 'riesgos' && (
       <Riesgos 
         isAdmin={isAdmin} 
+        user={user}
+        perfilUsuario={perfilUsuario}
         editRiesgo={editRiesgo} 
         setEditRiesgo={setEditRiesgo} 
         handleRiesgoSubmit={handleRiesgoSubmit}

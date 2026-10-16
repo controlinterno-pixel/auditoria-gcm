@@ -6,17 +6,22 @@ const normalizarLista = valor => [...new Set(
     .filter(Boolean)
 )];
 
-export const obtenerProcesosAsignados = (perfil = {}, user = {}) => (
-  Array.isArray(perfil.procesosAsignados)
-    ? normalizarLista(perfil.procesosAsignados)
-    : normalizarLista(perfil.procesoAsignado || user.procesosAsignados || user.procesoAsignado)
-);
+export const obtenerProcesosAsignados = (perfil = {}, user = {}) => {
+  const procesosPerfil = Array.isArray(perfil.procesosAsignados) && perfil.procesosAsignados.length > 0
+    ? perfil.procesosAsignados
+    : perfil.procesoAsignado;
+  const procesosUsuario = Array.isArray(user.procesosAsignados) && user.procesosAsignados.length > 0
+    ? user.procesosAsignados
+    : user.procesoAsignado;
+  return normalizarLista(procesosPerfil || procesosUsuario);
+};
 
-export const obtenerSubprocesosAsignados = (perfil = {}) => (
-  Array.isArray(perfil.subprocesosAsignados)
-    ? normalizarLista(perfil.subprocesosAsignados)
-    : normalizarLista(perfil.subprocesoAsignado)
-);
+export const obtenerSubprocesosAsignados = (perfil = {}) => {
+  const subprocesos = Array.isArray(perfil.subprocesosAsignados) && perfil.subprocesosAsignados.length > 0
+    ? perfil.subprocesosAsignados
+    : perfil.subprocesoAsignado;
+  return normalizarLista(subprocesos);
+};
 
 export const registroDentroDelAlcance = (
   procesosAsignados,

@@ -454,6 +454,19 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     [planesEnriquecidos, puedeReclamarPlan]
   );
 
+  useEffect(() => {
+    if (!['ejecucion', 'revision', 'aprobacion'].includes(detallePanelPlanes)) return undefined;
+    const temporizador = window.setTimeout(() => {
+      const areaPrincipal = document.getElementById('main-scroll-area');
+      const panelDetalle = document.getElementById('planes-task-detail');
+      if (areaPrincipal && panelDetalle && areaPrincipal.contains(panelDetalle)) {
+        panelDetalle.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        panelDetalle.focus({ preventScroll: true });
+      }
+    }, 60);
+    return () => window.clearTimeout(temporizador);
+  }, [detallePanelPlanes]);
+
 // 🕒 Registrar envío de recordatorio en la trazabilidad del plan
 const handleNotificarPlan = (planId) => {
   const planNotificable = safePlanes.find(plan => String(plan.id) === String(planId));
@@ -2528,7 +2541,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             </div>
 
             {/* 3. Columna derecha: detalle de alertas o distribución del portafolio */}
-            <div className={`lg:col-span-1 rounded-2xl border bg-white p-5 h-fit sticky top-24 transition-all duration-300 ${detallePanelPlanes === 'revision' ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-100' : detallePanelPlanes === 'ejecucion' ? 'border-rose-400 ring-2 ring-rose-300 shadow-lg shadow-rose-100' : 'border-slate-200 shadow-sm'}`}>
+            <div id="planes-task-detail" tabIndex={-1} className={`lg:col-span-1 rounded-2xl border bg-white p-5 h-fit sticky top-24 transition-all duration-300 ${detallePanelPlanes === 'aprobacion' ? 'border-emerald-500 ring-4 ring-emerald-300 shadow-xl shadow-emerald-100' : detallePanelPlanes === 'revision' ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-100' : detallePanelPlanes === 'ejecucion' ? 'border-rose-400 ring-2 ring-rose-300 shadow-lg shadow-rose-100' : 'border-slate-200 shadow-sm'}`}>
 {detallePanelPlanes ? (() => {
                 const esEjecucion = detallePanelPlanes === 'ejecucion';
                 const esRevision = detallePanelPlanes === 'revision';
@@ -2726,7 +2739,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   ));
   return (
                           <fieldset key={`act-row-${index}`} disabled={!puedeEditarActividad} className="contents">
-                          {!isAdmin && !actividadNueva && !esResponsableActividad && (
+                          {!modoRevisionMatriz && !isAdmin && !actividadNueva && !esResponsableActividad && (
                             <div role="note" className="md:col-span-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950">
                               <strong>Edición bloqueada por correo:</strong> esta acción está asignada a {act.correoResponsable || 'un correo no registrado'}, pero tu sesión es {user?.email || 'un usuario sin correo'}. Solicita a un administrador que actualice el correo del ejecutor para que coincida con la cuenta con la que inicias sesión.
                             </div>
