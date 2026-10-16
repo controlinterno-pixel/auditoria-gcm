@@ -2328,7 +2328,7 @@ const renderMatriz = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
-              <div className="md:col-span-2 lg:col-span-2 space-y-3">
+              <div className="md:col-span-2 lg:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <fieldset disabled={macroprocesosDisponibles.length === 0} className="rounded-lg border border-slate-300 bg-white p-2 disabled:bg-slate-100">
                   <legend className="px-1 text-[10px] font-black text-slate-500 uppercase tracking-wider">Macroprocesos / Procesos</legend>
                   <div className="grid max-h-36 grid-cols-1 gap-x-3 gap-y-1 overflow-y-auto sm:grid-cols-2">
