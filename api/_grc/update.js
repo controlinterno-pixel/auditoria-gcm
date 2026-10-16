@@ -344,7 +344,7 @@ export default async function handler(req, res) {
       const resultado = await adminDb.runTransaction(async transaction => {
         const workspace = await leerWorkspaceGrc(transaction);
         if (!workspace.workspaceExists) return { error: 'not-found' };
-        const { data, workspaceRef } = workspace;
+        const { data } = workspace;
         const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
         const anterior = hallazgos.find(hallazgo => String(hallazgo.id) === String(id));
         if (!anterior) return { error: 'not-found' };
@@ -419,11 +419,7 @@ export default async function handler(req, res) {
             },
           ] : historial,
         };
-        transaction.set(workspaceRef, {
-          hallazgos: hallazgos.map(hallazgo => (
-            String(hallazgo.id) === String(id) ? actualizado : hallazgo
-          )),
-        }, { merge: true });
+        transaction.set(workspace.coleccionHallazgosRef.doc(String(id)), actualizado);
         return { registro: actualizado };
       });
 

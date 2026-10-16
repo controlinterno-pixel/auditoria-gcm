@@ -321,7 +321,11 @@ export default async function handler(req, res) {
         guardarInformesGrc(transaction, workspace, [nuevoRegistro, ...registrosActuales]);
       } else {
         if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
-        transaction.set(workspaceRef, { [coleccion]: [nuevoRegistro, ...registrosActuales] }, { merge: true });
+        if (coleccion === 'hallazgos') {
+          transaction.set(workspace.coleccionHallazgosRef.doc(String(nuevoRegistro.id)), nuevoRegistro);
+        } else {
+          transaction.set(workspaceRef, { [coleccion]: [nuevoRegistro, ...registrosActuales] }, { merge: true });
+        }
       }
       return nuevoRegistro;
     });

@@ -7,6 +7,7 @@ const informesRef = () => adminDb.collection('workspace_compartido').doc('base_d
 // SUBCOLECCIONES ESCALABLES
 const coleccionInformesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('informes');
 const coleccionPlanesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('planes_accion'); // NUEVO
+const coleccionHallazgosRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('hallazgos');
 
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
 const workspaceReadCache = new Map();
@@ -49,6 +50,7 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
   const refInformes = informesRef();
   const refColeccionInformes = coleccionInformesRef();
   const refColeccionPlanes = coleccionPlanesRef();
+  const refColeccionHallazgos = coleccionHallazgosRef();
 
   const snapshotWorkspace = transaction
     ? await transaction.get(refWorkspace)
@@ -61,9 +63,15 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
   // Lectura híbrida: Legacy + Subcolecciones
   let informesIndependientes = [];
   let planesIndependientes = [];
-  if (!transaction) {
+  let hallazgosIndependientes;
+  if (transaction) {
+    const snapshotHallazgos = await transaction.get(refColeccionHallazgos);
+    hallazgosIndependientes = snapshotHallazgos.docs.map(documento => ({ id: documento.id, ...documento.data() }));
+  } else {
     informesIndependientes = await leerInformesFragmentados(refColeccionInformes, procesosAsignados);
     planesIndependientes = await leerPlanesFragmentados(refColeccionPlanes);
+    const snapshotHallazgos = await refColeccionHallazgos.get();
+    hallazgosIndependientes = snapshotHallazgos.docs.map(documento => ({ id: documento.id, ...documento.data() }));
   }
 
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
@@ -73,6 +81,7 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
     
   const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : [];
   const planesLegados = Array.isArray(datosWorkspace.planesAccion) ? datosWorkspace.planesAccion : [];
+  const hallazgosLegados = Array.isArray(datosWorkspace.hallazgos) ? datosWorkspace.hallazgos : [];
 
   const informesCombinados = [...(Array.isArray(informesSeparados) ? informesSeparados : informesLegados), ...informesIndependientes];
   const planesCombinados = [...planesLegados, ...planesIndependientes];
@@ -84,16 +93,25 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
   const mapaPlanes = new Map();
   planesCombinados.forEach(plan => { if (plan && plan.id) mapaPlanes.set(String(plan.id), plan); });
 
+  const mapaHallazgos = new Map();
+  hallazgosLegados.forEach(hallazgo => { if (hallazgo && hallazgo.id) mapaHallazgos.set(String(hallazgo.id), hallazgo); });
+  hallazgosIndependientes.forEach(hallazgo => { if (hallazgo && hallazgo.id) mapaHallazgos.set(String(hallazgo.id), hallazgo); });
+
   return {
     workspaceRef: refWorkspace,
     informesRef: refInformes,
     coleccionInformesRef: refColeccionInformes,
     coleccionPlanesRef: refColeccionPlanes,
-    workspaceExists: snapshotWorkspace.exists || snapshotInformes.exists,
+    coleccionHallazgosRef: refColeccionHallazgos,
+    workspaceExists: snapshotWorkspace.exists || snapshotInformes.exists || hallazgosIndependientes.length > 0,
     tieneInformesLegados: Array.isArray(datosWorkspace.informesAuditoria),
     tienePlanesLegados: Array.isArray(datosWorkspace.planesAccion),
     data: {
       ...datosWorkspace,
+      hallazgos: [
+        ...hallazgosLegados.filter(hallazgo => !hallazgo?.id),
+        ...mapaHallazgos.values(),
+      ],
       informesAuditoria: Array.from(mapaInformes.values()),
       planesAccion: Array.from(mapaPlanes.values()),
     },
@@ -152,6 +170,7 @@ export async function guardarWorkspaceParcial(partialData) {
   const refInformes = informesRef();
   const refColeccionInformes = coleccionInformesRef();
   const refColeccionPlanes = coleccionPlanesRef();
+  const refColeccionHallazgos = coleccionHallazgosRef();
   
   const [snapshotWorkspace, snapshotInformes] = await Promise.all([
     refWorkspace.get(),
@@ -171,12 +190,17 @@ export async function guardarWorkspaceParcial(partialData) {
   const incluyePlanes = Object.hasOwn(partialData, 'planesAccion') && Array.isArray(partialData.planesAccion);
   const planesActualizados = incluyePlanes ? partialData.planesAccion : (planesLegados ? planesLegados : null);
   const planesEliminados = [...new Set((Array.isArray(partialData.planesEliminados) ? partialData.planesEliminados : []).map(id => String(id || '').trim()).filter(Boolean))];
+
+  const incluyeHallazgos = Object.hasOwn(partialData, 'hallazgos') && Array.isArray(partialData.hallazgos);
+  const snapshotHallazgos = incluyeHallazgos ? await refColeccionHallazgos.get() : null;
+  const hallazgosActualizados = incluyeHallazgos ? partialData.hallazgos : null;
     
   const datosRestantes = { ...partialData };
   delete datosRestantes.informesAuditoria;
   delete datosRestantes.informesEliminados;
   delete datosRestantes.planesAccion; // Aseguramos que NO se guarde en el documento padre
   delete datosRestantes.planesEliminados;
+  delete datosRestantes.hallazgos;
 
   const operaciones = [];
 
@@ -204,6 +228,21 @@ export async function guardarWorkspaceParcial(partialData) {
     planesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', referencia: refColeccionPlanes.doc(id) }));
   }
 
+  if (incluyeHallazgos) {
+    const idsHallazgos = new Set();
+    hallazgosActualizados.forEach(hallazgo => {
+      if (!hallazgo || hallazgo.id === undefined || hallazgo.id === null) return;
+      const id = String(hallazgo.id);
+      idsHallazgos.add(id);
+      operaciones.push({ tipo: 'guardar', referencia: refColeccionHallazgos.doc(id), data: hallazgo });
+    });
+    snapshotHallazgos.docs.forEach(documento => {
+      if (!idsHallazgos.has(documento.id)) {
+        operaciones.push({ tipo: 'eliminar', referencia: documento.ref });
+      }
+    });
+  }
+
   // Ejecución en lotes seguros (Batches de 400 operaciones máximo)
   const chunkSize = 400;
   if (operaciones.length > 0) {
@@ -224,6 +263,7 @@ export async function guardarWorkspaceParcial(partialData) {
         batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
         if (Array.isArray(datosWorkspace.informesAuditoria)) datosRestantes.informesAuditoria = FieldValue.delete();
         if (Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
+        if (Array.isArray(datosWorkspace.hallazgos) && incluyeHallazgos) datosRestantes.hallazgos = FieldValue.delete();
         batch.set(refWorkspace, datosRestantes, { merge: true });
       }
       
@@ -235,6 +275,7 @@ export async function guardarWorkspaceParcial(partialData) {
     batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
     if (Array.isArray(datosWorkspace.informesAuditoria)) datosRestantes.informesAuditoria = FieldValue.delete();
     if (Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
+    if (Array.isArray(datosWorkspace.hallazgos) && incluyeHallazgos) datosRestantes.hallazgos = FieldValue.delete();
     batch.set(refWorkspace, datosRestantes, { merge: true });
     await batch.commit();
   }
