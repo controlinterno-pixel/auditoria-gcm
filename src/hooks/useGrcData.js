@@ -44,6 +44,10 @@ export function useGrcData() {
         } catch (err) {
           console.error("Error renovando cookie de servidor:", err);
           if ([401, 403].includes(err?.status)) {
+            console.error('[AUTH] Cierre automático durante la validación inicial de la sesión.', {
+              status: err.status,
+              code: err.code || 'unknown',
+            });
             window.alert(err?.message || 'El servidor rechazó la sesión o el acceso de esta cuenta.');
             await signOut(auth);
             return;
@@ -77,11 +81,12 @@ export function useGrcData() {
   }, []);
 
 // 2. Carga Inicial Centralizada SEGURA + Semáforo en Tiempo Real (Firestore)
+  const userId = user?.uid;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     
     let isMounted = true;
-    setTimeout(() => {
+    const loadingTimer = window.setTimeout(() => {
       if (isMounted) setIsCloudLoaded(false);
     }, 0);
 
@@ -151,9 +156,10 @@ export function useGrcData() {
 
     return () => {
       isMounted = false;
+      window.clearTimeout(loadingTimer);
       unsubscribeSemaforo();
     };
-  }, [user]);   
+  }, [userId]);
 
   // 3. Motor RLS Delegado al Servidor
   // 🛡️ Ya no filtramos arreglos en el cliente. Si la data llegó aquí, 

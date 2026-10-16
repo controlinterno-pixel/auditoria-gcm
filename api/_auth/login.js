@@ -53,9 +53,11 @@ export default async function handler(req, res) {
     const decodedIdToken = await adminAuth.verifyIdToken(idToken);
     const email = String(decodedIdToken.email || '').trim().toLowerCase();
     if (!email.endsWith('@termales.com.co')) {
+      logger.warn('Renovación de sesión rechazada: dominio no autorizado', { motivo: 'domain-not-allowed' });
       return sendError(res, 'Solo se permiten cuentas institucionales.', 403);
     }
     if (decodedIdToken.email_verified !== true) {
+      logger.warn('Renovación de sesión rechazada: correo no verificado', { motivo: 'email-not-verified' });
       return sendError(res, 'Verifica tu correo institucional antes de iniciar sesión.', 403);
     }
 
@@ -89,6 +91,10 @@ export default async function handler(req, res) {
 
     const userData = userDoc.data() || {};
     if (userData.estadoAcceso && userData.estadoAcceso !== 'activo') {
+      logger.warn('Renovación de sesión rechazada: acceso no activo', {
+        motivo: 'access-not-active',
+        estadoAcceso: userData.estadoAcceso,
+      });
       loginAttempts.delete(clientIp);
       const message = userData.estadoAcceso === 'rechazado'
         ? 'La solicitud de acceso fue rechazada. Contacta a un administrador.'

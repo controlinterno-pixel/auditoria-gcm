@@ -106,6 +106,12 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
             return await request(endpoint, options, reintentosMaximos, true);
           } catch (error) {
             if (error.status === 401 || error.status === 403) {
+              secureLogger.error('[AUTH] Cierre automático: el servidor rechazó la renovación de sesión', {
+                endpoint: String(endpoint).split('?')[0],
+                statusPeticion: response.status,
+                statusRenovacion: error.status,
+                codigoRenovacion: error.code || 'unknown',
+              });
               await signOut(auth).catch(() => {});
               throw error;
             }
