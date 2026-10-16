@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search } from 'lucide-react';
+import { CheckCircle2, Search, X } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
@@ -126,6 +126,7 @@ export default function Hallazgos({
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [formularioModificado, setFormularioModificado] = useState(false);
+  const [confirmacionGuardado, setConfirmacionGuardado] = useState('');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [paginaGrupoDashboard, setPaginaGrupoDashboard] = useState(1);
   const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
@@ -174,6 +175,12 @@ export default function Hallazgos({
     formularioModificado && vistaActiva === 'nuevo' && !esSoloLectura,
     'el hallazgo'
   );
+
+  useEffect(() => {
+    if (!confirmacionGuardado) return undefined;
+    const temporizador = window.setTimeout(() => setConfirmacionGuardado(''), 5000);
+    return () => window.clearTimeout(temporizador);
+  }, [confirmacionGuardado]);
 
   // 🌟 ESTADOS DERIVADOS DE MACRO Y SUBPROCESO
   const [macroprocesosFormState, setMacroprocesosFormState] = useState({});
@@ -472,6 +479,22 @@ export default function Hallazgos({
   
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {confirmacionGuardado && (
+        <div role="status" aria-live="polite" aria-atomic="true" className="flex items-center justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <CheckCircle2 size={19} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold">Guardado exitoso</p>
+              <p className="text-xs text-emerald-800">{confirmacionGuardado}</p>
+            </div>
+          </div>
+          <button type="button" onClick={() => setConfirmacionGuardado('')} aria-label="Cerrar confirmación de guardado" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+            <X size={17} aria-hidden="true" />
+          </button>
+        </div>
+      )}
       
       {/* 📋 CABECERA PRINCIPAL CON BANNER DE IMAGEN ESTILO PREMIUM */}
       <div 
@@ -973,8 +996,10 @@ export default function Hallazgos({
               window.alert('Selecciona al menos un macroproceso antes de guardar el hallazgo.');
               return;
             }
+            const estabaEditando = Boolean(editHallazgo);
             const guardado = await handleHallazgoSubmit(e);
             if (guardado) {
+              setConfirmacionGuardado(estabaEditando ? 'Los cambios del hallazgo quedaron registrados.' : 'El hallazgo nuevo quedó registrado.');
               setFormularioModificado(false);
               setVistaActiva('dashboard');
             }

@@ -285,7 +285,6 @@ export const createFormHandlers = ({
 
     if (editHallazgo) setEditHallazgo(null);
     e.target.reset(); 
-    showNotification(editHallazgo ? 'Hallazgo actualizado.' : 'Hallazgo creado.', 'success');
     return true;
   };
   const handlePlanSubmit = async (e) => {
