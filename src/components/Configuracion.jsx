@@ -146,6 +146,7 @@ export default function Configuracion({
             ) : (
               usuariosFiltrados.map((u) => {
                 const isExpanded = usuarioExpandido === u.id;
+                const panelId = `config-usuario-panel-${encodeURIComponent(String(u.id))}`;
                 const procesosAsignados = Array.isArray(u.procesosAsignados)
                   ? u.procesosAsignados
                   : u.procesoAsignado ? [u.procesoAsignado] : [];
@@ -161,8 +162,13 @@ export default function Configuracion({
                   
                   {/* 🔽 ENCABEZADO DEL ACORDEÓN (SIEMPRE VISIBLE) */}
                   <div 
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    aria-controls={panelId}
                     onClick={() => setUsuarioExpandido(isExpanded ? null : u.id)}
-                    className="p-4 flex flex-col md:flex-row justify-between md:items-center gap-4 cursor-pointer group"
+                    onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setUsuarioExpandido(isExpanded ? null : u.id); } }}
+                    className="p-4 flex flex-col md:flex-row justify-between md:items-center gap-4 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
                     title={isExpanded ? "Ocultar detalles" : "Clic para ver configuración del usuario"}
                   >
                     <div className="flex items-center gap-3 w-full md:w-auto">
@@ -212,7 +218,7 @@ export default function Configuracion({
 
                   {/* 👁️ CUERPO DEL ACORDEÓN (CONFIGURACIÓN DETALLADA) */}
                   {isExpanded && (
-                    <div className="p-4 sm:p-5 border-t border-slate-100 bg-white rounded-b-2xl animate-in slide-in-from-top-2 duration-300 space-y-5">
+                    <div id={panelId} className="p-4 sm:p-5 border-t border-slate-100 bg-white rounded-b-2xl animate-in slide-in-from-top-2 duration-300 space-y-5">
 
                       {u.estadoAcceso === 'pendiente' && (
                         <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">

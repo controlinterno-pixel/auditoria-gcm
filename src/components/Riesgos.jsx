@@ -576,54 +576,159 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
       return;
     }
 
-    const datosFormateados = safeRiesgos.map((r) => {
+    const riesgosExportados = safeRiesgos.map(r => {
       const zonaInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
       const zonaRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
-      const mitigacion = calcularMitigacionRiesgo(r);
-      const totalControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados.length : 0;
+      const controles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados.filter(Boolean) : [];
+      const controlLegado = controles.length === 0 ? String(r.descripcionControl || '').trim() : '';
+      const eficaciaPromedio = controles.length > 0
+        ? Math.round(controles.reduce((total, control) => total + calcularEficaciaControl(control), 0) / controles.length)
+        : null;
 
-      return {
-        "ID Riesgo": `RSK-${r.id}`, // 🔥 QUITAMOS EL RECORTE
-        "Estado": "Activo",
-        "Proceso": r.proceso || r.macroproceso || "No definido",
-        "Subproceso": r.subproceso || "General",
-        "Categoría ISO 31000": r.categoria || "N/A",
-        "Clasificación": r.clasificacionRiesgo || "N/A",
-        "Sedes Afectadas": Array.isArray(r.sede) ? r.sede.join(', ') : (r.sede || "Sin sede"),
-        "Responsable(s)": Array.isArray(r.responsable) ? r.responsable.join(', ') : (r.responsable || "Sin Asignar"),
-        "Tipo de Afectación": r.afectacion || "N/A",
-        "Causa Inmediata": r.causaInmediata || "N/A",
-        "Causa Raíz": r.causaRaiz || "N/A",
-        "Escenario del Riesgo": r.descripcion || r.escenarioFinal || "N/A",
-        "Prob. Inherente (%)": r.probabilidadInherente ?? 60,
-        "Impacto Inherente (%)": r.impactoInherente ?? 80,
-        "Nivel Inherente": zonaInh.label.toUpperCase(),
-        "Total Controles": totalControles,
-        "Mitigación Lograda (%)": mitigacion,
-        "Prob. Residual (%)": r.probabilidadResidual ?? 15,
-        "Impacto Residual (%)": r.impactoResidual ?? 30,
-        "Nivel Residual Final": zonaRes.label.toUpperCase(),
-        "Estrategia de Tratamiento": r.tratamiento || "Reducir el riesgo",
-        "Plan de Acción Inmediato": r.planAccionRiesgo || "N/A",
-        "Fecha de Seguimiento": r.fechaSeguimiento || "No programada"
-      };
+      return { riesgo: r, zonaInh, zonaRes, controles, controlLegado, eficaciaPromedio };
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(datosFormateados);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Matriz Corporativa");
+    const matrizRiesgos = riesgosExportados.map(({ riesgo, zonaInh, zonaRes, controles, controlLegado, eficaciaPromedio }) => ({
+      "ID Riesgo": `RSK-${riesgo.id}`,
+      "Estado": riesgo.estado || 'Activo',
+      "Proceso": riesgo.proceso || riesgo.macroproceso || 'No definido',
+      "Subproceso": riesgo.subproceso || 'General',
+      "Categoría ISO 31000": riesgo.categoria || 'N/A',
+      "Clasificación": riesgo.clasificacionRiesgo || 'N/A',
+      "Normativa Asociada": riesgo.normativa || 'N/A',
+      "Sedes Afectadas": Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'Sin sede'),
+      "Responsable(s)": Array.isArray(riesgo.responsable) ? riesgo.responsable.join(', ') : (riesgo.responsable || 'Sin asignar'),
+      "Tipo de Afectación": riesgo.afectacion || 'N/A',
+      "Causa Inmediata": riesgo.causaInmediata || 'N/A',
+      "Causa Raíz": riesgo.causaRaiz || 'N/A',
+      "Escenario del Riesgo": riesgo.descripcion || riesgo.escenarioFinal || 'N/A',
+      "Probabilidad Inherente (%)": riesgo.probabilidadInherente ?? 60,
+      "Impacto Inherente (%)": riesgo.impactoInherente ?? 80,
+      "Nivel Inherente": zonaInh.label.toUpperCase(),
+      "Total Controles": controles.length || (controlLegado ? 1 : 0),
+      "Controles Estructurados": controles.length,
+      "Eficacia Promedio de Controles (%)": eficaciaPromedio ?? 'N/A',
+      "Descripción de Control Legado": controlLegado || 'N/A',
+      "Mitigación Lograda (%)": calcularMitigacionRiesgo(riesgo),
+      "Probabilidad Residual (%)": riesgo.probabilidadResidual ?? 15,
+      "Impacto Residual (%)": riesgo.impactoResidual ?? 30,
+      "Nivel Residual Final": zonaRes.label.toUpperCase(),
+      "Estrategia de Tratamiento": riesgo.tratamiento || 'Reducir el riesgo',
+      "Plan de Acción": riesgo.planAccionRiesgo || 'N/A',
+      "Fecha de Seguimiento": riesgo.fechaSeguimiento || 'No programada',
+      "Bitácora de Seguimiento": riesgo.seguimientoBitacora || 'N/A',
+      "Fecha de Registro": riesgo.fecha || 'N/A',
+      "Cantidad de Cambios": Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios.length : 0,
+    }));
 
-    const wscols = [
-      { wch: 12 }, { wch: 10 }, { wch: 25 }, { wch: 20 }, { wch: 20 },
-      { wch: 25 }, { wch: 30 }, { wch: 25 }, { wch: 20 }, { wch: 40 },
-      { wch: 40 }, { wch: 50 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
-      { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 20 },
-      { wch: 25 }, { wch: 40 }, { wch: 20 }
+    const controlesPorRiesgo = riesgosExportados.flatMap(({ riesgo, zonaInh, zonaRes, controles, controlLegado }) => {
+      const contextoRiesgo = {
+        "ID Riesgo": `RSK-${riesgo.id}`,
+        "Descripción del Riesgo": riesgo.descripcion || riesgo.escenarioFinal || 'N/A',
+        "Proceso": riesgo.proceso || riesgo.macroproceso || 'No definido',
+        "Subproceso": riesgo.subproceso || 'General',
+        "Categoría": riesgo.categoria || 'N/A',
+        "Clasificación": riesgo.clasificacionRiesgo || 'N/A',
+        "Sedes Afectadas": Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'Sin sede'),
+        "Responsable del Riesgo": Array.isArray(riesgo.responsable) ? riesgo.responsable.join(', ') : (riesgo.responsable || 'Sin asignar'),
+        "Causa Inmediata": riesgo.causaInmediata || 'N/A',
+        "Causa Raíz": riesgo.causaRaiz || 'N/A',
+        "Normativa Asociada": riesgo.normativa || 'N/A',
+        "Nivel Inherente": zonaInh.label.toUpperCase(),
+        "Nivel Residual": zonaRes.label.toUpperCase(),
+        "Estrategia de Tratamiento": riesgo.tratamiento || 'N/A',
+        "Plan de Acción": riesgo.planAccionRiesgo || 'N/A',
+      };
+
+      if (controles.length === 0) {
+        return [{
+          ...contextoRiesgo,
+          "ID Control": 'N/A',
+          "N° Control": 'N/A',
+          "Control Estructurado": 'No',
+          "Descripción del Control": controlLegado || 'Sin controles registrados',
+          "Tipo": 'N/A',
+          "Implementación": 'N/A',
+          "Documentación": 'N/A',
+          "Frecuencia": 'N/A',
+          "Evidencia": 'N/A',
+          "Responsable del Control": 'N/A',
+          "Eficacia Calculada (%)": 'N/A',
+          "Observaciones del Control": 'N/A',
+        }];
+      }
+
+      return controles.map((control, indice) => ({
+        ...contextoRiesgo,
+        "ID Control": `RSK-${riesgo.id}-C${indice + 1}`,
+        "N° Control": indice + 1,
+        "Control Estructurado": 'Sí',
+        "Descripción del Control": control.descripcion || 'Sin descripción',
+        "Tipo": control.tipo || 'Preventivo',
+        "Implementación": control.implementacion || control.ejecucion || 'Manual',
+        "Documentación": control.documentacion || 'No especificada',
+        "Frecuencia": control.frecuencia || 'No especificada',
+        "Evidencia": control.evidencia || 'No especificada',
+        "Responsable del Control": control.responsable || control.responsableControl || contextoRiesgo['Responsable del Riesgo'],
+        "Eficacia Calculada (%)": calcularEficaciaControl(control),
+        "Observaciones del Control": control.observaciones || control.comentarios || 'N/A',
+      }));
+    });
+
+    const controlesEstructurados = riesgosExportados.flatMap(item => item.controles);
+    const riesgosConDetalle = riesgosExportados.filter(item => item.controles.length > 0).length;
+    const controlesPorTipo = controlesEstructurados.reduce((conteo, control) => {
+      const tipo = control.tipo || 'Preventivo';
+      conteo[tipo] = (conteo[tipo] || 0) + 1;
+      return conteo;
+    }, {});
+    const eficaciaPromedioGlobal = controlesEstructurados.length > 0
+      ? Math.round(controlesEstructurados.reduce((total, control) => total + calcularEficaciaControl(control), 0) / controlesEstructurados.length)
+      : 'N/A';
+    const resumenExportacion = [
+      { "Tipo": 'Exportación', "Indicador": 'Fecha de generación', "Valor": new Date().toLocaleString('es-CO') },
+      { "Tipo": 'Cobertura', "Indicador": 'Riesgos exportados', "Valor": safeRiesgos.length },
+      { "Tipo": 'Cobertura', "Indicador": 'Riesgos con controles estructurados', "Valor": riesgosConDetalle },
+      { "Tipo": 'Cobertura', "Indicador": 'Riesgos sin controles estructurados', "Valor": safeRiesgos.length - riesgosConDetalle },
+      { "Tipo": 'Controles', "Indicador": 'Controles detallados exportados', "Valor": controlesEstructurados.length },
+      { "Tipo": 'Controles', "Indicador": 'Eficacia promedio calculada', "Valor": eficaciaPromedioGlobal },
+      ...Object.entries(controlesPorTipo).map(([tipo, total]) => ({ "Tipo": 'Controles por tipo', "Indicador": tipo, "Valor": total })),
+      ...['Extremo', 'Alto', 'Moderado', 'Bajo'].map(nivel => ({
+        "Tipo": 'Riesgos por nivel residual',
+        "Indicador": nivel,
+        "Valor": riesgosExportados.filter(item => item.zonaRes.label === nivel).length,
+      })),
     ];
-    worksheet['!cols'] = wscols;
+
+    const crearHoja = (registros, encabezados, conFiltro = true) => {
+      const hoja = XLSX.utils.json_to_sheet(registros, { header: encabezados });
+      hoja['!cols'] = encabezados.map(encabezado => {
+        const anchoContenido = registros.reduce((maximo, registro) => (
+          Math.max(maximo, String(registro[encabezado] ?? '').split('\n').reduce((lineaMaxima, linea) => Math.max(lineaMaxima, linea.length), 0))
+        ), encabezado.length);
+        return { wch: Math.min(60, Math.max(12, anchoContenido + 2)) };
+      });
+      if (conFiltro && registros.length > 0) {
+        hoja['!autofilter'] = {
+          ref: XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: registros.length, c: encabezados.length - 1 },
+          }),
+        };
+      }
+      return hoja;
+    };
+
+    const encabezadosMatriz = Object.keys(matrizRiesgos[0]);
+    const encabezadosControles = Object.keys(controlesPorRiesgo[0]);
+    const encabezadosResumen = ['Tipo', 'Indicador', 'Valor'];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, crearHoja(resumenExportacion, encabezadosResumen, false), 'Resumen');
+    XLSX.utils.book_append_sheet(workbook, crearHoja(matrizRiesgos, encabezadosMatriz), 'Matriz Corporativa');
+    XLSX.utils.book_append_sheet(workbook, crearHoja(controlesPorRiesgo, encabezadosControles), 'Controles por Riesgo');
 
     const fecha = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(workbook, `Matriz_Riesgos_Termales_${fecha}.xlsx`);
+    XLSX.writeFile(workbook, `Matriz_Riesgos_Termales_${fecha}.xlsx`, { compression: true });
     
     showNotification("Matriz descargada en Excel exitosamente", "success");
   };
@@ -1199,6 +1304,7 @@ const renderMatriz = () => {
             ) : (
               riesgosFiltrados.map((r, index) => {
                 const isExpanded = expandedRiesgoId === r.id;
+                const panelId = `expediente-riesgo-${encodeURIComponent(String(r.id))}`;
                 const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
                 const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
                 const listaControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
@@ -1209,8 +1315,13 @@ const renderMatriz = () => {
                     
                     {/* FILA COMPACTA PRINCIPAL */}
                     <div 
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-controls={panelId}
                       onClick={() => toggleExpediente(r.id)}
-                      className={`grid grid-cols-12 gap-3 px-6 py-4 items-center cursor-pointer hover:bg-slate-50 transition-all ${
+                      onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); toggleExpediente(r.id); } }}
+                      className={`grid grid-cols-12 gap-3 px-6 py-4 items-center cursor-pointer hover:bg-slate-50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
                         isExpanded ? 'bg-purple-50/20 border-l-4 border-l-purple-600' : ''
                       }`}
                     >
@@ -1296,7 +1407,7 @@ const renderMatriz = () => {
 {/* 🚀 EXPEDIENTE SECUNDARIO DE CONTROLES (ACCORDEÓN ANIMADO 250ms)           */}
 {/* ========================================================================= */}
 {isExpanded && (
-  <div className="bg-slate-50/80 border-t border-b border-purple-200 px-8 py-6 transition-all duration-250 ease-in-out animate-in slide-in-from-top-2 space-y-4">
+  <div id={panelId} className="bg-slate-50/80 border-t border-b border-purple-200 px-8 py-6 transition-all duration-250 ease-in-out animate-in slide-in-from-top-2 space-y-4">
     
     {/* 📊 1. RESUMEN VISUAL SUPERIOR (KPI BAR DEL RIESGO EXPANDIDO) */}
     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">

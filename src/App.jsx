@@ -1,4 +1,4 @@
-import { useMemo, useCallback, lazy, Suspense, useState, useEffect } from 'react';
+import { useMemo, useCallback, lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { ArrowLeft, MailWarning, RefreshCw } from 'lucide-react';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from './services/firebase';
@@ -89,6 +89,96 @@ export default function App() {
   const [detallePanelPlanes, setDetallePanelPlanes] = useState(null);
   const [reintentosNotificacion, setReintentosNotificacion] = useState([]);
   const [reintentandoNotificacionId, setReintentandoNotificacionId] = useState(null);
+  const mainScrollAreaRef = useRef(null);
+  const autoScrollTargetRef = useRef(null);
+  const autoScrollFrameRef = useRef(0);
+  const autoScrollDelayRef = useRef(null);
+
+  const programarScrollDeEnfoque = useCallback((control, retraso = 0, forzarScroll = false) => {
+    autoScrollTargetRef.current = control;
+    if (autoScrollFrameRef.current) cancelAnimationFrame(autoScrollFrameRef.current);
+    if (autoScrollDelayRef.current) window.clearTimeout(autoScrollDelayRef.current);
+
+    const alistarScroll = () => {
+      autoScrollFrameRef.current = requestAnimationFrame(() => {
+        autoScrollFrameRef.current = requestAnimationFrame(() => {
+          const controlActual = autoScrollTargetRef.current;
+          const areaPrincipal = mainScrollAreaRef.current;
+          if (!controlActual?.isConnected || !areaPrincipal?.contains(controlActual)) return;
+
+          let destino = controlActual;
+          if (controlActual.hasAttribute('aria-expanded')) {
+            if (controlActual.getAttribute('aria-expanded') !== 'true') return;
+            const panelId = controlActual.getAttribute('aria-controls');
+            const filaActual = controlActual.closest('tr');
+            const panelExpandido = panelId
+              ? document.getElementById(panelId)
+              : filaActual?.nextElementSibling || controlActual.nextElementSibling;
+            if (panelExpandido && areaPrincipal.contains(panelExpandido)) destino = panelExpandido;
+          }
+
+          const limitesArea = areaPrincipal.getBoundingClientRect();
+          const limitesDestino = destino.getBoundingClientRect();
+          const estaVisible = limitesDestino.top >= limitesArea.top && limitesDestino.bottom <= limitesArea.bottom;
+          if (forzarScroll || !estaVisible) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          autoScrollTargetRef.current = null;
+        });
+      });
+    };
+
+    if (retraso > 0) {
+      autoScrollDelayRef.current = window.setTimeout(alistarScroll, retraso);
+    } else {
+      alistarScroll();
+    }
+  }, []);
+
+  const manejarCambioConScroll = useCallback(event => {
+    const elemento = event.target instanceof HTMLElement ? event.target : null;
+    if (!elemento) return;
+    const filtroMarcado = elemento.closest('[data-scroll-focus="filter"]');
+    if (elemento.closest('form') && !filtroMarcado) return;
+
+    const esSelector = elemento.matches('select, input[type="checkbox"], input[type="radio"], input[type="date"]');
+    const esBusqueda = elemento.matches('input[type="search"]') || /buscar/i.test(
+      `${elemento.getAttribute('placeholder') || ''} ${elemento.getAttribute('aria-label') || ''}`
+    );
+    if (!filtroMarcado && !esSelector && !esBusqueda) return;
+
+    const control = filtroMarcado || elemento;
+    programarScrollDeEnfoque(control, esBusqueda ? 350 : 0, true);
+  }, [programarScrollDeEnfoque]);
+
+  const manejarClickConScroll = useCallback(event => {
+    const elemento = event.target instanceof Element ? event.target : null;
+    const control = elemento?.closest('[aria-pressed], [data-scroll-focus="filter"]');
+    if (!control || (control.closest('form') && !control.matches('[data-scroll-focus="filter"]'))) return;
+    programarScrollDeEnfoque(control, 0, true);
+  }, [programarScrollDeEnfoque]);
+
+  useEffect(() => () => {
+    if (autoScrollFrameRef.current) cancelAnimationFrame(autoScrollFrameRef.current);
+    if (autoScrollDelayRef.current) window.clearTimeout(autoScrollDelayRef.current);
+  }, []);
+
+  useEffect(() => {
+    const areaPrincipal = mainScrollAreaRef.current;
+    if (!areaPrincipal) return undefined;
+
+    const observer = new MutationObserver(cambios => {
+      const controlExpandido = cambios
+        .map(cambio => cambio.target)
+        .find(elemento => elemento instanceof HTMLElement && elemento.getAttribute('aria-expanded') === 'true');
+      if (controlExpandido) programarScrollDeEnfoque(controlExpandido);
+    });
+    observer.observe(areaPrincipal, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-expanded'],
+    });
+
+    return () => observer.disconnect();
+  }, [isCloudLoaded, showWelcome, user, programarScrollDeEnfoque]);
   
   // 🛡️ ESTADO DE BLOQUEO: Previene la "condición de carrera" al recargar con F5
   const [authInitialized, setAuthInitialized] = useState(false);
@@ -598,7 +688,7 @@ return (
 {/*  Tracks de gobernanza guiada del Workflow en la cabecera */}
         {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}
         
-<main id="main-scroll-area" tabIndex={-1} aria-label="Contenido principal" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-4 sm:p-6 xl:p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
+<main ref={mainScrollAreaRef} onChangeCapture={manejarCambioConScroll} onClickCapture={manejarClickConScroll} id="main-scroll-area" tabIndex={-1} aria-label="Contenido principal" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-4 sm:p-6 xl:p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
           <Suspense fallback={<div className="flex justify-center items-center p-12 text-slate-400 font-bold text-sm uppercase tracking-widest animate-pulse">⏳ Cargando módulo...</div>}>
 <div key={`${activeTab}-${subTabPlanificar}-${subTabResultados}-${subTabPlanes}-${subTabGobernanza}`} className={`${isPresentationMode ? 'max-w-none' : 'max-w-[1600px]'} mx-auto transition-all duration-500`}>
           {notificacionesPendientesUsuario.length > 0 && (

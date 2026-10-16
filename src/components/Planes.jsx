@@ -2148,7 +2148,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           )}
           
 {/* 🚀 TARJETAS 100% INTERACTIVAS: Al hacer clic, aplican filtro de Estado */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+          <div data-scroll-focus="filter" className="grid grid-cols-2 lg:grid-cols-6 gap-3">
             
             {/* 1. TOTAL PLANES (Resetea los filtros) */}
             <div onClick={() => setDashFiltroEstado('Todos')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Todos' ? 'border-slate-800 ring-4 ring-slate-800/10' : 'border-slate-200 hover:border-slate-400'}`}>
@@ -2342,10 +2342,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                    const accionesPaginaGrupo = items.slice(inicioPaginaGrupo, inicioPaginaGrupo + accionesPorPaginaDashboard);
                    const primeraAccionGrupo = inicioPaginaGrupo + 1;
                    const ultimaAccionGrupo = Math.min(inicioPaginaGrupo + accionesPorPaginaDashboard, items.length);
+                   const panelId = `planes-grupo-${encodeURIComponent(grupo)}`;
 
                    return (
                      <div key={grupo} className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all ${isExpanded ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
-                       <div onClick={() => { setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); }} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
+                       <div
+                         role="button"
+                         tabIndex={0}
+                         aria-expanded={isExpanded}
+                         aria-controls={panelId}
+                         onClick={() => { setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); }}
+                         onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); } }}
+                         className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}
+                       >
                          <div className="flex items-center space-x-3">
                            <span className="text-xl">📅</span>
                            <h4 className="text-sm sm:text-base font-black text-slate-800">{grupo} <span className="text-slate-400 font-medium text-xs">({items.length} planes)</span></h4>
@@ -2361,7 +2370,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                        </div>
 
                        {isExpanded && (
-                         <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5 bg-white animate-in slide-in-from-top-2 duration-300">
+                         <div id={panelId} className="flex min-h-0 flex-1 flex-col p-4 sm:p-5 bg-white animate-in slide-in-from-top-2 duration-300">
                            <div className="grid grid-cols-5 gap-2 mb-4 border-b pb-4 text-center text-[10px] font-black text-slate-400 uppercase">
                              <div><p>Cerrados</p><p className="text-base text-emerald-600 font-black mt-0.5">{gCerrados}</p></div>
                              <div className="border-l"><p>En Proceso</p><p className="text-base text-amber-500 font-black mt-0.5">{gProceso}</p></div>

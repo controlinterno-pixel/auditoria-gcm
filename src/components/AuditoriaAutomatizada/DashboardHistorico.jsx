@@ -2671,7 +2671,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
             )}
 
             {/* Selector de Procesos por Etiquetas */}
-            <div className="pt-2 border-t border-slate-100">
+            <div data-scroll-focus="filter" className="pt-2 border-t border-slate-100">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                   <span>⚙️</span> Procesos Activos 
@@ -2716,7 +2716,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
             </div>
 
             {/* Selector de Cargos por Etiquetas */}
-            <div className="pt-2 border-t border-slate-100">
+            <div data-scroll-focus="filter" className="pt-2 border-t border-slate-100">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                   <span>👔</span> Cargos Específicos
@@ -2762,7 +2762,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
 
             {/* 💡 Selector de Conceptos de Nómina (SOLO PARA JORNADA) */}
             {modoDashboard === 'JORNADA' && datosHistoricos.conceptosJornada && (
-              <div className="pt-2 border-t border-slate-100">
+              <div data-scroll-focus="filter" className="pt-2 border-t border-slate-100">
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <span>📑</span> Conceptos de Tiempo Suplementario
@@ -2828,7 +2828,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
               });
 
               return (
-                <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+                <div data-scroll-focus="filter" className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
                   <span className="text-xs font-bold text-slate-500 self-center mr-2">🏢 Unidad:</span>
                   <button
                     onClick={() => setFiltroUnidad('TODOS')}
@@ -3381,7 +3381,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
                         <div className="bg-white p-5 rounded-xl border border-purple-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="bg-purple-50/50 p-3 rounded-lg border border-purple-100 relative">
                                 {filtroClicGrafica && (
-                                  <button onClick={() => setFiltroClicGrafica(null)} className="absolute top-2 right-2 text-[9px] bg-purple-200 text-purple-800 font-bold px-1.5 py-0.5 rounded cursor-pointer hover:bg-rose-500 hover:text-white">✕ Quitar Filtro</button>
+                                  <button type="button" data-scroll-focus="filter" onClick={() => setFiltroClicGrafica(null)} className="absolute top-2 right-2 text-[9px] bg-purple-200 text-purple-800 font-bold px-1.5 py-0.5 rounded cursor-pointer hover:bg-rose-500 hover:text-white">✕ Quitar Filtro</button>
                                 )}
                                 <span className="text-[10px] font-extrabold text-purple-700 uppercase">
                                   {empleadosSeleccionados.length > 1 ? 'Grupo Auditado' : 'Colaborador Auditado'}
@@ -3434,7 +3434,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
                                   👉 <strong className="text-purple-600">Da clic en cualquier barra para filtrar la tabla inferior y cruzar los turnos exactos de ese día.</strong>
                               </p>
                               
-                              <div className="h-72 w-full cursor-pointer">
+                              <div data-scroll-focus="filter" className="h-72 w-full cursor-pointer">
                                   <ResponsiveContainer width="100%" height="100%">
                                       <BarChart 
                                         data={dataSuperposicion}
@@ -3610,24 +3610,28 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
                               {/* 📏 SELECTOR DE GRANULARIDAD DE LA GRÁFICA */}
                               <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
                                 <button 
+                                  data-scroll-focus="filter"
                                   onClick={() => { setGranularidadMarcaciones('DIA'); setFiltroClicGrafica(null); }}
                                   className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'DIA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
                                 >
                                   📅 Día
                                 </button>
                                 <button 
+                                  data-scroll-focus="filter"
                                   onClick={() => { setGranularidadMarcaciones('SEMANA'); setFiltroClicGrafica(null); }}
                                   className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'SEMANA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
                                 >
                                   📆 Semana
                                 </button>
                                 <button 
+                                  data-scroll-focus="filter"
                                   onClick={() => { setGranularidadMarcaciones('QUINCENA'); setFiltroClicGrafica(null); }}
                                   className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'QUINCENA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
                                 >
                                   🗓️ Quincena
                                 </button>
                                 <button 
+                                  data-scroll-focus="filter"
                                   onClick={() => { setGranularidadMarcaciones('MES'); setFiltroClicGrafica(null); }}
                                   className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'MES' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
                                 >
@@ -3636,7 +3640,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
                               </div>
                             </div>
 
-                            <div className="h-72 w-full cursor-pointer">
+                            <div data-scroll-focus="filter" className="h-72 w-full cursor-pointer">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <ComposedChart 
                                       data={dataGraficaMarcaciones}

@@ -32,7 +32,7 @@ const PanelDistribucion = ({ titulo, datos, totalCentro, etiquetaCentro, selecci
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <h3 className="mb-3 border-b border-slate-200 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-600">{titulo}</h3>
-      <div className="relative h-36 w-full" aria-hidden="true">
+      <div data-scroll-focus="filter" className="relative h-36 w-full" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie

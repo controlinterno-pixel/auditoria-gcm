@@ -273,6 +273,7 @@ export default function Comites({
           return gruposOrdenados.map(grupo => {
             const items = comitesAgrupados[grupo];
             const isExpanded = grupoExpandido === grupo;
+            const panelId = `comite-grupo-${encodeURIComponent(grupo)}`;
             
             // Iconos y colores personalizados
             let icon = "👥";
@@ -285,8 +286,13 @@ export default function Comites({
                 
                 {/* CABECERA DEL ACORDEÓN */}
                 <div 
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  aria-controls={panelId}
                   onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} 
-                  className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setGrupoExpandido(isExpanded ? null : grupo); } }}
+                  className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}
                 >
                   <div className="flex items-center space-x-4">
                     <span className="text-2xl bg-white p-2 rounded-xl shadow-sm border border-slate-100">{icon}</span>
@@ -300,7 +306,7 @@ export default function Comites({
 
                 {/* CONTENIDO DESPLEGABLE (TABLA INTERNA) */}
                 {isExpanded && (
-                  <div className="p-4 bg-white animate-in slide-in-from-top-2 duration-300 overflow-x-auto">
+                  <div id={panelId} className="p-4 bg-white animate-in slide-in-from-top-2 duration-300 overflow-x-auto">
                     <table className="w-full text-xs text-left divide-y divide-slate-100">
                       <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[9px]">
                         <tr>

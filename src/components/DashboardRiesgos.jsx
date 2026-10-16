@@ -156,11 +156,24 @@ export default function DashboardRiesgos({
                   const isSelected = filtroHeatMap?.impacto === imp && filtroHeatMap?.probabilidad === prob;
                   
                   return (
-                    <div key={`cell-${imp}-${prob}`} onClick={() => { 
+                    <div
+                      key={`cell-${imp}-${prob}`}
+                      role="button"
+                      tabIndex={count > 0 ? 0 : -1}
+                      aria-expanded={Boolean(isSelected)}
+                      aria-controls="detalle-heatmap"
+                      aria-label={`${count} riesgos, impacto ${imp}, probabilidad ${prob}`}
+                      onClick={() => {
                       if (count > 0) {
                         setFiltroHeatMap({ impacto: imp, probabilidad: prob, count }); 
                       }
                     }}
+                      onKeyDown={event => {
+                        if (count > 0 && (event.key === 'Enter' || event.key === ' ')) {
+                          event.preventDefault();
+                          setFiltroHeatMap({ impacto: imp, probabilidad: prob, count });
+                        }
+                      }}
                       className={`relative border-2 p-6 flex flex-col justify-center items-center h-28 rounded-2xl transition-all duration-200 ${count > 0 ? 'cursor-pointer hover:scale-105 shadow-md opacity-100' : 'opacity-20 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100 border-black' : borderSemaforo}`}>
                       <span className="absolute top-2 right-3 text-[9px] font-mono font-black opacity-50 text-slate-900 notranslate" translate="no">S: {score}</span>
                       <span className={`text-4xl font-black text-slate-900 drop-shadow-sm notranslate`} translate="no">{count}</span>
@@ -176,7 +189,7 @@ export default function DashboardRiesgos({
           <div id="detalle-heatmap" className="mt-8 w-full bg-white rounded-xl border border-slate-200 shadow-sm animate-in fade-in duration-300">
             <div className="flex justify-between items-center mb-4 p-4 border-b bg-slate-50 rounded-t-xl">
               <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider">🔎 Detalle de Riesgos en Cuadrante: {filtroHeatMap.probabilidad} / {filtroHeatMap.impacto}</h4>
-              <button onClick={() => setFiltroHeatMap(null)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-colors">✖ Limpiar Filtro</button>
+              <button type="button" data-scroll-focus="filter" onClick={() => setFiltroHeatMap(null)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">✖ Limpiar Filtro</button>
             </div>
             <div className="overflow-x-auto p-4 pt-0">
               <table className="w-full text-xs text-left divide-y border border-slate-200 rounded-lg overflow-hidden">

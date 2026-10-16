@@ -1308,6 +1308,7 @@ const handleFileUpload = async (e, type) => {
                 
                 {/* Botón "Todas" */}
                 <div 
+                  data-scroll-focus="filter"
                   onClick={() => actualizarFiltroDashboard(setDashFiltroFuente, 'Todas')}
                   className={`px-5 py-2.5 rounded-xl flex items-center gap-3 shrink-0 cursor-pointer transition-all shadow-sm ${
                     dashFiltroFuente === 'Todas' 
@@ -1340,6 +1341,7 @@ const handleFileUpload = async (e, type) => {
                   return (
                   <div 
                     key={fuenteAgrupada.clave} 
+                    data-scroll-focus="filter"
                     title={title} 
                     onClick={() => actualizarFiltroDashboard(setDashFiltroFuente, fuenteAgrupada.nombre)}
                     className={`px-4 py-2.5 rounded-xl flex items-center gap-3 shrink-0 cursor-pointer transition-all shadow-sm max-w-[280px] ${
@@ -2216,6 +2218,8 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                           </button>
                           <button
                             type="button"
+                            aria-expanded={historialExpandido}
+                            aria-controls="panel-historial-informe"
                             onClick={() => setHistorialExpandido(prev => !prev)}
                             className="bg-white border border-slate-200 text-[9px] font-black uppercase tracking-widest text-slate-700 hover:border-slate-300 hover:text-slate-900 rounded-full px-2.5 py-1.5 shadow-sm transition-all"
                           >
@@ -2228,10 +2232,11 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                     {historialActual.length === 0 ? (
                       <p className="text-[10px] text-slate-500 italic">Aún no hay cambios registrados para este informe.</p>
                     ) : historialExpandido ? (
-                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      <div id="panel-historial-informe" className="space-y-2 max-h-56 overflow-y-auto pr-1">
                         {[...historialActual].reverse().map((log, index) => {
                           const versionKey = `${log.fecha || 'sin-fecha'}-${index}`;
                           const isOpen = Boolean(historialVersionOpen[versionKey]);
+                          const panelDetalleId = `panel-version-${encodeURIComponent(versionKey)}`;
                           const resumenCorto = renderHistorialSummary(log.detalle || {});
                           return (
                             <div key={versionKey} className="relative border border-slate-200 bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all">
@@ -2247,6 +2252,8 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                                   <p className="text-[10px] font-bold text-slate-800 leading-relaxed">{log.accion || 'Cambio registrado'}</p>
                                   <button
                                     type="button"
+                                    aria-expanded={isOpen}
+                                    aria-controls={panelDetalleId}
                                     onClick={() => setHistorialVersionOpen(prev => ({ ...prev, [versionKey]: !prev[versionKey] }))}
                                     className="text-[9px] font-black uppercase tracking-wider text-slate-600 hover:text-slate-900"
                                   >
@@ -2283,7 +2290,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                                   const archivos = Array.isArray(detalle.archivos) ? detalle.archivos : [];
                                   const resumen = renderHistorialSummary(detalle);
                                   return (
-                                    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-[9px] text-slate-700 space-y-2">
+                                    <div id={panelDetalleId} className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-[9px] text-slate-700 space-y-2">
                                       <div className="rounded-lg border border-teal-200 bg-teal-50 px-2 py-1.5 text-[9px] text-slate-700">
                                         <span className="font-black uppercase tracking-wider text-teal-700">Cambio:</span> {resumen}
                                       </div>
@@ -2626,6 +2633,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                   ) : informesPaginaHistorial.map((inf, idx) => {
                     const idInforme = String(inf.id || inf.ref || idx);
                     const expandido = informeExpandidoId === idInforme;
+                    const panelDetalleId = `panel-informe-${encodeURIComponent(String(idInforme))}`;
                     const cambios = Array.isArray(inf.historialCambios) ? inf.historialCambios : [];
                     const responsables = [
                       ['Elaboró', inf.elaboradoPor],
@@ -2640,10 +2648,10 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                     ].filter((url, index, urls) => url && url !== '#' && urls.indexOf(url) === index);
                     return (
                       <Fragment key={idInforme}>
-                      <tr className={`group cursor-pointer border-b-2 transition-colors ${expandido ? 'border-b-0 bg-blue-50/50' : `${idx % 2 === 0 ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50'} hover:bg-blue-50/70`}`} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)}>
+                      <tr aria-expanded={expandido} aria-controls={panelDetalleId} className={`group cursor-pointer border-b-2 transition-colors ${expandido ? 'border-b-0 bg-blue-50/50' : `${idx % 2 === 0 ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50'} hover:bg-blue-50/70`}`} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)}>
                         <td className="whitespace-nowrap border-l-4 border-l-slate-200 p-4 font-mono text-sm font-black text-slate-800 transition-colors group-hover:border-l-blue-500">
                           <div className="flex items-center gap-2">
-                            <button type="button" aria-expanded={expandido} aria-label={expandido ? 'Ocultar detalle del informe' : 'Ver detalle del informe'} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)} className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-[10px] text-slate-500 hover:border-blue-300 hover:text-blue-700">{expandido ? '▾' : '›'}</button>
+                            <button type="button" aria-expanded={expandido} aria-controls={panelDetalleId} aria-label={expandido ? 'Ocultar detalle del informe' : 'Ver detalle del informe'} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)} className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-[10px] text-slate-500 hover:border-blue-300 hover:text-blue-700">{expandido ? '▾' : '›'}</button>
                             <span>{inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}</span>
                           </div>
                         </td>
@@ -2726,7 +2734,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                         </td>
                       </tr>
                       {expandido && (
-                        <tr className="border-b-2 border-slate-300 bg-blue-50/60">
+                        <tr id={panelDetalleId} className="border-b-2 border-slate-300 bg-blue-50/60">
                           <td colSpan="5" className="border-l-4 border-l-blue-500 px-5 py-4">
                             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                               <section>

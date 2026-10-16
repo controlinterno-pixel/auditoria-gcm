@@ -477,7 +477,7 @@ export default function Hallazgos({
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
           {/* 🚀 TARJETAS INTERACTIVAS */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+          <div data-scroll-focus="filter" className="grid grid-cols-2 lg:grid-cols-6 gap-3">
              <div onClick={() => { setDashFiltroSeveridad('Todos'); setDashFiltroEstado('Todos'); }} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroSeveridad === 'Todos' && dashFiltroEstado === 'Todos' ? 'border-slate-800 ring-4 ring-slate-800/10' : 'border-slate-200 hover:border-slate-400'}`}>
                 <div className="absolute -right-4 -bottom-4 text-5xl opacity-5">📄</div>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Hallazgos</p>
@@ -676,10 +676,19 @@ export default function Hallazgos({
                    const ultimoHallazgoGrupo = Math.min(inicioPaginaGrupo + 15, hzs.length);
                    
                    const isExpanded = grupoExpandido === grupo;
+                   const panelId = `hallazgos-grupo-${encodeURIComponent(grupo)}`;
 
                    return (
                      <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
-                       <div onClick={() => { setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); }} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
+                       <div
+                         role="button"
+                         tabIndex={0}
+                         aria-expanded={isExpanded}
+                         aria-controls={panelId}
+                         onClick={() => { setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); }}
+                         onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setGrupoExpandido(isExpanded ? null : grupo); setPaginaGrupoDashboard(1); } }}
+                         className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}
+                       >
                          <div className="flex items-center space-x-3 flex-1 pr-4">
                            <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : agruparPor === 'Nivel de Riesgo' ? '⚠️' : agruparPor === 'Tipo de Fuente' ? '📄' : '👤'}</span>
                            <h4 className="text-sm sm:text-base font-black text-slate-800 leading-tight">{grupo} <span className="text-slate-400 font-medium text-xs ml-1 whitespace-nowrap">({hzs.length})</span></h4>
@@ -699,7 +708,7 @@ export default function Hallazgos({
                        </div>
 
                        {isExpanded && (
-                         <div className="p-4 sm:p-6 bg-white animate-in slide-in-from-top-2 duration-300">
+                         <div id={panelId} className="p-4 sm:p-6 bg-white animate-in slide-in-from-top-2 duration-300">
                            
                            {/* KPIs Internos del Grupo */}
                            <div className="grid grid-cols-5 gap-2 mb-6 border-b border-slate-100 pb-6 text-center">
