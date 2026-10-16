@@ -115,7 +115,9 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
         
         // 🛑 Si el error es 400-499 (error de validación, ej. "Usuario incorrecto"), NO reintentamos.
         if (response.status >= 400 && response.status < 500) {
-          throw new Error(errorMessage);
+          const error = new Error(errorMessage);
+          error.status = response.status;
+          throw error;
         }
         
         // ⚠️ Si es 500+ (se cayó el servidor), forzamos el error para que el "catch" lo intente de nuevo.

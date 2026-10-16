@@ -43,9 +43,12 @@ export function useGrcData() {
           await apiService.login(idToken);
         } catch (err) {
           console.error("Error renovando cookie de servidor:", err);
-          window.alert(err?.message || 'No fue posible validar tu acceso. Intenta de nuevo o contacta a un administrador.');
-          await signOut(auth);
-          return;
+          if ([401, 403].includes(err?.status)) {
+            window.alert(err?.message || 'El servidor rechazó la sesión o el acceso de esta cuenta.');
+            await signOut(auth);
+            return;
+          }
+          console.warn('Fallo temporal al renovar la cookie. Se conserva la sesión de Firebase y las peticiones volverán a intentar renovarla.');
         }
 
         setUser(currentUser);
