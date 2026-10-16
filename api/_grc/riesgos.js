@@ -127,6 +127,7 @@ export default async function handler(req, res) {
   if (!user) return;
 
   const { method } = req;
+  const esAdministrador = ['admin', 'administrador'].includes(String(user.rol || '').trim().toLowerCase());
 
   try {
     // 🔍 LECTURA CON RLS (GET)
@@ -152,7 +153,7 @@ export default async function handler(req, res) {
         ...riesgoData,
         macroproceso: riesgoData.macroproceso || String(proceso).split('/')[0].trim(),
       };
-      if (!riesgoDentroDelAlcancePropietario(riesgoSolicitado, procesosAsignados, subprocesosAsignados)) {
+      if (!esAdministrador && !riesgoDentroDelAlcancePropietario(riesgoSolicitado, procesosAsignados, subprocesosAsignados)) {
         return sendError(res, 'No tiene permisos para modificar riesgos de otro proceso.', 403);
       }
 
@@ -174,7 +175,7 @@ export default async function handler(req, res) {
       const guardado = await adminDb.runTransaction(async (transaction) => {
         const riesgoExistente = await transaction.get(riesgoRef);
         const datosRiesgoExistente = riesgoExistente.data() || {};
-        if (riesgoExistente.exists && !riesgoDentroDelAlcancePropietario(
+        if (riesgoExistente.exists && !esAdministrador && !riesgoDentroDelAlcancePropietario(
           datosRiesgoExistente,
           procesosAsignados,
           subprocesosAsignados,
@@ -204,8 +205,8 @@ export default async function handler(req, res) {
       const { id } = req.query;
       if (!id) return sendError(res, 'ID de riesgo requerido.', 400);
 
-      const isAdmin = ['admin', 'administrador', 'auditor'].includes(user.rol?.toLowerCase());
-      if (!isAdmin) {
+      const puedeEliminarPorRol = esAdministrador || String(user.rol || '').trim().toLowerCase() === 'auditor';
+      if (!puedeEliminarPorRol) {
         return sendError(res, 'Solo los administradores o auditores pueden eliminar riesgos.', 403);
       }
 
@@ -216,12 +217,12 @@ export default async function handler(req, res) {
         const snapshot = await transaction.get(riesgoRef);
         if (!snapshot.exists) return 'not-found';
         const riesgo = snapshot.data() || {};
-        if (!riesgoDentroDelAlcancePropietario(riesgo, procesosAsignados, subprocesosAsignados)) return false;
+        if (!esAdministrador && !riesgoDentroDelAlcancePropietario(riesgo, procesosAsignados, subprocesosAsignados)) return false;
         transaction.delete(riesgoRef);
         return true;
       });
       if (eliminado === 'not-found') return sendError(res, 'No se encontró el riesgo solicitado.', 404);
-      if (!eliminado) return sendError(res, 'Solo el propietario del macroproceso puede eliminar este riesgo.', 403);
+      if (!eliminado) return sendError(res, 'Solo el propietario del macroproceso o un administrador puede eliminar este riesgo.', 403);
       logger.info('Riesgo eliminado de la matriz', { id, usuario: user.email });
 
       return sendSuccess(res, { message: 'Riesgo eliminado correctamente.' });

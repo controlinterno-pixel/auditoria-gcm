@@ -58,7 +58,7 @@ export function useGrcData() {
             nombreResponsable: datosPerfil.nombreResponsable || 'Usuario GRC',
             correo: datosPerfil.correo || datosPerfil.email || currentUser.email
           });
-          setIsAdmin(datosPerfil.rol === 'admin');
+          setIsAdmin(['admin', 'administrador'].includes(String(datosPerfil.rol || '').trim().toLowerCase()));
         } catch (error) {
           console.error("Error obteniendo perfil desde el servidor:", error);
           setIsAdmin(false);

@@ -272,11 +272,14 @@ export default function Riesgos({
   const subprocesosAsignadosPerfil = Array.isArray(perfilUsuario?.subprocesosAsignados) && perfilUsuario.subprocesosAsignados.length > 0
     ? perfilUsuario.subprocesosAsignados
     : perfilUsuario?.subprocesoAsignado;
-  const subprocesosAsignadosUsuario = convertirCampoProcesoEnLista(subprocesosAsignadosPerfil || user?.subprocesosAsignados || user?.subprocesoAsignado)
-    .map(normalizarTextoProceso);
+  const subprocesosAsignadosUsuario = isAdmin
+    ? []
+    : convertirCampoProcesoEnLista(subprocesosAsignadosPerfil || user?.subprocesosAsignados || user?.subprocesoAsignado)
+      .map(normalizarTextoProceso);
   const procesosAsignadosUsuario = convertirCampoProcesoEnLista(procesosAsignadosPerfil || procesosAsignadosAuth)
     .map(normalizarTextoProceso);
   const puedeModificarRiesgo = riesgo => {
+    if (isAdmin) return true;
     const ubicacionRiesgo = normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS);
     const macroprocesosRiesgo = ubicacionRiesgo.macroprocesos
       .filter(macroproceso => macroproceso !== 'Sin proceso')
@@ -387,14 +390,15 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   });
   // 🌟 NUEVOS ESTADOS EN CASCADA PARA PROCESOS
   const listadoMacros = Object.keys(MAPA_PROCESOS);
-  const macroprocesoInicial = listadoMacros.find(nombre => procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre))) || '';
+  const macroprocesoInicial = listadoMacros.find(nombre => procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre)))
+    || (isAdmin ? listadoMacros[0] || '' : '');
   const [macroproceso, setMacroproceso] = useState(macroprocesoInicial);
   const subprocesosIniciales = (MAPA_PROCESOS[macroprocesoInicial] || []).filter(subproceso => (
     subprocesosAsignadosUsuario.length === 0 || subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso))
   ));
   const [subprocesosSeleccionados, setSubprocesosSeleccionados] = useState(subprocesosIniciales.slice(0, 1));
   const macroprocesosDisponibles = [...new Set([...listadoMacros, macroproceso].filter(nombre => (
-    nombre && procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre))
+    nombre && (isAdmin || procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre)))
   )))].sort((a, b) => a.localeCompare(b, 'es'));
 
   // Función inteligente para manejar el cambio del proceso
@@ -962,7 +966,7 @@ const handleRiesgoSubmit = async (e) => {
     const subprocesosCanonicos = [...new Set(subprocesosSeleccionados.map(subprocesoSeleccionado => (
       resolverNombreCatalogo(subprocesoSeleccionado, MAPA_PROCESOS[macroprocesoCanonico] || [])
     )).filter(Boolean))];
-    if (procesosAsignadosUsuario.length === 0) {
+    if (!isAdmin && procesosAsignadosUsuario.length === 0) {
       showNotification('El formulario está disponible para todos, pero necesitas una asignación de macroproceso para guardar riesgos.', 'error');
       return;
     }
