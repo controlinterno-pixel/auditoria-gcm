@@ -8,7 +8,6 @@ import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import { analizarRiesgoConIA } from '../services/aiEngine';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
-import * as XLSX from 'xlsx';
 
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
 const EXPLICACIONES_CAMPOS = {
@@ -570,167 +569,40 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
 // =========================================================================
   // 📥 FUNCIÓN PARA EXPORTAR LA MATRIZ COMPLETA A EXCEL
   // =========================================================================
-  const exportarAExcel = () => {
+  const exportarAExcel = async () => {
     if (safeRiesgos.length === 0) {
       showNotification("No hay riesgos en la matriz para exportar.", "error");
       return;
     }
 
-    const riesgosExportados = safeRiesgos.map(r => {
-      const zonaInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
-      const zonaRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
-      const controles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados.filter(Boolean) : [];
-      const controlLegado = controles.length === 0 ? String(r.descripcionControl || '').trim() : '';
-      const eficaciaPromedio = controles.length > 0
-        ? Math.round(controles.reduce((total, control) => total + calcularEficaciaControl(control), 0) / controles.length)
-        : null;
-
-      return { riesgo: r, zonaInh, zonaRes, controles, controlLegado, eficaciaPromedio };
-    });
-
-    const matrizRiesgos = riesgosExportados.map(({ riesgo, zonaInh, zonaRes, controles, controlLegado, eficaciaPromedio }) => ({
-      "ID Riesgo": `RSK-${riesgo.id}`,
-      "Estado": riesgo.estado || 'Activo',
-      "Proceso": riesgo.proceso || riesgo.macroproceso || 'No definido',
-      "Subproceso": riesgo.subproceso || 'General',
-      "Categoría ISO 31000": riesgo.categoria || 'N/A',
-      "Clasificación": riesgo.clasificacionRiesgo || 'N/A',
-      "Normativa Asociada": riesgo.normativa || 'N/A',
-      "Sedes Afectadas": Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'Sin sede'),
-      "Responsable(s)": Array.isArray(riesgo.responsable) ? riesgo.responsable.join(', ') : (riesgo.responsable || 'Sin asignar'),
-      "Tipo de Afectación": riesgo.afectacion || 'N/A',
-      "Causa Inmediata": riesgo.causaInmediata || 'N/A',
-      "Causa Raíz": riesgo.causaRaiz || 'N/A',
-      "Escenario del Riesgo": riesgo.descripcion || riesgo.escenarioFinal || 'N/A',
-      "Probabilidad Inherente (%)": riesgo.probabilidadInherente ?? 60,
-      "Impacto Inherente (%)": riesgo.impactoInherente ?? 80,
-      "Nivel Inherente": zonaInh.label.toUpperCase(),
-      "Total Controles": controles.length || (controlLegado ? 1 : 0),
-      "Controles Estructurados": controles.length,
-      "Eficacia Promedio de Controles (%)": eficaciaPromedio ?? 'N/A',
-      "Descripción de Control Legado": controlLegado || 'N/A',
-      "Mitigación Lograda (%)": calcularMitigacionRiesgo(riesgo),
-      "Probabilidad Residual (%)": riesgo.probabilidadResidual ?? 15,
-      "Impacto Residual (%)": riesgo.impactoResidual ?? 30,
-      "Nivel Residual Final": zonaRes.label.toUpperCase(),
-      "Estrategia de Tratamiento": riesgo.tratamiento || 'Reducir el riesgo',
-      "Plan de Acción": riesgo.planAccionRiesgo || 'N/A',
-      "Fecha de Seguimiento": riesgo.fechaSeguimiento || 'No programada',
-      "Bitácora de Seguimiento": riesgo.seguimientoBitacora || 'N/A',
-      "Fecha de Registro": riesgo.fecha || 'N/A',
-      "Cantidad de Cambios": Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios.length : 0,
-    }));
-
-    const controlesPorRiesgo = riesgosExportados.flatMap(({ riesgo, zonaInh, zonaRes, controles, controlLegado }) => {
-      const contextoRiesgo = {
-        "ID Riesgo": `RSK-${riesgo.id}`,
-        "Descripción del Riesgo": riesgo.descripcion || riesgo.escenarioFinal || 'N/A',
-        "Proceso": riesgo.proceso || riesgo.macroproceso || 'No definido',
-        "Subproceso": riesgo.subproceso || 'General',
-        "Categoría": riesgo.categoria || 'N/A',
-        "Clasificación": riesgo.clasificacionRiesgo || 'N/A',
-        "Sedes Afectadas": Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'Sin sede'),
-        "Responsable del Riesgo": Array.isArray(riesgo.responsable) ? riesgo.responsable.join(', ') : (riesgo.responsable || 'Sin asignar'),
-        "Causa Inmediata": riesgo.causaInmediata || 'N/A',
-        "Causa Raíz": riesgo.causaRaiz || 'N/A',
-        "Normativa Asociada": riesgo.normativa || 'N/A',
-        "Nivel Inherente": zonaInh.label.toUpperCase(),
-        "Nivel Residual": zonaRes.label.toUpperCase(),
-        "Estrategia de Tratamiento": riesgo.tratamiento || 'N/A',
-        "Plan de Acción": riesgo.planAccionRiesgo || 'N/A',
-      };
-
-      if (controles.length === 0) {
-        return [{
-          ...contextoRiesgo,
-          "ID Control": 'N/A',
-          "N° Control": 'N/A',
-          "Control Estructurado": 'No',
-          "Descripción del Control": controlLegado || 'Sin controles registrados',
-          "Tipo": 'N/A',
-          "Implementación": 'N/A',
-          "Documentación": 'N/A',
-          "Frecuencia": 'N/A',
-          "Evidencia": 'N/A',
-          "Responsable del Control": 'N/A',
-          "Eficacia Calculada (%)": 'N/A',
-          "Observaciones del Control": 'N/A',
-        }];
-      }
-
-      return controles.map((control, indice) => ({
-        ...contextoRiesgo,
-        "ID Control": `RSK-${riesgo.id}-C${indice + 1}`,
-        "N° Control": indice + 1,
-        "Control Estructurado": 'Sí',
-        "Descripción del Control": control.descripcion || 'Sin descripción',
-        "Tipo": control.tipo || 'Preventivo',
-        "Implementación": control.implementacion || control.ejecucion || 'Manual',
-        "Documentación": control.documentacion || 'No especificada',
-        "Frecuencia": control.frecuencia || 'No especificada',
-        "Evidencia": control.evidencia || 'No especificada',
-        "Responsable del Control": control.responsable || control.responsableControl || contextoRiesgo['Responsable del Riesgo'],
-        "Eficacia Calculada (%)": calcularEficaciaControl(control),
-        "Observaciones del Control": control.observaciones || control.comentarios || 'N/A',
-      }));
-    });
-
-    const controlesEstructurados = riesgosExportados.flatMap(item => item.controles);
-    const riesgosConDetalle = riesgosExportados.filter(item => item.controles.length > 0).length;
-    const controlesPorTipo = controlesEstructurados.reduce((conteo, control) => {
-      const tipo = control.tipo || 'Preventivo';
-      conteo[tipo] = (conteo[tipo] || 0) + 1;
-      return conteo;
-    }, {});
-    const eficaciaPromedioGlobal = controlesEstructurados.length > 0
-      ? Math.round(controlesEstructurados.reduce((total, control) => total + calcularEficaciaControl(control), 0) / controlesEstructurados.length)
-      : 'N/A';
-    const resumenExportacion = [
-      { "Tipo": 'Exportación', "Indicador": 'Fecha de generación', "Valor": new Date().toLocaleString('es-CO') },
-      { "Tipo": 'Cobertura', "Indicador": 'Riesgos exportados', "Valor": safeRiesgos.length },
-      { "Tipo": 'Cobertura', "Indicador": 'Riesgos con controles estructurados', "Valor": riesgosConDetalle },
-      { "Tipo": 'Cobertura', "Indicador": 'Riesgos sin controles estructurados', "Valor": safeRiesgos.length - riesgosConDetalle },
-      { "Tipo": 'Controles', "Indicador": 'Controles detallados exportados', "Valor": controlesEstructurados.length },
-      { "Tipo": 'Controles', "Indicador": 'Eficacia promedio calculada', "Valor": eficaciaPromedioGlobal },
-      ...Object.entries(controlesPorTipo).map(([tipo, total]) => ({ "Tipo": 'Controles por tipo', "Indicador": tipo, "Valor": total })),
-      ...['Extremo', 'Alto', 'Moderado', 'Bajo'].map(nivel => ({
-        "Tipo": 'Riesgos por nivel residual',
-        "Indicador": nivel,
-        "Valor": riesgosExportados.filter(item => item.zonaRes.label === nivel).length,
-      })),
-    ];
-
-    const crearHoja = (registros, encabezados, conFiltro = true) => {
-      const hoja = XLSX.utils.json_to_sheet(registros, { header: encabezados });
-      hoja['!cols'] = encabezados.map(encabezado => {
-        const anchoContenido = registros.reduce((maximo, registro) => (
-          Math.max(maximo, String(registro[encabezado] ?? '').split('\n').reduce((lineaMaxima, linea) => Math.max(lineaMaxima, linea.length), 0))
-        ), encabezado.length);
-        return { wch: Math.min(60, Math.max(12, anchoContenido + 2)) };
+    try {
+      const { crearLibroMatrizRiesgosExcel } = await import('../utils/riesgosExcelExport.js');
+      const libro = await crearLibroMatrizRiesgosExcel(safeRiesgos, {
+        getSeverityZone,
+        calcularMitigacionRiesgo,
+        calcularEficaciaControl,
       });
-      if (conFiltro && registros.length > 0) {
-        hoja['!autofilter'] = {
-          ref: XLSX.utils.encode_range({
-            s: { r: 0, c: 0 },
-            e: { r: registros.length, c: encabezados.length - 1 },
-          }),
-        };
-      }
-      return hoja;
-    };
-
-    const encabezadosMatriz = Object.keys(matrizRiesgos[0]);
-    const encabezadosControles = Object.keys(controlesPorRiesgo[0]);
-    const encabezadosResumen = ['Tipo', 'Indicador', 'Valor'];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, crearHoja(resumenExportacion, encabezadosResumen, false), 'Resumen');
-    XLSX.utils.book_append_sheet(workbook, crearHoja(matrizRiesgos, encabezadosMatriz), 'Matriz Corporativa');
-    XLSX.utils.book_append_sheet(workbook, crearHoja(controlesPorRiesgo, encabezadosControles), 'Controles por Riesgo');
-
-    const fecha = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(workbook, `Matriz_Riesgos_Termales_${fecha}.xlsx`, { compression: true });
-    
-    showNotification("Matriz descargada en Excel exitosamente", "success");
+      const buffer = await libro.xlsx.writeBuffer({
+        useStyles: true,
+        useSharedStrings: true,
+        zip: { compression: 'DEFLATE', compressionOptions: { level: 6 } },
+      });
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = `Matriz_Riesgos_Termales_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showNotification("Matriz descargada en Excel exitosamente", "success");
+    } catch (error) {
+      console.error('Error al generar el libro Excel de riesgos:', error);
+      showNotification("No fue posible generar el archivo Excel.", "error");
+    }
   };
 // =========================================================================
   // 🤖 INFORME GLOBAL IA: MATRIZ DE RIESGOS (VERSIÓN DEFINITIVA BLINDADA)
