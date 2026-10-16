@@ -322,11 +322,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   
   // 🔢 FUNCIÓN BLINDADA PARA CALCULAR EL CONSECUTIVO EXACTO Y CAPTURAR RIESGO EMERGENTE
   const handleNuevoRiesgo = () => guardNavigationRiesgos(() => {
-    if (macroprocesosDisponibles.length === 0) {
-      showNotification('Tu perfil no tiene macroprocesos asignados para crear riesgos.', 'error');
-      return;
-    }
-    const macroprocesoPredeterminado = macroprocesosDisponibles[0];
+    const macroprocesoPredeterminado = macroprocesosDisponibles[0] || '';
     const subprocesosPredeterminados = (MAPA_PROCESOS[macroprocesoPredeterminado] || []).filter(subproceso => (
       subprocesosAsignadosUsuario.length === 0 || subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso))
     ));
@@ -961,8 +957,12 @@ const handleRiesgoSubmit = async (e) => {
     const subprocesosCanonicos = [...new Set(subprocesosSeleccionados.map(subprocesoSeleccionado => (
       resolverNombreCatalogo(subprocesoSeleccionado, MAPA_PROCESOS[macroprocesoCanonico] || [])
     )).filter(Boolean))];
+    if (procesosAsignadosUsuario.length === 0) {
+      showNotification('El formulario está disponible para todos, pero necesitas una asignación de macroproceso para guardar riesgos.', 'error');
+      return;
+    }
     if (!macroprocesoCanonico || macroprocesoCanonico === 'Sin proceso' || subprocesosCanonicos.length === 0) {
-      showNotification("Selecciona un macroproceso y al menos un subproceso del catálogo.", "error");
+      showNotification("Selecciona un macroproceso propio y al menos uno de sus subprocesos.", "error");
       return;
     }
 
@@ -1062,12 +1062,16 @@ const handleRiesgoSubmit = async (e) => {
       { nivel: 1, etiqueta: 'Insignificante' },
     ];
     const riesgosNormalizados = safeRiesgos.map(riesgo => normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS));
-    const procesosUnicos = [...new Set(riesgosNormalizados.flatMap(riesgo => riesgo.macroprocesos))].sort((a, b) => a.localeCompare(b, 'es'));
-    const subprocesosUnicos = [...new Set(riesgosNormalizados.flatMap(riesgo => (
+    const procesosUnicos = [...new Set([...Object.keys(MAPA_PROCESOS), ...riesgosNormalizados.flatMap(riesgo => riesgo.macroprocesos)])]
+      .sort((a, b) => a.localeCompare(b, 'es'));
+    const subprocesosCatalogoDashboard = filtroProceso === 'Todos'
+      ? Object.values(MAPA_PROCESOS).flat()
+      : MAPA_PROCESOS[filtroProceso] || [];
+    const subprocesosUnicos = [...new Set([...subprocesosCatalogoDashboard, ...riesgosNormalizados.flatMap(riesgo => (
       filtroProceso === 'Todos'
         ? riesgo.subprocesos
         : riesgo.subprocesosPorMacroproceso[filtroProceso] || []
-    )))].sort((a, b) => a.localeCompare(b, 'es'));
+    ))])].sort((a, b) => a.localeCompare(b, 'es'));
     const clasificacionesUnicas = [...new Set(riesgosNormalizados.map(r => r.clasificacionRiesgo || r.categoria || 'Sin clasificación'))].sort((a, b) => a.localeCompare(b, 'es'));
     const scoreRiesgo = riesgo => extraerNivelMatriz(riesgo.probabilidadResidual, 'probabilidad') * extraerNivelMatriz(riesgo.impactoResidual, 'impacto');
     const nivelRiesgo = riesgo => {
@@ -1227,6 +1231,12 @@ const handleRiesgoSubmit = async (e) => {
             <button type="button" onClick={limpiarFiltrosDashboard} className="min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-600 hover:border-slate-500 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">Restablecer</button>
           </div>
         </section>
+
+        {procesosAsignadosUsuario.length === 0 && (
+          <div role="status" className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-950">
+            <strong>Consulta completa · Solo lectura.</strong> Tu perfil no tiene macroprocesos asignados para crear o editar riesgos. Solicita la asignación en Configuración.
+          </div>
+        )}
 
         <section aria-label="Indicadores de riesgo" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           {[
@@ -1473,14 +1483,19 @@ const renderMatriz = () => {
       return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel;
     });
 
-    const procesosUnicos = [...new Set(riesgosNormalizados.flatMap(r => r.macroprocesos))].sort((a, b) => a.localeCompare(b, 'es'));
+    const procesosUnicos = [...new Set([...Object.keys(MAPA_PROCESOS), ...riesgosNormalizados.flatMap(r => r.macroprocesos)])]
+      .sort((a, b) => a.localeCompare(b, 'es'));
     
     // ✨ Derivamos los subprocesos dinámicamente basados en el proceso seleccionado
-    const subprocesosUnicos = [...new Set(
-      riesgosNormalizados.flatMap(r => filtroProceso === 'Todos'
+    const subprocesosCatalogoMatriz = filtroProceso === 'Todos'
+      ? Object.values(MAPA_PROCESOS).flat()
+      : MAPA_PROCESOS[filtroProceso] || [];
+    const subprocesosUnicos = [...new Set([
+      ...subprocesosCatalogoMatriz,
+      ...riesgosNormalizados.flatMap(r => (filtroProceso === 'Todos'
         ? r.subprocesos
-        : r.subprocesosPorMacroproceso[filtroProceso] || [])
-    )].sort((a, b) => a.localeCompare(b, 'es'));
+        : r.subprocesosPorMacroproceso[filtroProceso] || [])),
+    ])].sort((a, b) => a.localeCompare(b, 'es'));
 
     return (
       <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-300">
@@ -2224,9 +2239,9 @@ const renderMatriz = () => {
             <span className="mr-2">✨</span> Informe Global IA
           </button>
 
-          {procesosAsignadosUsuario.length > 0 && <button onClick={handleNuevoRiesgo} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg bg-[#0A3B32] text-white hover:bg-[#062620] border border-emerald-900">
+          <button onClick={handleNuevoRiesgo} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg bg-[#0A3B32] text-white hover:bg-[#062620] border border-emerald-900">
             <span className="mr-2">➕</span> Nuevo Riesgo
-          </button>}
+          </button>
         </div>
       </div>
 
@@ -2271,13 +2286,15 @@ const renderMatriz = () => {
                   <select 
                     value={macroproceso} 
                     onChange={handleMacroprocesoChange} 
+                    disabled={macroprocesosDisponibles.length === 0}
                     className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white font-bold text-slate-800"
                   >
-                    <option value="" disabled>Seleccione...</option>
+                    <option value="" disabled>{macroprocesosDisponibles.length === 0 ? 'Sin macroproceso asignado' : 'Seleccione...'}</option>
                     {macroprocesosDisponibles.map(macro => (
                       <option key={macro} value={macro}>{macro}</option>
                     ))}
                   </select>
+                  {macroprocesosDisponibles.length === 0 && <p className="mt-1 text-[10px] text-amber-800">Puedes consultar la matriz completa. Para guardar un riesgo, solicita que te asignen su macroproceso.</p>}
                 </div>
 
                 <fieldset disabled={!macroproceso || subprocesosDisponibles.length === 0} className="rounded-lg border border-slate-300 bg-white p-2 disabled:bg-slate-100">
