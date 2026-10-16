@@ -3260,15 +3260,18 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           return acc;
         }, {});
 
-        // ✨ FIX ARQUITECTÓNICO: Incluir también informes que tienen Hallazgos pero AÚN NO tienen planes creados
-        const informesConHallazgos = safeHallazgos.map(h => String(h.idInforme));
+        // Conservar informes con hallazgos sin planes, aplicando también los filtros activos.
+        const hallazgosFiltrados = applyFilters(safeHallazgos, searchTerm, columnFilters);
+        const informesConHallazgos = hallazgosFiltrados.map(h => String(h.idInforme));
         const listaInformesIds = [...new Set([...Object.keys(planesPorInforme), ...informesConHallazgos])].filter(id => id && id !== 'undefined' && id !== 'null');
         const informesPorId = new Map(informesAuditoria.map(informe => [String(informe.id), informe]));
-        const informesFiltradosPorFuente = listaInformesIds.filter(id => {
-          if (!filtroFuenteMatriz) return true;
-          const informe = informesPorId.get(String(id));
-          return Boolean(informe && resolverCategoriaFuente(informe.tipoFuente, fuentesMejora) === filtroFuenteMatriz);
-        });
+        const informesFiltradosPorFuente = listaInformesIds
+          .map(id => informesPorId.get(String(id)) || { id })
+          .filter(informe => !filtroFuenteMatriz || (
+            resolverCategoriaFuente(informe.tipoFuente, fuentesMejora) === filtroFuenteMatriz
+          ))
+          .sort(compararInformesPorFecha)
+          .map(informe => String(informe.id));
         const totalInformesMatriz = informesFiltradosPorFuente.length;
         const totalPaginasMatriz = Math.max(1, Math.ceil(totalInformesMatriz / informesPorPaginaMatriz));
         const paginaMatrizActual = Math.min(paginaHistorialMatriz, totalPaginasMatriz);
