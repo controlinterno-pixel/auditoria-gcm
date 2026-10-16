@@ -13,6 +13,28 @@ const normalizarIdentidad = valor => String(valor || '')
   .toLowerCase()
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
+
+const obtenerTiempoInforme = fecha => {
+  const valor = String(fecha || '').trim();
+  if (!valor) return null;
+  const fechaIso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+  if (fechaIso) return Date.UTC(Number(fechaIso[1]), Number(fechaIso[2]) - 1, Number(fechaIso[3]));
+  const fechaLocal = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(valor);
+  if (fechaLocal) return Date.UTC(Number(fechaLocal[3]), Number(fechaLocal[2]) - 1, Number(fechaLocal[1]));
+  const tiempo = Date.parse(valor);
+  return Number.isFinite(tiempo) ? tiempo : null;
+};
+
+const compararInformesPorFecha = (a, b) => {
+  const fechaA = obtenerTiempoInforme(a.fecha);
+  const fechaB = obtenerTiempoInforme(b.fecha);
+  if (fechaA !== fechaB) {
+    if (fechaA === null) return 1;
+    if (fechaB === null) return -1;
+    return fechaB - fechaA;
+  }
+  return String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', { numeric: true, sensitivity: 'base' });
+};
 const ESTADO_PENDIENTE_VALIDACION_REVISOR = 'Pendiente Validación Revisor';
 
 const esAuditorAsignado = (plan, correo, perfil) => {
@@ -392,6 +414,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       anioTexto: p.fecha ? p.fecha.split('-')[0] : 'Sin Fecha'
     }];
   }), [safePlanes, hallazgosPorId, informesAuditoria, fuentesMejora, timestampInicioDia]);
+  const informesOrdenadosPorFecha = [...informesAuditoria].sort(compararInformesPorFecha);
 
   const tareasPendientesPorInforme = useMemo(() => {
     const planPorId = new Map(planesEnriquecidos.map(plan => [String(plan.id), plan]));
@@ -2744,7 +2767,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             </div>
             <select disabled={modoRevisionMatriz} value={formInformeId} onChange={(e) => handleInformeChange(e.target.value)} className={`w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm ${modoRevisionMatriz ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}>
               <option value="">-- Seleccione el Informe de Auditoría Radicado --</option>
-              {informesAuditoria.map((inf) => <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo} — ({inf.proceso})</option>)}
+              {informesOrdenadosPorFecha.map((inf) => <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo} — ({inf.proceso})</option>)}
             </select>
           </div>
 
