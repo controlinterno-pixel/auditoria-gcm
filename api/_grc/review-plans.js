@@ -7,6 +7,7 @@ import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
+const ESTADO_VALIDACION_REVISOR = 'Pendiente Validación Revisor';
 const normalizar = valor => String(valor || '')
   .trim()
   .toLowerCase()
@@ -141,7 +142,7 @@ export default async function handler(req, res) {
       if (!informeExiste) return { error: 'report-not-found' };
 
       const pendientes = planes.filter(plan => {
-        if (plan.estadoWorkflow !== 'Pendiente Revisión Jefatura') return false;
+        if (!['Pendiente Revisión Jefatura', ESTADO_VALIDACION_REVISOR].includes(plan.estadoWorkflow)) return false;
         const hallazgo = hallazgos.find(item => String(item.id) === String(plan.idHallazgo));
         const planInformeId = plan.idInforme || hallazgo?.idInforme;
         if (String(planInformeId) !== String(idInforme)) return false;
@@ -152,21 +153,29 @@ export default async function handler(req, res) {
       const ahora = new Date();
       const actualizados = pendientes.map(plan => {
         const aprobado = decision === 'aprobar';
+        const validaEjecucionCompleta = plan.estadoWorkflow === ESTADO_VALIDACION_REVISOR;
         const evento = {
           fecha: ahora.toLocaleString('es-CO'),
           timestamp: ahora.toISOString(),
           usuario: user.email,
-          accion: aprobado ? 'Diseño aprobado por el revisor' : 'Corrección solicitada por el revisor',
+          accion: validaEjecucionCompleta
+            ? aprobado ? 'Ejecución al 100% validada por el revisor y enviada al aprobador' : 'Evidencias devueltas por el revisor al ejecutor'
+            : aprobado ? 'Diseño aprobado por el revisor' : 'Corrección solicitada por el revisor',
           ...(motivoSeguro ? { motivo: motivoSeguro } : {}),
         };
         return {
           ...plan,
-          estadoWorkflow: aprobado
-            ? (Number(plan.progreso) >= 100 ? 'En Revisión (100%)' : 'En Ejecución')
-            : 'Borrador',
+          estadoWorkflow: validaEjecucionCompleta
+            ? aprobado ? 'En Revisión (100%)' : 'En Ejecución'
+            : aprobado
+              ? (Number(plan.progreso) >= 100 ? ESTADO_VALIDACION_REVISOR : 'En Ejecución')
+              : 'Borrador',
           estado: 'En Proceso',
+          ...(validaEjecucionCompleta && !aprobado ? { progreso: 90 } : {}),
           ...(aprobado
-            ? { aprobadoPorCorreo: user.email, aprobadoEn: ahora.toISOString(), motivoRechazo: '' }
+            ? validaEjecucionCompleta
+              ? { validadoPorRevisorCorreo: user.email, validadoPorRevisorEn: ahora.toISOString(), motivoRechazo: '' }
+              : { aprobadoPorCorreo: user.email, aprobadoEn: ahora.toISOString(), motivoRechazo: '' }
             : { aprobadoPorCorreo: '', motivoRechazo: motivoSeguro }),
           historialCambios: [...(Array.isArray(plan.historialCambios) ? plan.historialCambios : []), evento],
         };
@@ -182,7 +191,7 @@ export default async function handler(req, res) {
     const errores = {
       'not-found': ['No se encontró la matriz GRC.', 404],
       'report-not-found': ['No se encontró el informe seleccionado.', 404],
-      'no-pending-plans': ['No hay planes pendientes asignados a este aprobador para el informe.', 409],
+      'no-pending-plans': ['No hay planes pendientes asignados a este revisor para el informe.', 409],
     };
     if (resultado.error && errores[resultado.error]) {
       const [mensaje, estado] = errores[resultado.error];

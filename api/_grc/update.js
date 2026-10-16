@@ -173,18 +173,18 @@ export default async function handler(req, res) {
           const cambioProgreso = camposCambiados.includes('progreso');
           // Subir evidencia es ejecución, no una corrección del diseño aprobado.
           const cambioDiseno = camposCambiados.some(campo => !['progreso', 'evidenciaUrl'].includes(campo));
-          if (!admin && cambioProgreso && !['En Ejecución', 'En Revisión (100%)'].includes(anterior.estadoWorkflow)) {
+          if (!admin && camposCambiados.length > 0 && anterior.estadoWorkflow !== 'En Ejecución') {
             return { error: 'progress-forbidden' };
           }
           const reenviaRevision = !admin && cambioDiseno;
           let estadoWorkflow = anterior.estadoWorkflow;
           const alCien = Number(cambios.progreso ?? anterior.progreso) === 100;
           if (admin && (cambioProgreso || atascadoAlCien)) {
-            if (alCien && anterior.estadoWorkflow === 'En Ejecución') estadoWorkflow = 'En Revisión (100%)';
-            else if (!alCien && anterior.estadoWorkflow === 'En Revisión (100%)') estadoWorkflow = 'En Ejecución';
+            if (alCien && anterior.estadoWorkflow === 'En Ejecución') estadoWorkflow = 'Pendiente Validación Revisor';
+            else if (!alCien && ['Pendiente Validación Revisor', 'En Revisión (100%)'].includes(anterior.estadoWorkflow)) estadoWorkflow = 'En Ejecución';
           }
           if (!admin && !reenviaRevision && (cambioProgreso || atascadoAlCien)) {
-            if (alCien) estadoWorkflow = 'En Revisión (100%)';
+            if (alCien) estadoWorkflow = 'Pendiente Validación Revisor';
             else if (anterior.estadoWorkflow === 'En Revisión (100%)') estadoWorkflow = 'En Ejecución';
           }
           const cambiaEstadoEjecucion = (
@@ -212,8 +212,8 @@ export default async function handler(req, res) {
                 accion: reenviaRevision
                   ? 'Diseño corregido y reenviado a revisión por su responsable'
                   : cambiaEstadoEjecucion
-                    ? estadoWorkflow === 'En Revisión (100%)'
-                      ? 'Ejecución al 100% enviada a revisión del auditor'
+                    ? estadoWorkflow === 'Pendiente Validación Revisor'
+                      ? 'Ejecución al 100% enviada a validación del revisor'
                       : 'Avance de ejecución actualizado por su responsable'
                     : 'Acción de plan actualizada',
                 detalleCambios: camposCambiados.map(campo => ({
@@ -291,7 +291,7 @@ export default async function handler(req, res) {
         'not-owner': ['Solo puede editar acciones asignadas a su correo.', 403],
         'invalid-action': ['La descripción de la acción no puede quedar vacía.', 400],
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
-        'progress-forbidden': ['El avance solo se puede actualizar cuando el plan está en ejecución o en revisión de cierre.', 403],
+        'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-reviewer-email': ['El correo del revisor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-auditor-email': ['El correo del auditor debe ser válido.', 400],

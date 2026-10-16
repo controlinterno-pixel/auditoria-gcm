@@ -13,6 +13,7 @@ const normalizarIdentidad = valor => String(valor || '')
   .toLowerCase()
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
+const ESTADO_PENDIENTE_VALIDACION_REVISOR = 'Pendiente Validación Revisor';
 
 const esAuditorAsignado = (plan, correo, perfil) => {
   const correosAsignados = [plan?.correoAuditor, plan?.correoAuditorResponsable, plan?.correo_auditor]
@@ -793,18 +794,18 @@ const handleNotificarPlan = (planId) => {
             if (!correoRevisorEnviado) todasNotificacionesEnviadas = false;
           }
 
-          const planesAlCien = planesActualizados.filter(plan => plan.estadoWorkflow === 'En Revisión (100%)');
+          const planesAlCien = planesActualizados.filter(plan => plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR);
           for (const plan of planesAlCien) {
-            if (!plan.correoAuditor) {
+            if (!plan.correoRevisor) {
               todasNotificacionesEnviadas = false;
               continue;
             }
             const correoAuditorEnviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-              titulo_informe: 'Plan al 100%: revisión de evidencias requerida',
-              proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Revise sus evidencias para aprobar el cierre.`,
+              titulo_informe: 'Plan al 100%: validación del revisor requerida',
+              proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Valide las evidencias y, si están conformes, envíe la acción al aprobador final.`,
               enlace_pdf: plan.evidenciaUrl || window.location.origin,
-              destinatarios: plan.correoAuditor,
+              destinatarios: plan.correoRevisor,
             }, correoPreparado);
             if (!correoAuditorEnviado) todasNotificacionesEnviadas = false;
           }
@@ -816,13 +817,13 @@ const handleNotificarPlan = (planId) => {
         setMatrixDirty(false);
         setVistaActiva('historial');
         const hayReenvioDiseno = planesActualizados.some(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
-        const hayAvanceAlCien = planesActualizados.some(plan => plan.estadoWorkflow === 'En Revisión (100%)');
+        const hayAvanceAlCien = planesActualizados.some(plan => plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR);
         const mensajeGuardado = actividadesNuevas.length > 0
           ? 'Planes creados y notificaciones enviadas.'
           : hayReenvioDiseno
             ? 'Diseño corregido y enviado a revisión de jefatura.'
             : hayAvanceAlCien
-              ? 'Avance al 100% enviado a revisión del auditor.'
+              ? 'Avance al 100% enviado a validación del revisor.'
               : 'Avance guardado correctamente.';
         alert(todasNotificacionesEnviadas
           ? mensajeGuardado
@@ -892,9 +893,9 @@ const diccionarioCorreos = {
         if (isNew) {
           workflowCalculado = 'Pendiente Revisión Jefatura';
         } else if (progresoEntero === 100 && workflowCalculado === 'En Ejecución') {
-          workflowCalculado = 'En Revisión (100%)';
+          workflowCalculado = ESTADO_PENDIENTE_VALIDACION_REVISOR;
           notificacionesRevision100.push(act);
-        } else if (progresoEntero < 100 && workflowCalculado === 'En Revisión (100%)') {
+        } else if (progresoEntero < 100 && [ESTADO_PENDIENTE_VALIDACION_REVISOR, 'En Revisión (100%)'].includes(workflowCalculado)) {
           workflowCalculado = 'En Ejecución';
         }
 
@@ -1674,16 +1675,16 @@ if (existingActivities.length > 0) {
             }, correoPreparado),
           ]);
           notificacionEnviada = resultados.every(Boolean);
-        } else if (planGuardado.estadoWorkflow === 'En Revisión (100%)' && llegaAlCien) {
+        } else if (planGuardado.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && llegaAlCien) {
           const enlaceEvidencia = Array.isArray(planGuardado.evidenciaUrl)
             ? planGuardado.evidenciaUrl.at(-1)
             : planGuardado.evidenciaUrl;
           notificacionEnviada = await enviarNotificacionPlanConReintento({
             ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
-            titulo_informe: 'Plan al 100%: revisión de evidencias requerida',
-            proceso_auditado: `La acción "${planGuardado.accion}" llegó al 100%. Revise las evidencias para aprobar el cierre.`,
+            titulo_informe: 'Plan al 100%: validación del revisor requerida',
+            proceso_auditado: `La acción "${planGuardado.accion}" llegó al 100%. Valide las evidencias para enviarla al aprobador final.`,
             enlace_pdf: enlaceEvidencia || window.location.origin,
-            destinatarios: planGuardado.correoAuditor || informeActual?.correoAuditor,
+            destinatarios: planGuardado.correoRevisor,
           }, correoPreparado);
         } else if (!isAdmin && cambioDiseno && planGuardado.estadoWorkflow === 'Pendiente Revisión Jefatura') {
           notificacionEnviada = await enviarNotificacionPlanConReintento({
@@ -1781,6 +1782,24 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     }
   };
 
+  const modoValidacionFinalRevisor = modoRevisionMatriz && planesEnriquecidos.some(plan => (
+    String(plan.idInforme) === String(revisionInformeId)
+    && plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR
+  ));
+
+  const abrirRevisionPlan = plan => {
+    setEditPlan(null);
+    setModoRevisionMatriz(true);
+    setRevisionInformeId(plan.idInforme);
+    setMostrarMotivoCorreccion(false);
+    setMotivoCorreccion('');
+    handleInformeChange(String(plan.idInforme));
+    setVistaActiva('nuevo');
+    requestAnimationFrame(() => {
+      if (typeof scrollToForm === 'function') scrollToForm();
+    });
+  };
+
   const resolverDecisionRevision = async (decision) => {
     if (!revisionInformeId || guardandoDecisionRevision) return;
     if (decision === 'corregir' && !motivoCorreccion.trim()) {
@@ -1791,14 +1810,15 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     const correoSesion = String(user?.email || '').trim().toLowerCase();
     const planesPendientes = planesEnriquecidos.filter(plan => (
       String(plan.idInforme) === String(revisionInformeId) &&
-      plan.estadoWorkflow === 'Pendiente Revisión Jefatura' &&
+      ['Pendiente Revisión Jefatura', ESTADO_PENDIENTE_VALIDACION_REVISOR].includes(plan.estadoWorkflow) &&
       (isAdmin || String(plan.correoRevisor || '').trim().toLowerCase() === correoSesion)
     ));
     if (planesPendientes.length === 0) {
-      alert('No hay planes pendientes asignados a este aprobador para el informe.');
+      alert('No hay planes pendientes asignados a este revisor para el informe.');
       setRevisionInformeId(null);
       return;
     }
+    const estadoAnteriorPorId = new Map(planesPendientes.map(plan => [String(plan.id), plan.estadoWorkflow]));
 
     setGuardandoDecisionRevision(true);
     try {
@@ -1833,7 +1853,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       setMatrixState({});
       setVistaActiva('historial');
       setGuardandoDecisionRevision(false);
-      showNotification('Decisión guardada. Preparando notificación al ejecutor…', 'success');
+      showNotification('Decisión guardada. Preparando notificación para la siguiente etapa…', 'success');
       void (async () => {
         let todasNotificacionesEnviadas = true;
         let correoPreparado = !prepararEnvioGmail;
@@ -1845,20 +1865,42 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           }
         }
         for (const plan of planesActualizados) {
-          if (!plan.correoResponsable) {
+          const estadoAnterior = estadoAnteriorPorId.get(String(plan.id));
+          const esValidacionFinal = estadoAnterior === ESTADO_PENDIENTE_VALIDACION_REVISOR;
+          const validacionPendienteRevisor = plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR;
+          const pasaAlAprobador = esValidacionFinal && decision === 'aprobar' && plan.estadoWorkflow === 'En Revisión (100%)';
+          const informe = informesAuditoria.find(item => String(item.id) === String(plan.idInforme));
+          const destinatario = pasaAlAprobador
+            ? plan.correoAuditor || informe?.correoAuditor || informe?.correoAuditorResponsable
+            : validacionPendienteRevisor ? plan.correoRevisor : plan.correoResponsable;
+          if (!destinatario) {
             todasNotificacionesEnviadas = false;
             continue;
           }
           try {
             const enviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-              asunto: decision === 'aprobar' ? 'Diseño del plan aprobado' : 'Corrección solicitada para el plan de acción',
-              titulo_informe: decision === 'aprobar' ? 'Diseño del plan aprobado' : 'El plan requiere correcciones',
-              proceso_auditado: decision === 'aprobar'
-                ? `El diseño de la acción "${plan.accion}" fue aprobado. Ya puede iniciar su ejecución.`
-                : `El diseño de la acción "${plan.accion}" requiere correcciones. Motivo del aprobador: ${motivoCorreccion.trim()}`,
+              asunto: pasaAlAprobador
+                ? 'Ejecución validada: aprobación final requerida'
+                : validacionPendienteRevisor
+                  ? 'Diseño aprobado: validación final del revisor requerida'
+                  : decision === 'aprobar' ? 'Diseño del plan aprobado' : 'Corrección solicitada para el plan de acción',
+              titulo_informe: pasaAlAprobador
+                ? 'Ejecución al 100% validada por el revisor'
+                : validacionPendienteRevisor
+                  ? 'Validación final pendiente del revisor'
+                  : decision === 'aprobar' ? 'Diseño del plan aprobado' : 'El plan requiere correcciones',
+              proceso_auditado: pasaAlAprobador
+                ? `El revisor validó las evidencias de la acción "${plan.accion}" al 100%. Realice la aprobación final y cierre del plan.`
+                : validacionPendienteRevisor
+                  ? `El diseño de la acción "${plan.accion}" quedó aprobado con ejecución al 100%. Valide sus evidencias antes de enviarla al aprobador final.`
+                  : esValidacionFinal
+                  ? `La acción "${plan.accion}" fue devuelta al ejecutor al 90% para corregir las evidencias. Motivo: ${motivoCorreccion.trim()}`
+                  : decision === 'aprobar'
+                    ? `El diseño de la acción "${plan.accion}" fue aprobado. Ya puede iniciar su ejecución.`
+                    : `El diseño de la acción "${plan.accion}" requiere correcciones. Motivo del revisor: ${motivoCorreccion.trim()}`,
               enlace_pdf: window.location.origin,
-              destinatarios: plan.correoResponsable,
+              destinatarios: destinatario,
             }, correoPreparado);
             if (!enviado) todasNotificacionesEnviadas = false;
           } catch {
@@ -1866,7 +1908,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           }
         }
         if (todasNotificacionesEnviadas) {
-          showNotification('Notificación enviada al ejecutor.', 'success');
+          showNotification('Notificación enviada a la siguiente persona responsable.', 'success');
         } else {
           showNotification('La decisión se guardó, pero no se pudieron enviar todas las notificaciones.', 'error');
         }
@@ -2608,9 +2650,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   <span className="text-amber-500 text-lg">👁️</span>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-black text-amber-800 uppercase tracking-widest">Modo Revisión de Diseño (Solo Lectura)</h3>
+                  <h3 className="text-sm font-black text-amber-800 uppercase tracking-widest">{modoValidacionFinalRevisor ? 'Validación de ejecución al 100% (Solo Lectura)' : 'Modo Revisión de Diseño (Solo Lectura)'}</h3>
                   <div className="mt-1 text-xs text-amber-700 font-medium">
-                    Estás visualizando el plan de acción en modo de solo lectura. Puedes revisar las evidencias descargando los adjuntos. Utiliza los botones al final del formulario para registrar tu decisión.
+                    {modoValidacionFinalRevisor
+                      ? 'Verifica las evidencias y el resultado de la ejecución. Si está conforme, envía la acción al aprobador final; si no, devuélvela al ejecutor para ajuste.'
+                      : 'Estás visualizando el diseño del plan en modo de solo lectura. Revisa la acción y utiliza los botones al final para aprobarla o solicitar correcciones.'}
                   </div>
                 </div>
               </div>
@@ -3066,13 +3110,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             setModoRevisionMatriz(false);
                             setVistaActiva('historial');
                          }} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Cerrar Vista</button>
-                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => setMostrarMotivoCorreccion(true)} className="px-5 py-2.5 bg-orange-100 border border-orange-200 hover:bg-orange-200 text-orange-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-colors disabled:opacity-50">Solicitar corrección</button>
-                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => resolverDecisionRevision('aprobar')} className="px-6 py-2.5 bg-[#69b193] hover:bg-[#549c7f] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50">{guardandoDecisionRevision ? 'Guardando…' : 'Aprobar diseño'}</button>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => setMostrarMotivoCorreccion(true)} className="px-5 py-2.5 bg-orange-100 border border-orange-200 hover:bg-orange-200 text-orange-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-colors disabled:opacity-50">{modoValidacionFinalRevisor ? 'Devolver al ejecutor' : 'Solicitar corrección'}</button>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => resolverDecisionRevision('aprobar')} className="px-6 py-2.5 bg-[#69b193] hover:bg-[#549c7f] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50">{guardandoDecisionRevision ? 'Guardando…' : modoValidacionFinalRevisor ? 'Validar y enviar al aprobador' : 'Aprobar diseño'}</button>
                        </>
                      ) : (
                        <>
                          <button type="button" disabled={guardandoDecisionRevision} onClick={() => guardMotivoCorreccion(() => { setMotivoCorreccion(''); setMostrarMotivoCorreccion(false); })} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Volver</button>
-                         <button type="button" disabled={guardandoDecisionRevision || !motivoCorreccion.trim()} onClick={() => resolverDecisionRevision('corregir')} className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50 flex items-center gap-2">{guardandoDecisionRevision ? 'Enviando…' : 'Enviar corrección al Gestor'}</button>
+                         <button type="button" disabled={guardandoDecisionRevision || !motivoCorreccion.trim()} onClick={() => resolverDecisionRevision('corregir')} className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50 flex items-center gap-2">{guardandoDecisionRevision ? 'Enviando…' : modoValidacionFinalRevisor ? 'Devolver al ejecutor al 90%' : 'Enviar corrección al Gestor'}</button>
                        </>
                      )}
                    </div>
@@ -3455,20 +3499,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {/* ========================================================================= */}
                                           {/* NIVEL 1: REVISOR (Jefatura) -> Aprueba el diseño para que el ejecutor actúe */}
                                           {/* ========================================================================= */}
+                                          {p.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && (esRevisor || isAdmin) && (
+                                            <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
+                                              <button type="button" onClick={() => abrirRevisionPlan(p)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">
+                                                ✓ Validar ejecución al 100%
+                                              </button>
+                                            </div>
+                                          )}
                                           {p.estadoWorkflow === 'Pendiente Revisión Jefatura' && (esRevisor || isAdmin) && (
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                              <button type="button" onClick={() => {
-                                                setEditPlan(null);
-                                                setModoRevisionMatriz(true);
-                                                setRevisionInformeId(p.idInforme);
-                                                setMostrarMotivoCorreccion(false);
-                                                setMotivoCorreccion('');
-                                                handleInformeChange(String(p.idInforme));
-                                                setVistaActiva('nuevo');
-                                                requestAnimationFrame(() => {
-                                                  if (typeof scrollToForm === 'function') scrollToForm();
-                                                });
-                                              }} className="bg-amber-500 hover:bg-amber-600 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all shadow-amber-500/30">
+                                              <button type="button" onClick={() => abrirRevisionPlan(p)} className="bg-amber-500 hover:bg-amber-600 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all shadow-amber-500/30">
                                                 👀 Revisar Diseño
                                               </button>
                                             </div>
