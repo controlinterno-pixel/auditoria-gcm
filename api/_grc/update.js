@@ -32,6 +32,12 @@ const subprocesosDe = registro => (
   Array.isArray(registro?.subprocesos) ? registro.subprocesos : [registro?.subproceso]
 ).map(normalizar);
 const correoValido = valor => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim());
+const hayRolesDuplicados = ({ correoResponsable, correoRevisor, correoAuditor }) => {
+  const correos = [correoResponsable, correoRevisor, correoAuditor]
+    .map(normalizar)
+    .filter(Boolean);
+  return new Set(correos).size !== correos.length;
+};
 const obtenerProceso = registro => normalizar(
   registro?.macroproceso || String(registro?.proceso || '').split('/')[0]
 );
@@ -94,19 +100,22 @@ export default async function handler(req, res) {
         const idInformeStr = String(idInforme || '').trim().toLowerCase();
 
         // Preserve exact legacy ID/ref matching, then check the fragmented report document.
-        let informeExiste = informes.some(inf => {
+        let informeActual = informes.find(inf => {
           const idStr = String(inf?.id || '').trim().toLowerCase();
           const refStr = String(inf?.ref || '').trim().toLowerCase();
           return idStr === idInformeStr || refStr === idInformeStr;
         });
-        if (!informeExiste && idInformeDocumento) {
+        if (!informeActual && idInformeDocumento) {
           const informeSnapshot = await transaction.get(
             workspace.coleccionInformesRef.doc(idInformeDocumento)
           );
-          informeExiste = informeSnapshot.exists;
+          if (informeSnapshot.exists) informeActual = { id: informeSnapshot.id, ...informeSnapshot.data() };
         }
 
-        if (!informeExiste) return { error: 'report-not-found' };
+        if (!informeActual) return { error: 'report-not-found' };
+        const correoAuditorInforme = String(
+          informeActual.correoAuditor || informeActual.correoAuditorResponsable || informeActual.correo_auditor || ''
+        ).trim();
 
         const planesPorId = new Map(planes.map(plan => [String(plan.id), plan]));
         const idsActualizados = new Set();
@@ -150,6 +159,20 @@ export default async function handler(req, res) {
               return { error: 'invalid-auditor-email' };
             }
           }
+          const correoAuditorAnterior = anterior.correoAuditor || correoAuditorInforme;
+          const correoResponsableActualizado = peticion.correoResponsable ?? anterior.correoResponsable;
+          const correoRevisorActualizado = peticion.correoRevisor ?? anterior.correoRevisor;
+          const correoAuditorActualizado = peticion.correoAuditor ?? correoAuditorAnterior;
+          const cambianRoles = [
+            [correoResponsableActualizado, anterior.correoResponsable],
+            [correoRevisorActualizado, anterior.correoRevisor],
+            [correoAuditorActualizado, correoAuditorAnterior],
+          ].some(([nuevo, anteriorValor]) => normalizar(nuevo) !== normalizar(anteriorValor));
+          if (cambianRoles && hayRolesDuplicados({
+            correoResponsable: correoResponsableActualizado,
+            correoRevisor: correoRevisorActualizado,
+            correoAuditor: correoAuditorActualizado,
+          })) return { error: 'duplicate-plan-roles' };
 
           const camposEditablesPlan = admin
             ? [...CAMPOS_EDITABLES_PLAN, 'responsable', 'revisor']
@@ -248,6 +271,7 @@ export default async function handler(req, res) {
 
           const correoResponsable = String(item.correoResponsable || '').trim();
           const correoRevisor = String(item.correoRevisor || '').trim();
+          const correoAuditor = String(item.correoAuditor || correoAuditorInforme).trim();
           if (
             !normalizar(item.accion) ||
             !correoValido(correoResponsable) ||
@@ -255,6 +279,11 @@ export default async function handler(req, res) {
             normalizar(correoResponsable) !== normalizar(item.correoConfirmacion) ||
             normalizar(correoRevisor) !== normalizar(item.correoRevisorConfirmacion)
           ) return { error: 'invalid-email-confirmation' };
+          if (hayRolesDuplicados({
+            correoResponsable,
+            correoRevisor,
+            correoAuditor,
+          })) return { error: 'duplicate-plan-roles' };
 
           const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
           planesNuevos.push({
@@ -262,6 +291,7 @@ export default async function handler(req, res) {
             id: siguienteId++,
             idInforme,
             idHallazgo: hallazgo.id,
+            ...(correoAuditor ? { correoAuditor } : {}),
             progreso: 0,
             estadoWorkflow: 'Pendiente Revisión Jefatura',
             estado: 'En Proceso',
@@ -295,6 +325,7 @@ export default async function handler(req, res) {
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-reviewer-email': ['El correo del revisor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-auditor-email': ['El correo del auditor debe ser válido.', 400],
+        'duplicate-plan-roles': ['Ejecutor, revisor y auditor deben ser personas distintas. Revisa los correos asignados.', 400],
         'hallazgo-not-found': ['El informe tiene un hallazgo que no está disponible.', 404],
         'hallazgo-forbidden': ['No tiene permiso para crear planes para este hallazgo.', 403],
         'invalid-email-confirmation': ['Los correos del ejecutor y revisor deben ser válidos y coincidir con sus confirmaciones.', 400],

@@ -14,6 +14,23 @@ const normalizarIdentidad = valor => String(valor || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
 
+const obtenerConflictoRolesPlan = ({ correoResponsable, correoRevisor, correoAuditor }) => {
+  const roles = [
+    ['ejecutor', correoResponsable],
+    ['revisor', correoRevisor],
+    ['auditor', correoAuditor],
+  ].map(([nombre, correo]) => [nombre, String(correo || '').trim().toLowerCase()])
+    .filter(([, correo]) => correo);
+  for (let primero = 0; primero < roles.length; primero += 1) {
+    for (let segundo = primero + 1; segundo < roles.length; segundo += 1) {
+      if (roles[primero][1] === roles[segundo][1]) {
+        return `${roles[primero][0]} y ${roles[segundo][0]}`;
+      }
+    }
+  }
+  return '';
+};
+
 const obtenerTiempoInforme = fecha => {
   const valor = String(fecha || '').trim();
   if (!valor) return null;
@@ -659,6 +676,7 @@ const handleNotificarPlan = async (planId) => {
     let errorCorreosEjecutor = false;
     let errorCorreosRevisor = false;
     let errorCorreoAuditor = false;
+    let errorRolesDuplicados = false;
     const normalizarCorreo = valor => String(valor || '').trim().toLowerCase();
 
     Object.keys(matrixState).forEach(hallazgoId => {
@@ -670,6 +688,18 @@ const handleNotificarPlan = async (planId) => {
           const esPropietario = planOriginal && normalizarCorreo(planOriginal.correoResponsable) === normalizarCorreo(user?.email);
           if (act.accion && act.accion.trim() !== '' && (isAdmin || actividadNueva || esPropietario)) {
             const validaCorreosCompletos = isAdmin || actividadNueva;
+            const informeBase = informesAuditoria.find(informe => String(informe.id) === String(formInformeId));
+            const correoAuditorOriginal = planOriginal?.correoAuditor || informeBase?.correoAuditor || informeBase?.correoAuditorResponsable || '';
+            const conflictoRoles = obtenerConflictoRolesPlan({
+              correoResponsable: act.correoResponsable,
+              correoRevisor: act.correoRevisor,
+              correoAuditor: act.correoAuditor || correoAuditorOriginal,
+            });
+            const cambiaAsignacionRoles = actividadNueva ||
+              normalizarCorreo(act.correoResponsable) !== normalizarCorreo(planOriginal?.correoResponsable) ||
+              normalizarCorreo(act.correoRevisor) !== normalizarCorreo(planOriginal?.correoRevisor) ||
+              normalizarCorreo(act.correoAuditor || correoAuditorOriginal) !== normalizarCorreo(correoAuditorOriginal);
+            if (conflictoRoles && cambiaAsignacionRoles) errorRolesDuplicados = true;
             const cambioCorreoEjecutor = planOriginal && (
               normalizarCorreo(act.correoResponsable) !== normalizarCorreo(planOriginal.correoResponsable) ||
               normalizarCorreo(act.correoConfirmacion) !== normalizarCorreo(planOriginal.correoResponsable)
@@ -678,8 +708,6 @@ const handleNotificarPlan = async (planId) => {
               normalizarCorreo(act.correoRevisor) !== normalizarCorreo(planOriginal.correoRevisor) ||
               normalizarCorreo(act.correoRevisorConfirmacion) !== normalizarCorreo(planOriginal.correoRevisor)
             );
-            const informeBase = informesAuditoria.find(informe => String(informe.id) === String(formInformeId));
-            const correoAuditorOriginal = planOriginal?.correoAuditor || informeBase?.correoAuditor || '';
             const cambioCorreoAuditor = planOriginal && (
               normalizarCorreo(act.correoAuditor) !== normalizarCorreo(correoAuditorOriginal)
             );
@@ -713,6 +741,11 @@ const handleNotificarPlan = async (planId) => {
 
     if (errorCorreoAuditor) {
       alert("❌ ALERTA: Ingrese un correo válido para el auditor antes de guardar.");
+      return;
+    }
+
+    if (errorRolesDuplicados) {
+      showNotification('No se puede guardar: el mismo correo está asignado como ejecutor, revisor y/o auditor. Asigna personas distintas; el auditor se hereda del informe.', 'error');
       return;
     }
 
@@ -1610,6 +1643,25 @@ if (existingActivities.length > 0) {
       return;
     }
 
+    const informeActual = informesAuditoria.find(informe => (
+      String(informe.id) === String(formInformeId) ||
+      String(informe.ref || '').trim().toLowerCase() === String(formInformeId).trim().toLowerCase()
+    ));
+    const correoAuditorAsignado = actividad.correoAuditor || planOriginal?.correoAuditor || informeActual?.correoAuditor || informeActual?.correoAuditorResponsable || '';
+    const conflictoRoles = obtenerConflictoRolesPlan({
+      correoResponsable,
+      correoRevisor,
+      correoAuditor: correoAuditorAsignado,
+    });
+    const cambiaAsignacionRoles = esNueva ||
+      correoNormalizado(correoResponsable) !== correoNormalizado(planOriginal?.correoResponsable) ||
+      correoNormalizado(correoRevisor) !== correoNormalizado(planOriginal?.correoRevisor) ||
+      correoNormalizado(correoAuditorAsignado) !== correoNormalizado(planOriginal?.correoAuditor || informeActual?.correoAuditor || informeActual?.correoAuditorResponsable);
+    if (conflictoRoles && cambiaAsignacionRoles) {
+      showNotification(`No se puede guardar: el correo se repite entre ${conflictoRoles}. Asigna personas distintas; el auditor se hereda del informe.`, 'error');
+      return;
+    }
+
     const camposGuardables = [
       'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion', 'progreso',
       'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
@@ -1628,10 +1680,6 @@ if (existingActivities.length > 0) {
       matrizPeligros: actividad.matrizPeligros || 'No aplica',
       matrizLegal: actividad.matrizLegal || 'No aplica',
     };
-    const informeActual = informesAuditoria.find(informe => (
-      String(informe.id) === String(formInformeId) ||
-      String(informe.ref || '').trim().toLowerCase() === String(formInformeId).trim().toLowerCase()
-    ));
     const camposDiseno = camposGuardables.filter(campo => !['progreso', 'evidenciaUrl'].includes(campo));
     const cambioDiseno = Boolean(planOriginal && camposDiseno.some(campo => (
       JSON.stringify(planOriginal[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
@@ -2853,7 +2901,23 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       <div className="space-y-5">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => {
   const actividadNueva = String(act.id).startsWith('new-');
+  const planOriginal = actividadNueva ? null : safePlanes.find(plan => String(plan.id) === String(act.id));
+  const informeDeActividad = informesAuditoria.find(informe => (
+    String(informe.id) === String(formInformeId) ||
+    String(informe.ref || '').trim().toLowerCase() === String(formInformeId).trim().toLowerCase()
+  ));
   const correoActual = String(user?.email || '').trim().toLowerCase();
+  const correoAuditorOriginal = planOriginal?.correoAuditor || informeDeActividad?.correoAuditor || informeDeActividad?.correoAuditorResponsable || '';
+  const correoAuditorAsignado = act.correoAuditor || correoAuditorOriginal;
+  const conflictoRoles = obtenerConflictoRolesPlan({
+    correoResponsable: act.correoResponsable,
+    correoRevisor: act.correoRevisor,
+    correoAuditor: correoAuditorAsignado,
+  });
+  const cambiaAsignacionRoles = actividadNueva ||
+    normalizarIdentidad(act.correoResponsable) !== normalizarIdentidad(planOriginal?.correoResponsable) ||
+    normalizarIdentidad(act.correoRevisor) !== normalizarIdentidad(planOriginal?.correoRevisor) ||
+    normalizarIdentidad(correoAuditorAsignado) !== normalizarIdentidad(correoAuditorOriginal);
   const esResponsableActividad = !actividadNueva && correoActual && String(act.correoResponsable || '').trim().toLowerCase() === correoActual;
   const puedeEditarActividad = !modoRevisionMatriz && (isAdmin || actividadNueva || esResponsableActividad);
   const puedeEditarAsignacion = !modoRevisionMatriz && (isAdmin || actividadNueva);
@@ -2867,6 +2931,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           {!modoRevisionMatriz && !isAdmin && !actividadNueva && !esResponsableActividad && (
                             <div role="note" className="md:col-span-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950">
                               <strong>Edición bloqueada por correo:</strong> esta acción está asignada a {act.correoResponsable || 'un correo no registrado'}, pero tu sesión es {user?.email || 'un usuario sin correo'}. Solicita a un administrador que actualice el correo del ejecutor para que coincida con la cuenta con la que inicias sesión.
+                            </div>
+                          )}
+                          {!modoRevisionMatriz && conflictoRoles && cambiaAsignacionRoles && (
+                            <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-900 md:col-span-6">
+                              No se puede guardar: el correo se repite entre {conflictoRoles}. Asigna personas distintas; el auditor se hereda del informe.
                             </div>
                           )}
                           <div 

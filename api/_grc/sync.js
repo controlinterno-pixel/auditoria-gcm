@@ -32,6 +32,40 @@ function serializarEvaluacion(plan) {
   });
 }
 
+const normalizarCorreoPlan = correo => String(correo || '').trim().toLowerCase();
+
+async function hayConflictosDeRolesEnPlanesActualizados(planesActualizados) {
+  if (!Array.isArray(planesActualizados)) return false;
+
+  const { data } = await leerWorkspaceGrc();
+  const planesGuardados = Array.isArray(data.planes) ? data.planes : [];
+  const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+  const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+  const planesPorId = new Map(planesGuardados.map(plan => [String(plan.id), plan]));
+  const hallazgosPorId = new Map(hallazgos.map(hallazgo => [String(hallazgo.id), hallazgo]));
+
+  return planesActualizados.some(plan => {
+    if (!plan || typeof plan !== 'object') return false;
+    const planAnterior = planesPorId.get(String(plan.id));
+    const hallazgo = hallazgosPorId.get(String(plan.idHallazgo || planAnterior?.idHallazgo));
+    const idInforme = hallazgo?.idInforme || plan.idInforme || planAnterior?.idInforme;
+    const informe = informes.find(item => String(item.id) === String(idInforme));
+    const correoAuditorAnterior = planAnterior?.correoAuditor || informe?.correoAuditor || informe?.correoAuditorResponsable || informe?.correo_auditor || '';
+    const correoAuditorActualizado = plan.correoAuditor || correoAuditorAnterior;
+    const rolesCambiaron = !planAnterior || [
+      [plan.correoResponsable, planAnterior.correoResponsable],
+      [plan.correoRevisor, planAnterior.correoRevisor],
+      [correoAuditorActualizado, correoAuditorAnterior],
+    ].some(([nuevo, anterior]) => normalizarCorreoPlan(nuevo) !== normalizarCorreoPlan(anterior));
+    if (!rolesCambiaron) return false;
+
+    const correos = [plan.correoResponsable, plan.correoRevisor, correoAuditorActualizado]
+      .map(normalizarCorreoPlan)
+      .filter(Boolean);
+    return new Set(correos).size !== correos.length;
+  });
+}
+
 async function usuarioPuedeEvaluarPlanes(partialData, user) {
   if (!Array.isArray(partialData.planes)) return true;
 
@@ -310,6 +344,10 @@ export default async function handler(req, res) {
 
       if (!partialData || typeof partialData !== 'object' || Array.isArray(partialData)) {
         return sendError(res, 'Estructura de datos (partialData) inválida o ausente.', 400);
+      }
+
+      if (await hayConflictosDeRolesEnPlanesActualizados(partialData.planes)) {
+        return sendError(res, 'Ejecutor, revisor y auditor deben ser personas distintas. Revisa los correos asignados.', 400);
       }
 
       if (!(await usuarioPuedeEvaluarPlanes(partialData, user))) {

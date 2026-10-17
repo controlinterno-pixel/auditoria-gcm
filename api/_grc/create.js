@@ -21,6 +21,12 @@ const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
 
 const normalizar = (valor) => String(valor || '').trim().toLowerCase();
 const esCorreoValido = (valor) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim());
+const hayRolesDuplicados = ({ correoResponsable, correoRevisor, correoAuditor }) => {
+  const correos = [correoResponsable, correoRevisor, correoAuditor]
+    .map(normalizar)
+    .filter(Boolean);
+  return new Set(correos).size !== correos.length;
+};
 
 async function reservarConsecutivoInforme(anio) {
   const refContador = adminDb.collection('_grc_counters').doc(`informes_${anio}`);
@@ -194,8 +200,17 @@ export default async function handler(req, res) {
       if (coleccion === 'planes') {
         const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
         const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
-        const informe = informes.find(item => String(item.id) === String(registro.idInforme));
+        let informe = informes.find(item => String(item.id) === String(registro.idInforme));
+        if (!informe && registro.idInforme) {
+          const informeSnapshot = await transaction.get(
+            workspace.coleccionInformesRef.doc(String(registro.idInforme).trim())
+          );
+          if (informeSnapshot.exists) informe = { id: informeSnapshot.id, ...informeSnapshot.data() };
+        }
         if (!informe) return { error: 'informe-not-found' };
+        const correoAuditorInforme = String(
+          informe.correoAuditor || informe.correoAuditorResponsable || informe.correo_auditor || ''
+        ).trim();
 
         const items = [];
         let siguienteId = registrosActuales.reduce((maximo, item) => Math.max(maximo, Number(item?.id) || 0), 0) + 1;
@@ -225,18 +240,25 @@ export default async function handler(req, res) {
           const correoConfirmacion = String(item.correoConfirmacion || '').trim();
           const correoRevisor = String(item.correoRevisor || '').trim();
           const correoRevisorConfirmacion = String(item.correoRevisorConfirmacion || '').trim();
+          const correoAuditor = String(item.correoAuditor || correoAuditorInforme).trim();
           if (
             !esCorreoValido(correoResponsable) ||
             !esCorreoValido(correoRevisor) ||
             normalizar(correoResponsable) !== normalizar(correoConfirmacion) ||
             normalizar(correoRevisor) !== normalizar(correoRevisorConfirmacion)
           ) return { error: 'invalid-email-confirmation' };
+          if (hayRolesDuplicados({
+            correoResponsable,
+            correoRevisor,
+            correoAuditor,
+          })) return { error: 'duplicate-plan-roles' };
 
           const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
           items.push({
             ...datosPlan,
             id: siguienteId++,
             idHallazgo: hallazgo.id,
+            ...(correoAuditor ? { correoAuditor } : {}),
             progreso: 0,
             estadoWorkflow: 'Pendiente Revisión Jefatura',
             estado: 'En Proceso',
@@ -344,6 +366,9 @@ export default async function handler(req, res) {
     }
     if (registroGuardado.error === 'invalid-email-confirmation') {
       return sendError(res, 'Los correos del ejecutor y revisor deben ser válidos y coincidir con sus confirmaciones.', 400);
+    }
+    if (registroGuardado.error === 'duplicate-plan-roles') {
+      return sendError(res, 'Ejecutor, revisor y auditor deben ser personas distintas. Revisa los correos asignados.', 400);
     }
     await notificarSemaforo();
     logger.info('Registro GRC creado', { coleccion, usuario: user.email, id: registroGuardado.id });
