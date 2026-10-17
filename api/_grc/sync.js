@@ -82,8 +82,21 @@ async function usuarioPuedeEvaluarPlanes(partialData, user) {
       })
       .map(plan => String(plan.correoAuditor || '').trim().toLowerCase())
       .filter(Boolean))];
-    const correoAsignado = correoInforme || (correosPlanes.length === 1 ? correosPlanes[0] : '');
-    if (!correoUsuario || !correoAsignado || correoUsuario !== correoAsignado) return false;
+    const correoAsignado = correosPlanes.length === 1 ? correosPlanes[0] : correoInforme;
+    const auditorInforme = String(
+      informe.auditorResponsable || informe.auditor || informe.auditorLider || ''
+    ).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const nombresAuditoresPlanes = [...new Set(planesDelPaquete
+      .map(plan => String(plan.auditorAsignado || plan.auditorResponsable || plan.auditor || '')
+        .trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+      .filter(Boolean))];
+    const nombreAsignado = auditorInforme || (nombresAuditoresPlanes.length === 1 ? nombresAuditoresPlanes[0] : '');
+    const identidadesUsuario = [user.nombreResponsable, user.nombre, user.cargo]
+      .map(valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+      .filter(Boolean);
+    const asignadoPorCorreo = Boolean(correoUsuario && correoAsignado && correoUsuario === correoAsignado);
+    const asignadoPorIdentidad = Boolean(nombreAsignado && identidadesUsuario.includes(nombreAsignado));
+    if (!asignadoPorCorreo && !asignadoPorIdentidad) return false;
   }
 
   return true;

@@ -339,12 +339,10 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
 
   const obtenerCorreoAuditorEvaluador = (informe, planes = []) => {
     const correoInforme = String(informe?.correoAuditor || informe?.correoAuditorResponsable || '').trim().toLowerCase();
-    if (correoInforme) return correoInforme;
-
     const correosPlanes = [...new Set(planes
       .map(plan => String(plan?.correoAuditor || '').trim().toLowerCase())
       .filter(Boolean))];
-    return correosPlanes.length === 1 ? correosPlanes[0] : '';
+    return correosPlanes.length === 1 ? correosPlanes[0] : correoInforme;
   };
 
   const esFuenteProgramaAuditoria = informe => (
@@ -394,12 +392,27 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   );
 
   const esAuditorAsignadoEvaluador = (informe, planes = []) => {
-    const correoActual = String(user?.email || '').trim().toLowerCase();
+    const correoActual = normalizarIdentidad(user?.email);
     const correoAsignado = obtenerCorreoAuditorEvaluador(informe, planes);
     const esEjecutorDelPaquete = planes.some(plan => (
-      String(plan?.correoResponsable || '').trim().toLowerCase() === correoActual
+      String(plan?.correoResponsable || '')
+        .split(',')
+        .map(normalizarIdentidad)
+        .includes(correoActual)
     ));
-    return Boolean(correoActual && correoAsignado && correoActual === correoAsignado && !esEjecutorDelPaquete);
+    const auditorInforme = normalizarIdentidad(
+      informe?.auditorResponsable || informe?.auditor || informe?.auditorLider || ''
+    );
+    const nombresAuditoresPlanes = [...new Set(planes
+      .map(plan => normalizarIdentidad(plan?.auditorAsignado || plan?.auditorResponsable || plan?.auditor))
+      .filter(Boolean))];
+    const nombreAsignado = auditorInforme || (nombresAuditoresPlanes.length === 1 ? nombresAuditoresPlanes[0] : '');
+    const identidadesUsuario = [perfilUsuario?.nombreResponsable, perfilUsuario?.nombre, perfilUsuario?.cargo]
+      .map(normalizarIdentidad)
+      .filter(Boolean);
+    const asignadoPorCorreo = Boolean(correoActual && correoAsignado && correoActual === normalizarIdentidad(correoAsignado));
+    const asignadoPorIdentidad = Boolean(nombreAsignado && identidadesUsuario.includes(nombreAsignado));
+    return Boolean((asignadoPorCorreo || asignadoPorIdentidad) && !esEjecutorDelPaquete);
   };
 
   const iniciarEvaluacionIntegral = (informe, planes) => {
@@ -3529,8 +3542,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           showNotification('En Programa de Auditoría, todas las acciones deben estar al 100% y validadas por el revisor antes de la evaluación integral.', 'error');
                                           return;
                                         }
+                                        const correoActual = normalizarIdentidad(user?.email);
+                                        const esEjecutorDelPaquete = planesPaqueteCompleto.some(plan => (
+                                          String(plan?.correoResponsable || '')
+                                            .split(',')
+                                            .map(normalizarIdentidad)
+                                            .includes(correoActual)
+                                        ));
+                                        if (esEjecutorDelPaquete) {
+                                          showNotification('El auditor asignado también figura como ejecutor de una acción del paquete. Por separación de funciones, debe asignarse otro auditor para la evaluación integral.', 'error');
+                                          return;
+                                        }
                                         if (!esAuditorAsignadoEvaluador(informeBase, planesPaqueteCompleto)) {
-                                          showNotification('Solo el auditor asignado puede realizar la evaluación integral del Programa de Auditoría.', 'error');
+                                          showNotification('Tu correo o cargo no coincide con el auditor asignado al informe/paquete. Revisa la asignación del auditor y su correo.', 'error');
                                           return;
                                         }
                                         iniciarEvaluacionIntegral(informeBase, planesPaqueteCompleto);
