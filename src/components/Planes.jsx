@@ -3508,11 +3508,50 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   </span>
                                 )}
                                 {pendientesInforme.aprobacion > 0 && (
-                                  <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-900">
+                                  <button
+                                    type="button"
+                                    aria-label={`Evaluar cierre de ${pendientesInforme.aprobacion} acción(es) pendientes`}
+                                    onClick={event => {
+                                      event.stopPropagation();
+                                      const correoActual = String(user?.email || '').trim().toLowerCase();
+                                      const planPendiente = planesPaqueteCompleto.find(plan => (
+                                        enRevisionAuditor(plan) && (
+                                          isAdmin || esAuditorAsignado(plan, correoActual, perfilUsuario)
+                                        )
+                                      ));
+                                      if (!planPendiente) {
+                                        showNotification('No se encontró una acción pendiente de cierre asignada a tu usuario.', 'error');
+                                        return;
+                                      }
+
+                                      if (esPlanProgramaAuditoria(planPendiente) && !paqueteTieneEvaluacionAprobada(planesPaqueteCompleto)) {
+                                        if (!paqueteListoParaEvaluacion(informeBase, planesPaqueteCompleto)) {
+                                          showNotification('En Programa de Auditoría, todas las acciones deben estar al 100% y validadas por el revisor antes de la evaluación integral.', 'error');
+                                          return;
+                                        }
+                                        if (!esAuditorAsignadoEvaluador(informeBase, planesPaqueteCompleto)) {
+                                          showNotification('Solo el auditor asignado puede realizar la evaluación integral del Programa de Auditoría.', 'error');
+                                          return;
+                                        }
+                                        iniciarEvaluacionIntegral(informeBase, planesPaqueteCompleto);
+                                        return;
+                                      }
+
+                                      setModalEficaciaCierre({
+                                        activo: true,
+                                        plan: planPendiente,
+                                        conclusion: '',
+                                        fueEficaz: '',
+                                        requiereAcciones: 'no',
+                                        observaciones: '',
+                                      });
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-900 transition-colors hover:border-blue-400 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
+                                  >
                                     <span className="h-1.5 w-1.5 rounded-full bg-blue-600 motion-safe:animate-pulse" />
                                     <BadgeCheck size={12} aria-hidden="true" />
                                     Aprobar cierre <span className="tabular-nums">{pendientesInforme.aprobacion}</span>
-                                  </span>
+                                  </button>
                                 )}
                                 {pendientesInforme.ejecucion > 0 && (
                                   <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-900">
@@ -3688,37 +3727,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {enRevisionAuditor(p) && esAuditor && (
                                             (!esPlanProgramaAuditoria(p) || paqueteTieneEvaluacionAprobada(planesPaqueteCompleto)) &&
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                              <button type="button" onClick={async () => {
-                                                if (!esPlanProgramaAuditoria(p)) {
-                                                  setModalEficaciaCierre({
-                                                    activo: true,
-                                                    plan: p,
-                                                    conclusion: '',
-                                                    fueEficaz: '',
-                                                    requiereAcciones: 'no',
-                                                    observaciones: '',
-                                                  });
-                                                  return;
-                                                }
-                                                if (!window.confirm('¿Aprobar las evidencias y cerrar únicamente esta acción?')) return;
-                                                try {
-                                                  const respuesta = await apiService.decidirPlanComoAuditor(p.id, 'cerrar');
-                                                  setPlanes(prev => (Array.isArray(prev) ? prev : []).map(item => (
-                                                    String(item.id) === String(p.id) ? respuesta.plan : item
-                                                  )));
-                                                  const notificados = await enviarNotificacionPlanConReintento({
-                                                    ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
-                                                    titulo_informe: 'Plan de Acción cerrado',
-                                                    proceso_auditado: `Auditoría aprobó las evidencias y cerró individualmente la acción: "${p.accion}".`,
-                                                    enlace_pdf: window.location.origin,
-                                                    destinatarios: [p.correoResponsable, p.correoRevisor].filter(Boolean).join(', '),
-                                                  });
-                                                  alert(notificados ? 'Acción cerrada y responsables notificados.' : 'Acción cerrada. La notificación quedó pendiente para reintento.');
-                                                } catch (error) {
-                                                  alert(error.message || 'No se pudo cerrar la acción.');
-                                                }
-                                              }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all shadow-emerald-500/30">
-                                                ✓ {esPlanProgramaAuditoria(p) ? 'Aprobar cierre' : 'Evaluar y cerrar'}
+                                              <button type="button" onClick={() => setModalEficaciaCierre({
+                                                activo: true,
+                                                plan: p,
+                                                conclusion: '',
+                                                fueEficaz: '',
+                                                requiereAcciones: 'no',
+                                                observaciones: '',
+                                              })} className="individual-close-glow flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border-2 border-emerald-300 bg-[#0A3B32] px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:scale-[1.02] hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
+                                                <BadgeCheck size={15} aria-hidden="true" />
+                                                <span>Evaluar y cerrar acción</span>
                                               </button>
                                               
                                               <button type="button" onClick={async () => {
