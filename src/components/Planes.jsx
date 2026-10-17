@@ -351,6 +351,13 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     informe?.tipoFuente === 'Programa de Auditoría' && Boolean(informe?.programaId)
   );
 
+  const esPlanProgramaAuditoria = plan => {
+    const hallazgo = hallazgosPorId.get(String(plan?.idHallazgo));
+    const idInforme = hallazgo?.idInforme || plan?.idInforme;
+    const informe = informesAuditoria.find(item => String(item.id) === String(idInforme));
+    return esFuenteProgramaAuditoria(informe);
+  };
+
   const enviarNotificacionPlanConReintento = async (payload, autorizacionLista = true) => {
     let enviado = false;
     if (autorizacionLista && typeof ejecutarDespachoGmailApi === 'function') {
@@ -2205,7 +2212,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px]">{evaluacionesIntegralesPendientes.length}</span>
               </h3>
               <p className="mt-1 text-xs font-medium text-amber-800">
-                El revisor validó todas las acciones al 100%. Puedes evaluar y cerrar cada acción por separado, o diligenciar una evaluación integral del paquete.
+                El revisor validó todas las acciones al 100%. Completa la evaluación integral del paquete con más del 80% para habilitar el cierre individual de sus acciones.
               </p>
             </div>
           </div>
@@ -3679,16 +3686,39 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {/* NIVEL 3: AUDITOR -> Revisa el 100% y cierra o rechaza el plan             */}
                                           {/* ========================================================================= */}
                                           {enRevisionAuditor(p) && esAuditor && (
+                                            (!esPlanProgramaAuditoria(p) || paqueteTieneEvaluacionAprobada(planesPaqueteCompleto)) &&
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                              <button type="button" onClick={() => setModalEficaciaCierre({
-                                                activo: true,
-                                                plan: p,
-                                                conclusion: '',
-                                                fueEficaz: '',
-                                                requiereAcciones: 'no',
-                                                observaciones: '',
-                                              })} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all shadow-emerald-500/30">
-                                                ✓ Evaluar y cerrar
+                                              <button type="button" onClick={async () => {
+                                                if (!esPlanProgramaAuditoria(p)) {
+                                                  setModalEficaciaCierre({
+                                                    activo: true,
+                                                    plan: p,
+                                                    conclusion: '',
+                                                    fueEficaz: '',
+                                                    requiereAcciones: 'no',
+                                                    observaciones: '',
+                                                  });
+                                                  return;
+                                                }
+                                                if (!window.confirm('¿Aprobar las evidencias y cerrar únicamente esta acción?')) return;
+                                                try {
+                                                  const respuesta = await apiService.decidirPlanComoAuditor(p.id, 'cerrar');
+                                                  setPlanes(prev => (Array.isArray(prev) ? prev : []).map(item => (
+                                                    String(item.id) === String(p.id) ? respuesta.plan : item
+                                                  )));
+                                                  const notificados = await enviarNotificacionPlanConReintento({
+                                                    ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                    titulo_informe: 'Plan de Acción cerrado',
+                                                    proceso_auditado: `Auditoría aprobó las evidencias y cerró individualmente la acción: "${p.accion}".`,
+                                                    enlace_pdf: window.location.origin,
+                                                    destinatarios: [p.correoResponsable, p.correoRevisor].filter(Boolean).join(', '),
+                                                  });
+                                                  alert(notificados ? 'Acción cerrada y responsables notificados.' : 'Acción cerrada. La notificación quedó pendiente para reintento.');
+                                                } catch (error) {
+                                                  alert(error.message || 'No se pudo cerrar la acción.');
+                                                }
+                                              }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all shadow-emerald-500/30">
+                                                ✓ {esPlanProgramaAuditoria(p) ? 'Aprobar cierre' : 'Evaluar y cerrar'}
                                               </button>
                                               
                                               <button type="button" onClick={async () => {
@@ -3750,7 +3780,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                     </p>
                                   ) : (
                                     <p className="text-[9px] text-slate-500 font-medium mt-0.5">
-                                      Esta evaluación integral es opcional; el cierre de cada acción se decide individualmente.
+                                      Un resultado superior al 80% habilita que el aprobador cierre cada acción individualmente.
                                     </p>
                                   )}
                                 </div>
