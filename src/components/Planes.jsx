@@ -372,13 +372,6 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     (plan?.estadoWorkflow === 'En Ejecución' && Number(plan?.progreso) >= 100)
   );
 
-  const esPlanProgramaAuditoria = plan => {
-    const hallazgo = hallazgosPorId.get(String(plan?.idHallazgo));
-    const idInforme = hallazgo?.idInforme || plan?.idInforme;
-    const informe = informesAuditoria.find(item => String(item.id) === String(idInforme));
-    return esFuenteProgramaAuditoria(informe);
-  };
-
   const paqueteListoParaEvaluacion = (informe, planes = []) => (
     esFuenteProgramaAuditoria(informe) && planes.length > 0 && planes.every(plan => (
       Number(plan.progreso) === 100 && plan.estadoWorkflow === 'En Revisión (100%)'
@@ -1220,7 +1213,7 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
       : `REQUERIMIENTO DE AJUSTE: Evaluación final del Plan de Acción (${puntajeHolistico}/100)`;
     
     const mensajeLimpio = esAprobado 
-      ? `Estimado/a Líder de Proceso,\n\nLa evaluación final del paquete de acciones obtuvo ${puntajeHolistico}/100, superando el umbral requerido.\n\nDictamen de Auditoría:\n"${justificacion || 'Las acciones y evidencias cumplen los criterios definidos para el cierre.'}"\n\nEl auditor asignado ya puede cerrar las acciones en la plataforma GCM.\n\nAtentamente,\nAuditoría Interna`
+      ? `Estimado/a Líder de Proceso,\n\nLa evaluación final del paquete de acciones obtuvo ${puntajeHolistico}/100, superando el umbral requerido.\n\nDictamen de Auditoría:\n"${justificacion || 'Las acciones y evidencias cumplen los criterios definidos para el cierre.'}"\n\nEl auditor asignado puede evaluar y cerrar cada acción individualmente desde el Historial Matriz.\n\nAtentamente,\nAuditoría Interna`
       : `Estimado/a Líder de Proceso,\n\nLa evaluación final del paquete de acciones obtuvo ${puntajeHolistico}/100 y no superó el umbral requerido (>80%).\n\nJustificación de Auditoría:\n"${justificacion}"\n\nEl paquete volvió a ejecución al 90% para realizar los ajustes y solicitar una nueva validación del revisor.\n\nAtentamente,\nAuditoría Interna`;
 
     // Abre una nueva pestaña directamente con la ventana de redacción de Gmail
@@ -1228,7 +1221,7 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
     window.open(mailtoLink, '_blank');
 
     alert(esAprobado
-      ? 'Evaluación aprobada. El auditor ya puede cerrar las acciones del paquete. Se abrió el borrador del dictamen en Gmail.'
+      ? 'Evaluación aprobada. El auditor puede cerrar las acciones individualmente desde el Historial Matriz. Se abrió el borrador del dictamen en Gmail.'
       : 'Evaluación no aprobada. El paquete volvió a ejecución al 90% para realizar ajustes. Se abrió el borrador de solicitud en Gmail.');
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
     setJustificacion('');
@@ -2006,7 +1999,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 ref_consecutivo: informePaquete.ref || `INF-${revisionInformeId}`,
                 asunto: 'Evaluación final requerida: paquete validado al 100%',
                 titulo_informe: 'Diligenciar evaluación integral antes del cierre',
-                proceso_auditado: `El revisor aprobó el 100% de las ${planesPaqueteActualizados.length} acciones del informe ${informePaquete.ref || revisionInformeId}. Diligencie la evaluación integral del paquete. Solo un resultado superior al 80% habilita el cierre de las acciones.`,
+                proceso_auditado: `El revisor aprobó el 100% de las ${planesPaqueteActualizados.length} acciones del informe ${informePaquete.ref || revisionInformeId}. La evaluación integral del paquete es opcional; cada acción puede evaluarse y cerrarse individualmente desde el Historial Matriz.`,
                 enlace_pdf: window.location.origin,
                 destinatarios: correoAuditorPaquete,
               }, correoPreparado);
@@ -2212,7 +2205,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px]">{evaluacionesIntegralesPendientes.length}</span>
               </h3>
               <p className="mt-1 text-xs font-medium text-amber-800">
-                El revisor validó todas las acciones al 100%. Diligencia la evaluación final del paquete antes de cerrar las acciones.
+                El revisor validó todas las acciones al 100%. Puedes evaluar y cerrar cada acción por separado, o diligenciar una evaluación integral del paquete.
               </p>
             </div>
           </div>
@@ -3686,44 +3679,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {/* NIVEL 3: AUDITOR -> Revisa el 100% y cierra o rechaza el plan             */}
                                           {/* ========================================================================= */}
                                           {enRevisionAuditor(p) && esAuditor && (
-                                            !esPlanProgramaAuditoria(p) || paqueteTieneEvaluacionAprobada(
-                                              planesEnriquecidos.filter(plan => String(plan.idInforme) === String(p.idInforme))
-                                            )
-                                          ) && (
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                              <button type="button" onClick={async () => {
-                                                if (!esPlanProgramaAuditoria(p)) {
-                                                  setModalEficaciaCierre({
-                                                    activo: true,
-                                                    plan: p,
-                                                    conclusion: '',
-                                                    fueEficaz: '',
-                                                    requiereAcciones: 'no',
-                                                    observaciones: '',
-                                                  });
-                                                  return;
-                                                }
-
-                                                if(window.confirm("¿Aprobar las evidencias cargadas y CERRAR este plan de acción definitivamente?")) {
-                                                  try {
-                                                    const respuesta = await apiService.decidirPlanComoAuditor(p.id, 'cerrar');
-                                                    setPlanes(prev => (Array.isArray(prev) ? prev : []).map(x => String(x.id) === String(p.id) ? respuesta.plan : x));
-                                                  } catch (error) {
-                                                    alert(error.message || 'No se pudo cerrar el plan.');
-                                                    return;
-                                                  }
-                                                  
-                                                  const notificados = await enviarNotificacionPlanConReintento({
-                                                    ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
-                                                    titulo_informe: 'Plan de Acción cerrado',
-                                                    proceso_auditado: `Auditoría validó las evidencias al 100% de la acción: "${p.accion}". El ciclo de mejora ha finalizado.`,
-                                                    enlace_pdf: window.location.origin,
-                                                    destinatarios: [p.correoResponsable, p.correoRevisor].filter(Boolean).join(', ')
-                                                  });
-                                                  alert(notificados ? 'Plan cerrado y responsables notificados.' : 'Plan cerrado y guardado. La notificación quedó pendiente para reintento.');
-                                                }
-                                              }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all animate-pulse shadow-emerald-500/30">
-                                                ✓ Aprobar Cierre
+                                              <button type="button" onClick={() => setModalEficaciaCierre({
+                                                activo: true,
+                                                plan: p,
+                                                conclusion: '',
+                                                fueEficaz: '',
+                                                requiereAcciones: 'no',
+                                                observaciones: '',
+                                              })} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all shadow-emerald-500/30">
+                                                ✓ Evaluar y cerrar
                                               </button>
                                               
                                               <button type="button" onClick={async () => {
@@ -3777,7 +3742,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Evaluación final del paquete de acciones</p>
                                   {evaluacionFinalAprobada ? (
                                     <p className="text-[9px] text-emerald-600 font-bold mt-0.5">
-                                      ✅ Evaluación final aprobada el {evalGuardada.fecha} con {evalGuardada.puntaje}%. Ya se puede cerrar el paquete.
+                                      ✅ Evaluación integral aprobada el {evalGuardada.fecha} con {evalGuardada.puntaje}%. Las acciones se cierran individualmente.
                                     </p>
                                   ) : evalGuardada?.tipo === 'evaluacion-final-ejecucion' ? (
                                     <p className="text-[9px] text-rose-600 font-bold mt-0.5">
@@ -3785,7 +3750,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                     </p>
                                   ) : (
                                     <p className="text-[9px] text-slate-500 font-medium mt-0.5">
-                                      Evalúe la ejecución validada. Solo una calificación superior al 80% habilita el cierre.
+                                      Esta evaluación integral es opcional; el cierre de cada acción se decide individualmente.
                                     </p>
                                   )}
                                 </div>
@@ -3884,12 +3849,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 </div>
                 <div className="flex-1">
                   <h4 className={`text-2xl font-black uppercase mb-2 ${(puntajeHolistico || 0) > 80 ? 'text-emerald-700' : (puntajeHolistico || 0) >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
-                    {(puntajeHolistico || 0) > 80 ? 'ESTADO: APROBADO PARA CIERRE' : 'ESTADO: NO APROBADO'}
+                    {(puntajeHolistico || 0) > 80 ? 'EVALUACIÓN INTEGRAL: APROBADA' : 'EVALUACIÓN INTEGRAL: NO APROBADA'}
                   </h4>
                   <p className="text-base text-slate-700 font-medium leading-relaxed">
                     {(puntajeHolistico || 0) > 80
-                      ? 'El paquete de acciones y evidencias supera el umbral requerido. El auditor asignado puede cerrar las acciones del paquete.'
-                      : 'El paquete no supera el umbral de aprobación. Se requiere justificar el resultado y devolver las acciones a ejecución para ajustes.'}
+                      ? 'El paquete supera el umbral de evaluación integral. El auditor asignado puede evaluar y cerrar cada acción desde el Historial Matriz.'
+                      : 'El paquete no supera el umbral de evaluación integral. Justifique el resultado y devuelva las acciones del paquete para realizar ajustes.'}
                   </p>
                 </div>
               </div>

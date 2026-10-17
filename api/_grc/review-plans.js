@@ -49,32 +49,6 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
       (plan.estadoWorkflow === 'En Ejecución' && Number(plan.progreso) >= 100);
     if (!enRevision) return { error: 'not-in-review' };
 
-    const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
-    const hallazgoActual = hallazgos.find(item => String(item.id) === String(plan.idHallazgo));
-    const idInformePlan = hallazgoActual?.idInforme || plan.idInforme;
-    let informePlan = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
-      .find(item => String(item.id) === String(idInformePlan));
-    if (!informePlan && idInformePlan) {
-      const informeSnapshot = await transaction.get(
-        workspace.coleccionInformesRef.doc(String(idInformePlan).trim())
-      );
-      if (informeSnapshot.exists) informePlan = { id: idInformePlan, ...informeSnapshot.data() };
-    }
-    if (cerrar && informePlan?.tipoFuente === 'Programa de Auditoría' && informePlan?.programaId) {
-      const planesDelPaquete = planes.filter(item => {
-        const hallazgoPlan = hallazgos.find(hallazgo => String(hallazgo.id) === String(item.idHallazgo));
-        return String(hallazgoPlan?.idInforme || item.idInforme) === String(idInformePlan);
-      });
-      const paqueteListoParaCierre = planesDelPaquete.length > 0 && planesDelPaquete.every(item => (
-        Number(item.progreso) === 100 &&
-        ['En Revisión (100%)', 'Cerrado'].includes(item.estadoWorkflow) &&
-        item.evaluacionHolistica?.tipo === 'evaluacion-final-ejecucion' &&
-        item.evaluacionHolistica?.aprobado === true &&
-        Number(item.evaluacionHolistica?.puntaje) > 80
-      ));
-      if (!paqueteListoParaCierre) return { error: 'evaluation-required' };
-    }
-
     const ahora = new Date();
     const evaluacion = evaluacionEficacia && typeof evaluacionEficacia === 'object' ? {
       fecha: ahora.toLocaleString('es-CO'),
@@ -112,7 +86,6 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
     'plan-not-found': ['No se encontró el plan de acción.', 404],
     'not-auditor': ['Solo el auditor de seguimiento asignado puede decidir este plan.', 403],
     'not-in-review': ['El plan no está en revisión del auditor.', 409],
-    'evaluation-required': ['No se puede cerrar: todas las acciones deben estar validadas por el revisor y el paquete debe tener evaluación final superior al 80%.', 409],
   };
   if (resultado.error && errores[resultado.error]) {
     const [mensaje, estado] = errores[resultado.error];
