@@ -445,7 +445,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     });
   };
 
-  const abrirEvaluacionAccion = plan => {
+  const abrirEvaluacionAccion = async plan => {
     const rol = normalizarIdentidad(perfilUsuario?.rol);
     const autorizado = isAdmin || ['admin', 'administrador', 'auditor'].includes(rol) ||
       esAuditorAsignado(plan, user?.email, perfilUsuario);
@@ -477,6 +477,18 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
         iniciarEvaluacionIntegral(informe, planesInforme);
         return;
       }
+      if (!window.confirm('La evaluación integral está aprobada. ¿Cerrar únicamente esta acción?')) return;
+      try {
+        const respuesta = await apiService.decidirPlanComoAuditor(plan.id, 'cerrar');
+        if (!respuesta?.plan) throw new Error('El servidor no confirmó el cierre de la acción.');
+        setPlanes(prev => (Array.isArray(prev) ? prev : []).map(item => (
+          String(item.id) === String(plan.id) ? respuesta.plan : item
+        )));
+        showNotification('Acción cerrada. Las demás acciones conservan su estado.', 'success');
+      } catch (error) {
+        showNotification(error.message || 'No se pudo cerrar la acción.', 'error');
+      }
+      return;
     }
     setModalEficaciaCierre({
       activo: true, plan, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '',
@@ -3648,38 +3660,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         return;
                                       }
 
-                                      if (esPlanProgramaAuditoria(planPendiente) && !paqueteTieneEvaluacionAprobada(planesPaqueteCompleto)) {
-                                        if (!paqueteListoParaEvaluacion(informeBase, planesPaqueteCompleto)) {
-                                          showNotification('En Programa de Auditoría, todas las acciones deben estar al 100% y validadas por el revisor antes de la evaluación integral.', 'error');
-                                          return;
-                                        }
-                                        const correoActual = normalizarIdentidad(user?.email);
-                                        const esEjecutorDelPaquete = planesPaqueteCompleto.some(plan => (
-                                          String(plan?.correoResponsable || '')
-                                            .split(',')
-                                            .map(normalizarIdentidad)
-                                            .includes(correoActual)
-                                        ));
-                                        if (esEjecutorDelPaquete) {
-                                          showNotification('El auditor asignado también figura como ejecutor de una acción del paquete. Por separación de funciones, debe asignarse otro auditor para la evaluación integral.', 'error');
-                                          return;
-                                        }
-                                        if (!esAuditorAsignadoEvaluador(informeBase, planesPaqueteCompleto)) {
-                                          showNotification('Tu correo o cargo no coincide con el auditor asignado al informe/paquete. Revisa la asignación del auditor y su correo.', 'error');
-                                          return;
-                                        }
-                                        iniciarEvaluacionIntegral(informeBase, planesPaqueteCompleto);
-                                        return;
-                                      }
-
-                                      setModalEficaciaCierre({
-                                        activo: true,
-                                        plan: planPendiente,
-                                        conclusion: '',
-                                        fueEficaz: '',
-                                        requiereAcciones: 'no',
-                                        observaciones: '',
-                                      });
+                                      abrirEvaluacionAccion(planPendiente);
                                     }}
                                     className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-900 transition-colors hover:border-blue-400 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-1"
                                   >
@@ -3866,16 +3847,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {enRevisionAuditor(p) && esAuditor && (
                                             (!esPlanProgramaAuditoria(p) || paqueteTieneEvaluacionAprobada(planesPaqueteCompleto)) &&
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                              <button type="button" onClick={() => setModalEficaciaCierre({
-                                                activo: true,
-                                                plan: p,
-                                                conclusion: '',
-                                                fueEficaz: '',
-                                                requiereAcciones: 'no',
-                                                observaciones: '',
-                                              })} className="individual-close-glow flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border-2 border-emerald-300 bg-[#0A3B32] px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:scale-[1.02] hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
+                                              <button type="button" onClick={() => abrirEvaluacionAccion(p)} className="individual-close-glow flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border-2 border-emerald-300 bg-[#0A3B32] px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:scale-[1.02] hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
                                                 <BadgeCheck size={15} aria-hidden="true" />
-                                                <span>Evaluar y cerrar acción</span>
+                                                <span>{esPlanProgramaAuditoria(p) ? 'Cerrar acción evaluada' : 'Evaluar y cerrar acción'}</span>
                                               </button>
                                               
                                               <button type="button" onClick={async () => {
