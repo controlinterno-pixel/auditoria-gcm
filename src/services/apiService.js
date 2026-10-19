@@ -105,7 +105,7 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
             await renovarCookieSesion();
             return await request(endpoint, options, reintentosMaximos, true);
           } catch (error) {
-            if (error.status === 401 || error.status === 403) {
+            if (error.status === 403) {
               secureLogger.error('[AUTH] Cierre automático: el servidor rechazó la renovación de sesión', {
                 endpoint: String(endpoint).split('?')[0],
                 statusPeticion: response.status,
@@ -115,7 +115,7 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
               await signOut(auth).catch(() => {});
               throw error;
             }
-            throw new Error('No se pudo renovar la sesión. Comprueba tu conexión e inicia sesión de nuevo.', { cause: error });
+            throw new Error('No se pudo renovar la sesion temporalmente. Comprueba tu conexion e intenta nuevamente.', { cause: error });
           }
         }
         
@@ -341,10 +341,16 @@ export const apiService = {
   }),
 
  // 📊 SINCRONIZACIÓN GRC Y RLS
-  getGrcData: ({ forceFresh = false } = {}) => request(`/api/grc/sync${forceFresh ? '?fresh=1' : ''}`, { 
-    cache: 'no-store', 
-    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
-  }),
+  getGrcData: ({ forceFresh = false, revision = '' } = {}) => {
+    const params = new URLSearchParams();
+    if (forceFresh) params.set('fresh', '1');
+    if (revision) params.set('revision', String(revision));
+    const query = params.toString();
+    return request(`/api/grc/sync${query ? `?${query}` : ''}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+    });
+  },
 
   saveGrcData: (partialData) => request('/api/grc/sync', {
     method: 'POST',

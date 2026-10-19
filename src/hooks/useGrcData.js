@@ -1,7 +1,7 @@
 // src/hooks/useGrcData.js
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDocFromServer, onSnapshot } from 'firebase/firestore';
 import { apiService } from '../services/apiService';
 import { auth, db } from '../services/firebase';
 import { 
@@ -43,7 +43,7 @@ export function useGrcData() {
           await apiService.login(idToken);
         } catch (err) {
           console.error("Error renovando cookie de servidor:", err);
-          if ([401, 403].includes(err?.status)) {
+          if (err?.status === 403) {
             console.error('[AUTH] Cierre automático durante la validación inicial de la sesión.', {
               status: err.status,
               code: err.code || 'unknown',
@@ -100,6 +100,15 @@ export function useGrcData() {
     
     let isFetching = false;
     let forcedRefreshPending = false;
+    let lastRevision = null;
+    let syncFailed = false;
+    let retryCount = 0;
+    let retryTimer = null;
+    let lastRecoveryAt = 0;
+    let recoveryInFlight = false;
+    let listenerFailed = false;
+    let unsubscribeSemaforo = () => {};
+    const semaforoRef = doc(db, 'sistema', 'semaforo');
     const fetchSecureData = async (forceFresh = false) => {
       if (!isMounted) return;
       if (isFetching) {
@@ -108,9 +117,12 @@ export function useGrcData() {
       }
 
       isFetching = true;
+      window.clearTimeout(retryTimer);
       try {
-        const data = await apiService.getGrcData({ forceFresh });
+        const data = await apiService.getGrcData({ forceFresh, revision: lastRevision || '' });
         if (!isMounted) return;
+        syncFailed = false;
+        retryCount = 0;
         
         setRiesgos(data.riesgos || defaultRiesgos);
         setHallazgos(data.hallazgos || defaultHallazgos);
@@ -130,6 +142,11 @@ export function useGrcData() {
         setCatalogosInicializados(data.catalogosInicializados === true);
       } catch (error) {
         console.error("🔥 Error de seguridad/red obteniendo datos:", error);
+        syncFailed = true;
+        if (isMounted && navigator.onLine && retryCount < 3 && ![400, 401, 403].includes(error.status)) {
+          const delay = [2000, 5000, 15000][retryCount++];
+          retryTimer = window.setTimeout(() => void fetchSecureData(true), delay);
+        }
       } finally {
         isFetching = false;
         if (isMounted) setIsCloudLoaded(true);
@@ -140,23 +157,54 @@ export function useGrcData() {
       }
     };
 
-    fetchSecureData();
-
-    const semaforoRef = doc(db, 'sistema', 'semaforo');
-    let esPrimeraCarga = true;
-    const unsubscribeSemaforo = onSnapshot(semaforoRef, docSnap => {
-      if (esPrimeraCarga) {
-        esPrimeraCarga = false;
-        return;
+    const recibirSemaforo = snapshot => {
+      if (!isMounted || snapshot.metadata?.fromCache) return;
+      const revision = snapshot.exists() ? String(snapshot.data().ultimaModificacion || '0') : '0';
+      if (revision === lastRevision && !syncFailed) return;
+      lastRevision = revision;
+      void fetchSecureData(true);
+    };
+    const conectarSemaforo = () => {
+      unsubscribeSemaforo();
+      listenerFailed = false;
+      unsubscribeSemaforo = onSnapshot(semaforoRef, recibirSemaforo, error => {
+        if (!isMounted) return;
+        listenerFailed = true;
+        console.warn('Semáforo en tiempo real no disponible:', error);
+        if (lastRevision === null) void fetchSecureData();
+      });
+    };
+    const recuperarConexion = async () => {
+      if (!isMounted || !navigator.onLine || document.visibilityState === 'hidden' || recoveryInFlight) return;
+      const now = Date.now();
+      if (now - lastRecoveryAt < 60_000) return;
+      lastRecoveryAt = now;
+      recoveryInFlight = true;
+      retryCount = 0;
+      try {
+        if (listenerFailed) conectarSemaforo();
+        recibirSemaforo(await getDocFromServer(semaforoRef));
+      } catch (error) {
+        console.warn('No se pudo recuperar la sincronizacion:', error?.code || 'network-error');
+        if (syncFailed) void fetchSecureData(true);
+      } finally {
+        recoveryInFlight = false;
       }
-      if (docSnap.exists()) void fetchSecureData(true);
-    }, error => {
-      console.warn('Semáforo en tiempo real no disponible:', error);
-    });
+    };
+    conectarSemaforo();
+    const initialLoadTimer = window.setTimeout(() => {
+      if (lastRevision === null) void fetchSecureData();
+    }, 1500);
+    window.addEventListener('online', recuperarConexion);
+    document.addEventListener('visibilitychange', recuperarConexion);
 
     return () => {
       isMounted = false;
       window.clearTimeout(loadingTimer);
+      window.clearTimeout(initialLoadTimer);
+      window.clearTimeout(retryTimer);
+      window.removeEventListener('online', recuperarConexion);
+      document.removeEventListener('visibilitychange', recuperarConexion);
       unsubscribeSemaforo();
     };
   }, [userId]);

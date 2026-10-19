@@ -45,6 +45,7 @@ const CargosProcesos = lazyWithReload(() => import('./components/CargosProcesos'
 const Comites = lazyWithReload(() => import('./components/Comites'));
 const ConceptMapper = lazyWithReload(() => import('./components/AuditoriaAutomatizada/ConceptMapper'));
 const DashboardEjecutivo = lazyWithReload(() => import('./components/DashboardEjecutivo'));
+const Reporte360 = lazyWithReload(() => import('./components/Reporte360'));
 import MiEspacio from './components/MiEspacio';
 import ModalIA from './components/ModalIA';
 import ModalDetalleGrafico from './components/ModalDetalleGrafico';
@@ -286,6 +287,7 @@ export default function App() {
     },
     planes_tab: {
       planes: 'Planes de Acción',
+      reporte360: 'Reporte 360',
       incidentes: 'Eventos de Pérdida',
     },
     gobernanza_tab: {
@@ -1089,6 +1091,17 @@ return (
                         alert("Hubo un error al actualizar el estado. Revisa la consola.");
                       }
                     }}
+                  />
+                )}
+                {subTabPlanes === 'reporte360' && (
+                  <Reporte360
+                    informesAuditoria={informesAuditoria}
+                    safeHallazgos={safeHallazgos}
+                    safePlanes={safePlanes}
+                    fuentesMejora={fuentesMejora}
+                    user={user}
+                    perfilUsuario={perfilUsuario}
+                    showNotification={showNotification}
                   />
                 )}
                 {subTabPlanes === 'incidentes' && (

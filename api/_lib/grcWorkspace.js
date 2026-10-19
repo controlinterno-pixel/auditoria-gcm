@@ -12,6 +12,7 @@ const coleccionHallazgosRef = () => adminDb.collection('workspace_compartido').d
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
 const workspaceReadCache = new Map();
 const workspaceReadInFlight = new Map();
+let workspaceCacheGeneration = 0;
 
 const leerInformesFragmentados = async (refColeccion, procesosAsignados) => {
   if (!Array.isArray(procesosAsignados) || procesosAsignados.length === 0) {
@@ -119,21 +120,26 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
 }
 
 export function invalidarCacheWorkspaceGrc() {
+  workspaceCacheGeneration += 1;
   workspaceReadCache.clear();
+  workspaceReadInFlight.clear();
 }
 
-export async function leerWorkspaceGrc(transaction = null, { usarCache = false, procesosAsignados = null } = {}) {
+export async function leerWorkspaceGrc(transaction = null, { usarCache = false, procesosAsignados = null, revision = '' } = {}) {
   if (transaction || !usarCache) return leerWorkspaceGrcDesdeFirestore(transaction, procesosAsignados);
 
-  const cacheKey = Array.isArray(procesosAsignados) && procesosAsignados.length
+  const scopeKey = Array.isArray(procesosAsignados) && procesosAsignados.length
     ? [...new Set(procesosAsignados.map(proceso => String(proceso || '').trim()).filter(Boolean))].sort().join('|')
     : '*';
+  const cacheKey = JSON.stringify([String(revision).slice(0, 100), scopeKey]);
+  const generation = workspaceCacheGeneration;
   const cacheEntry = workspaceReadCache.get(cacheKey);
   if (cacheEntry && cacheEntry.expiraEn > Date.now()) return cacheEntry.valor;
   if (workspaceReadInFlight.has(cacheKey)) return workspaceReadInFlight.get(cacheKey);
 
   const lectura = leerWorkspaceGrcDesdeFirestore(null, procesosAsignados)
     .then(valor => {
+      if (generation !== workspaceCacheGeneration) return valor;
       if (workspaceReadCache.size >= 100 && !workspaceReadCache.has(cacheKey)) {
         const cacheMasAntigua = workspaceReadCache.keys().next().value;
         if (cacheMasAntigua) workspaceReadCache.delete(cacheMasAntigua);
@@ -142,7 +148,7 @@ export async function leerWorkspaceGrc(transaction = null, { usarCache = false, 
       return valor;
     })
     .finally(() => {
-      workspaceReadInFlight.delete(cacheKey);
+      if (workspaceReadInFlight.get(cacheKey) === lectura) workspaceReadInFlight.delete(cacheKey);
     });
 
   workspaceReadInFlight.set(cacheKey, lectura);

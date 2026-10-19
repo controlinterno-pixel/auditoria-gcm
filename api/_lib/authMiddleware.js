@@ -76,12 +76,24 @@ export const requireAuth = async (req, res) => {
     authCache.set(uid, { timestamp: now, data: sessionData });
     return sessionData;
   } catch (error) {
+    const sesionInvalida = new Set([
+      'auth/argument-error',
+      'auth/invalid-session-cookie',
+      'auth/session-cookie-expired',
+      'auth/session-cookie-revoked',
+      'auth/user-disabled',
+      'auth/user-not-found',
+    ]).has(error?.code);
     logger.warn('Autenticación rechazada: cookie inválida o error verificándola', {
       endpoint,
-      status: 401,
+      status: sesionInvalida ? 401 : 503,
       codigo: error?.code || error?.name || 'unknown',
     });
-    res.status(401).json({ error: 'Sesión inválida o expirada.' });
+    res.status(sesionInvalida ? 401 : 503).json({
+      error: sesionInvalida
+        ? 'Sesión inválida o expirada.'
+        : 'No se pudo comprobar el acceso temporalmente. Intenta nuevamente.',
+    });
     return null;
   }
 };

@@ -253,7 +253,7 @@ export default function SidebarNavigation({
           </button>
 
           {/* SUB-MENÚ DE PLANES DE ACCIÓN (Desglosado para mayor claridad) */}
-          <div id="submenu-planes" inert={menuAbierto !== 'planes' || isCollapsed} aria-hidden={menuAbierto !== 'planes' || isCollapsed} className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'planes' && !isCollapsed ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
+          <div id="submenu-planes" inert={menuAbierto !== 'planes' || isCollapsed} aria-hidden={menuAbierto !== 'planes' || isCollapsed} className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'planes' && !isCollapsed ? 'max-h-80 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
               <button 
                 onClick={() => navigateTo('planes_tab', () => setSubTabPlanes('planes'))}
@@ -261,6 +261,14 @@ export default function SidebarNavigation({
                 className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg flex flex-col justify-center ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}
               >
                 <span>Gestión de Planes</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigateTo('planes_tab', () => setSubTabPlanes('reporte360'))}
+                aria-current={activeTab === 'planes_tab' && subTabPlanes === 'reporte360' ? 'page' : undefined}
+                className={`min-h-11 text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'reporte360' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}
+              >
+                Reporte 360
               </button>
               {!isCollapsed && misTareasEjecucion > 0 && (
                 <button

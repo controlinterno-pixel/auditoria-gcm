@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Flujo de mejora y cierre del plan | Auditoría GCM</title>
+  <style>
+    :root {
+      --ink: #18312d;
+      --muted: #62736e;
+      --paper: #f3f6f3;
+      --panel: #fff;
+      --line: #d8e2dc;
+      --green: #176a51;
+      --green-soft: #e7f3ed;
+      --blue: #315f82;
+      --blue-soft: #eaf1f6;
+      --amber: #a45d17;
+      --amber-soft: #fbf1df;
+      --purple: #69528d;
+      --purple-soft: #f0ebf7;
+      --red: #a64e44;
+      --red-soft: #f8ece9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+    button, input { font: inherit; }
+    button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid #dfa344;
+      outline-offset: 2px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 26px;
+      color: #f4faf5;
+      background: #173b35;
+      border-bottom: 4px solid #d28c38;
+    }
+    .eyebrow { margin: 0 0 4px; color: #a9c7bb; font-size: 11px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+    h1 { margin: 0; font: 600 24px Georgia, serif; }
+    .top-meta { color: #c3d3cd; font-size: 12px; text-align: right; }
+    .top-meta strong { display: block; margin-bottom: 4px; color: #fff; font-size: 13px; }
+    main { max-width: 1900px; margin: 0 auto; padding: 20px 22px 28px; }
+    .intro { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+    .search, .icon-button {
+      min-height: 37px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      background: #fff;
+    }
+    .search { width: min(310px, 70vw); padding: 0 11px; font-size: 12px; }
+    .icon-button { width: 39px; cursor: pointer; font-size: 18px; }
+    .icon-button:hover { border-color: #8ca99a; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 14px; align-items: stretch; }
+    .canvas-card, .inspector, .callout {
+      min-width: 0;
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 12px 36px rgba(28, 54, 44, .07);
+    }
+    .canvas-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 15px; border-bottom: 1px solid var(--line); }
+    .canvas-heading h2 { margin: 0; font-size: 13px; }
+    .canvas-heading span { color: var(--muted); font-size: 11px; }
+    .canvas-scroll { overflow: auto; background-color: #f8faf8; }
+    svg { display: block; width: 100%; min-width: 1500px; height: auto; touch-action: none; user-select: none; }
+    .lane { stroke-width: 1.2; }
+    .lane-title { font: 800 12px "Segoe UI", Tahoma, sans-serif; letter-spacing: 1px; }
+    .lane-subtitle { fill: #75827d; font: 11px "Segoe UI", Tahoma, sans-serif; }
+    .edge { fill: none; stroke-width: 2.2; opacity: .82; marker-end: url(#arrow); }
+    .edge.return { stroke: var(--red); stroke-dasharray: 7 5; marker-end: url(#arrow-return); }
+    .edge.branch { stroke: var(--purple); stroke-dasharray: 3 5; marker-end: url(#arrow-branch); }
+    .edge-label { fill: #4e625d; stroke: #f8faf8; stroke-width: 5px; paint-order: stroke; font: 10px "Segoe UI", Tahoma, sans-serif; text-anchor: middle; }
+    .node { cursor: pointer; transition: opacity .16s; }
+    .node rect { stroke-width: 1.6; rx: 8; transition: stroke-width .16s, filter .16s; }
+    .node .node-tag { font: 800 9px "Segoe UI", Tahoma, sans-serif; letter-spacing: .7px; }
+    .node .node-title { fill: #19332e; font: 750 13px "Segoe UI", Tahoma, sans-serif; }
+    .node .node-sub { fill: #526761; font: 10.5px "Segoe UI", Tahoma, sans-serif; }
+    .node.source rect { fill: var(--green-soft); stroke: #79a994; }
+    .node.record rect { fill: var(--blue-soft); stroke: #83a2bb; }
+    .node.action rect { fill: var(--amber-soft); stroke: #d3a05d; }
+    .node.review rect { fill: var(--purple-soft); stroke: #a997c1; }
+    .node.close rect { fill: #e5f3ee; stroke: #64a58b; }
+    .node.return rect { fill: var(--red-soft); stroke: #cb8c7e; }
+    .node.source .node-tag { fill: var(--green); }
+    .node.record .node-tag { fill: var(--blue); }
+    .node.action .node-tag { fill: var(--amber); }
+    .node.review .node-tag { fill: var(--purple); }
+    .node.close .node-tag { fill: var(--green); }
+    .node.return .node-tag { fill: var(--red); }
+    .node:hover rect, .node.selected rect { stroke-width: 3; filter: drop-shadow(0 4px 5px rgba(24, 47, 40, .16)); }
+    .node.dimmed, .edge.dimmed { opacity: .32; }
+    .node.filtered, .edge.filtered { display: none; }
+    .inspector { padding: 17px; }
+    .inspector-kicker { margin: 0 0 8px; color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; }
+    .inspector h2 { margin: 0 0 9px; font: 600 21px Georgia, serif; line-height: 1.2; }
+    .inspector p { color: #52645f; font-size: 12px; line-height: 1.6; }
+    .detail-block { margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line); }
+    .detail-block h3 { margin: 0 0 9px; color: #425650; font-size: 10px; letter-spacing: .8px; text-transform: uppercase; }
+    .source-list, .relation-list { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+    .source-list a { color: #255f7e; font-size: 11px; overflow-wrap: anywhere; text-underline-offset: 3px; }
+    .relation-list li { padding-left: 10px; border-left: 2px solid #91b9a6; color: #536761; font-size: 11px; line-height: 1.45; }
+    .legend { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; padding: 11px 14px; border-top: 1px solid var(--line); color: #596c66; font-size: 10px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch { width: 9px; height: 9px; border-radius: 2px; }
+    .line-swatch { width: 22px; height: 0; border-top: 2px solid var(--blue); }
+    .line-swatch.return { border-color: var(--red); border-top-style: dashed; }
+    .line-swatch.branch { border-color: var(--purple); border-top-style: dotted; }
+    .callouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+    .callout { padding: 14px 16px; }
+    .callout h2 { margin: 0 0 7px; font-size: 12px; }
+    .callout p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .callout.program { border-left: 4px solid var(--purple); }
+    .callout.scope { border-left: 4px solid var(--amber); }
+    .callout.control-test { grid-column: 1 / -1; border-left: 4px solid var(--blue); }
+    .callout a { color: #255f7e; text-underline-offset: 3px; }
+    .footnote { margin: 12px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .footnote strong { color: #425650; }
+    @media (max-width: 980px) { main { padding: 14px; } .workspace { grid-template-columns: 1fr; } .inspector { min-height: 200px; } }
+    @media (max-width: 620px) {
+      .topbar { align-items: flex-start; padding: 15px; }
+      h1 { font-size: 20px; }
+      .top-meta { max-width: 125px; font-size: 10px; }
+      main { padding: 11px; }
+      .actions { width: 100%; }
+      .search { flex: 1; width: auto; }
+      .canvas-heading { align-items: flex-start; flex-direction: column; }
+      .callouts { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Flujo funcional · desde el origen hasta el cierre</p>
+      <h1>Fuente de mejora → Plan de acción</h1>
+    </div>
+    <div class="top-meta"><strong>Auditoría GCM</strong>Flujo reconstruido desde la aplicación</div>
+  </header>
+
+  <main>
+    <p class="intro">Recorrido trazado desde la fuente de mejora y su informe hasta la ejecución y el cierre. Tras validar la ejecución, la evaluación final depende del tipo de fuente: evaluación integral del paquete para Programa de Auditoría; evaluación de eficacia por acción para las demás fuentes.</p>
+
+    <div class="toolbar" aria-label="Controles del diagrama">
+      <div class="actions">
+        <input class="search" id="search" type="search" placeholder="Buscar etapa o archivo" aria-label="Buscar etapa o archivo">
+        <button class="icon-button" id="zoom-out" aria-label="Alejar" title="Alejar">−</button>
+        <button class="icon-button" id="zoom-in" aria-label="Acercar" title="Acercar">+</button>
+        <button class="icon-button" id="fit" aria-label="Restablecer vista" title="Restablecer vista">⟲</button>
+      </div>
+    </div>
+
+    <section class="workspace" aria-label="Diagrama y detalle de etapa">
+      <div class="canvas-card">
+        <div class="canvas-heading"><h2>Flujo principal y devoluciones</h2><span>Selecciona una etapa · arrastra el lienzo · usa la rueda para acercar</span></div>
+        <div class="canvas-scroll" id="canvas-scroll">
+          <svg id="diagram" viewBox="0 0 1840 1020" role="img" aria-label="Flujo interactivo desde la fuente de mejora hasta el cierre del plan de acción">
+            <defs>
+              <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#dfe7e1"></circle></pattern>
+              <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#315f82"></path></marker>
+              <marker id="arrow-return" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#a64e44"></path></marker>
+              <marker id="arrow-branch" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#69528d"></path></marker>
+            </defs>
+            <rect width="1840" height="1020" fill="url(#dots)"></rect>
+            <g id="viewport">
+              <rect class="lane" x="24" y="36" width="1792" height="302" rx="10" fill="#f0f6f2" stroke="#d0e0d5"></rect>
+              <text class="lane-title" x="46" y="67" fill="#176a51">01 · ORIGEN, INFORME Y FORMULACIÓN</text>
+              <text class="lane-subtitle" x="46" y="87">La relación del informe con la fuente se conserva en el hallazgo y las acciones</text>
+              <rect class="lane" x="24" y="365" width="1792" height="620" rx="10" fill="#f7f8f6" stroke="#dce3de"></rect>
+              <text class="lane-title" x="46" y="396" fill="#315f82">02 · REVISIÓN, EJECUCIÓN Y CIERRE</text>
+              <text class="lane-subtitle" x="46" y="416">Las decisiones generan estados de workflow, trazabilidad y notificaciones a los responsables</text>
+
+              <g aria-hidden="true">
+                <path class="edge" data-from="source" data-to="report" d="M270 218 H328"></path>
+                <text class="edge-label" x="299" y="204">selección</text>
+                <path class="edge" data-from="report" data-to="finding" d="M558 218 H616"></path>
+                <text class="edge-label" x="587" y="204">idInforme</text>
+                <path class="edge" data-from="finding" data-to="matrix" d="M846 218 H904"></path>
+                <text class="edge-label" x="875" y="204">hallazgo</text>
+                <path class="edge" data-from="matrix" data-to="design-review" d="M1134 218 H1192"></path>
+                <text class="edge-label" x="1163" y="204">plan asignado</text>
+                <path class="edge" data-from="design-review" data-to="execution" d="M1422 218 H1480"></path>
+                <text class="edge-label" x="1451" y="204">aprueba diseño</text>
+                <path class="edge" data-from="execution" data-to="review-100" d="M1600 298 V478"></path>
+                <text class="edge-label" x="1654" y="390">100% + evidencia</text>
+                <path class="edge" data-from="review-100" data-to="efficacy-evaluation" d="M1535 638 C1535 700 1430 740 1307 778"></path>
+                <text class="edge-label" x="1460" y="713">otras fuentes</text>
+                <path class="edge" data-from="efficacy-evaluation" data-to="closed" d="M1192 858 H1134"></path>
+                <text class="edge-label" x="1163" y="844">eficaz</text>
+
+                <path class="edge return" data-from="design-review" data-to="design-correction" d="M1307 298 V478"></path>
+                <text class="edge-label" x="1360" y="390">solicita ajuste</text>
+                <path class="edge return" data-from="design-correction" data-to="matrix" d="M1192 558 C1080 630 1018 630 1018 298"></path>
+                <text class="edge-label" x="1070" y="618">corregir y reenviar</text>
+                <path class="edge return" data-from="review-100" data-to="execution" d="M1712 478 C1805 410 1805 350 1660 298"></path>
+                <text class="edge-label" x="1740" y="395">rechaza: vuelve al 90%</text>
+                <path class="edge return" data-from="efficacy-evaluation" data-to="execution" d="M1307 778 C1430 720 1640 520 1640 298"></path>
+                <text class="edge-label" x="1585" y="700">no eficaz: 90%</text>
+
+                <path class="edge branch" data-from="matrix" data-to="not-applicable" d="M1019 298 V478"></path>
+                <text class="edge-label" x="1070" y="390">si no aplica</text>
+                <path class="edge branch" data-from="review-100" data-to="program-evaluation" d="M1480 600 C1320 750 1040 820 846 858"></path>
+                <text class="edge-label" x="1100" y="758">solo Programa de Auditoría</text>
+                <path class="edge branch" data-from="program-evaluation" data-to="closed" d="M846 858 H904"></path>
+                <text class="edge-label" x="875" y="844">puntaje &gt; 80%</text>
+                <path class="edge return" data-from="program-evaluation" data-to="execution" d="M846 880 C1100 930 1590 900 1600 298"></path>
+                <text class="edge-label" x="1370" y="890">puntaje ≤ 80%: vuelve a ejecución (90%)</text>
+              </g>
+
+              <g class="node source" data-node="source" tabindex="0" role="button" aria-label="Registro de fuente de mejora">
+                <rect x="40" y="138" width="230" height="160"></rect>
+                <text class="node-tag" x="57" y="161">ORIGEN</text>
+                <text class="node-title" x="57" y="185">Fuente de mejora</text>
+                <text class="node-sub" x="57" y="210">Tipo, norma, alcance y proceso</text>
+                <text class="node-sub" x="57" y="229">Responsable · estado · historial</text>
+                <text class="node-sub" x="57" y="265">Las fuentes cerradas no se ofrecen</text>
+                <text class="node-sub" x="57" y="281">para crear un informe nuevo</text>
+              </g>
+              <g class="node record" data-node="report" tabindex="0" role="button" aria-label="Informe de auditoría">
+                <rect x="328" y="138" width="230" height="160"></rect>
+                <text class="node-tag" x="345" y="161">DOCUMENTACIÓN</text>
+                <text class="node-title" x="345" y="185">Informe de auditoría</text>
+                <text class="node-sub" x="345" y="210">Selecciona la fuente de origen</text>
+                <text class="node-sub" x="345" y="229">Precarga alcance y proceso</text>
+                <text class="node-sub" x="345" y="265">Guarda tipoFuente y detalleFuente</text>
+                <text class="node-sub" x="345" y="281">Programa: vincula uno aprobado</text>
+              </g>
+              <g class="node record" data-node="finding" tabindex="0" role="button" aria-label="Hallazgo asociado al informe">
+                <rect x="616" y="138" width="230" height="160"></rect>
+                <text class="node-tag" x="633" y="161">RESULTADO</text>
+                <text class="node-title" x="633" y="185">Hallazgo / oportunidad</text>
+                <text class="node-sub" x="633" y="210">Se asocia al informe (idInforme)</text>
+                <text class="node-sub" x="633" y="229">Hereda fuente y detalle</text>
+                <text class="node-sub" x="633" y="265">Estado inicial: Abierto</text>
+                <text class="node-sub" x="633" y="281">Causa, proceso y evidencias</text>
+              </g>
+              <g class="node action" data-node="matrix" tabindex="0" role="button" aria-label="Diseño del plan de acción">
+                <rect x="904" y="138" width="230" height="160"></rect>
+                <text class="node-tag" x="921" y="161">FORMULACIÓN</text>
+                <text class="node-title" x="921" y="185">Matriz de acciones</text>
+                <text class="node-sub" x="921" y="210">Una o más acciones por hallazgo</text>
+                <text class="node-sub" x="921" y="229">Ejecutor · revisor · auditor</text>
+                <text class="node-sub" x="921" y="265">Fechas, tipo y evidencia</text>
+                <text class="node-sub" x="921" y="281">Plan ligado a informe y hallazgo</text>
+              </g>
+              <g class="node review" data-node="design-review" tabindex="0" role="button" aria-label="Revisión del diseño por jefatura">
+                <rect x="1192" y="138" width="230" height="160"></rect>
+                <text class="node-tag" x="1209" y="161">REVISIÓN 1 · JEFATURA</text>
+                <text class="node-title" x="1209" y="185">Aprueba el diseño</text>
+                <text class="node-sub" x="1209" y="210">Pendiente Revisión Jefatura</text>
+                <text class="node-sub" x="1209" y="229">Aprobar → En Ejecución</text>
+                <text class="node-sub" x="1209" y="265">Corregir → Borrador</text>
+                <text class="node-sub" x="1209" y="281">Motivo y nueva revisión</text>
+              </g>
+              <g class="node action" data-node="execution" tabindex="0" role="button" aria-label="Ejecución por el responsable">
+                <rect x="1480" y="138" width="230" height="160"></rect>
+                <text class="node-tag" x="1497" y="161">EJECUCIÓN</text>
+                <text class="node-title" x="1497" y="185">Responsable ejecuta</text>
+                <text class="node-sub" x="1497" y="210">Actualiza avance y soportes</text>
+                <text class="node-sub" x="1497" y="229">El plan permanece En Proceso</text>
+                <text class="node-sub" x="1497" y="265">Al 100% → espera al revisor</text>
+                <text class="node-sub" x="1497" y="281">Notificación de validación</text>
+              </g>
+
+              <g class="node return" data-node="design-correction" tabindex="0" role="button" aria-label="Corrección del diseño">
+                <rect x="1192" y="478" width="230" height="160"></rect>
+                <text class="node-tag" x="1209" y="501">BUCLE DE CORRECCIÓN</text>
+                <text class="node-title" x="1209" y="525">Ajustar el diseño</text>
+                <text class="node-sub" x="1209" y="550">El revisor deja el motivo</text>
+                <text class="node-sub" x="1209" y="569">El responsable corrige</text>
+                <text class="node-sub" x="1209" y="605">Se reenvía a jefatura</text>
+                <text class="node-sub" x="1209" y="621">hasta aprobación</text>
+              </g>
+              <g class="node review" data-node="review-100" tabindex="0" role="button" aria-label="Validación de ejecución al 100 por ciento por el revisor">
+                <rect x="1480" y="478" width="230" height="160"></rect>
+                <text class="node-tag" x="1497" y="501">REVISIÓN 2 · REVISOR</text>
+                <text class="node-title" x="1497" y="525">Validar ejecución 100%</text>
+                <text class="node-sub" x="1497" y="550">Revisa evidencias y resultado</text>
+                <text class="node-sub" x="1497" y="569">Aprueba → En Revisión (100%)</text>
+                <text class="node-sub" x="1497" y="605">Rechaza → En Ejecución (90%)</text>
+                <text class="node-sub" x="1497" y="621">Motivo y ajuste</text>
+              </g>
+              <g class="node close" data-node="efficacy-evaluation" tabindex="0" role="button" aria-label="Evaluación de eficacia de acción para fuentes distintas a Programa de Auditoría">
+                <rect x="1192" y="778" width="230" height="160"></rect>
+                <text class="node-tag" x="1209" y="801">OTRAS FUENTES · AUDITOR</text>
+                <text class="node-title" x="1209" y="825">Evalúa eficacia</text>
+                <text class="node-sub" x="1209" y="850">Registra conclusión y dictamen</text>
+                <text class="node-sub" x="1209" y="869">Eficaz → cierra la acción</text>
+                <text class="node-sub" x="1209" y="905">No eficaz → ejecución al 90%</text>
+                <text class="node-sub" x="1209" y="921">con observaciones para ajuste</text>
+              </g>
+              <g class="node close" data-node="closed" tabindex="0" role="button" aria-label="Plan de acción cerrado">
+                <rect x="904" y="778" width="230" height="160"></rect>
+                <text class="node-tag" x="921" y="801">RESULTADO</text>
+                <text class="node-title" x="921" y="825">Plan cerrado</text>
+                <text class="node-sub" x="921" y="850">EstadoWorkflow: Cerrado</text>
+                <text class="node-sub" x="921" y="869">Se conserva evaluación e historial</text>
+                <text class="node-sub" x="921" y="905">El hallazgo se cierra cuando</text>
+                <text class="node-sub" x="921" y="921">todas sus acciones se aprueban</text>
+              </g>
+              <g class="node return" data-node="not-applicable" tabindex="0" role="button" aria-label="Hallazgo marcado como no aplica">
+                <rect x="904" y="478" width="230" height="160"></rect>
+                <text class="node-tag" x="921" y="501">SALIDA ALTERNATIVA</text>
+                <text class="node-title" x="921" y="525">Hallazgo: No aplica</text>
+                <text class="node-sub" x="921" y="550">Se registra una justificación</text>
+                <text class="node-sub" x="921" y="569">El hallazgo se marca Cerrado</text>
+                <text class="node-sub" x="921" y="605">No entra al ciclo de acciones</text>
+                <text class="node-sub" x="921" y="621">de este diagrama</text>
+              </g>
+              <g class="node review" data-node="program-evaluation" tabindex="0" role="button" aria-label="Evaluación integral de paquete para Programa de Auditoría">
+                <rect x="616" y="778" width="230" height="160"></rect>
+                <text class="node-tag" x="633" y="801">EXCEPCIÓN · PROGRAMA</text>
+                <text class="node-title" x="633" y="825">Evaluación integral</text>
+                <text class="node-sub" x="633" y="850">Todas las acciones al 100%</text>
+                <text class="node-sub" x="633" y="869">y validadas por el revisor</text>
+                <text class="node-sub" x="633" y="905">Puntaje &gt; 80%: permite cierre</text>
+                <text class="node-sub" x="633" y="921">≤ 80%: vuelve a ejecución</text>
+              </g>
+            </g>
+          </svg>
+        </div>
+        <div class="legend" aria-label="Leyenda">
+          <span class="legend-item"><i class="swatch" style="background:#79a994"></i>Fuente</span>
+          <span class="legend-item"><i class="swatch" style="background:#83a2bb"></i>Informe / hallazgo</span>
+          <span class="legend-item"><i class="swatch" style="background:#d3a05d"></i>Plan / ejecución</span>
+          <span class="legend-item"><i class="swatch" style="background:#a997c1"></i>Revisión</span>
+          <span class="legend-item"><i class="line-swatch"></i>Avance del flujo</span>
+          <span class="legend-item"><i class="line-swatch return"></i>Devolución / corrección</span>
+          <span class="legend-item"><i class="line-swatch branch"></i>Rama alternativa</span>
+        </div>
+      </div>
+
+      <aside class="inspector" aria-live="polite">
+        <p class="inspector-kicker" id="detail-layer">Vista general</p>
+        <h2 id="detail-title">Selecciona una etapa</h2>
+        <p id="detail-description">Explora el flujo para consultar qué ocurre en cada etapa y abrir los archivos que respaldan las relaciones mostradas.</p>
+        <div class="detail-block"><h3>Relaciones y reglas</h3><ul class="relation-list" id="detail-relations"><li>Las flechas continuas muestran el avance normal; las discontinuas, devoluciones o ramas.</li></ul></div>
+        <div class="detail-block"><h3>Archivos de referencia</h3><ul class="source-list" id="detail-sources"><li><a href="src/components/FuentesDeMejora.jsx">src/components/FuentesDeMejora.jsx</a></li><li><a href="src/components/Planes.jsx">src/components/Planes.jsx</a></li></ul></div>
+      </aside>
+    </section>
+
+    <section class="callouts" aria-label="Reglas y alcance del flujo">
+      <article class="callout program">
+        <h2>Regla especial: Programa de Auditoría</h2>
+        <p>Solo cuando el informe proviene de Programa de Auditoría y está vinculado a un programa aprobado: todas las acciones deben estar al 100% y validadas por el revisor. El auditor asignado evalúa el paquete; un puntaje mayor a 80% cierra en lote las acciones. Con 80% o menos, se devuelve el paquete a ejecución al 90%.</p>
+      </article>
+      <article class="callout scope">
+        <h2>Alcance del cierre</h2>
+        <p>Para las demás fuentes, el auditor asignado evalúa la eficacia de cada acción: registra una conclusión y decide si fue eficaz. Si no lo fue, escribe observaciones y la acción vuelve a ejecución al 90%. El cierre del plan no cambia automáticamente el estado de la fuente.</p>
+      </article>
+      <article class="callout control-test">
+        <h2>Evaluación de controles: flujo distinto</h2>
+        <p>El módulo <a href="src/components/Evaluaciones.jsx">Evaluaciones.jsx</a> registra pruebas de controles vinculadas a riesgos (diseño, ejecución, soporte y score COSO); no es ninguna de las dos evaluaciones de cierre del plan que aparecen en el diagrama.</p>
+      </article>
+    </section>
+    <p class="footnote"><strong>Persistencia y trazabilidad:</strong> las altas y decisiones se guardan mediante los servicios GRC; el historial registra las acciones de responsables, revisores y auditores. Las notificaciones por correo acompañan hitos relevantes, pero no sustituyen los estados guardados.</p>
+  </main>
+
+  <script>
+    const details = {
+      source: {
+        layer: 'Origen · fuente de mejora',
+        title: 'Fuente de mejora',
+        description: 'Registro del origen que puede fundamentar una auditoría. En el formulario del informe se ofrecen fuentes cuyo estado no sea “Cerrada”; el identificador de la fuente se conserva en tipoFuente.',
+        sources: ['src/components/FuentesDeMejora.jsx', 'src/components/ModalNuevaFuente.jsx', 'src/App.jsx'],
+        relations: ['La fuente guarda tipo, norma, responsable, alcance/descripción, proceso y estado.', 'El selector del informe usa codigo o id como referencia.', 'El cierre posterior de un plan no cambia automáticamente el estado de la fuente en el flujo observado.']
+      },
+      report: {
+        layer: 'Documento · informe',
+        title: 'Informe de auditoría',
+        description: 'Al elegir una fuente, el formulario precarga alcance o descripción en detalleFuente y los datos del proceso. El informe persiste tipoFuente y detalleFuente para que el origen pueda seguirse.',
+        sources: ['src/components/InformesAuditoria.jsx', 'src/handlers/grcFormHandlers.js'],
+        relations: ['Puede vincular una fuente registrada o “Programa de Auditoría”.', 'Para Programa de Auditoría se exige seleccionar un programa aprobado.', 'El informe sirve como agrupador de hallazgos y acciones.']
+      },
+      finding: {
+        layer: 'Resultado · hallazgo',
+        title: 'Hallazgo / oportunidad de mejora',
+        description: 'Se crea o edita ligado al informe mediante idInforme. Se conservan los datos de fuente y detalle, el proceso, la causa y las evidencias; el estado inicial de un hallazgo nuevo es Abierto.',
+        sources: ['src/components/Hallazgos.jsx', 'src/handlers/grcFormHandlers.js'],
+        relations: ['El hallazgo enlaza hacia atrás al informe de origen.', 'La matriz de planes carga los hallazgos pertenecientes al informe seleccionado.', 'El hallazgo puede marcarse No aplica con justificación.']
+      },
+      matrix: {
+        layer: 'Planificación · matriz de acciones',
+        title: 'Diseño del plan de acción',
+        description: 'En la matriz del informe se crean una o más acciones para cada hallazgo. Se guardan sus responsables, revisor, auditor, fechas, tipo de acción y evidencia, vinculadas a idHallazgo e idInforme.',
+        sources: ['src/components/Planes.jsx', 'src/services/apiService.js', 'api/_grc/create.js', 'api/_grc/update.js'],
+        relations: ['Las acciones nuevas inician en Pendiente Revisión Jefatura.', 'El diseño requiere asignar ejecutor y revisor; el auditor queda asociado para la aprobación final.', 'Los planes se guardan a través del servicio/API GRC.']
+      },
+      'design-review': {
+        layer: 'Aprobación · revisión de diseño',
+        title: 'Revisión de jefatura',
+        description: 'El revisor asignado aprueba el diseño antes de la ejecución o solicita correcciones con un motivo. Si aprueba, el plan pasa a En Ejecución; si corrige, vuelve a Borrador para ajuste y reenvío.',
+        sources: ['src/components/Planes.jsx', 'src/services/apiService.js', 'api/_grc/review-plans.js'],
+        relations: ['Pendiente Revisión Jefatura → En Ejecución al aprobar.', 'Pendiente Revisión Jefatura → Borrador al solicitar corrección.', 'Las decisiones quedan registradas en el historial y pueden generar notificaciones.']
+      },
+      execution: {
+        layer: 'Ejecución · responsable',
+        title: 'Ejecución de la acción',
+        description: 'El responsable actualiza el progreso y registra los soportes de ejecución. Al reportar 100%, la acción pasa a espera de validación del revisor, no se considera cerrada automáticamente.',
+        sources: ['src/components/Planes.jsx', 'src/handlers/grcFormHandlers.js'],
+        relations: ['El plan permanece En Proceso mientras se ejecuta.', 'Al 100% se envía a Pendiente Validación Revisor.', 'Un rechazo posterior lo devuelve a En Ejecución al 90%.']
+      },
+      'design-correction': {
+        layer: 'Bucle · corrección del diseño',
+        title: 'Ajustar y reenviar',
+        description: 'Cuando jefatura solicita correcciones, el motivo queda registrado; el responsable modifica el diseño y la acción vuelve a revisión de jefatura.',
+        sources: ['src/components/Planes.jsx', 'api/_grc/review-plans.js'],
+        relations: ['La decisión de corrección exige un motivo.', 'El plan vuelve a Pendiente Revisión Jefatura tras volver a presentarse.', 'El bucle termina cuando el diseño es aprobado.']
+      },
+      'review-100': {
+        layer: 'Aprobación · validación de ejecución',
+        title: 'Validación del revisor al 100%',
+        description: 'El revisor verifica las evidencias y el resultado reportado. Si valida, el plan pasa a En Revisión (100%) para decisión final del auditor; si rechaza, se devuelve al ejecutor al 90%.',
+        sources: ['src/components/Planes.jsx', 'src/services/apiService.js', 'api/_grc/review-plans.js'],
+        relations: ['Pendiente Validación Revisor → En Revisión (100%) al aprobar.', 'El rechazo devuelve a En Ejecución con progreso 90%.', 'El endpoint permite la decisión solo al revisor asignado con permiso.']
+      },
+      'efficacy-evaluation': {
+        layer: 'Otras fuentes · auditor asignado',
+        title: 'Evaluación de eficacia',
+        description: 'Para todas las fuentes excepto Programa de Auditoría, el auditor asignado evalúa la eficacia de cada acción. Registra conclusión y dictamen; si no fue eficaz, las observaciones son obligatorias y la acción vuelve a ejecución al 90%.',
+        sources: ['src/components/Planes.jsx', 'src/services/apiService.js', 'api/_grc/review-plans.js'],
+        relations: ['Esta rama aplica cuando el informe no es de Programa de Auditoría vinculado a programaId.', 'La evaluación registra conclusión, eficacia, necesidad de acciones adicionales y observaciones.', 'Eficaz cierra la acción; no eficaz la devuelve a En Ejecución al 90%.']
+      },
+      closed: {
+        layer: 'Resultado · acción cerrada',
+        title: 'Plan de acción cerrado',
+        description: 'El plan queda Cerrado tras aprobar la evaluación de eficacia por acción para otras fuentes, o al aprobar en lote la evaluación integral del paquete de Programa de Auditoría. Se conserva la evaluación y el historial.',
+        sources: ['src/components/Planes.jsx', 'api/_grc/review-plans.js', 'src/handlers/grcFormHandlers.js'],
+        relations: ['Al aprobar el plan, el hallazgo asociado se cierra cuando todas sus acciones están cerradas.', 'La notificación de cierre informa al responsable.', 'El cierre del plan no implica el cierre automático de la fuente de mejora.']
+      },
+      'not-applicable': {
+        layer: 'Alternativa · hallazgo no aplicable',
+        title: 'Hallazgo marcado No aplica',
+        description: 'La matriz permite indicar que un hallazgo no aplica y exige registrar la justificación. En ese caso el hallazgo se marca Cerrado sin entrar al ciclo normal de las acciones.',
+        sources: ['src/components/Planes.jsx'],
+        relations: ['La justificación se incorpora al historial del hallazgo.', 'Esta salida cierra el hallazgo; no representa la aprobación de una acción ejecutada.']
+      },
+      'program-evaluation': {
+        layer: 'Excepción · Programa de Auditoría',
+        title: 'Evaluación integral del paquete',
+        description: 'Exclusiva para informes con tipoFuente “Programa de Auditoría” y programaId. Todas las acciones deben estar al 100% y validadas por el revisor. El auditor asignado aplica criterios ponderados al paquete: un puntaje mayor a 80% cierra las acciones en lote; un puntaje de 80% o menos requiere justificación y devuelve las acciones a ejecución al 90%. Esta rama no usa el formulario de eficacia por acción.',
+        sources: ['src/components/Planes.jsx', 'api/_grc/review-plans.js'],
+        relations: ['Requiere todas las acciones del informe al 100% y en En Revisión (100%).', 'La aprobación integral guarda el mismo resultado en las acciones y las cierra en lote; cierra hallazgos cuando todas sus acciones estén cerradas.', 'El endpoint bloquea el cierre de una acción del paquete si no existe evaluación integral aprobada con puntaje mayor a 80%.']
+      }
+    };
+
+    const svg = document.getElementById('diagram');
+    const viewport = document.getElementById('viewport');
+    const canvas = document.getElementById('canvas-scroll');
+    const nodes = [...svg.querySelectorAll('[data-node]')];
+    const edges = [...svg.querySelectorAll('.edge')];
+    const search = document.getElementById('search');
+    let selectedId = null;
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let pointerOrigin = null;
+    let dragged = false;
+
+    const applyTransform = () => viewport.setAttribute('transform', `translate(${offsetX} ${offsetY}) scale(${scale})`);
+    const visible = node => !node.classList.contains('filtered');
+    const updateEdges = () => edges.forEach(edge => {
+      const from = svg.querySelector(`[data-node="${edge.dataset.from}"]`);
+      const to = svg.querySelector(`[data-node="${edge.dataset.to}"]`);
+      edge.classList.toggle('filtered', !from || !to || !visible(from) || !visible(to));
+    });
+    const showDetails = id => {
+      const item = details[id];
+      if (!item) return;
+      selectedId = id;
+      nodes.forEach(node => node.classList.toggle('selected', node.dataset.node === id));
+      document.getElementById('detail-layer').textContent = item.layer;
+      document.getElementById('detail-title').textContent = item.title;
+      document.getElementById('detail-description').textContent = item.description;
+      const relations = document.getElementById('detail-relations');
+      relations.replaceChildren(...item.relations.map(text => {
+        const li = document.createElement('li');
+        li.textContent = text;
+        return li;
+      }));
+      const sources = document.getElementById('detail-sources');
+      sources.replaceChildren(...item.sources.map(path => {
+        const li = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = path;
+        link.textContent = path;
+        li.append(link);
+        return li;
+      }));
+      updateSearch();
+    };
+    const updateSearch = () => {
+      const term = search.value.trim().toLowerCase();
+      nodes.forEach(node => {
+        const item = details[node.dataset.node];
+        const text = `${item.title} ${item.description} ${item.sources.join(' ')}`.toLowerCase();
+        node.classList.toggle('filtered', Boolean(term && !text.includes(term)));
+      });
+      const selectedVisible = selectedId && visible(svg.querySelector(`[data-node="${selectedId}"]`));
+      nodes.forEach(node => node.classList.toggle('dimmed', Boolean(selectedVisible && node.dataset.node !== selectedId && visible(node))));
+      edges.forEach(edge => {
+        const connected = !selectedId || edge.dataset.from === selectedId || edge.dataset.to === selectedId;
+        edge.classList.toggle('dimmed', Boolean(selectedVisible && !connected));
+      });
+      updateEdges();
+    };
+
+    nodes.forEach(node => {
+      node.addEventListener('click', () => { if (!dragged) showDetails(node.dataset.node); });
+      node.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          showDetails(node.dataset.node);
+        }
+      });
+    });
+    search.addEventListener('input', updateSearch);
+    document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(1.7, scale + .12); applyTransform(); });
+    document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(.62, scale - .12); applyTransform(); });
+    document.getElementById('fit').addEventListener('click', () => {
+      scale = 1; offsetX = 0; offsetY = 0; selectedId = null; search.value = '';
+      nodes.forEach(node => node.classList.remove('selected', 'dimmed', 'filtered'));
+      edges.forEach(edge => edge.classList.remove('dimmed', 'filtered'));
+      applyTransform();
+      document.getElementById('detail-layer').textContent = 'Vista general';
+      document.getElementById('detail-title').textContent = 'Selecciona una etapa';
+      document.getElementById('detail-description').textContent = 'Explora el flujo para consultar qué ocurre en cada etapa y abrir los archivos que respaldan las relaciones mostradas.';
+      document.getElementById('detail-relations').innerHTML = '<li>Las flechas continuas muestran el avance normal; las discontinuas, devoluciones o ramas.</li>';
+      document.getElementById('detail-sources').innerHTML = '<li><a href="src/components/FuentesDeMejora.jsx">src/components/FuentesDeMejora.jsx</a></li><li><a href="src/components/Planes.jsx">src/components/Planes.jsx</a></li>';
+    });
+    canvas.addEventListener('wheel', event => {
+      event.preventDefault();
+      scale = Math.min(1.7, Math.max(.62, scale + (event.deltaY < 0 ? .06 : -.06)));
+      applyTransform();
+    }, { passive: false });
+    svg.addEventListener('pointerdown', event => {
+      if (event.target.closest('[data-node]')) return;
+      pointerOrigin = { x: event.clientX, y: event.clientY, offsetX, offsetY };
+      dragged = false;
+      svg.setPointerCapture(event.pointerId);
+    });
+    svg.addEventListener('pointermove', event => {
+      if (!pointerOrigin) return;
+      const dx = event.clientX - pointerOrigin.x;
+      const dy = event.clientY - pointerOrigin.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) dragged = true;
+      offsetX = pointerOrigin.offsetX + dx * (1840 / svg.getBoundingClientRect().width);
+      offsetY = pointerOrigin.offsetY + dy * (1020 / svg.getBoundingClientRect().height);
+      applyTransform();
+    });
+    const stopDragging = () => { pointerOrigin = null; window.setTimeout(() => { dragged = false; }, 0); };
+    svg.addEventListener('pointerup', stopDragging);
+    svg.addEventListener('pointercancel', stopDragging);
+    svg.addEventListener('pointerleave', stopDragging);
+  </script>
+</body>
+</html>

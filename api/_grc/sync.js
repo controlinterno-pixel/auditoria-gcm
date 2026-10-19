@@ -251,9 +251,11 @@ export default async function handler(req, res) {
           ? user.procesosAsignados
           : [user.procesoAsignado].filter(Boolean))
         : null;
+      const revision = typeof req.query?.revision === 'string' ? req.query.revision.slice(0, 100) : '';
       const { data } = await leerWorkspaceGrc(null, {
-        usarCache: req.query?.fresh !== '1',
+        usarCache: req.query?.fresh !== '1' || Boolean(revision),
         procesosAsignados: procesosConsulta,
+        revision,
       });
 
       // Administradores y Auditores acceden a la totalidad de la base de datos
