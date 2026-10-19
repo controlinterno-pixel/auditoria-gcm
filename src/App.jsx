@@ -87,7 +87,11 @@ const getInitialSidebarState = () => {
 export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialSidebarState);
   const [detallePanelPlanes, setDetallePanelPlanes] = useState(null);
-  const [solicitudAprobacionPlanes, setSolicitudAprobacionPlanes] = useState(0);
+  const [solicitudTareasPlanes, setSolicitudTareasPlanes] = useState(0);
+  const seleccionarTareasPlanes = tipo => {
+    setDetallePanelPlanes(tipo);
+    setSolicitudTareasPlanes(solicitud => solicitud + 1);
+  };
   const [reintentosNotificacion, setReintentosNotificacion] = useState([]);
   const [reintentandoNotificacionId, setReintentandoNotificacionId] = useState(null);
   const mainScrollAreaRef = useRef(null);
@@ -576,7 +580,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   // El total de notificaciones para el usuario actual
   // 📜 Restablecer el scroll arriba del todo al cambiar de módulo o subpestaña (Garantizado)
   useEffect(() => {
-    if (activeTab === 'planes_tab' && subTabPlanes === 'planes' && detallePanelPlanes === 'aprobacion') return;
+    if (activeTab === 'planes_tab' && subTabPlanes === 'planes' && ['aprobacion', 'revision', 'ejecucion'].includes(detallePanelPlanes)) return;
     const resetScroll = () => {
       const mainArea = document.getElementById('main-scroll-area');
       if (mainArea) {
@@ -666,12 +670,9 @@ return (
         misTareasEjecucion={misTareasEjecucion} 
         misTareasRevision={misTareasRevision}   
         misTareasAprobacion={misTareasAprobacion} 
-        onSelectExecutionTasks={() => setDetallePanelPlanes('ejecucion')}
-        onSelectRevisionTasks={() => setDetallePanelPlanes('revision')}
-        onSelectAprobacionTasks={() => {
-          setDetallePanelPlanes('aprobacion');
-          setSolicitudAprobacionPlanes(solicitud => solicitud + 1);
-        }}
+        onSelectExecutionTasks={() => seleccionarTareasPlanes('ejecucion')}
+        onSelectRevisionTasks={() => seleccionarTareasPlanes('revision')}
+        onSelectAprobacionTasks={() => seleccionarTareasPlanes('aprobacion')}
         isAdmin={isAdmin}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
         puedeVerCronograma={puedeVerCronograma}
@@ -1024,7 +1025,7 @@ return (
                 
                 {subTabPlanes === 'planes' && (
                   <Planes 
-                    key={`planes-aprobacion-${solicitudAprobacionPlanes}`}
+                    key={`planes-tareas-${solicitudTareasPlanes}`}
                     reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} encolarReintentoNotificacion={encolarReintentoNotificacion} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user} perfilUsuario={perfilUsuario}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
