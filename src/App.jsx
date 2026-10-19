@@ -558,8 +558,6 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
-  const rolUsuario = normalizarIdentidad(perfilUsuario?.rol);
-  const tieneRolAuditor = ['admin', 'administrador', 'auditor'].includes(rolUsuario);
   const misPlanesAprobacion = planesConOrigen.filter(p => {
     const correosAuditor = [p.correoAuditor, p.correoAuditorResponsable, p.correo_auditor]
       .map(normalizarIdentidad)
@@ -568,9 +566,9 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     const identidadesUsuario = [perfilUsuario?.nombreResponsable, perfilUsuario?.nombre, perfilUsuario?.cargo]
       .map(normalizarIdentidad)
       .filter(Boolean);
-    const esAuditorDelPlan = tieneRolAuditor ||
-      correosAuditor.includes(normalizarIdentidad(userEmailLower)) ||
-      Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
+    const esAuditorDelPlan = correosAuditor.length > 0
+      ? correosAuditor.includes(normalizarIdentidad(userEmailLower))
+      : Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
     return esAuditorDelPlan &&
            (['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow) ||
             (p.estadoWorkflow === 'En Ejecución' && Number(p.progreso) >= 100));
@@ -690,6 +688,16 @@ return (
           currentUserRole={isAdmin ? 'Administrador' : 'Usuario'} 
           isPresentationMode={isPresentationMode}
           setIsPresentationMode={setIsPresentationMode}
+          misTareasEjecucion={misTareasEjecucion}
+          misTareasRevision={misTareasRevision}
+          misTareasAprobacion={misTareasAprobacion}
+          onSelectTasks={tipo => guardNavigation(() => {
+            setEditPlan(null);
+            setSubTabPlanes('planes');
+            setMenuAbierto('planes');
+            seleccionarTareasPlanes(tipo);
+            setActiveTab('planes_tab');
+          })}
         />
 {/*  Tracks de gobernanza guiada del Workflow en la cabecera */}
         {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}

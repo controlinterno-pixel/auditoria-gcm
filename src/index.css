@@ -39,6 +39,18 @@
 	animation: individual-close-glow 2s ease-in-out infinite;
 }
 
+@keyframes notification-bell-ring {
+	0%, 28%, 100% { transform: rotate(0deg); }
+	5%, 15% { transform: rotate(12deg); }
+	10%, 20% { transform: rotate(-12deg); }
+	25% { transform: rotate(5deg); }
+}
+
+.notification-bell-ring {
+	transform-origin: 50% 15%;
+	animation: notification-bell-ring 1.6s ease-in-out 3;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
@@ -53,6 +65,9 @@
 		box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.18);
 	}
 	.individual-close-glow {
+		animation: none;
+	}
+	.notification-bell-ring {
 		animation: none;
 	}
 }

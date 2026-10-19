@@ -108,6 +108,21 @@ async function usuarioPuedeEvaluarPlanes(partialData, user) {
       Boolean(evaluacionFinal.aprobado) !== (puntajeEvaluacion > 80)
     ) return false;
 
+    const aprobado = puntajeEvaluacion > 80;
+    if (
+      planActualizado.estadoWorkflow !== (aprobado ? 'Cerrado' : 'En Ejecución') ||
+      planActualizado.estado !== (aprobado ? 'Cerrado' : 'En Proceso') ||
+      Number(planActualizado.progreso) !== (aprobado ? 100 : 90) ||
+      (!aprobado && !String(evaluacionFinal.justificacion || '').trim())
+    ) return false;
+    const actualizacionesPorId = new Map(partialData.planes.map(plan => [String(plan?.id), plan]));
+    if (!planesDelPaquete.every(plan => {
+      const actualizado = actualizacionesPorId.get(String(plan.id));
+      return actualizado &&
+        serializarEvaluacion(actualizado) !== serializarEvaluacion(plan) &&
+        JSON.stringify(actualizado.evaluacionHolistica) === JSON.stringify(evaluacionFinal);
+    })) return false;
+
     const correoInforme = String(informe.correoAuditor || informe.correoAuditorResponsable || '').trim().toLowerCase();
     const correosPlanes = [...new Set(planesGuardados
       .filter(plan => {
@@ -130,7 +145,7 @@ async function usuarioPuedeEvaluarPlanes(partialData, user) {
       .filter(Boolean);
     const asignadoPorCorreo = Boolean(correoUsuario && correoAsignado && correoUsuario === correoAsignado);
     const asignadoPorIdentidad = Boolean(nombreAsignado && identidadesUsuario.includes(nombreAsignado));
-    if (!asignadoPorCorreo && !asignadoPorIdentidad) return false;
+    if (!(correoAsignado ? asignadoPorCorreo : asignadoPorIdentidad)) return false;
   }
 
   return true;

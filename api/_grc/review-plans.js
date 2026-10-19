@@ -18,7 +18,7 @@ function esAuditorAsignado(plan, user, perfil) {
   const correosAsignados = [plan?.correoAuditor, plan?.correoAuditorResponsable, plan?.correo_auditor]
     .map(normalizar)
     .filter(Boolean);
-  if (correosAsignados.includes(normalizar(user.email))) return true;
+  if (correosAsignados.length > 0) return correosAsignados.includes(normalizar(user.email));
 
   const auditorAsignado = normalizar(plan?.auditorAsignado || plan?.auditorResponsable || plan?.auditor);
   const identidadesUsuario = [perfil?.nombreResponsable, perfil?.nombre, perfil?.cargo]
@@ -35,7 +35,6 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
 
   const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
   const perfil = perfilSnap.exists ? perfilSnap.data() : {};
-  const admin = ROLES_ADMIN.includes(normalizar(perfil.rol));
 
   const resultado = await adminDb.runTransaction(async transaction => {
     const workspace = await leerWorkspaceGrc(transaction);
@@ -44,7 +43,7 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
     const planes = Array.isArray(data.planes) ? data.planes : [];
     const plan = planes.find(item => String(item.id) === String(idPlan));
     if (!plan) return { error: 'plan-not-found' };
-    if (!admin && !esAuditorAsignado(plan, user, perfil)) return { error: 'not-auditor' };
+    if (!esAuditorAsignado(plan, user, perfil)) return { error: 'not-auditor' };
     const enRevision = plan.estadoWorkflow === 'En Revisión (100%)' ||
       (plan.estadoWorkflow === 'En Ejecución' && Number(plan.progreso) >= 100);
     if (!enRevision) return { error: 'not-in-review' };
@@ -173,7 +172,7 @@ export default async function handler(req, res) {
         const hallazgo = hallazgos.find(item => String(item.id) === String(plan.idHallazgo));
         const planInformeId = plan.idInforme || hallazgo?.idInforme;
         if (String(planInformeId) !== String(idInforme)) return false;
-        return admin || normalizar(plan.correoRevisor) === normalizar(user.email);
+        return normalizar(plan.correoRevisor) === normalizar(user.email);
       });
       if (pendientes.length === 0) return { error: 'no-pending-plans' };
 
