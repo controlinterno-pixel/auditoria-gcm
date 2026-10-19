@@ -444,6 +444,44 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       isReadOnly: false,
     });
   };
+
+  const abrirEvaluacionAccion = plan => {
+    const rol = normalizarIdentidad(perfilUsuario?.rol);
+    const autorizado = isAdmin || ['admin', 'administrador', 'auditor'].includes(rol) ||
+      esAuditorAsignado(plan, user?.email, perfilUsuario);
+    if (!enRevisionAuditor(plan) || !autorizado) {
+      showNotification('Esta acción no está pendiente de aprobación para tu usuario.', 'error');
+      return;
+    }
+    if (esPlanProgramaAuditoria(plan)) {
+      const planesInforme = safePlanes.filter(item => {
+        const hallazgo = hallazgosPorId.get(String(item.idHallazgo));
+        return String(hallazgo?.idInforme || item.idInforme) === String(plan.idInforme);
+      });
+      if (!paqueteTieneEvaluacionAprobada(planesInforme)) {
+        const informe = informesAuditoria.find(item => String(item.id) === String(plan.idInforme));
+        if (!paqueteListoParaEvaluacion(informe, planesInforme)) {
+          showNotification('En Programa de Auditoría, todas las acciones deben estar al 100% y validadas por el revisor antes de la evaluación integral.', 'error');
+          return;
+        }
+        const esEjecutor = planesInforme.some(item => String(item.correoResponsable || '')
+          .split(',').map(normalizarIdentidad).includes(normalizarIdentidad(user?.email)));
+        if (esEjecutor) {
+          showNotification('El auditor también figura como ejecutor del paquete. Asigna otro auditor para la evaluación integral.', 'error');
+          return;
+        }
+        if (!esAuditorAsignadoEvaluador(informe, planesInforme)) {
+          showNotification('Tu correo o cargo no coincide con el auditor asignado al informe/paquete. Revisa la asignación del auditor y su correo.', 'error');
+          return;
+        }
+        iniciarEvaluacionIntegral(informe, planesInforme);
+        return;
+      }
+    }
+    setModalEficaciaCierre({
+      activo: true, plan, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '',
+    });
+  };
   
   // 🛡️ Salvaguarda: Si el registro es viejo y no tiene criterios, usa 100 por defecto para no romper React
   const safeCriterios = criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 };
@@ -2767,6 +2805,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             <dt className="font-bold">Avance</dt><dd>{Number(plan.progreso) || 0}%</dd>
                           </dl>
                           <button type="button" onClick={() => {
+                            if (esAprobacion) {
+                              abrirEvaluacionAccion(plan);
+                              return;
+                            }
                             const hallazgo = safeHallazgos.find(item => String(item.id) === String(plan.idHallazgo));
                             const informeId = String(plan.idInforme || hallazgo?.idInforme || '');
                             setEditPlan(null);
@@ -2777,7 +2819,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               document.getElementById(`plan-completo-${informeId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }, 80);
                           }} className={`mt-2 text-[10px] font-black underline underline-offset-2 ${esEjecucion ? 'text-rose-700 hover:text-rose-900' : 'text-blue-700 hover:text-blue-900'}`}>
-                            Abrir matriz
+                            {esAprobacion ? 'Evaluar aprobación' : 'Abrir matriz'}
                           </button>
                         </article>
                       ))}
@@ -3771,6 +3813,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                               {(esRevisor || esAuditor || isAdmin) && (
                                                 <button 
                                                   onClick={() => {
+                                                    if (enRevisionAuditor(p) && esAuditor) {
+                                                      abrirEvaluacionAccion(p);
+                                                      return;
+                                                    }
                                                     setEditPlan(null);
                                                     setModoRevisionMatriz(true);
                                                     setRevisionInformeId(p.idInforme);
