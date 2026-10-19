@@ -79,8 +79,8 @@ const obtenerTerritorioInforme = informe => {
 };
 
 const compararInformesRecientes = (a, b) => {
-  const fechaA = obtenerTiempoInforme(a.fecha);
-  const fechaB = obtenerTiempoInforme(b.fecha);
+  const fechaA = obtenerTiempoActividad(a.fechaHora) ?? obtenerTiempoInforme(a.fecha);
+  const fechaB = obtenerTiempoActividad(b.fechaHora) ?? obtenerTiempoInforme(b.fecha);
   if (fechaA !== fechaB) {
     if (fechaA === null) return 1;
     if (fechaB === null) return -1;
