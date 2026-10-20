@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as workflow from '../src/utils/programPlanWorkflow.js';
+import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const source = path => read(path).replace(/^import .*;\r?\n/gm, '').replace('export default async function handler', 'async function handler');
 const criterios = puntaje => Object.fromEntries(['c1', 'c2', 'c3', 'c4', 'c5'].map(key => [key, puntaje]));
+const soporte = { nombre: 'Evaluacion.pdf', tamano: 100, url: 'https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/evaluacion.pdf' };
 const plan = (overrides = {}) => ({
   id: 1, idInforme: 'i1', idHallazgo: 'h1', accion: 'Acción de prueba', sede: 'Hotel',
   correoResponsable: 'ejecutor@example.test', correoRevisor: 'revisor@example.test', correoAuditor: 'auditor@example.test',
@@ -27,6 +29,7 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
   const profile = { ...user, procesosAsignados: ['Operaciones'] };
   const bindings = {
     ...workflow,
+    validarAdjuntoEvaluacion,
     applyCors: () => false, requireAuth: async () => user,
     sendSuccess: (res, result) => Object.assign(res, { code: 200, result }),
     sendError: (res, message, code) => Object.assign(res, { code, message }),
@@ -94,7 +97,94 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
 
 const evaluate = (h, puntaje, extra = {}) => h.review({
   decision: 'evaluar-diseno', idInforme: 'i1', idsPlanes: [1],
-  criterios: criterios(puntaje), justificacion: puntaje < 80 ? 'El diseño requiere ajustes' : '', ...extra,
+  criterios: criterios(puntaje), justificacion: puntaje < 80 ? 'El diseño requiere ajustes' : '', adjuntoEvaluacion: soporte, ...extra,
+});
+
+test('evaluación inicial exige soporte válido antes de escribir, aprobada o devuelta', async () => {
+  for (const puntaje of [79, 80]) {
+    for (const adjuntoEvaluacion of [null, { ...soporte, url: 'https://example.test/a.pdf' }, { ...soporte, tamano: 3 * 1024 * 1024 }]) {
+      const h = harness();
+      const response = await evaluate(h, puntaje, { adjuntoEvaluacion });
+      assert.equal(response.code, 400);
+      assert.equal(h.writes.length, 0);
+    }
+    const h = harness();
+    assert.equal((await evaluate(h, puntaje)).code, 200);
+    const registro = h.data().planes[0].evaluacionHolistica;
+    assert.deepEqual(registro.adjuntoEvaluacion, validarAdjuntoEvaluacion(soporte));
+    assert.deepEqual(h.data().planes[0].historialEvaluaciones[0].adjuntoEvaluacion, registro.adjuntoEvaluacion);
+    assert.ok(!JSON.stringify(registro).includes('contenidoBase64'));
+  }
+});
+
+test('asignaciones bloqueadas para ejecutor incluso administrador; creación y otro administrador conservan permisos', () => {
+  assert.equal(workflow.puedeEditarAsignacionPlan(plan(), ' EJECUTOR@example.test ', false), false);
+  assert.equal(workflow.puedeEditarAsignacionPlan(plan(), 'ejecutor@example.test', true), false);
+  assert.equal(workflow.puedeEditarAsignacionPlan(plan(), 'revisor@example.test', false), false);
+  assert.equal(workflow.puedeEditarAsignacionPlan(plan(), 'admin@example.test', true), true);
+  assert.equal(workflow.puedeEditarAsignacionPlan(null, 'ejecutor@example.test', false), true);
+});
+
+test('API rechaza cambios de cargos, correos y confirmaciones por el ejecutor sin escribir', async () => {
+  const cambios = [
+    { correoResponsable: 'otro@example.test', correoConfirmacion: 'otro@example.test' },
+    { correoRevisor: 'otro@example.test', correoRevisorConfirmacion: 'otro@example.test' },
+    { correoAuditor: 'otro@example.test' },
+    { correoConfirmacion: 'otro@example.test' },
+    { correoRevisorConfirmacion: 'otro@example.test' },
+    { responsable: 'Otro cargo' },
+    { revisor: 'Otra jefatura' },
+  ];
+  for (const rol of ['lider', 'admin']) {
+    for (const cambio of cambios) {
+      const h = harness({ email: 'ejecutor@example.test', rol, planes: [plan({ estadoWorkflow: 'En Ejecución' })] });
+      const res = await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, ...cambio }] });
+      assert.equal(res.code, 403, JSON.stringify({ rol, cambio }));
+      assert.match(res.message, /ejecutor no puede modificar/);
+      assert.equal(h.writes.length, 0);
+    }
+  }
+});
+
+test('bloqueo de correos aplica también en ajustes iniciales y en otras fuentes', async () => {
+  for (const tipoFuente of ['Programa de Auditoría', 'Auditoría Externa']) {
+    const h = harness({ email: 'ejecutor@example.test', tipoFuente, planes: [plan({ estadoWorkflow: workflow.ESTADO_AJUSTES_INICIALES })] });
+    const res = await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, correoAuditor: 'otro@example.test' }] });
+    assert.equal(res.code, 403);
+    assert.equal(h.writes.length, 0);
+  }
+});
+
+test('ejecutor puede guardar avance y evidencia con los correos originales intactos', async () => {
+  const h = harness({ email: 'ejecutor@example.test', planes: [plan({ estadoWorkflow: 'En Ejecución' })] });
+  const res = await h.update({ idInforme: 'i1', actualizaciones: [{
+    id: 1, progreso: 50, evidenciaUrl: 'https://example.test/evidencia',
+    correoResponsable: 'ejecutor@example.test', correoConfirmacion: 'ejecutor@example.test',
+    correoRevisor: 'revisor@example.test', correoRevisorConfirmacion: 'revisor@example.test',
+  }] });
+  assert.equal(res.code, 200);
+  assert.equal(h.data().planes[0].progreso, 50);
+  assert.equal(h.data().planes[0].correoRevisor, 'revisor@example.test');
+});
+
+test('otro administrador puede corregir un correo con su confirmación', async () => {
+  const h = harness({ email: 'admin@example.test', rol: 'admin', planes: [plan({ estadoWorkflow: 'En Ejecución' })] });
+  const res = await h.update({ idInforme: 'i1', actualizaciones: [{
+    id: 1, correoRevisor: 'nuevo@example.test', correoRevisorConfirmacion: 'nuevo@example.test',
+  }] });
+  assert.equal(res.code, 200);
+  assert.equal(h.data().planes[0].correoRevisor, 'nuevo@example.test');
+});
+
+test('sincronización general no permite que un ejecutor administrador cambie sus asignaciones', async () => {
+  const h = harness({ email: 'ejecutor@example.test', rol: 'admin', planes: [plan({ estadoWorkflow: 'En Ejecución' })] });
+  const original = h.data().planes[0];
+  for (const cambio of [
+    { correoResponsable: 'otro@example.test' }, { correoRevisor: 'otro@example.test' },
+    { correoAuditor: 'otro@example.test' }, { responsable: 'Otro cargo' },
+    { correoConfirmacion: 'otro@example.test' }, { correoRevisorConfirmacion: 'otro@example.test' },
+  ]) assert.equal(await h.syncAllowed([{ ...original, ...cambio }]), false);
+  assert.equal(await h.syncAllowed([{ ...original, progreso: 40 }]), true);
 });
 
 test('tipo de fuente determina la ruta, incluso sin programaId y con fuente vinculada', () => {
@@ -444,7 +534,8 @@ for (const puntaje of [79, 80, 100]) {
       async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
     );
     const planes = [plan(), plan({ id: 2, accion: 'Segunda acción', correoResponsable: 'otroejecutor@example.test' })];
-    assert.equal(await notify({ id: 'i1' }, planes, puntaje, 'Dictamen técnico', true), true);
+    assert.equal(await notify({ id: 'i1' }, planes, puntaje, 'Dictamen técnico', true, soporte), true);
+    assert.ok(payloads.every(item => item.adjuntosCorreo.length === 1 && item.adjuntosCorreo[0] === soporte));
     assert.deepEqual(payloads.map(item => item.destinatarios), ['ejecutor@example.test', 'otroejecutor@example.test']);
     assert.match(payloads[0].proceso_auditado, puntaje >= 80 ? /Ejecutar acción/ : /Corregir matriz/);
     assert.match(payloads[0].proceso_auditado, new RegExp(`${puntaje}%`));
@@ -499,9 +590,10 @@ test('error de Gmail conserva el guardado y encola exactamente el mensaje pendie
     () => {}, async () => { throw new Error('Simulated Gmail error'); }, payload => queued.push(payload),
     { error: (...args) => logs.push(args) },
   );
-  const payload = { destinatarios: 'auditor@example.test', titulo_informe: 'Evaluar diseño' };
+  const payload = { destinatarios: 'ejecutor@example.test', titulo_informe: 'Resultado de evaluación', adjuntosCorreo: [soporte] };
   assert.equal(await notify(payload), false);
   assert.deepEqual(queued, [payload]);
+  assert.deepEqual(JSON.parse(JSON.stringify(queued[0])).adjuntosCorreo, [soporte]);
   assert.equal(logs.length, 1);
 });
 

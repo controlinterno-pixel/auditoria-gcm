@@ -6,6 +6,7 @@ import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
+import { validarAdjuntoEvaluacion } from '../../src/utils/evaluationAttachment.js';
 
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const ESTADO_VALIDACION_REVISOR = 'Pendiente Validación Revisor';
@@ -28,10 +29,12 @@ function esAuditorAsignado(plan, user, perfil) {
   return Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
 }
 
-async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justificacion }) {
+async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion }) {
   let puntaje;
+  let soporte;
   try {
     puntaje = calcularPuntajeDiseno(criterios);
+    soporte = validarAdjuntoEvaluacion(adjuntoEvaluacion);
   } catch (error) {
     return sendError(res, error.message, 400);
   }
@@ -73,7 +76,7 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
     const aprobado = puntaje >= 80;
     const evaluacion = {
       tipo: TIPO_EVALUACION_INICIAL, fecha: ahora.toLocaleString('es-CO'), timestamp: ahora.toISOString(),
-      usuario: user.email, puntaje, aprobado, criterios, justificacion: motivo,
+      usuario: user.email, puntaje, aprobado, criterios, justificacion: motivo, adjuntoEvaluacion: soporte,
     };
     const actualizados = seleccionados.map(plan => ({
       ...plan,

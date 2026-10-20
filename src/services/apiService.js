@@ -386,9 +386,9 @@ export const apiService = {
     body: { idInforme, decision, motivo }
   }),
 
-  evaluarDisenoPlanes: (idInforme, idsPlanes, criterios, justificacion) => request('/api/grc/review-plans', {
+  evaluarDisenoPlanes: (idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion) => request('/api/grc/review-plans', {
     method: 'POST',
-    body: { decision: 'evaluar-diseno', idInforme, idsPlanes, criterios, justificacion },
+    body: { decision: 'evaluar-diseno', idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion },
   }),
 
   decidirPlanComoAuditor: (idPlan, decision, motivo = '', evaluacionEficacia = null) => request('/api/grc/review-plans', {
@@ -452,6 +452,11 @@ export const apiService = {
     body: payload
   }),
 
+  prepararAdjuntoCorreo: (adjuntoEvaluacion) => request('/api/notifications/email', {
+    method: 'POST',
+    body: { operacion: 'preparar-adjunto', adjuntoEvaluacion },
+  }),
+
   resolveArchivoUrl,
 
   // 📁 CARGA BINARIA DE EVIDENCIAS EN FORM-DATA (OPTIMIZADO NESTJS + SOPORTE PROGRESO)
@@ -459,13 +464,13 @@ export const apiService = {
     try {
       const appName = metadata.appName || 'controlInterno';
       const fileFieldName = metadata.fieldName || 'file';
-      const archivoPreparado = await prepararArchivoAntesDeSubir(archivo);
+      const archivoPreparado = metadata.conservarOriginal ? archivo : await prepararArchivoAntesDeSubir(archivo);
 
       const formData = new FormData();
       formData.append('appName', appName);
 
       Object.keys(metadata).forEach((key) => {
-        if (key !== 'fieldName' && key !== 'appName') {
+        if (key !== 'fieldName' && key !== 'appName' && key !== 'conservarOriginal') {
           formData.append(key, metadata[key]);
         }
       });

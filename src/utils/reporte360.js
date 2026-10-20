@@ -74,6 +74,8 @@ export function evidencias360(registro) {
   const archivos = [
     ...lista(registro.evidencias),
     ...lista(registro.anexosMultiples || registro.anexos),
+    ...lista(registro.historialEvaluaciones).map(evaluacion => evaluacion.adjuntoEvaluacion).filter(Boolean),
+    ...(registro.evaluacionHolistica?.adjuntoEvaluacion ? [registro.evaluacionHolistica.adjuntoEvaluacion] : []),
     ...lista(registro.evidenciaUrl || []).concat(
       typeof registro.evidenciaUrl === 'string' ? [registro.evidenciaUrl] : []
     ),

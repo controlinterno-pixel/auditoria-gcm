@@ -4,6 +4,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { descargarAdjuntoEvaluacion, validarAdjuntoEvaluacion } from '../../src/utils/evaluationAttachment.js';
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -16,6 +17,25 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
+    const { operacion, adjuntoEvaluacion, adjuntosCorreo = [] } = req.body || {};
+    if (operacion === 'preparar-adjunto') {
+      try {
+        validarAdjuntoEvaluacion(adjuntoEvaluacion);
+      } catch (error) {
+        return sendError(res, error.message, 400);
+      }
+      const archivo = await descargarAdjuntoEvaluacion(adjuntoEvaluacion);
+      return sendSuccess(res, { ...validarAdjuntoEvaluacion(archivo), contenidoBase64: Buffer.from(archivo.contenido).toString('base64') });
+    }
+    if (!Array.isArray(adjuntosCorreo) || adjuntosCorreo.length > 1) {
+      return sendError(res, 'La notificación admite un soporte de evaluación.', 400);
+    }
+    let soportes;
+    try {
+      soportes = adjuntosCorreo.map(validarAdjuntoEvaluacion);
+    } catch (error) {
+      return sendError(res, error.message, 400);
+    }
 const { ref_consecutivo, destinatarios, asunto, titulo, titulo_informe, proceso_auditado, evidenciaUrl, anexosMultiples } = req.body || {};
     
     const tituloFinal = titulo_informe || titulo || 'Notificación de Auditoría GRC';
@@ -52,6 +72,10 @@ const { ref_consecutivo, destinatarios, asunto, titulo, titulo_informe, proceso_
       from: `"Sistema GRC Termales" <${process.env.SMTP_USER || 'no-reply@termales.com.co'}>`,
       to: listaDestinatarios,
       subject: asunto || `[GRC Termales] Notificación Acción ${ref_consecutivo || ''}`,
+      attachments: await Promise.all(soportes.map(async soporte => {
+        const archivo = await descargarAdjuntoEvaluacion(soporte);
+        return { filename: archivo.nombre, contentType: archivo.tipo, content: Buffer.from(archivo.contenido) };
+      })),
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; color: #1e293b;">
           <div style="background-color: #0A3B32; padding: 20px; text-align: center; color: white;">

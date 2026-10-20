@@ -8,7 +8,8 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
   .trim()
@@ -332,8 +333,11 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   const [criterios, setCriterios] = useState({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   const [justificacion, setJustificacion] = useState('');
   const [guardandoEvaluacionInicial, setGuardandoEvaluacionInicial] = useState(false);
+  const [adjuntoEvaluacion, setAdjuntoEvaluacion] = useState(null);
+  const [subiendoEvaluacion, setSubiendoEvaluacion] = useState(false);
+  const [errorAdjuntoEvaluacion, setErrorAdjuntoEvaluacion] = useState('');
   const guardEvaluacionIntegral = useUnsavedChangesGuard(
-    modalEval.activo && !modalEval.isReadOnly && (Object.values(criterios).some(valor => Number(valor) !== 100) || Boolean(justificacion.trim())),
+    modalEval.activo && !modalEval.isReadOnly && (Boolean(adjuntoEvaluacion) || Object.values(criterios).some(valor => Number(valor) !== 100) || Boolean(justificacion.trim())),
     'la evaluación integral'
   );
   const guardMotivoCorreccion = useUnsavedChangesGuard(
@@ -344,9 +348,11 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     modalEficaciaCierre.activo && Boolean(modalEficaciaCierre.conclusion.trim() || modalEficaciaCierre.fueEficaz || modalEficaciaCierre.requiereAcciones === 'si' || modalEficaciaCierre.observaciones.trim()),
     'la evaluación de eficacia'
   );
-  const cerrarModalEvaluacionIntegral = () => !guardandoEvaluacionInicial && guardEvaluacionIntegral(() => {
+  const cerrarModalEvaluacionIntegral = () => !guardandoEvaluacionInicial && !subiendoEvaluacion && guardEvaluacionIntegral(() => {
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false });
     setJustificacion('');
+    setAdjuntoEvaluacion(null);
+    setErrorAdjuntoEvaluacion('');
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   });
   const cerrarModalEficacia = () => guardEficaciaCierre(() => setModalEficaciaCierre({
@@ -421,7 +427,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     return resultados.every(Boolean);
   };
 
-  const notificarResultadoEvaluacionInicial = async (informe, planes, puntaje, dictamen, correoPreparado) => {
+  const notificarResultadoEvaluacionInicial = async (informe, planes, puntaje, dictamen, correoPreparado, soporte = null) => {
     let todosEnviados = true;
     for (const plan of planes) {
       const aprobado = puntaje >= 80;
@@ -434,6 +440,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
           : `La evaluación inicial de la acción "${plan.accion}" obtuvo ${puntaje}%. La ejecución sigue bloqueada. Usa "Corregir matriz", guarda las correcciones y reenvía el diseño al auditor asignado. Justificación: ${dictamen}`,
         enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(informe.id)}`,
         destinatarios: plan.correoResponsable,
+        adjuntosCorreo: soporte ? [soporte] : [],
       }, correoPreparado);
       if (!enviado) todosEnviados = false;
     }
@@ -508,6 +515,8 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     if (!paqueteListoParaEvaluacion(informe, pendientes) || !esAuditorAsignadoEvaluador(informe, pendientes)) return;
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
     setJustificacion('');
+    setAdjuntoEvaluacion(null);
+    setErrorAdjuntoEvaluacion('');
     setModalEval({
       activo: true,
       idInforme: informe.id,
@@ -1251,9 +1260,33 @@ const handleNotificarPlan = async (planId) => {
     }
   };
 
+  const cargarSoporteEvaluacion = async (event) => {
+    const archivo = event.target.files?.[0];
+    event.target.value = '';
+    if (!archivo || subiendoEvaluacion || guardandoEvaluacionInicial || modalEval.isReadOnly) return;
+    setAdjuntoEvaluacion(null);
+    setErrorAdjuntoEvaluacion('');
+    setSubiendoEvaluacion(true);
+    try {
+      const metadata = { nombre: archivo.name, tamano: archivo.size };
+      validarArchivoEvaluacion(metadata);
+      const respuesta = await apiService.subirEvidencia(archivo, {
+        appName: 'controlInterno',
+        description: 'Soporte de evaluación inicial del plan de acción',
+        conservarOriginal: true,
+      });
+      setAdjuntoEvaluacion(validarAdjuntoEvaluacion({ ...metadata, url: respuesta?.url }));
+    } catch (error) {
+      setErrorAdjuntoEvaluacion(error.message || 'No se pudo cargar el soporte. Selecciona el archivo para reintentar.');
+      showNotification(error.message || 'No se pudo cargar el soporte de evaluación.', 'error');
+    } finally {
+      setSubiendoEvaluacion(false);
+    }
+  };
+
  // 🛡️ NUEVA FUNCIÓN: EVALUACIÓN HOLÍSTICA Y PONDERADA DEL PLAN DE ACCIÓN
   const confirmarEvaluacionHolistica = async () => {
-    if (guardandoEvaluacionInicial) return;
+    if (guardandoEvaluacionInicial || subiendoEvaluacion) return;
     const informeEvaluado = informesAuditoria.find(informe => String(informe.id) === String(modalEval.idInforme));
     if (
       modalEval.isReadOnly ||
@@ -1268,6 +1301,14 @@ const handleNotificarPlan = async (planId) => {
     if (!esAprobado && justificacion.trim() === '') {
       return alert('Debes justificar técnicamente la evaluación cuando el puntaje sea inferior al 80%.');
     }
+    let soporte;
+    try {
+      soporte = validarAdjuntoEvaluacion(adjuntoEvaluacion);
+    } catch (error) {
+      setErrorAdjuntoEvaluacion(error.message);
+      showNotification(error.message, 'error');
+      return;
+    }
     if (!window.confirm(`¿Confirmar evaluación de este paquete de acciones con un score de ${puntajeHolistico}%?`)) return;
 
     setGuardandoEvaluacionInicial(true);
@@ -1275,7 +1316,7 @@ const handleNotificarPlan = async (planId) => {
     try {
       if (prepararEnvioGmail) promesaCorreo = Promise.resolve(prepararEnvioGmail()).catch(() => false);
       const respuesta = await apiService.evaluarDisenoPlanes(
-        modalEval.idInforme, modalEval.planes.map(plan => plan.id), criterios, justificacion.trim()
+        modalEval.idInforme, modalEval.planes.map(plan => plan.id), criterios, justificacion.trim(), soporte
       );
       if (respuesta?.planes?.length !== modalEval.planes.length) throw new Error('El servidor no confirmó todas las acciones evaluadas.');
       const porId = new Map(respuesta.planes.map(plan => [String(plan.id), plan]));
@@ -1298,11 +1339,13 @@ const handleNotificarPlan = async (planId) => {
     );
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
     setJustificacion('');
+    setAdjuntoEvaluacion(null);
+    setErrorAdjuntoEvaluacion('');
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
     void (async () => {
       try {
         const autorizado = Boolean(await promesaCorreo);
-        const enviado = await notificarResultadoEvaluacionInicial(informeEvaluado, planesEvaluados, puntajeHolistico, dictamen, autorizado);
+        const enviado = await notificarResultadoEvaluacionInicial(informeEvaluado, planesEvaluados, puntajeHolistico, dictamen, autorizado, soporte);
         if (!enviado) showNotification('La evaluación quedó guardada. La notificación a los responsables está pendiente de reintento.', 'error');
       } catch {
         showNotification('La evaluación quedó guardada, pero no se pudo completar la notificación a los responsables.', 'error');
@@ -1584,6 +1627,13 @@ if (existingActivities.length > 0) {
   };
 
   const handleUpdateActivityField = (hallazgoId, index, field, value) => {
+    const actividad = matrixState[hallazgoId]?.actividades?.[index];
+    const planOriginal = safePlanes.find(plan => String(plan.id) === String(actividad?.id));
+    if (['responsable', 'revisor', 'correoResponsable', 'correoConfirmacion', 'correoRevisor', 'correoRevisorConfirmacion', 'correoAuditor'].includes(field) &&
+        !puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin)) {
+      showNotification('Los cargos y correos de esta acción están bloqueados para el ejecutor. Solicita el ajuste a un administrador distinto del ejecutor.', 'error');
+      return;
+    }
     setMatrixDirty(true);
     setMatrixState(prev => {
       const currentActividades = prev[hallazgoId].actividades.map((act, idx) => {
@@ -2975,9 +3025,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const bloqueadaPorAuditor = programaActividad && !actividadNueva && disenoInicialBloqueado(act);
   const puedeEditarActividad = !modoRevisionMatriz && (isAdmin || actividadNueva || (esResponsableActividad &&
     (!bloqueadaPorAuditor || act.estadoWorkflow === ESTADO_AJUSTES_INICIALES)));
-  const puedeEditarAsignacion = !modoRevisionMatriz && (isAdmin || actividadNueva);
-  const puedeEditarCorreo = !modoRevisionMatriz && (isAdmin || actividadNueva || esResponsableActividad);
-  const puedeEditarCorreoAuditor = !modoRevisionMatriz && (!actividadNueva && (isAdmin || esResponsableActividad));
+  const puedeEditarAsignacion = !modoRevisionMatriz && puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin);
+  const puedeEditarCorreo = puedeEditarAsignacion;
+  const puedeEditarCorreoAuditor = !actividadNueva && puedeEditarAsignacion;
   const puedeEditarAvance = !modoRevisionMatriz && !actividadNueva && !bloqueadaPorAuditor && (isAdmin || (
     esResponsableActividad && act.estadoWorkflow === 'En Ejecución'
   ));
@@ -3033,6 +3083,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
+                              {!actividadNueva && !puedeEditarCorreo && (
+                                <p className="md:col-span-6 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                                  Los cargos y correos asignados son de solo lectura para el ejecutor. Para corregirlos, solicita el ajuste a un administrador distinto del ejecutor.
+                                </p>
+                              )}
                               
                              {/* CAMPO A1: TIPO DE ACCIÓN (NUEVO - 2 COLUMNAS) */}
                               <div className="md:col-span-2">
@@ -4347,7 +4402,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           type="range" min="0" max="100" step="5" 
                           value={valorCriterio} 
                           onChange={(e) => setCriterios({...criterios, [crit.id]: Number(e.target.value)})}
-                          disabled={modalEval.isReadOnly}
+                          disabled={modalEval.isReadOnly || guardandoEvaluacionInicial}
                           className={`w-full accent-[#0A3B32] ${modalEval.isReadOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                         />
                         <span className={`font-mono font-black text-[11px] w-12 text-center rounded py-1 border shadow-sm ${valorCriterio >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : valorCriterio >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
@@ -4388,6 +4443,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   "{ev.justificacion}"
                                 </p>
                               )}
+                              {ev.adjuntoEvaluacion?.url && (
+                                <a href={ev.adjuntoEvaluacion.url} target="_blank" rel="noreferrer" className="mt-2 inline-block break-all text-xs font-semibold text-emerald-800 underline underline-offset-2">
+                                  Soporte: {ev.adjuntoEvaluacion.nombre}
+                                </a>
+                              )}
                             </div>
                           </div>
                           
@@ -4422,13 +4482,34 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 );
               })()}
 
+              {!modalEval.isReadOnly && (
+                <section className="rounded-2xl border border-slate-300 bg-slate-50 p-5" aria-labelledby="soporte-evaluacion-titulo" aria-busy={subiendoEvaluacion}>
+                  <h4 id="soporte-evaluacion-titulo" className="text-sm font-bold text-[#0A3B32]">Adjuntar evaluación <span className="text-xs font-medium text-slate-600">(obligatorio)</span></h4>
+                  <p id="soporte-evaluacion-ayuda" className="mt-1 text-xs leading-relaxed text-slate-600">
+                    Adjunta el soporte del dictamen. Se guardará en el historial y se enviará como archivo adjunto al ejecutor, tanto al aprobar como al solicitar ajustes. PDF, DOCX, XLSX, PNG o JPG; máximo 2 MB.
+                  </p>
+                  <label htmlFor="soporte-evaluacion-archivo" className="mt-4 block text-xs font-semibold text-slate-700">Seleccionar o reemplazar documento</label>
+                  <input id="soporte-evaluacion-archivo" type="file" accept={EVALUATION_ATTACHMENT_ACCEPT}
+                    onChange={cargarSoporteEvaluacion} disabled={subiendoEvaluacion || guardandoEvaluacionInicial}
+                    aria-describedby="soporte-evaluacion-ayuda soporte-evaluacion-estado" aria-invalid={Boolean(errorAdjuntoEvaluacion)}
+                    className="mt-2 block w-full min-w-0 rounded-lg border border-slate-300 bg-white p-2 text-xs text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-semibold file:text-emerald-900 hover:file:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-wait disabled:opacity-60"
+                  />
+                  <p id="soporte-evaluacion-estado" role="status" className="mt-3 break-words text-xs font-medium text-slate-700">
+                    {subiendoEvaluacion ? 'Cargando soporte; espera antes de guardar…' : adjuntoEvaluacion ? (
+                      <a href={adjuntoEvaluacion.url} target="_blank" rel="noreferrer" className="text-emerald-800 underline underline-offset-2">Ver soporte cargado: {adjuntoEvaluacion.nombre}</a>
+                    ) : 'Aún no se ha cargado un soporte.'}
+                  </p>
+                  {errorAdjuntoEvaluacion && <p role="alert" className="mt-2 text-xs font-semibold text-red-700">{errorAdjuntoEvaluacion}</p>}
+                </section>
+              )}
+
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1 space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Dictamen / Justificación de Auditoría</label>
                   <textarea 
                     value={justificacion || ''}
                     onChange={(e) => setJustificacion(e.target.value)}
-                    disabled={modalEval.isReadOnly}
+                    disabled={modalEval.isReadOnly || guardandoEvaluacionInicial}
                     placeholder="Escriba la justificación (obligatoria si el puntaje es inferior al 80%)..."
                     className={`w-full border rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] transition-all shadow-sm ${modalEval.isReadOnly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : (puntajeHolistico < 80 && (!justificacion || justificacion.trim() === '') ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:bg-white focus:border-[#0A3B32]')}`}
                   />
@@ -4467,7 +4548,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     <button type="button" onClick={cerrarModalEvaluacionIntegral} className="min-h-11 w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
                       Cancelar
                     </button>
-                    <button type="button" disabled={guardandoEvaluacionInicial} onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white disabled:opacity-50 ${puntajeHolistico >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                    <button type="button" disabled={guardandoEvaluacionInicial || subiendoEvaluacion || !adjuntoEvaluacion} onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white disabled:opacity-50 ${puntajeHolistico >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
                       {guardandoEvaluacionInicial ? 'Guardando…' : puntajeHolistico >= 80 ? '✅ Aprobar y habilitar ejecución' : '✕ Devolver diseño para ajustes'}
                     </button>
                   </>
@@ -4574,6 +4655,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   "{evalDetalleModal.justificacion || 'Sin observaciones adicionales registradas.'}"
                 </p>
               </div>
+              {evalDetalleModal.adjuntoEvaluacion?.url && (
+                <a href={evalDetalleModal.adjuntoEvaluacion.url} target="_blank" rel="noreferrer" className="block break-all rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-900 underline underline-offset-2">
+                  Ver soporte de evaluación: {evalDetalleModal.adjuntoEvaluacion.nombre}
+                </a>
+              )}
 
             </div>
 

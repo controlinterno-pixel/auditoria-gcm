@@ -5,6 +5,13 @@ export const TIPO_EVALUACION_INICIAL = 'evaluacion-inicial-diseno';
 const normalizar = valor => String(valor || '').trim().toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+export function puedeEditarAsignacionPlan(plan, correoUsuario, esAdministrador) {
+  if (!plan) return true;
+  const correo = String(correoUsuario || '').trim().toLowerCase();
+  const ejecutores = String(plan.correoResponsable || '').split(',').map(valor => valor.trim().toLowerCase()).filter(Boolean);
+  return Boolean(esAdministrador && correo && !ejecutores.includes(correo));
+}
+
 export function esInformePrograma(informe, fuentes = []) {
   const referencia = normalizar(informe?.tipoFuente);
   if (!referencia) return false;

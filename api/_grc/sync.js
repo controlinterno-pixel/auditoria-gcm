@@ -6,7 +6,7 @@ import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
-import { esInformePrograma, disenoInicialBloqueado, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 
 /**
  * Valida de forma estricta si el usuario posee rol administrativo o de auditoría.
@@ -67,7 +67,7 @@ async function hayConflictosDeRolesEnPlanesActualizados(planesActualizados) {
   });
 }
 
-async function usuarioPuedeEvaluarPlanes(partialData) {
+async function usuarioPuedeEvaluarPlanes(partialData, user) {
   if (!Array.isArray(partialData.planes)) return true;
 
   const { data } = await leerWorkspaceGrc();
@@ -81,6 +81,14 @@ async function usuarioPuedeEvaluarPlanes(partialData) {
     const planGuardado = planesPorId.get(String(planActualizado?.id));
     const hallazgoOrigen = hallazgosPorId.get(String(planGuardado?.idHallazgo || planActualizado?.idHallazgo));
     const informeOrigen = informes.find(item => String(item.id) === String(hallazgoOrigen?.idInforme || planGuardado?.idInforme || planActualizado?.idInforme));
+    if (planGuardado && !puedeEditarAsignacionPlan(planGuardado, user.email, true)) {
+      const correoAuditor = planGuardado.correoAuditor || informeOrigen?.correoAuditor || informeOrigen?.correoAuditorResponsable || informeOrigen?.correo_auditor || '';
+      if (['responsable', 'revisor', 'correoResponsable', 'correoRevisor'].some(campo => (
+        normalizarCorreoPlan(planActualizado[campo]) !== normalizarCorreoPlan(planGuardado[campo])
+      )) || normalizarCorreoPlan(planActualizado.correoAuditor || correoAuditor) !== normalizarCorreoPlan(correoAuditor) ||
+          (Object.hasOwn(planActualizado, 'correoConfirmacion') && normalizarCorreoPlan(planActualizado.correoConfirmacion) !== normalizarCorreoPlan(planGuardado.correoResponsable)) ||
+          (Object.hasOwn(planActualizado, 'correoRevisorConfirmacion') && normalizarCorreoPlan(planActualizado.correoRevisorConfirmacion) !== normalizarCorreoPlan(planGuardado.correoRevisor))) return false;
+    }
     if (esInformePrograma(informeOrigen, data.fuentesMejora)) {
       if (!planGuardado) {
         if (planActualizado.estadoWorkflow !== ESTADO_EVALUACION_INICIAL || Number(planActualizado.progreso) !== 0 ||
@@ -330,7 +338,7 @@ export default async function handler(req, res) {
 
       if (!(await usuarioPuedeEvaluarPlanes(partialData, user))) {
         logger.warn('Intento de evaluación de plan sin asignación autorizada', { usuario: user.email });
-        return sendError(res, 'La transición o evaluación del plan no es válida. Usa la evaluación inicial o la revisión final de la persona asignada.', 403);
+        return sendError(res, 'La asignación, transición o evaluación del plan no está autorizada. El ejecutor no puede cambiar los cargos ni correos asignados; las evaluaciones corresponden a la persona asignada.', 403);
       }
 
       await guardarWorkspaceParcial(partialData);

@@ -1,5 +1,5 @@
 import { applyCors } from '../_lib/cors.js';
-import { esInformePrograma, disenoInicialBloqueado, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../../src/utils/programPlanWorkflow.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
@@ -141,6 +141,17 @@ export default async function handler(req, res) {
           const actualizaCorreoResponsable = Object.hasOwn(peticion, 'correoResponsable') || Object.hasOwn(peticion, 'correoConfirmacion');
           const actualizaCorreoRevisor = Object.hasOwn(peticion, 'correoRevisor') || Object.hasOwn(peticion, 'correoRevisorConfirmacion');
           const actualizaCorreoAuditor = Object.hasOwn(peticion, 'correoAuditor');
+          if (!puedeEditarAsignacionPlan(anterior, user.email, admin) && [
+            ['responsable', anterior.responsable],
+            ['revisor', anterior.revisor],
+            ['correoResponsable', anterior.correoResponsable],
+            ['correoConfirmacion', anterior.correoResponsable],
+            ['correoRevisor', anterior.correoRevisor],
+            ['correoRevisorConfirmacion', anterior.correoRevisor],
+            ['correoAuditor', anterior.correoAuditor || correoAuditorInforme],
+          ].some(([campo, previo]) => Object.hasOwn(peticion, campo) && normalizar(peticion[campo]) !== normalizar(previo))) {
+            return { error: 'assignment-forbidden' };
+          }
           if (actualizaCorreoResponsable) {
             const correoResponsable = String(peticion.correoResponsable ?? anterior.correoResponsable ?? '').trim();
             const correoConfirmacion = String(peticion.correoConfirmacion || '').trim();
@@ -331,6 +342,7 @@ export default async function handler(req, res) {
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
         'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
+        'assignment-forbidden': ['El ejecutor no puede modificar los cargos ni correos asignados. Solicita el ajuste a un administrador distinto del ejecutor.', 403],
         'invalid-reviewer-email': ['El correo del revisor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-auditor-email': ['El correo del auditor debe ser válido.', 400],
         'duplicate-plan-roles': ['Ejecutor, revisor y auditor deben ser personas distintas. Revisa los correos asignados.', 400],

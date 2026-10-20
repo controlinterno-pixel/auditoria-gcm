@@ -1,4 +1,6 @@
 import { secureLogger } from './secureLogger.js';
+import { apiService } from './apiService.js';
+import { validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const GOOGLE_CLIENT_ID = typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_GOOGLE_CLIENT_ID || '') : '';
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
@@ -198,20 +200,47 @@ const buildHtml = (emailParams, senderEmail) => {
   `;
 };
 
-const buildRawMessage = (emailParams, senderEmail, recipients) => {
+const buildRawMessage = async (emailParams, senderEmail, recipients) => {
   const subject = emailParams.asunto || `[GRC Termales] Notificación ${emailParams.ref_consecutivo || ''}`;
   const encodedSubject = encodeBase64(subject);
   const encodedBody = encodeBase64(buildHtml(emailParams, senderEmail)).match(/.{1,76}/g)?.join('\r\n') || '';
 
-  return encodeBase64Url([
+  const encabezados = [
     `From: ${senderEmail}`,
     `To: ${recipients.join(', ')}`,
     `Subject: =?UTF-8?B?${encodedSubject}?=`,
     'MIME-Version: 1.0',
+  ];
+  const html = [
     'Content-Type: text/html; charset=UTF-8',
     'Content-Transfer-Encoding: base64',
     '',
-    encodedBody
+    encodedBody,
+  ].join('\r\n');
+  const adjuntos = emailParams.adjuntosCorreo || [];
+  if (!Array.isArray(adjuntos) || adjuntos.length > 1) throw new Error('La notificación admite un soporte de evaluación.');
+  if (!adjuntos.length) return encodeBase64Url([...encabezados, html].join('\r\n'));
+  const soporte = validarAdjuntoEvaluacion(adjuntos[0]);
+  const archivo = await apiService.prepararAdjuntoCorreo(soporte);
+  if (!archivo?.contenidoBase64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(archivo.contenidoBase64)) {
+    throw new Error('No se pudo preparar el archivo adjunto. Reintenta el envío.');
+  }
+  const boundary = `grc_${crypto.randomUUID()}`;
+  const nombre = encodeURIComponent(soporte.nombre).replace(/'/g, '%27');
+  return encodeBase64Url([
+    ...encabezados,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    html,
+    `--${boundary}`,
+    `Content-Type: ${soporte.tipo}`,
+    `Content-Disposition: attachment; filename="evaluacion.${soporte.nombre.split('.').pop().toLowerCase()}"; filename*=UTF-8''${nombre}`,
+    'Content-Transfer-Encoding: base64',
+    '',
+    archivo.contenidoBase64.match(/.{1,76}/g).join('\r\n'),
+    `--${boundary}--`,
+    '',
   ].join('\r\n'));
 };
 
@@ -225,7 +254,7 @@ export const enviarCorreoGmail = async (emailParams, userEmail, showNotification
         Authorization: `Bearer ${session.accessToken}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ raw: buildRawMessage(emailParams, session.email, recipients) })
+      body: JSON.stringify({ raw: await buildRawMessage(emailParams, session.email, recipients) })
     });
     const result = await response.json().catch(() => ({}));
 
