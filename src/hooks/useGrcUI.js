@@ -1,6 +1,6 @@
 // src/hooks/useGrcUI.js
 import { useState, useEffect } from 'react';
-import { consumeResumeTab } from '../services/appUpdate';
+import { consumeResumeTab, obtenerContextoReanudacion } from '../services/appUpdate';
 
 export function useGrcUI() {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
@@ -28,11 +28,12 @@ export function useGrcUI() {
     }
     return consumeResumeTab() || 'tablero';
   });
-  const [menuAbierto, setMenuAbierto] = useState('inicio');
-  const [subTabPlanificar, setSubTabPlanificar] = useState('plan_anual');
-  const [subTabResultados, setSubTabResultados] = useState('hallazgos');
-  const [subTabPlanes, setSubTabPlanes] = useState('planes');
-  const [subTabGobernanza, setSubTabGobernanza] = useState('comites');
+  // Tras una recarga por versión nueva se restaura el menú y las subpestañas donde estaba el usuario.
+  const [menuAbierto, setMenuAbierto] = useState(() => obtenerContextoReanudacion().menuAbierto || 'inicio');
+  const [subTabPlanificar, setSubTabPlanificar] = useState(() => obtenerContextoReanudacion().subTabPlanificar || 'plan_anual');
+  const [subTabResultados, setSubTabResultados] = useState(() => obtenerContextoReanudacion().subTabResultados || 'hallazgos');
+  const [subTabPlanes, setSubTabPlanes] = useState(() => obtenerContextoReanudacion().subTabPlanes || 'planes');
+  const [subTabGobernanza, setSubTabGobernanza] = useState(() => obtenerContextoReanudacion().subTabGobernanza || 'comites');
   const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
 
  const [notification, setNotification] = useState(null);

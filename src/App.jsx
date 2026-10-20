@@ -4,7 +4,8 @@ import { signOut } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { markSignOutReason } from './services/authDiagnostics';
 import {
-  reloadForFreshAssets, reloadPreservingContext, rememberActiveTab, UPDATE_AVAILABLE_EVENT
+  consumeUpdateNotice, reloadForFreshAssets, reloadPreservingContext, rememberNavigation,
+  UPDATE_AVAILABLE_EVENT, UPDATE_NOTICE_MESSAGE
 } from './services/appUpdate';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
@@ -296,7 +297,18 @@ export default function App() {
       if (nextTab !== activeTab) setActiveTab(nextTab);
     });
   }, [activeTab, guardNavigation, setActiveTab]);
-  useEffect(() => rememberActiveTab(activeTab), [activeTab]);
+  useEffect(() => rememberNavigation({
+    activeTab, menuAbierto, subTabPlanificar, subTabResultados, subTabPlanes, subTabGobernanza,
+  }), [activeTab, menuAbierto, subTabPlanificar, subTabResultados, subTabPlanes, subTabGobernanza]);
+
+  // Tras una recarga por versión nueva, avisar cuando la pantalla principal ya es visible
+  // (así nadie confunde la actualización con un cierre de sesión).
+  const avisoActualizacionRevisado = useRef(false);
+  useEffect(() => {
+    if (avisoActualizacionRevisado.current || !user || !isCloudLoaded || showWelcome) return;
+    avisoActualizacionRevisado.current = true;
+    if (consumeUpdateNotice()) showNotification(UPDATE_NOTICE_MESSAGE, 'success');
+  }, [user, isCloudLoaded, showWelcome, showNotification]);
   const reviewReportId = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('reviewReportId')
     : null;

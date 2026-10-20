@@ -78,13 +78,22 @@ assert.equal(updateEvents, 1);
 
 // 7. Sin cambios pendientes: recarga una vez, conserva el módulo y omite la bienvenida.
 update.setPendingChangesProbe(() => false);
-update.rememberActiveTab('planes_tab');
+assert.equal(update.consumeUpdateNotice(), false, 'sin recarga por versión no hay aviso');
+update.rememberNavigation({
+  activeTab: 'planes_tab', menuAbierto: 'planes', subTabPlanes: 'seguimiento',
+  subTabResultados: '<script>', correo: 'persona@example.test',
+});
 assert.equal(update.reloadForFreshAssets(), true);
 assert.equal(reloads, 1);
 assert.equal(update.reloadForFreshAssets(), false, 'cooldown evita bucles de recarga');
 assert.equal(update.consumeSkipWelcome(), true);
 assert.equal(update.consumeSkipWelcome(), false);
 assert.equal(update.consumeResumeTab(), 'planes_tab');
+assert.deepEqual(update.obtenerContextoReanudacion(), { activeTab: 'planes_tab', menuAbierto: 'planes', subTabPlanes: 'seguimiento' },
+  'restaura menú y subpestañas; descarta valores no válidos y campos ajenos a la navegación');
+assert.equal(window.sessionStorage.getItem('gcm_resume_context'), null, 'el contexto se lee una vez y se descarta');
+assert.equal(update.consumeUpdateNotice(), true, 'tras la recarga por versión se muestra el aviso');
+assert.equal(update.consumeUpdateNotice(), false, 'el aviso aparece una sola vez');
 assert.equal(update.isChunkLoadError(new TypeError('Failed to fetch dynamically imported module: /assets/x.js')), true);
 assert.equal(update.isChunkLoadError(new Error('Cannot read properties of undefined')), false);
 
@@ -101,4 +110,4 @@ for (const source of sources) {
 }
 
 console.info = originalInfo;
-console.log('authSession.test.js: OK (motivos de cierre, avisos, TTL, diagnóstico seguro, recarga por versión, listener único)');
+console.log('authSession.test.js: OK (motivos de cierre, avisos, TTL, diagnóstico seguro, recarga por versión con contexto y aviso, listener único)');
