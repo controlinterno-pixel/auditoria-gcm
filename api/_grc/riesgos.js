@@ -4,6 +4,10 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
+import { notificarSemaforo } from '../_lib/semaforo.js';
+import {
+  eliminarRiesgoFragmentado, guardarRiesgoFragmentado, leerRiesgosVigentes, riesgosMigrados,
+} from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, normalizarProcesoAlcance, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const convertirListaProceso = valor => Array.isArray(valor)
@@ -132,6 +136,10 @@ export default async function handler(req, res) {
   try {
     // 🔍 LECTURA CON RLS (GET)
     if (method === 'GET') {
+      // Con la matriz migrada se devuelve la misma fuente que ve la aplicación.
+      if (await riesgosMigrados()) {
+        return sendSuccess(res, { riesgos: await leerRiesgosVigentes() });
+      }
       const snapshot = await adminDb.collection('riesgos').get();
       const riesgos = snapshot.docs.map(documento => ({ docId: documento.id, ...documento.data() }));
 
@@ -170,6 +178,21 @@ export default async function handler(req, res) {
         actualizadoPor: user.email,
         ultimaActualizacion: new Date().toISOString()
       };
+
+      // Matriz migrada: se guarda en la misma fuente que lee la aplicación (antes quedaba en una
+      // colección que nadie leía y la edición no aparecía al recargar).
+      if (await riesgosMigrados()) {
+        const resultado = await guardarRiesgoFragmentado({ ...documentoRiesgo, id }, {
+          autorizar: existente => esAdministrador || riesgoDentroDelAlcancePropietario(existente, procesosAsignados, subprocesosAsignados),
+        });
+        if (!resultado.autorizado) {
+          logger.warn('Intento de modificar riesgo de otro proceso', { id, usuario: user.email, proceso });
+          return sendError(res, 'No tiene permisos para modificar riesgos de otro proceso.', 403);
+        }
+        await notificarSemaforo();
+        logger.info('Riesgo corporativo guardado en servidor', { id, usuario: user.email, nivelResidual: calculos.nivelResidual });
+        return sendSuccess(res, { message: 'Riesgo evaluado y almacenado correctamente.', riesgo: resultado.riesgo });
+      }
 
       const riesgoRef = adminDb.collection('riesgos').doc(String(id));
       const guardado = await adminDb.runTransaction(async (transaction) => {
@@ -212,6 +235,16 @@ export default async function handler(req, res) {
 
       const procesosAsignados = obtenerProcesosAsignados(user, user);
       const subprocesosAsignados = obtenerSubprocesosAsignados(user);
+      if (await riesgosMigrados()) {
+        const eliminadoMatriz = await eliminarRiesgoFragmentado(id, {
+          autorizar: riesgo => esAdministrador || riesgoDentroDelAlcancePropietario(riesgo, procesosAsignados, subprocesosAsignados),
+        });
+        if (eliminadoMatriz === 'not-found') return sendError(res, 'No se encontró el riesgo solicitado.', 404);
+        if (!eliminadoMatriz) return sendError(res, 'Solo el propietario del macroproceso o un administrador puede eliminar este riesgo.', 403);
+        await notificarSemaforo();
+        logger.info('Riesgo eliminado de la matriz', { id, usuario: user.email });
+        return sendSuccess(res, { message: 'Riesgo eliminado correctamente.' });
+      }
       const riesgoRef = adminDb.collection('riesgos').doc(String(id));
       const eliminado = await adminDb.runTransaction(async transaction => {
         const snapshot = await transaction.get(riesgoRef);

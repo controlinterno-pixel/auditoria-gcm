@@ -101,27 +101,32 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
       leerWorkspaceGrc, guardarPlanesGrc, guardarInformesGrc, guardarWorkspaceParcial,
       leerWorkspaceGrcLigero, obtenerHallazgoTx, obtenerPlanesDeInformeTx,
       obtenerPlanesTx, obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, reservarIdsPlanesTx, listarHallazgosTx,
+      riesgosMigrados, leerRiesgosVigentes, guardarRiesgoFragmentado, eliminarRiesgoFragmentado,
+      guardarListaRiesgosFragmentada, migrarRiesgos,
     };`)(
     adminDb, { delete: () => DELETE }, {}, { info() {}, error: (...args) => workspaceErrors.push(args) },
   );
   const errors = [];
+  const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
     ...workspace, ...workflow, ...alcance, validarAdjuntoEvaluacion, randomUUID, adminDb,
     applyCors: () => false,
-    requireAuth: async () => ({ uid: 'u1', email: 'auditor@example.test' }),
+    requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
     sendError: (res, error, code) => Object.assign(res, { code, error }),
     notificarSemaforo: async () => {},
-    logger: { info() {}, error: (...args) => errors.push(args.map(arg => (arg instanceof Error ? arg.stack : arg))) },
+    logger: { info() {}, warn() {}, error: (...args) => errors.push(args.map(arg => (arg instanceof Error ? arg.stack : arg))) },
   };
   const load = file => new Function(...Object.keys(bindings), `${moduleBody(file)}\nreturn handler;`)(...Object.values(bindings));
   const handler = load('../api/_grc/review-plans.js');
   const updateHandler = load('../api/_grc/update.js');
   const registerEmailHandler = load('../api/_grc/register-email.js');
   const createHandler = load('../api/_grc/create.js');
-  const call = async (target, method, body, url) => {
+  const riesgosHandler = load('../api/_grc/riesgos.js');
+  const migrarHandler = load('../api/_grc/migrar-riesgos.js');
+  const call = async (target, method, body, url, query = {}) => {
     const res = {};
-    await target({ method, body, url }, res);
+    await target({ method, body, url, query }, res);
     return res;
   };
   return {
@@ -130,6 +135,9 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
     update: body => call(updateHandler, 'PUT', body, '/api/grc/update'),
     registerEmail: body => call(registerEmailHandler, 'POST', body, '/api/grc/register-email'),
     create: body => call(createHandler, 'POST', body, '/api/grc/create'),
+    sesion,
+    riesgos: (method, body, query) => call(riesgosHandler, method, body, '/api/grc/riesgos', query),
+    migrar: body => call(migrarHandler, 'POST', body, '/api/grc/migrar-riesgos'),
   };
 }
 
@@ -471,17 +479,17 @@ test('índice inválido se ignora (comportamiento original)', async () => {
   assert.ok(!fixture.directReads.some(path => path.includes('base_de_datos_grc_riesgos_')));
 });
 
-test('con índice activo, guardar la lista completa de riesgos se rechaza sin modificar nada', async () => {
+test('con índice activo, guardar la lista de riesgos escribe en las partes y no en el campo original', async () => {
   const fixture = storeFixture({ fragmented: true });
   const indice = { version: 1, partes: 1, orden: ['1'] };
   fixture.documents.set(ROOT, { riesgos: [riesgo(1)], riesgosFragmentados: indice, comites: [] });
   fixture.documents.set(PARTE(0), { riesgos: [riesgo(1)] });
-  const antes = JSON.stringify(fixture.documents.get(ROOT));
-  await assert.rejects(fixture.workspace.guardarWorkspaceParcial({ riesgos: [riesgo(1, { descripcion: 'Editado' })] }), /migración/);
-  assert.equal(JSON.stringify(fixture.documents.get(ROOT)), antes);
+  await fixture.workspace.guardarWorkspaceParcial({ riesgos: [riesgo(1, { descripcion: 'Editado' })] });
+  assert.equal(fixture.documents.get(PARTE(0)).riesgos[0].descripcion, 'Editado');
+  assert.equal(fixture.documents.get(ROOT).riesgos[0].descripcion, 'Riesgo 1', 'el campo original queda como respaldo');
   // Otros guardados siguen funcionando y conservan el índice.
   await fixture.workspace.guardarWorkspaceParcial({ comites: [{ id: 'c1' }] });
-  assert.deepEqual(fixture.documents.get(ROOT).riesgosFragmentados, indice);
+  assert.equal(fixture.documents.get(ROOT).riesgosFragmentados.partes, 1);
   assert.deepEqual(fixture.documents.get(ROOT).comites, [{ id: 'c1' }]);
 });
 
@@ -492,4 +500,115 @@ test('sin índice, guardar riesgos funciona igual que antes; el cliente no puede
   assert.deepEqual(fixture.documents.get(ROOT).riesgos.map(item => item.id), [2, 1]);
   await assert.rejects(fixture.workspace.guardarWorkspaceParcial({ riesgosFragmentados: { partes: 1 } }), /índice/);
   assert.equal(fixture.documents.get(ROOT).riesgosFragmentados, undefined);
+});
+
+// ============================================================================
+// Migración de riesgos — fases 3 y 4: copia y escrituras unificadas
+// ============================================================================
+const ADMIN = { uid: 'u1', email: 'controlinterno@example.test', rol: 'admin' };
+const escenarioMigracion = () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.sesion.usuario = ADMIN;
+  fixture.documents.set(ROOT, {
+    comites: [{ id: 'c1' }],
+    riesgos: [
+      riesgo(1),
+      riesgo(539, { historialCambios: [{ accion: 'a' }, { accion: 'b' }, { accion: 'c' }] }),
+      riesgo(2),
+    ],
+  });
+  // Versión más reciente del riesgo 539, guardada por el módulo Riesgos en la colección raíz.
+  fixture.documents.set('riesgos/539', riesgo(539, {
+    descripcion: 'Edición del 16/10', ultimaActualizacion: '2026-10-16T22:28:31.554Z',
+    historialCambios: [{ accion: 'a' }, { accion: 'b' }, { accion: 'c' }, { accion: 'd' }],
+  }));
+  return fixture;
+};
+const idsMatriz = async fixture => (await fixture.workspace.leerWorkspaceGrc()).data.riesgos.map(item => item.id);
+
+test('migración: simular no escribe nada y reporta la decisión del riesgo 539', async () => {
+  const fixture = escenarioMigracion();
+  const antes = JSON.stringify([...fixture.documents]);
+  const response = await fixture.migrar({});
+  assert.equal(response.code, 200, JSON.stringify(response));
+  assert.equal(response.body.estado, 'simulacion');
+  assert.equal(response.body.riesgosMigrados, 3);
+  assert.deepEqual(response.body.decisiones.map(d => [d.id, d.conservada]), [['539', 'coleccion-riesgos']]);
+  assert.equal(JSON.stringify([...fixture.documents]), antes, 'la simulación no modifica ningún documento');
+});
+
+test('migración: solo administradores y ejecutar exige confirmación escrita', async () => {
+  const fixture = escenarioMigracion();
+  fixture.sesion.usuario = { uid: 'u2', email: 'auditor@example.test', rol: 'auditor' };
+  assert.equal((await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' })).code, 403);
+  fixture.sesion.usuario = ADMIN;
+  assert.equal((await fixture.migrar({ ejecutar: true })).code, 400);
+  assert.ok(!fixture.documents.has(PARTE(0)));
+});
+
+test('migración: ejecutar copia a las partes, conserva el orden y no borra el original; es idempotente', async () => {
+  const fixture = escenarioMigracion();
+  const response = await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  assert.equal(response.code, 200, JSON.stringify(response));
+  assert.equal(response.body.estado, 'migrado');
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  assert.deepEqual(data.riesgos.map(item => item.id), [1, 539, 2], 'mismo orden que antes');
+  assert.equal(data.riesgos.find(item => item.id === 539).descripcion, 'Edición del 16/10', 'recupera la edición');
+  assert.equal(fixture.documents.get(ROOT).riesgos.length, 3, 'el campo original queda intacto');
+  assert.ok(fixture.documents.has('riesgos/539'), 'la colección raíz queda intacta');
+  assert.deepEqual(fixture.documents.get(ROOT).comites, [{ id: 'c1' }], 'no toca otros datos');
+  const escriturasPrevias = fixture.writes.length;
+  const segunda = await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  assert.equal(segunda.body.estado, 'ya-migrado');
+  assert.equal(fixture.writes.length, escriturasPrevias, 'repetir no escribe nada');
+});
+
+test('tras migrar: guardar una lista parcial no borra riesgos; la importación de Excel sí reemplaza', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  await fixture.workspace.guardarWorkspaceParcial({ riesgos: [riesgo(2, { descripcion: 'Editado' })] });
+  assert.deepEqual(await idsMatriz(fixture), [2, 1, 539], 'los ausentes se conservan');
+  assert.equal(fixture.documents.get(ROOT).riesgos.length, 3, 'el campo original no se reescribe');
+  await fixture.workspace.guardarWorkspaceParcial({ riesgos: [riesgo(7)], riesgosReemplazoTotal: true });
+  assert.deepEqual(await idsMatriz(fixture), [7]);
+  assert.equal('riesgosReemplazoTotal' in fixture.documents.get(ROOT), false, 'la marca no se persiste');
+});
+
+test('tras migrar: el módulo Riesgos guarda, crea y elimina sobre la misma matriz que ve la app', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  const base = { proceso: 'Operaciones', probabilidadInherente: 60, impactoInherente: 60, controlesDetallados: [] };
+  let response = await fixture.riesgos('POST', { ...riesgo(1), ...base, descripcion: 'Editado en el módulo' });
+  assert.equal(response.code, 200, JSON.stringify(response));
+  response = await fixture.riesgos('POST', { ...riesgo(900), ...base });
+  assert.equal(response.code, 200, JSON.stringify(response));
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  assert.equal(data.riesgos.find(item => item.id === 1).descripcion, 'Editado en el módulo', 'la edición persiste');
+  assert.equal(data.riesgos.find(item => item.id === 1).nivelResidual !== undefined, true, 'recalculado en servidor');
+  assert.deepEqual(data.riesgos.map(item => item.id), [1, 539, 2, 900], 'el nuevo va al final');
+  assert.equal((await fixture.riesgos('DELETE', null, { id: '2' })).code, 200);
+  assert.deepEqual(await idsMatriz(fixture), [1, 539, 900]);
+  assert.equal((await fixture.riesgos('DELETE', null, { id: '2' })).code, 404);
+  const lectura = await fixture.riesgos('GET');
+  assert.deepEqual(lectura.body.riesgos.map(item => item.id), [1, 539, 900], 'GET devuelve la matriz vigente');
+});
+
+test('tras migrar: un líder no puede editar ni eliminar riesgos de otro proceso', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  fixture.sesion.usuario = { uid: 'u3', email: 'lider@example.test', rol: 'auditor', procesosAsignados: ['Finanzas'] };
+  const base = { proceso: 'Finanzas', probabilidadInherente: 60, impactoInherente: 60, controlesDetallados: [] };
+  const response = await fixture.riesgos('POST', { ...riesgo(1), ...base });
+  assert.equal(response.code, 403, 'el riesgo guardado pertenece a Operaciones');
+  assert.equal((await fixture.riesgos('DELETE', null, { id: '1' })).code, 403);
+  assert.deepEqual(await idsMatriz(fixture), [1, 539, 2]);
+});
+
+test('sin migrar: el módulo Riesgos mantiene su comportamiento actual', async () => {
+  const fixture = escenarioMigracion();
+  const base = { proceso: 'Operaciones', probabilidadInherente: 60, impactoInherente: 60, controlesDetallados: [] };
+  const response = await fixture.riesgos('POST', { ...riesgo(1), ...base });
+  assert.equal(response.code, 200, JSON.stringify(response));
+  assert.ok(fixture.documents.has('riesgos/1'), 'escribe en la colección raíz como hoy');
+  assert.ok(!fixture.documents.has(PARTE(0)));
 });

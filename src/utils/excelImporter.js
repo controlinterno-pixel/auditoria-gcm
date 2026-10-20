@@ -89,7 +89,9 @@ export const processExcelRiesgos = ({
 
         const nuevosRiesgos = Object.values(riesgosAgrupados);
         setRiesgos(nuevosRiesgos);
-        await saveToCloud({ riesgos: nuevosRiesgos });
+        // Reemplazo total explícito (el usuario ya lo confirmó arriba): es la única vía, además del botón
+        // Eliminar, que retira riesgos ausentes de la matriz.
+        await saveToCloud({ riesgos: nuevosRiesgos, riesgosReemplazoTotal: true });
         showNotification(`Éxito: Matriz cargada. Los datos obsoletos fueron eliminados.`, "success");
         setIsCloudLoaded(true);
       }

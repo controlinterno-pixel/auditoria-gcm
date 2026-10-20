@@ -69,6 +69,203 @@ async function leerRiesgosFragmentados(datosWorkspace, transaction = null) {
   return { riesgos: [...enOrden, ...restantes, ...sinId], documentos: referencias.length };
 }
 
+// =============================================================================
+// 🧩 MIGRACIÓN DE RIESGOS (fases 3 y 4: copia y escrituras unificadas)
+// Regla acordada: un riesgo solo se elimina con el botón Eliminar o con la importación de Excel
+// (reemplazo total explícito y confirmado). Guardar una lista nunca borra los riesgos ausentes.
+// =============================================================================
+export const PARTES_RIESGOS = 4;
+const LIMITE_BYTES_PARTE = 900_000; // margen bajo el límite de 1 MiB por documento
+const tamanoBytes = valor => Buffer.byteLength(JSON.stringify(valor ?? null));
+const tieneId = riesgo => Boolean(riesgo) && riesgo.id !== undefined && riesgo.id !== null && String(riesgo.id).trim() !== '';
+
+// Asignación estable de cada riesgo a una parte según su ID.
+export const parteDeRiesgo = (id, partes = PARTES_RIESGOS) => {
+  let hash = 0;
+  for (const caracter of String(id)) hash = (hash * 31 + caracter.charCodeAt(0)) >>> 0;
+  return hash % partes;
+};
+
+const repartirRiesgos = (riesgos, partes) => {
+  const contenido = Array.from({ length: partes }, () => []);
+  riesgos.forEach(riesgo => contenido[tieneId(riesgo) ? parteDeRiesgo(riesgo.id, partes) : 0].push(riesgo));
+  const tamanos = contenido.map(lista => tamanoBytes({ riesgos: lista }));
+  const excedida = tamanos.findIndex(tamano => tamano > LIMITE_BYTES_PARTE);
+  if (excedida !== -1) throw new Error(`La parte ${excedida} de riesgos superaría el tamaño seguro (${tamanos[excedida]} bytes).`);
+  return { contenido, tamanos };
+};
+
+const escribirRiesgosTx = (transaction, riesgos, indiceAnterior, extrasIndice = {}) => {
+  const partes = indiceAnterior.partes;
+  const { contenido, tamanos } = repartirRiesgos(riesgos, partes);
+  contenido.forEach((lista, parte) => transaction.set(riesgosParteRef(parte), { riesgos: lista }));
+  transaction.set(workspaceRef(), {
+    riesgosFragmentados: {
+      ...indiceAnterior,
+      ...extrasIndice,
+      partes,
+      orden: riesgos.filter(tieneId).map(riesgo => String(riesgo.id)),
+      actualizadoEn: new Date().toISOString(),
+    },
+  }, { merge: true });
+  return tamanos;
+};
+
+/** Lee (dentro de la transacción) el índice y la matriz completa. null si los riesgos no están migrados. */
+async function leerMatrizRiesgosTx(transaction) {
+  const snapshotWorkspace = await transaction.get(workspaceRef());
+  const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+  if (!indiceRiesgosValido(datosWorkspace.riesgosFragmentados)) return null;
+  const lectura = await leerRiesgosFragmentados(datosWorkspace, transaction);
+  if (!lectura?.riesgos) throw new Error('Migración de riesgos incompleta: falta una parte. No se guardan cambios.');
+  return { indice: datosWorkspace.riesgosFragmentados, riesgos: lectura.riesgos };
+}
+
+/** ¿Están migrados los riesgos? (1 lectura del documento principal) */
+export async function riesgosMigrados() {
+  const snapshot = await workspaceRef().get();
+  return indiceRiesgosValido(snapshot.exists ? snapshot.data()?.riesgosFragmentados : null);
+}
+
+/** Matriz vigente para el endpoint de riesgos (documento principal + partes, sin listar subcolecciones). */
+export async function leerRiesgosVigentes() {
+  const snapshot = await workspaceRef().get();
+  const datosWorkspace = snapshot.exists ? snapshot.data() || {} : {};
+  const lectura = await leerRiesgosFragmentados(datosWorkspace);
+  return lectura?.riesgos || (Array.isArray(datosWorkspace.riesgos) ? datosWorkspace.riesgos : []);
+}
+
+/**
+ * Guarda una lista de riesgos en las partes (fase 4).
+ * - Actualiza o agrega cada riesgo recibido; el orden recibido define el orden de la matriz.
+ * - Los riesgos ausentes se conservan, salvo `reemplazoTotal` (importación de Excel confirmada).
+ */
+export async function guardarListaRiesgosFragmentada(riesgosRecibidos, { reemplazoTotal = false } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const matriz = await leerMatrizRiesgosTx(transaction);
+    if (!matriz) throw new Error('Los riesgos no están migrados.');
+    const recibidos = (Array.isArray(riesgosRecibidos) ? riesgosRecibidos : []).filter(Boolean);
+    const recibidosSinId = recibidos.filter(riesgo => !tieneId(riesgo));
+    const vistos = new Set();
+    const resultado = [];
+    recibidos.filter(tieneId).forEach(riesgo => {
+      const clave = String(riesgo.id);
+      if (vistos.has(clave)) return;
+      vistos.add(clave);
+      resultado.push(riesgo);
+    });
+    const sinIdSerializados = new Set(recibidosSinId.map(serializarEstable));
+    resultado.push(...recibidosSinId);
+    if (!reemplazoTotal) {
+      matriz.riesgos.forEach(riesgo => {
+        if (tieneId(riesgo)) {
+          if (!vistos.has(String(riesgo.id))) resultado.push(riesgo);
+        } else if (!sinIdSerializados.has(serializarEstable(riesgo))) {
+          resultado.push(riesgo);
+        }
+      });
+    }
+    escribirRiesgosTx(transaction, resultado, matriz.indice);
+    logger.info('[RIESGOS] Lista guardada en partes', {
+      total: resultado.length, anteriores: matriz.riesgos.length, reemplazoTotal,
+    });
+    return { total: resultado.length };
+  });
+}
+
+/**
+ * Guarda un riesgo individual (módulo Riesgos). `autorizar(existente)` aplica los permisos sobre la
+ * versión guardada. El nuevo contenido se fusiona sobre la existente (igual que set con merge).
+ */
+export async function guardarRiesgoFragmentado(riesgo, { autorizar = () => true } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const matriz = await leerMatrizRiesgosTx(transaction);
+    if (!matriz) throw new Error('Los riesgos no están migrados.');
+    const posicion = matriz.riesgos.findIndex(item => tieneId(item) && String(item.id) === String(riesgo.id));
+    const existente = posicion === -1 ? null : matriz.riesgos[posicion];
+    if (existente && !autorizar(existente)) return { autorizado: false };
+    const actualizado = { ...(existente || {}), ...riesgo };
+    const riesgos = [...matriz.riesgos];
+    if (posicion === -1) riesgos.push(actualizado);
+    else riesgos[posicion] = actualizado;
+    escribirRiesgosTx(transaction, riesgos, matriz.indice);
+    return { autorizado: true, riesgo: actualizado };
+  });
+}
+
+/** Elimina un riesgo de la matriz migrada. Devuelve 'not-found', false (sin permiso) o true. */
+export async function eliminarRiesgoFragmentado(id, { autorizar = () => true } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const matriz = await leerMatrizRiesgosTx(transaction);
+    if (!matriz) throw new Error('Los riesgos no están migrados.');
+    const existente = matriz.riesgos.find(item => tieneId(item) && String(item.id) === String(id));
+    if (!existente) return 'not-found';
+    if (!autorizar(existente)) return false;
+    escribirRiesgosTx(transaction, matriz.riesgos.filter(item => item !== existente), matriz.indice);
+    return true;
+  });
+}
+
+/**
+ * Fase 3: copia los riesgos del documento principal a las partes.
+ * - No borra el campo original ni la colección raíz `riesgos` (quedan como respaldo).
+ * - Si un riesgo también existe en la colección raíz, se conserva la versión con historial más largo
+ *   (decisión acordada: la del módulo Riesgos cuando es más reciente, p. ej. el riesgo 539).
+ * - `ejecutar: false` (por defecto) solo simula y no escribe nada. Idempotente: si ya está migrado, no hace nada.
+ */
+export async function migrarRiesgos({ ejecutar = false, usuario = '' } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const snapshotWorkspace = await transaction.get(workspaceRef());
+    const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+    if (indiceRiesgosValido(datosWorkspace.riesgosFragmentados)) {
+      const { orden: _orden, ...resumenIndice } = datosWorkspace.riesgosFragmentados;
+      return { estado: 'ya-migrado', indice: resumenIndice };
+    }
+    const snapshotRaiz = await transaction.get(adminDb.collection('riesgos'));
+    const originales = Array.isArray(datosWorkspace.riesgos) ? datosWorkspace.riesgos : [];
+    const raiz = snapshotRaiz.docs.map(documento => ({ id: documento.id, ...documento.data() }));
+    const raizPorId = new Map(raiz.filter(tieneId).map(riesgo => [String(riesgo.id), riesgo]));
+
+    const decisiones = [];
+    const usados = new Set();
+    const riesgos = originales.map(riesgo => {
+      if (!tieneId(riesgo)) return riesgo;
+      const clave = String(riesgo.id);
+      const version = raizPorId.get(clave);
+      if (!version) return riesgo;
+      usados.add(clave);
+      const historialRaiz = (version.historialCambios || []).length;
+      const historialDocumento = (riesgo.historialCambios || []).length;
+      const usarRaiz = historialRaiz > historialDocumento;
+      decisiones.push({ id: clave, conservada: usarRaiz ? 'coleccion-riesgos' : 'documento-principal', historialRaiz, historialDocumento });
+      return usarRaiz ? { ...version, id: riesgo.id } : riesgo;
+    });
+    raiz.forEach(version => {
+      if (tieneId(version) && !usados.has(String(version.id))) {
+        riesgos.push(version);
+        decisiones.push({ id: String(version.id), conservada: 'coleccion-riesgos', motivo: 'solo existía en la colección' });
+      }
+    });
+
+    const { tamanos } = repartirRiesgos(riesgos, PARTES_RIESGOS); // valida tamaños también al simular
+    const reporte = {
+      estado: ejecutar ? 'migrado' : 'simulacion',
+      riesgosDocumentoPrincipal: originales.length,
+      riesgosColeccionRaiz: raiz.length,
+      riesgosMigrados: riesgos.length,
+      riesgosSinId: riesgos.filter(riesgo => !tieneId(riesgo)).length,
+      decisiones,
+      tamanoPartesKB: tamanos.map(tamano => Math.round(tamano / 1024)),
+    };
+    if (ejecutar) {
+      escribirRiesgosTx(transaction, riesgos, { version: 1, partes: PARTES_RIESGOS }, {
+        migradoEn: new Date().toISOString(), migradoPor: usuario,
+      });
+    }
+    return reporte;
+  });
+}
+
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
 const workspaceReadCache = new Map();
 const workspaceReadInFlight = new Map();
@@ -492,14 +689,17 @@ export async function guardarWorkspaceParcial(partialData) {
   
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
 
-  // 🛡️ Migración de riesgos: si ya existe el índice, el campo `riesgos` del documento principal deja de
-  // leerse. Hasta que la escritura fragmentada (fase 4) esté desplegada, rechazar evita que un guardado
-  // termine en un campo que nadie lee (pérdida silenciosa). El índice nunca se envía al documento.
-  if (indiceRiesgosValido(datosWorkspace.riesgosFragmentados) && Object.hasOwn(partialData, 'riesgos')) {
-    throw new Error('La matriz de riesgos está en migración: el guardado de la lista completa no está habilitado todavía.');
-  }
+  // 🧩 Migración de riesgos: el índice solo lo administra el servidor.
   if (Object.hasOwn(partialData, 'riesgosFragmentados')) {
     throw new Error('El índice de riesgos solo lo administra la migración.');
+  }
+  // Fase 4: con riesgos migrados, la lista se guarda en sus partes (nunca en el campo original, que ya
+  // no se lee). Se hace primero para que, si falla, no se guarde el resto a medias.
+  const riesgosEnPartes = indiceRiesgosValido(datosWorkspace.riesgosFragmentados);
+  if (riesgosEnPartes && Array.isArray(partialData.riesgos)) {
+    await guardarListaRiesgosFragmentada(partialData.riesgos, { reemplazoTotal: partialData.riesgosReemplazoTotal === true });
+  } else if (riesgosEnPartes && Object.hasOwn(partialData, 'riesgos')) {
+    throw new Error('La lista de riesgos enviada no es válida.');
   }
 
   // Procesamiento Informes
@@ -529,6 +729,9 @@ export async function guardarWorkspaceParcial(partialData) {
   delete datosRestantes.planes;
   delete datosRestantes.planesEliminados;
   delete datosRestantes.hallazgos;
+  // La marca de la importación de Excel nunca se persiste; con riesgos migrados, la lista ya se guardó en partes.
+  delete datosRestantes.riesgosReemplazoTotal;
+  if (riesgosEnPartes) delete datosRestantes.riesgos;
 
   const operaciones = [];
 

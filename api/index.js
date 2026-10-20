@@ -71,6 +71,10 @@ export default async function handler(req, res) {
       const module = await import('./_grc/riesgos.js');
       return await module.default(req, res);
     }
+    if (path === '/api/grc/migrar-riesgos') {
+      const module = await import('./_grc/migrar-riesgos.js');
+      return await module.default(req, res);
+    }
     if (path === '/api/grc/sync') {
       const module = await import('./_grc/sync.js');
       return await module.default(req, res);
