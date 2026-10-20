@@ -1,8 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowRight, BadgeCheck, Bell, BellRing, ClipboardCheck, Monitor, Play } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Bell, BellRing, ClipboardCheck, Menu, Monitor, Play } from 'lucide-react';
 
 export default function Navbar({
   setIsPresentationMode,
+  isPresentationMode = false,
+  onToggleNavigation = () => {},
+  mobileNavOpen = false,
   misTareasEjecucion = 0,
   misTareasRevision = 0,
   misTareasAprobacion = 0,
@@ -45,13 +48,14 @@ export default function Navbar({
   };
 
 return (
-    <header className="bg-white border-b border-slate-200 px-3 py-3 sm:px-6 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-[60] shadow-sm">
+    <header className="@container/navbar shrink-0 bg-white border-b border-slate-200 px-3 py-3 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-[60] shadow-sm">
+      {!isPresentationMode && <button id="navigation-toggle" type="button" onClick={onToggleNavigation} aria-label="Abrir menú principal" aria-controls="application-sidebar" aria-expanded={mobileNavOpen} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 md:hidden"><Menu size={21} aria-hidden="true" /></button>}
       
       {/* Espaciador izquierdo para mantener la píldora centrada */}
-      <div className="hidden xl:block flex-1"></div>
+      <div className="hidden @min-[1100px]/navbar:block flex-1"></div>
 
       {/* Título Central Corporativo (Píldora con Logo) */}
-      <div className="flex min-w-0 flex-1 justify-center xl:flex-none">
+      <div className="flex min-w-0 flex-1 justify-center @min-[1100px]/navbar:flex-none">
         <div className="bg-slate-50 border border-slate-200 rounded-full px-3 sm:px-6 py-2 flex min-w-0 items-center gap-3 shadow-sm">
           
           {/* LOGO DE TERMALES CON LA RUTA CORRECTA */}
@@ -60,14 +64,14 @@ return (
             alt="Logo Termales" 
             className="h-8 w-auto shrink-0 object-contain"
           />          
-          <span className="hidden sm:block text-[10px] lg:text-xs font-black text-slate-700">
+          <span className="hidden @min-[640px]/navbar:block text-[10px] @min-[1000px]/navbar:text-xs font-black text-slate-700">
             Termales de Santa Rosa de Cabal — Sistema de Gestión Integral
           </span>
         </div>
       </div>
 
       {/* Botón Modo Presentación a la derecha */}
-      <div className="flex shrink-0 items-center justify-end gap-3 xl:flex-1">
+      <div className="flex shrink-0 items-center justify-end gap-3 @min-[1100px]/navbar:flex-1">
         <div ref={contenedorRef} className="relative">
           <button
             ref={campanaRef}
@@ -84,7 +88,7 @@ return (
           </button>
           <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{total} tareas pendientes</span>
           {abierto && (
-            <section id={panelId} aria-label="Notificaciones de tareas" className="absolute right-0 top-full z-50 mt-3 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+            <section id={panelId} aria-label="Notificaciones de tareas" className="fixed right-4 top-20 z-50 w-72 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl sm:absolute sm:right-0 sm:top-full sm:mt-3">
               <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <h2 className="text-sm font-bold text-slate-900">Pendientes por gestionar</h2>
                 <span className="text-xs font-semibold tabular-nums text-slate-500">{total}</span>
@@ -108,7 +112,7 @@ return (
           className="min-h-11 bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors shadow-md flex items-center gap-2"
         >
           <Monitor size={16} aria-hidden="true" />
-          <span className="hidden lg:inline">Modo Presentación</span>
+          <span className="hidden @min-[1000px]/navbar:inline">Modo Presentación</span>
         </button>
       </div>
 

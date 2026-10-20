@@ -2,6 +2,14 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Distribución adaptable
+
+El contenido conserva un ancho máximo de 1600 px en la vista normal y adapta los paneles principales al espacio disponible después del menú, mediante consultas de contenedor. En portátiles se reducen las columnas de indicadores y los paneles laterales se apilan; en monitores amplios se muestran juntos sin estirar indefinidamente la lectura. Las tablas extensas conservan un ancho legible y se desplazan dentro de su propio panel, no en toda la página.
+
+Por debajo de 1280 px el menú se compacta al cambiar de rango; puede expandirse manualmente. En escritorio se recupera la preferencia guardada. Por debajo de 768 px se abre sobre el contenido con el botón **Abrir menú principal**: los grupos permanecen abiertos para elegir un submódulo, y al elegirlo el menú se cierra. Escape, el botón de cierre o el fondo permiten volver al contenido; el foco permanece en el menú mientras está abierto. Los formularios, avisos y el asistente flotante respetan los límites de la pantalla y su altura disponible. Estos cambios no alteran permisos, notificaciones ni evaluaciones.
+
+Ejecutar `node --test tests/responsiveNavigation.test.js` para validar la navegación móvil y la conservación de la protección de cambios sin guardar. La comprobación visual debe incluir 1024×768, 1280×720, 1366×768, 1536×864, 1920×1080, 2560×1440 y un ancho móvil, tanto con menú expandido como compacto y con tablas y modales abiertos.
+
 ## GRC synchronization and sessions
 
 The client listens to `sistema/semaforo` and sends its revision to the secured sync endpoint. Reads of the same revision and process scope share a 30-second in-memory cache and an in-flight request per server instance. Authorization and per-user response filtering still run for every request. Writes invalidate local caches; a different semaphore revision bypasses older cache entries on other instances. This is not a distributed cache and does not guarantee one database read across all Vercel instances.

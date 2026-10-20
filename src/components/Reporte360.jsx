@@ -80,7 +80,7 @@ export default function Reporte360({
         <img src={`${import.meta.env.BASE_URL}logo_termales.png`} alt="Termales Santa Rosa de Cabal" className="h-24 w-28 shrink-0 object-contain self-start sm:self-center" />
       </header>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]">
+      <div className="grid min-w-0 items-start gap-6 @min-[1000px]:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]">
         <form onSubmit={descargar} className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
           <fieldset disabled={generando}>
             <legend className="text-base font-semibold text-[#0A3B32]">Elige el alcance del PDF</legend>

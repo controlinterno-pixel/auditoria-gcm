@@ -81,7 +81,7 @@ import { CatalogosProvider } from './context/CatalogosContext.jsx';
 const getInitialSidebarState = () => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('grc_sidebar_collapsed');
-    return saved === 'true';
+    return saved === null ? window.innerWidth < 1280 : saved === 'true';
   }
   return false;
 };
@@ -90,6 +90,50 @@ const getInitialSidebarState = () => {
 export default function App() {
   const confirmarEliminacion = useDeleteConfirmation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialSidebarState);
+  const [isMobileNavigation, setIsMobileNavigation] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  useEffect(() => {
+    const mobile = window.matchMedia('(max-width: 767px)');
+    const compact = window.matchMedia('(max-width: 1279px)');
+    const updateNavigation = () => {
+      const focusInNavigation = document.activeElement?.closest('#application-sidebar');
+      if (focusInNavigation) document.activeElement.blur();
+      setIsMobileNavigation(mobile.matches);
+      setMobileNavOpen(false);
+      setIsSidebarCollapsed(compact.matches || localStorage.getItem('grc_sidebar_collapsed') === 'true');
+      if (focusInNavigation) requestAnimationFrame(() => document.getElementById(mobile.matches ? 'navigation-toggle' : 'sidebar-collapse')?.focus());
+    };
+    mobile.addEventListener('change', updateNavigation);
+    compact.addEventListener('change', updateNavigation);
+    return () => {
+      mobile.removeEventListener('change', updateNavigation);
+      compact.removeEventListener('change', updateNavigation);
+    };
+  }, []);
+  useEffect(() => {
+    if (!mobileNavOpen || !isMobileNavigation) return undefined;
+    const sidebar = document.getElementById('application-sidebar');
+    const trigger = document.getElementById('navigation-toggle');
+    sidebar?.querySelector('button')?.focus();
+    const handleKey = event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMobileNavOpen(false);
+      }
+      if (event.key === 'Tab') {
+        const buttons = [...sidebar.querySelectorAll('button:not(:disabled), a[href]')].filter(element => element.getClientRects().length && !element.closest('[inert]'));
+        const first = buttons[0];
+        const last = buttons.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      trigger?.focus();
+    };
+  }, [mobileNavOpen, isMobileNavigation]);
   const [detallePanelPlanes, setDetallePanelPlanes] = useState(null);
   const [solicitudTareasPlanes, setSolicitudTareasPlanes] = useState(0);
   const seleccionarTareasPlanes = tipo => {
@@ -651,7 +695,7 @@ return (
     sedesEmpresa={sedesEmpresa}
     catalogosInicializados={catalogosInicializados}
   >
-    <div className="flex h-screen bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
+    <div className="app-shell flex h-dvh bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
       {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
       {isPresentationMode && (
         <button 
@@ -668,8 +712,10 @@ return (
 
 <SidebarNavigation 
         isPresentationMode={isPresentationMode}
-        isCollapsed={isSidebarCollapsed}
-        toggleSidebar={toggleSidebar}
+        isCollapsed={!isMobileNavigation && isSidebarCollapsed}
+        mobileNavOpen={mobileNavOpen}
+        onCloseMobileNavigation={() => setMobileNavOpen(false)}
+        toggleSidebar={isMobileNavigation ? () => setMobileNavOpen(false) : toggleSidebar}
         menuAbierto={menuAbierto}
         setMenuAbierto={setMenuAbierto}
         activeTab={activeTab}
@@ -696,7 +742,7 @@ return (
         handleLogout={handleLogout}
       />
       
-      <div className="flex-1 flex flex-col overflow-hidden relative">
+      <div inert={isMobileNavigation && mobileNavOpen} className="min-w-0 flex-1 flex flex-col overflow-hidden relative">
 <Navbar 
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
@@ -706,6 +752,8 @@ return (
           currentUserRole={isAdmin ? 'Administrador' : 'Usuario'} 
           isPresentationMode={isPresentationMode}
           setIsPresentationMode={setIsPresentationMode}
+          onToggleNavigation={() => setMobileNavOpen(true)}
+          mobileNavOpen={mobileNavOpen}
           misTareasEjecucion={misTareasEjecucion}
           misTareasRevision={misTareasRevision}
           misTareasAprobacion={misTareasAprobacion}
@@ -720,9 +768,9 @@ return (
 {/*  Tracks de gobernanza guiada del Workflow en la cabecera */}
         {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}
         
-<main ref={mainScrollAreaRef} onChangeCapture={manejarCambioConScroll} onClickCapture={manejarClickConScroll} id="main-scroll-area" tabIndex={-1} aria-label="Contenido principal" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-4 sm:p-6 xl:p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
+<main ref={mainScrollAreaRef} onChangeCapture={manejarCambioConScroll} onClickCapture={manejarClickConScroll} id="main-scroll-area" tabIndex={-1} aria-label="Contenido principal" className={`min-h-0 min-w-0 flex-grow overflow-y-auto ${isPresentationMode ? 'p-4 sm:p-8 xl:p-12' : 'p-4 sm:p-5 xl:p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
           <Suspense fallback={<div className="flex justify-center items-center p-12 text-slate-400 font-bold text-sm uppercase tracking-widest animate-pulse">⏳ Cargando módulo...</div>}>
-<div key={`${activeTab}-${subTabPlanificar}-${subTabResultados}-${subTabPlanes}-${subTabGobernanza}`} className={`${isPresentationMode ? 'max-w-none' : 'max-w-[1600px]'} mx-auto transition-all duration-500`}>
+<div key={`${activeTab}-${subTabPlanificar}-${subTabResultados}-${subTabPlanes}-${subTabGobernanza}`} className={`app-content @container ${isPresentationMode ? 'max-w-none' : 'max-w-[1600px]'} min-w-0 w-full mx-auto transition-all duration-500`}>
           {notificacionesPendientesUsuario.length > 0 && (
             <section aria-labelledby="notificaciones-pendientes-titulo" aria-live="polite" className="mb-4 rounded-xl border border-amber-300 bg-amber-50/90 p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1203,7 +1251,7 @@ return (
           role={notification.type === 'error' ? 'alert' : 'status'}
           aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
           aria-atomic="true"
-          className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}
+          className={`fixed bottom-4 right-4 max-h-[50dvh] max-w-[calc(100vw-2rem)] overflow-y-auto break-words px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}
         >
           {notification.message}
         </div>

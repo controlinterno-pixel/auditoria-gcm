@@ -434,7 +434,7 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
       </div>
 
       {/* ─── TARJETAS SUPERIORES CON TOOLTIPS SUTILES AL PASAR EL MOUSE ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 @min-[500px]:grid-cols-2 @min-[1100px]:grid-cols-5 gap-4">
         
         {/* CARD 1 */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
@@ -565,18 +565,18 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
       </div>
 
       {/* ─── PANEL CENTRAL CON MATRIZ 5X5 ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid min-w-0 grid-cols-1 @min-[1100px]:grid-cols-3 gap-6">
         
         {/* MAPA DE CALOR CON TOOLTIP */}
-        <div ref={matrizRef} className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+        <div ref={matrizRef} className="min-w-0 @min-[1100px]:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <h3 className="text-xs font-black uppercase text-slate-300 mb-4">Mapa de Riesgos (Matriz 5x5)</h3>
-          <div className="flex items-center space-x-4 flex-1">
-            <div className="flex-1 flex flex-col space-y-1">
+          <div tabIndex={0} role="region" aria-label="Matriz de riesgos: desplaza horizontalmente para ver todas las celdas" className="min-w-0 overflow-x-auto">
+            <div className="min-w-[480px] flex flex-col space-y-1">
               {[5, 4, 3, 2, 1].map((impactoLvl) => {
                 const etiquetasY = ["", "Insignificante", "Menor", "Moderado", "Mayor", "Catastrófico"];
                 return (
                   <div key={`row-${impactoLvl}`} className="flex items-center space-x-1 h-12">
-                    <span className="w-24 text-[10px] font-bold text-slate-400 text-right pr-2 truncate">{impactoLvl} {etiquetasY[impactoLvl]}</span>
+                    <span className="w-24 shrink-0 text-[10px] font-bold text-slate-400 text-right pr-2 truncate">{impactoLvl} {etiquetasY[impactoLvl]}</span>
                     {[1, 2, 3, 4, 5].map((probLvl) => {
                       const cant = contarRiesgosEnCelda(probLvl, impactoLvl);
                       let colorCelda = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"; 

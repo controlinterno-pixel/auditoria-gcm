@@ -13,9 +13,9 @@ export default function AuditorIA({
   if (isPresentationMode || !isAdmin) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end font-sans selection:bg-blue-500/30 text-white">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex max-w-[calc(100vw-2rem)] flex-col items-end font-sans selection:bg-blue-500/30 text-white">
        {showAuditorIA && (
-         <div className="mb-4 w-85 sm:w-[380px] bg-[#060b16] rounded-[28px] shadow-[0_15px_50px_rgba(0,0,0,0.9)] border border-blue-500/20 overflow-hidden animate-in slide-in-from-bottom-5 p-4 space-y-3.5">
+         <div className="mb-4 w-[380px] max-w-full max-h-[calc(100dvh-7rem)] overflow-y-auto bg-[#060b16] rounded-[28px] shadow-[0_15px_50px_rgba(0,0,0,0.9)] border border-blue-500/20 animate-in slide-in-from-bottom-5 p-4 space-y-3.5">
            
            {/* 1. CABECERA INSTITUCIONAL */}
            <div className="flex justify-between items-center px-1">

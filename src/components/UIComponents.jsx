@@ -73,14 +73,14 @@ export const StepIndicatorHUD = ({ activeStep }) => {
     { label: "5. Gobernanza", key: "gobernanza_tab" }
   ];
   return (
-    <div className="bg-[#0b1329] border-b border-slate-800 px-8 py-2.5 flex items-center justify-between gap-4 text-xs font-bold text-slate-400">
-      <span className="text-slate-400 text-[10px] uppercase tracking-wider font-black">Flujo de Trabajo GRC Activo:</span>
-      <div className="flex items-center space-x-3 overflow-x-auto py-0.5">
+    <div className="@container/workflow shrink-0 bg-[#0b1329] border-b border-slate-800 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 text-xs font-bold text-slate-400">
+      <span className="hidden @min-[1050px]/workflow:block shrink-0 text-slate-400 text-[10px] uppercase tracking-wider font-black">Flujo de Trabajo GRC Activo:</span>
+      <div tabIndex={0} role="region" aria-label="Etapas del flujo de trabajo" className="flex min-w-0 flex-1 items-center justify-between gap-3 overflow-x-auto py-1">
         {steps.map((st, i) => {
           const isCurrent = activeStep === st.key;
           return (
             <React.Fragment key={st.key}>
-              <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isCurrent ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
+              <div className={`flex shrink-0 items-center space-x-1 whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isCurrent ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
                 <span>{i + 1}.</span>
                 <span>{st.label.split('. ')[1]}</span>
               </div>
@@ -95,13 +95,13 @@ export const StepIndicatorHUD = ({ activeStep }) => {
 export const HeaderFiltros = ({ titulo, subtitulo, defaultAnios, defaultMeses, selectedAnios, selectedMeses, toggleAnio, toggleMes, setSelectedAnios, setSelectedMeses }) => (
   <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6 relative overflow-hidden">
     <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
-    <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
+    <div className="relative z-10 flex flex-wrap justify-between items-start gap-4">
+      <div className="min-w-0">
         <h2 className="text-2xl font-black text-slate-800">{titulo}</h2>
         <p className="text-xs text-slate-500 font-bold mt-1">{subtitulo}</p>
       </div>
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex flex-col">
+      <div className="flex min-w-0 flex-wrap gap-3">
+        <div className="flex min-w-0 flex-col">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Años de Análisis</label>
           <div className="flex flex-wrap gap-2">
             {defaultAnios.map(anio => (
@@ -111,7 +111,7 @@ export const HeaderFiltros = ({ titulo, subtitulo, defaultAnios, defaultMeses, s
             ))}
           </div>
         </div>
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-1 basis-72 flex-col">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Meses de Análisis</label>
           <div className="flex flex-wrap gap-1.5">
             {defaultMeses.map(mes => (

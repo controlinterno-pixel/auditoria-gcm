@@ -4,15 +4,15 @@ export default function ModalDetalleGrafico({ chartDetail, setChartDetail }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+      <div className="flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="shrink-0 bg-slate-900 p-4 flex justify-between items-center text-white">
           <h3 className="font-black text-xs uppercase tracking-widest flex items-center space-x-2">
             <span>📈</span> <span>Foco de Control: {chartDetail.tipo} — {chartDetail.mesCompleto.toUpperCase()}</span>
           </h3>
           <button onClick={() => setChartDetail(null)} className="hover:text-slate-300 font-bold text-lg">✖</button>
         </div>
         
-        <div className="p-6 max-h-[380px] overflow-y-auto text-xs">
+        <div className="min-h-0 p-6 max-h-[380px] overflow-y-auto text-xs">
           {chartDetail.items.length === 0 ? (
             <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-wider border border-dashed border-slate-200 rounded-2xl bg-slate-50">
               🚫 No se encontraron eventos ni novedades en este periodo.
@@ -53,7 +53,7 @@ export default function ModalDetalleGrafico({ chartDetail, setChartDetail }) {
           )}
         </div>
         
-        <div className="bg-slate-50 px-6 py-4 flex justify-end border-t">
+        <div className="shrink-0 bg-slate-50 px-6 py-4 flex justify-end border-t">
           <button onClick={() => setChartDetail(null)} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-colors shadow-md">
             Cerrar Análisis
           </button>

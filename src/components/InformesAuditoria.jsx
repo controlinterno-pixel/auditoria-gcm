@@ -1254,7 +1254,7 @@ const handleFileUpload = async (e, type) => {
         const donutStyle = totalInformesVisibles > 0 ? { background: `conic-gradient(${donutSlices})` } : { background: '#f8fafc' };
 
         return (
-          <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 bg-slate-50/50 -m-6 p-6 rounded-b-2xl">
+          <div className="min-w-0 space-y-6 animate-in slide-in-from-bottom-4 duration-500 bg-slate-50/50 rounded-b-2xl">
             
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <button type="button" onClick={limpiarFiltrosDashboard} aria-label={`Quitar filtros y mostrar todos los informes (${totalInformes})`} aria-pressed={dashboardSinFiltros} className={`flex w-full min-w-0 items-start gap-4 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${dashboardSinFiltros ? 'border-blue-300 bg-blue-50/50 ring-1 ring-blue-200' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50'}`}>
@@ -1372,10 +1372,10 @@ const handleFileUpload = async (e, type) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-6 @min-[1200px]:grid-cols-4">
               
               {/* 3. ZONA IZQUIERDA: FILTROS + TABLA + ACORDEÓN */}
-              <div className="min-w-0 space-y-4 xl:col-span-3">
+              <div className="min-w-0 space-y-4 @min-[1200px]:col-span-3">
                 
                 {/* Barra de Filtros Blanca */}
                 <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
@@ -1421,7 +1421,7 @@ const handleFileUpload = async (e, type) => {
 
                 <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="w-full min-w-[900px] text-left">
                       <thead className="border-b border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-400">
                         <tr>
                           <th className="w-10 p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></th>
@@ -1546,7 +1546,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
               </div>
 
               {/* 4. ZONA DERECHA: PANELES DE RESUMEN */}
-              <div className="space-y-4 xl:col-span-1">
+              <div className="min-w-0 space-y-4 @min-[1200px]:col-span-1">
                 
                 {/* Dona: Distribución */}
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">

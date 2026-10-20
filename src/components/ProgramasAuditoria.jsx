@@ -303,7 +303,7 @@ const handleGuardarPrograma = async () => {
 );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="@container/programas min-w-0 space-y-6 animate-in fade-in duration-300">
       
       {/* CABECERA ACTUALIZADA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -320,7 +320,7 @@ const handleGuardarPrograma = async () => {
               🔙 Volver al Tablero
             </button>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button 
                 onClick={handleExportarExcel}
                 className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 flex items-center transition-colors shadow-sm"
@@ -342,7 +342,7 @@ const handleGuardarPrograma = async () => {
         <div className="space-y-6">
           
           {/* 1. TARJETAS DE MÉTRICAS SUPERIORES (KPIs) */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 @min-[500px]/programas:grid-cols-2 @min-[1100px]/programas:grid-cols-4 gap-4">
             <div className="bg-white border border-slate-200 p-4 rounded-2xl flex items-center shadow-sm">
               <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mr-4">📄</div>
               <div>
@@ -386,13 +386,13 @@ const handleGuardarPrograma = async () => {
           </div>
 
         {/* ESTRUCTURA UNIFICADA: KANBAN + TABLA */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="grid min-w-0 grid-cols-1 @min-[1100px]/programas:grid-cols-3 gap-6 items-start">
             
             {/* COLUMNA IZQUIERDA (2/3 del espacio): Borradores, Revisión y la Tabla Centralizada */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="min-w-0 @min-[1100px]/programas:col-span-2 space-y-6">
               
               {/* 2. TABLERO KANBAN ESTILO TARJETAS (Solo Borrador y Revisión) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              <div className="grid grid-cols-1 @min-[650px]/programas:grid-cols-2 gap-6 items-start">
                 <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-200 flex flex-col min-h-[300px]">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center justify-between">
                     <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> EN DISEÑO / BORRADOR</span>
@@ -463,7 +463,7 @@ const handleGuardarPrograma = async () => {
 
                 {/* TABLA DE RESULTADOS */}
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-600">
+                  <table className="w-full min-w-[760px] text-left text-xs text-slate-600">
                     <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-500 border-b border-slate-100">
                       <tr>
                         <th className="p-4">Programa</th>
@@ -520,7 +520,7 @@ const handleGuardarPrograma = async () => {
             </div>
 
             {/* COLUMNA DERECHA (1/3 del espacio): Aprobados */}
-            <div className="lg:col-span-1">
+            <div className="min-w-0 @min-[1100px]/programas:col-span-1">
               <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-100 flex flex-col min-h-[300px] h-full">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-4 flex items-center justify-between">
                   <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> APROBADOS (LISTOS)</span>

@@ -2,6 +2,19 @@
 @variant dark (&:is(.dark *));
 @variant warm (&:is(.warm *));
 
+.app-content {
+	overflow-wrap: anywhere;
+}
+
+.app-content :where(input, select, textarea) {
+	max-inline-size: 100%;
+	min-inline-size: 0;
+}
+
+.app-content fieldset {
+	min-inline-size: 0;
+}
+
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
 	outline: 2px solid #2563eb;
 	outline-offset: 2px;

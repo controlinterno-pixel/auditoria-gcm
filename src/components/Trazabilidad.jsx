@@ -51,7 +51,7 @@ export default function Trazabilidad({ safeRiesgos, safeEvaluaciones, safeHallaz
           <h2 className="text-2xl font-black text-slate-800">📜 Trazabilidad y Pistas de Auditoría</h2>
           <p className="text-xs text-slate-500 font-bold mt-1">Historial inmutable de modificaciones y accesos en el sistema.</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex min-w-0 max-w-full flex-wrap gap-3">
           <select value={filtroModulo} onChange={(e) => setFiltroModulo(e.target.value)} className="border border-slate-300 rounded-lg text-xs px-3 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#004d40]">
             <option value="Todos">Todos los Módulos</option>
             <option value="Planes de Acción">✅ Planes de Acción</option>
@@ -60,15 +60,15 @@ export default function Trazabilidad({ safeRiesgos, safeEvaluaciones, safeHallaz
             <option value="Eventos">🚨 Eventos</option>
             <option value="Controles">🔬 Controles</option>
           </select>
-          <div className="relative">
+          <div className="relative min-w-0 flex-1 basis-64">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-            <input type="text" placeholder="Buscar usuario, acción..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
+            <input type="text" placeholder="Buscar usuario, acción..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-full shadow-sm" />
           </div>
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left divide-y">
+      <div className="bg-white border border-slate-200 rounded-3xl overflow-x-auto shadow-sm">
+        <table className="w-full min-w-[760px] text-xs text-left divide-y">
           <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase tracking-widest">
             <tr>
               <th className="p-4 w-40">Fecha y Hora</th>

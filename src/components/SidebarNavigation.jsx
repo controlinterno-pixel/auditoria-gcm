@@ -3,6 +3,8 @@
 export default function SidebarNavigation({
   isPresentationMode,
   isCollapsed,
+  mobileNavOpen = false,
+  onCloseMobileNavigation = () => {},
   toggleSidebar,
   menuAbierto,
   setMenuAbierto,
@@ -29,9 +31,10 @@ export default function SidebarNavigation({
   user,
   handleLogout
 }) {
-  const navigateTo = (tab, updateSubtab = () => {}) => guardNavigation(() => {
+  const navigateTo = (tab, updateSubtab = () => {}, keepMenuOpen = false) => guardNavigation(() => {
     updateSubtab();
     setActiveTab(tab);
+    if (!keepMenuOpen) onCloseMobileNavigation();
   });
   const toggleMenuAndNavigate = (menu, tab, updateSubtab = () => {}) => {
     if (menuAbierto === menu) {
@@ -41,7 +44,7 @@ export default function SidebarNavigation({
     navigateTo(tab, () => {
       setMenuAbierto(menu);
       updateSubtab();
-    });
+    }, true);
   };
 
   
@@ -51,18 +54,23 @@ export default function SidebarNavigation({
   
   const colorAlerta = misTareasEjecucion > 0 ? 'bg-rose-500' : 'bg-amber-500';
   return (
-    <div 
-      className={`text-[#a3c2e0] flex flex-col shadow-[10px_0_20px_rgba(0,0,0,0.15)] z-50 border-r border-slate-800/80 ${isPresentationMode ? 'hidden' : 'flex'} relative transition-all duration-300 ease-in-out overflow-visible ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}
+    <>
+      {mobileNavOpen && !isPresentationMode && <button type="button" aria-label="Cerrar menú y volver al contenido" onClick={onCloseMobileNavigation} className="fixed inset-0 z-[70] bg-slate-950/60 md:hidden" />}
+    <aside
+      id="application-sidebar"
+      aria-label="Menú de la aplicación"
+      className={`text-[#a3c2e0] shrink-0 flex-col shadow-[10px_0_20px_rgba(0,0,0,0.15)] z-[80] border-r border-slate-800/80 ${isPresentationMode ? 'hidden' : mobileNavOpen ? 'flex md:flex' : 'hidden md:flex'} fixed inset-y-0 left-0 md:relative transition-[width] duration-300 ease-in-out overflow-visible ${isCollapsed ? 'w-[80px]' : 'w-[min(280px,calc(100vw-3rem))] md:w-[260px]'}`}
       style={{ background: 'linear-gradient(180deg, #041428 0%, #010613 100%)' }}
     >
       {/* 🔘 BOTÓN FLOTANTE COLLAPSE (Centrado con matemática perfecta) */}
       <button
+        id="sidebar-collapse"
         type="button"
         onClick={toggleSidebar}
-        aria-label={isCollapsed ? 'Expandir menú principal' : 'Contraer menú principal'}
+        aria-label={mobileNavOpen ? 'Cerrar menú principal' : isCollapsed ? 'Expandir menú principal' : 'Contraer menú principal'}
         aria-expanded={!isCollapsed}
         aria-controls="primary-navigation"
-        className="absolute right-0 translate-x-1/2 top-8 w-6 h-6 bg-[#0055ff] border-[3px] border-[#010613] rounded-full flex items-center justify-center text-white shadow-xl cursor-pointer hover:scale-110 hover:bg-[#0077ff] transition-all z-[100] group"
+        className="absolute right-0 translate-x-1/2 top-6 w-9 h-9 md:w-7 md:h-7 bg-[#0055ff] border-[3px] border-[#010613] rounded-full flex items-center justify-center text-white shadow-xl cursor-pointer hover:scale-110 hover:bg-[#0077ff] transition-all z-[100] group"
       >
         <svg className={`w-3 h-3 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
@@ -103,7 +111,7 @@ export default function SidebarNavigation({
       </div>
 
      {/* MENÚ ACORDEÓN */}
-      <nav id="primary-navigation" aria-label="Navegación principal" className="flex-1 px-4 py-4 space-y-1 text-sm font-medium overflow-y-auto custom-scrollbar relative z-10">
+      <nav id="primary-navigation" aria-label="Navegación principal" className={`min-h-0 flex-1 ${isCollapsed ? 'px-2 [&>div>button]:px-3' : 'px-4'} py-4 space-y-1 text-sm font-medium overflow-y-auto custom-scrollbar relative z-10`}>
 
         {/* 1. INICIO */}
         <div className="flex flex-col">
@@ -353,14 +361,14 @@ export default function SidebarNavigation({
 
       {/* 👤 PERFIL DE USUARIO AL FONDO */}
       <div 
-        className="p-4 shrink-0 z-10"
+        className={`${isCollapsed ? 'p-2' : 'p-4'} shrink-0 z-10`}
         style={{
           background: 'linear-gradient(180deg, rgba(4, 25, 55, 0.8) 0%, rgba(1, 6, 19, 0.9) 100%)',
           boxShadow: '0 -10px 25px rgba(0, 102, 255, 0.1)',
           borderTop: '1px solid rgba(0, 102, 255, 0.2)'
         }}
       >
-        <div className="bg-slate-800/40 border border-[#0066ff1a] rounded-xl p-3 flex flex-col gap-3">
+        <div className={`bg-slate-800/40 border border-[#0066ff1a] rounded-xl ${isCollapsed ? 'p-2' : 'p-3'} flex flex-col gap-3`}>
           
           <button
             type="button"
@@ -407,6 +415,7 @@ export default function SidebarNavigation({
 
         </div>
       </div>
-    </div>
+    </aside>
+    </>
   );
 }

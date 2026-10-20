@@ -2095,7 +2095,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="@container/planes min-w-0 space-y-6 animate-in fade-in duration-300">
       {confirmacionAccionGuardada && (
         <div role="status" aria-live="polite" aria-atomic="true" className="success-notice-glow flex items-center justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex min-w-0 items-center gap-3">
@@ -2424,7 +2424,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           )}
           
 {/* 🚀 TARJETAS 100% INTERACTIVAS: Al hacer clic, aplican filtro de Estado */}
-          <div data-scroll-focus="filter" className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+          <div data-scroll-focus="filter" className="grid grid-cols-2 @min-[580px]/planes:grid-cols-3 @min-[1100px]/planes:grid-cols-6 gap-3">
             
             {/* 1. TOTAL PLANES (Resetea los filtros) */}
             <div onClick={() => setDashFiltroEstado('Todos')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Todos' ? 'border-slate-800 ring-4 ring-slate-800/10' : 'border-slate-200 hover:border-slate-400'}`}>
@@ -2493,10 +2493,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             </div>
           </div>
           {/* Bloque Central de 3 Columnas */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid min-w-0 grid-cols-1 @min-[800px]/planes:grid-cols-[240px_minmax(0,1fr)] @min-[1280px]/planes:grid-cols-[240px_minmax(0,1fr)_300px] gap-6">
             
             {/* 1. Menú de Filtros Avanzados (Izquierda) */}
-            <div className="lg:col-span-1 space-y-4">
+            <div className="min-w-0 space-y-4">
                <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm overflow-hidden">
                   <div className="bg-[#f8fafa] p-4 border-b border-[#1A4B42]/10 flex items-center justify-between">
                     <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest">ORGANIZAR POR</h3>
@@ -2601,7 +2601,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
 
             {/* 2. Acordeones Dinámicos Centrales */}
-            <div className="lg:col-span-2 flex min-h-0 flex-col gap-4">
+            <div className="flex min-w-0 min-h-0 flex-col gap-4">
                {gruposOrdenados.length === 0 ? (
                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">No hay planes que coincidan con los filtros.</div>
                ) : (
@@ -2654,7 +2654,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                              <div className="border-l col-span-2 bg-slate-50 rounded-xl p-1"><p>Cumplimiento</p><p className="text-base text-emerald-700 font-black mt-0.5">{gCumplimiento}%</p></div>
                            </div>
 <div className="min-h-0 flex-1 overflow-auto">
-  <table className="w-full text-[10px] text-left">
+  <table className="w-full min-w-[700px] text-[10px] text-left">
     <thead className="text-slate-400 uppercase tracking-widest border-b border-slate-100">
       <tr>
         <th className="pb-2 font-bold">Plan</th>
@@ -2759,7 +2759,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             </div>
 
             {/* 3. Columna derecha: detalle de alertas o distribución del portafolio */}
-            <div id="planes-task-detail" tabIndex={-1} className={`lg:col-span-1 rounded-2xl border bg-white p-5 h-fit sticky top-24 transition-all duration-300 ${detallePanelPlanes === 'aprobacion' ? 'border-emerald-500 ring-4 ring-emerald-300 shadow-xl shadow-emerald-100' : detallePanelPlanes === 'revision' ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-100' : detallePanelPlanes === 'ejecucion' ? 'border-rose-400 ring-2 ring-rose-300 shadow-lg shadow-rose-100' : 'border-slate-200 shadow-sm'}`}>
+            <div id="planes-task-detail" tabIndex={-1} className={`min-w-0 @min-[800px]/planes:col-span-2 @min-[1280px]/planes:col-span-1 rounded-2xl border bg-white p-5 h-fit @min-[1280px]/planes:sticky top-4 transition-all duration-300 ${detallePanelPlanes === 'aprobacion' ? 'border-emerald-500 ring-4 ring-emerald-300 shadow-xl shadow-emerald-100' : detallePanelPlanes === 'revision' ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-100' : detallePanelPlanes === 'ejecucion' ? 'border-rose-400 ring-2 ring-rose-300 shadow-lg shadow-rose-100' : 'border-slate-200 shadow-sm'}`}>
 {detallePanelPlanes ? (() => {
                 const esEjecucion = detallePanelPlanes === 'ejecucion';
                 const esRevision = detallePanelPlanes === 'revision';
@@ -3733,7 +3733,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   )}
 </button>
                           </div>
-                          <table className="w-full text-xs text-left divide-y border border-slate-100 rounded-xl overflow-hidden shadow-inner">
+                          <table className="w-full min-w-[960px] text-xs text-left divide-y border border-slate-100 rounded-xl overflow-hidden shadow-inner">
                             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider">
                               <tr>
                                 <th className="p-3 w-28">ID Plan</th>

@@ -422,7 +422,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
         <>
           {/* 2. BARRA DE HERRAMIENTAS Y FILTROS */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex-1 min-w-[300px] relative">
+        <div className="min-w-0 flex-1 basis-72 relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
           <input 
             type="text" 
@@ -433,7 +433,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
           />
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1">Norma / Estándar</span>
             <select value={filtroNorma} onChange={(e) => { setFiltroNorma(e.target.value); setPaginaDashboard(1); }} className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
@@ -472,12 +472,12 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
       </div>
 
 {/* 3. CONTENIDO PRINCIPAL (GRID CLARO) */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid min-w-0 grid-cols-1 @min-[1100px]:grid-cols-4 gap-6">
         
         {/* TABLA IZQUIERDA (Ocupa 3 columnas) */}
-        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+        <div className="min-w-0 @min-[1100px]:col-span-3 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[900px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-900 text-[10px] uppercase font-black tracking-widest text-white border-b border-slate-200">
                   <th className="p-4 w-10 text-center"><input type="checkbox" className="rounded border-slate-400" /></th>
@@ -547,7 +547,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
         </div>
 
         {/* PANELES LATERALES DERECHOS (Dinámicos al estado) */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className="min-w-0 @min-[1100px]:col-span-1 space-y-6">
           {/* Panel 1: Gráfica de Dona Dinámica */}
           <PanelDistribucion
             titulo="Distribución por Norma"

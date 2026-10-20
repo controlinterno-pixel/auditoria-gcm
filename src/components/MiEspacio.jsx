@@ -210,7 +210,7 @@ export default function MiEspacio({
       </div>
 
       {/* 2️⃣ BLOQUES PRINCIPALES DE MÉTRICAS (CUE DE TRABAJO) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 @min-[480px]:grid-cols-2 @min-[1000px]:grid-cols-4 gap-4">
         
         {/* Card 1: Hallazgos Abiertos */}
         <div 
@@ -280,7 +280,7 @@ export default function MiEspacio({
           <span>🛣️</span> RUTA GUIADA DE AUDITORÍA (GRC ASSISTANT)
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 @min-[480px]:grid-cols-2 @min-[1000px]:grid-cols-5 gap-3">
           {[
             { step: '1', name: 'Planificación', desc: 'Plan Anual y Riesgos', tab: 'plan_anual_tab' },
             { step: '2', name: 'Trabajo de Campo', desc: 'Pruebas de Controles', tab: 'evaluaciones' },
