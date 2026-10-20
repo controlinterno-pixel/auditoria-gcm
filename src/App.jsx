@@ -1145,7 +1145,7 @@ return (
                         setEditPlan(planModificado);
                         setFormResetKey(Date.now());
                         if (nuevoEstadoWorkflow === 'En Revisión') {
-                        const correoGestor = auth.currentUser?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "admin@termales.com.co";
+                        const correoGestor = auth.currentUser?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || '';
                           const payloadNotificacion = { ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: window.location.origin, destinatarios: correoGestor };
                           let correoEnviado = false;
                           if (correoPreparado) {
@@ -1217,8 +1217,8 @@ return (
               </div>
             )}
 
-            {/* ⚙️ CONFIGURACIÓN */}
-            {activeTab === 'config' && (
+            {/* ⚙️ CONFIGURACIÓN — solo administradores (el servidor también lo exige en cada operación). */}
+            {activeTab === 'config' && isAdmin && (
               <Configuracion 
                 forceUpdateCronograma={forceUpdateCronograma}
                 handleImportExcelRiesgos={handleImportExcelRiesgos}

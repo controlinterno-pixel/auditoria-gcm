@@ -108,6 +108,7 @@ enCurso.cleanup();
     hallazgos: [{ id: 'h1', idInforme: 'i1', proceso: 'Operaciones' }],
     informesAuditoria: [{ id: 'i1', proceso: 'Operaciones' }],
     riesgos: [], catalogoCargos: [],
+    campoInternoNoPublico: 'no debe llegar a usuarios no administradores',
   };
   const congelado = JSON.stringify(workspaceCompartido);
   const ejecutarGet = async user => {
@@ -137,6 +138,8 @@ enCurso.cleanup();
     assert.equal('planesAccion' in res.body, false, `${user.rol}: sin duplicado`);
     assert.equal(res.body.planes.length, 1, `${user.rol}: conserva planes`);
     assert.equal(res.body.revision, '500');
+    // H4: la respuesta filtrada es una lista blanca; los campos no previstos no llegan a no administradores.
+    assert.equal('campoInternoNoPublico' in res.body, user.rol === 'admin', `${user.rol}: campos no previstos`);
   }
   assert.equal(JSON.stringify(workspaceCompartido), congelado, 'no se modifica el objeto compartido de la caché');
 }

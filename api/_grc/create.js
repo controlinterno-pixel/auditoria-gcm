@@ -11,6 +11,7 @@ import {
   leerWorkspaceGrcLigero, listarHallazgosTx, obtenerHallazgosTx, reservarIdsPlanesTx,
 } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
+import { sanitizarUrls } from '../_lib/validation.js';
 
 const COLECCIONES_PERMITIDAS = {
   informesAuditoria: 'sub_informes',
@@ -136,7 +137,8 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const { coleccion, registro } = req.body || {};
+    // 🛡️ H13: solo enlaces http/https en campos URL (misma regla que aplica el cliente).
+    const { coleccion, registro } = sanitizarUrls(req.body || {});
     if (coleccion === 'repararConsecutivosInformes') {
       const resultado = await repararConsecutivosInformes(user);
       if (resultado.error === 'forbidden') return sendError(res, 'Solo un administrador puede reparar consecutivos.', 403);

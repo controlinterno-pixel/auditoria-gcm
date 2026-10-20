@@ -10,6 +10,7 @@ import {
   obtenerHallazgoTx, obtenerHallazgosTx, obtenerPlanesDeInformeTx, obtenerPlanesTx, reservarIdsPlanesTx,
 } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
+import { sanitizarUrls } from '../_lib/validation.js';
 
 const CAMPOS_EDITABLES = [
   'titulo', 'proceso', 'macroproceso', 'macroprocesos', 'subproceso', 'subprocesos', 'subprocesosPorMacroproceso', 'programaId',
@@ -65,9 +66,11 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const { coleccion, id, registro, motivo = '' } = req.body || {};
+    // 🛡️ H13: solo enlaces http/https en campos URL (misma regla que aplica el cliente).
+    const cuerpo = sanitizarUrls(req.body || {});
+    const { coleccion, id, registro, motivo = '' } = cuerpo;
     if (coleccion === 'planes') {
-      const matrizPayload = (registro && typeof registro === 'object') ? registro : req.body;
+      const matrizPayload = (registro && typeof registro === 'object') ? registro : cuerpo;
       if (!matrizPayload || typeof matrizPayload !== 'object') {
         return sendError(res, 'La matriz enviada no es válida.', 400);
       }

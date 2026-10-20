@@ -827,7 +827,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
                                         {log.usuario ? log.usuario.substring(0,2).toUpperCase() : 'YP'}
                                       </div>
                                       <div className="min-w-0">
-                                        <p className="font-bold text-slate-800 text-[11px] truncate">{log.usuario || 'Yehison Pineda'}</p>
+                                        <p className="font-bold text-slate-800 text-[11px] truncate">{log.usuario || 'Usuario del sistema'}</p>
                                         <p className="text-[9px] text-slate-400 truncate">Auditor Líder</p>
                                       </div>
                                     </div>

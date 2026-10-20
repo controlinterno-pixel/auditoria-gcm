@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as workflow from '../src/utils/programPlanWorkflow.js';
 import * as alcance from '../api/_lib/assignmentScope.js';
+import * as validacion from '../api/_lib/validation.js';
 import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
 import { randomUUID } from 'node:crypto';
 
@@ -113,7 +114,7 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
   const errors = [];
   const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
-    ...workspace, ...workflow, ...alcance, validarAdjuntoEvaluacion, randomUUID, adminDb,
+    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb,
     applyCors: () => false,
     requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),

@@ -5,6 +5,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
+import { sanitizarUrls } from '../_lib/validation.js';
 import {
   eliminarRiesgoFragmentado, guardarRiesgoFragmentado, leerRiesgosVigentes, riesgosMigrados,
 } from '../_lib/grcWorkspace.js';
@@ -148,7 +149,8 @@ export default async function handler(req, res) {
 
     // ✏️ CREACIÓN / ACTUALIZACIÓN (POST)
     if (method === 'POST') {
-      const riesgoData = req.body || {};
+      // 🛡️ H13: solo enlaces http/https en campos URL (misma regla que aplica el cliente).
+      const riesgoData = sanitizarUrls(req.body || {});
       const { id, proceso, probabilidadInherente, impactoInherente, controlesDetallados } = riesgoData;
 
       if (!id || !proceso) {

@@ -321,6 +321,7 @@ export default async function handler(req, res) {
 
   } catch (error) {
     logger.error('Error en API Forense', error, { endpoint: req.url });
-    return sendError(res, error.message || 'Error en análisis forense.', 500);
+    // 🛡️ H6: el detalle queda solo en el log del servidor; el cliente recibe un mensaje genérico.
+    return sendError(res, 'No se pudo completar el análisis forense. Intenta de nuevo o contacta al administrador.', 500);
   }
 }

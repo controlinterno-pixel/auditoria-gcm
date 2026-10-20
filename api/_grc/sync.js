@@ -5,6 +5,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { sanitizarUrls, validarDatosSync } from '../_lib/validation.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
 import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 
@@ -294,8 +295,14 @@ export default async function handler(req, res) {
       // ============================================================================
       // EMPAQUETADO FINAL SEGURO
       // ============================================================================
+      // 🛡️ H4: lista blanca explícita. Ningún campo nuevo del documento principal llega a un usuario
+      // no administrador sin decidirlo aquí (antes se copiaba todo con ...data).
       const filteredData = {
-        ...data,
+        ...(data.revision ? { revision: data.revision } : {}),
+        catalogosInicializados: data.catalogosInicializados === true,
+        mapaProcesos: data.mapaProcesos && typeof data.mapaProcesos === 'object' ? data.mapaProcesos : {},
+        sedesEmpresa: Array.isArray(data.sedesEmpresa) ? data.sedesEmpresa : [],
+        auditoresLista: Array.isArray(data.auditoresLista) ? data.auditoresLista : [],
         catalogoCargos: catalogoCargosSeguro,
         
         // Colecciones con Herencia Relacional
@@ -331,14 +338,16 @@ export default async function handler(req, res) {
         return sendError(res, 'Permisos insuficientes. Solo administradores pueden modificar la estructura GRC.', 403);
       }
 
-      const { partialData } = req.body || {};
-
-      if (!partialData || typeof partialData !== 'object' || Array.isArray(partialData)) {
-        return sendError(res, 'Estructura de datos (partialData) inválida o ausente.', 400);
-      }
-      if (Object.hasOwn(partialData, 'planesAccion')) {
+      if (Object.hasOwn(req.body?.partialData || {}, 'planesAccion')) {
         return sendError(res, 'Usa la colección planes para guardar acciones y validar su flujo.', 400);
       }
+      // 🛡️ H10: lista blanca de claves y tipos antes de escribir. H13: solo enlaces http/https en campos URL.
+      const validacion = validarDatosSync(req.body?.partialData);
+      if (!validacion.valido) {
+        logger.warn('Guardado rechazado por validación de esquema', { usuario: user.email, motivo: validacion.error });
+        return sendError(res, validacion.error, 400);
+      }
+      const partialData = sanitizarUrls(req.body.partialData);
 
       const workspaceActual = Array.isArray(partialData.planes)
         ? (await leerWorkspaceGrc(null, { origen: 'sync-post-validacion' })).data

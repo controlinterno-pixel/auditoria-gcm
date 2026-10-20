@@ -7,13 +7,14 @@ export function applyCors(req, res) {
 
   const origin = req.headers.origin;
 
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+  // 🛡️ N3: las cabeceras CORS con credenciales solo se emiten para orígenes de la lista blanca.
+  // Nunca se responde '*' junto con credenciales. Las peticiones del mismo origen (la app) y las que
+  // no vienen de un navegador no necesitan cabeceras CORS.
+  res.setHeader('Vary', 'Origin');
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
-
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',

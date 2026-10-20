@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
+import { dejarEnPuente, retirarDelPuente } from '../services/navigationBridge.js';
 import { CheckCircle2, Search, X } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
@@ -194,9 +195,7 @@ export default function Hallazgos({
   const [metodologiaCausaState, setMetodologiaCausaState] = useState({});
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && sessionStorage.getItem('hallazgo_emergente_auto')) {
-      sessionStorage.removeItem('hallazgo_emergente_auto');
-    }
+    retirarDelPuente('hallazgo_emergente_auto');
   }, []);
 
   const idEdicion = editHallazgo?.id || 'nuevo';
@@ -1671,7 +1670,7 @@ export default function Hallazgos({
           </div>
           {auditorEmail ? (
             <a 
-              href={`mailto:${auditorEmail}`}
+              href={`mailto:${encodeURIComponent(String(auditorEmail || '').trim())}`}
               className="block text-[9px] text-blue-600 hover:underline font-mono font-semibold truncate mt-0.5" 
               title={auditorEmail}
             >
@@ -1740,7 +1739,7 @@ export default function Hallazgos({
                                             type="button" 
                                             onClick={() => {
                                               if (typeof window !== 'undefined') {
-                                                sessionStorage.setItem('promover_riesgo_temp', JSON.stringify({
+                                                dejarEnPuente('promover_riesgo_temp', {
                                                   idHallazgo: h.id,
                                                   refHallazgo: h.ref,
                                                   proceso: h.proceso,
@@ -1749,7 +1748,7 @@ export default function Hallazgos({
                                                   causaInmediata: h.titulo,
                                                   sede: h.sede,
                                                   responsable: h.responsable
-                                                }));
+                                                });
                                                 alert(`🚀 Hallazgo [${h.ref}] preparado.\n\nDirígete al módulo "Matriz de Riesgos" y presiona "➕ Nuevo Riesgo" para cargar automáticamente sus datos.`);
                                               }
                                             }} 

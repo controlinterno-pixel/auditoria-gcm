@@ -14,6 +14,9 @@ const WINDOW_MS = 60 * 1000; // 60 segundos
  * Extrae la IP de origen real del cliente evitando fallas por múltiples proxies.
  */
 function obtenerIpCliente(req) {
+  // 🛡️ H8: en Vercel estas cabeceras las fija la propia plataforma (el cliente no puede falsificarlas).
+  const ipPlataforma = req.headers['x-vercel-forwarded-for'] || req.headers['x-real-ip'];
+  if (ipPlataforma && typeof ipPlataforma === 'string') return ipPlataforma.split(',')[0].trim();
   const xForwardedFor = req.headers['x-forwarded-for'];
   if (xForwardedFor && typeof xForwardedFor === 'string') {
     return xForwardedFor.split(',')[0].trim();

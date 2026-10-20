@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as workflow from '../src/utils/programPlanWorkflow.js';
 import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
+import { sanitizarUrls, validarDatosSync } from '../api/_lib/validation.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const source = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default async function handler', 'async function handler');
@@ -29,7 +30,7 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
   const profile = { ...user, procesosAsignados: ['Operaciones'] };
   const bindings = {
     ...workflow,
-    validarAdjuntoEvaluacion,
+    validarAdjuntoEvaluacion, sanitizarUrls, validarDatosSync,
     applyCors: () => false, requireAuth: async () => user,
     sendSuccess: (res, result) => Object.assign(res, { code: 200, result }),
     sendError: (res, message, code) => Object.assign(res, { code, message }),

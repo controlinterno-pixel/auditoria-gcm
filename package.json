@@ -12,11 +12,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "cors": "^2.8.6",
-    "crypto-js": "^4.2.0",
-    "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
-    "express": "^5.2.1",
     "firebase": "^12.14.0",
     "firebase-admin": "^11.11.1",
     "html-to-image": "^1.11.13",
@@ -30,7 +26,7 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.10.1",
     "thinking-orbs": "^0.3.2",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

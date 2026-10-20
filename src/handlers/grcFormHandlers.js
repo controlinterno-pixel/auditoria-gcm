@@ -438,7 +438,8 @@ export const createFormHandlers = ({
       if (hallazgoPadre) setHallazgos(updatedHallazgos);
       setPlanes(updatedPlanes);
     
-const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com";
+    // N5: sin correos escritos en el código; el destinatario sale de la sesión o de la configuración.
+    const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || '';
     const payloadNotificacionCierre = {
       ref_consecutivo: `CIERRE-PLAN-${plan.id}`,
       titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito', 

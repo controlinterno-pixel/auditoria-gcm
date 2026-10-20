@@ -6,6 +6,7 @@ import {
   MAPA_PROCESOS as MAPA_PROCESOS_PREDETERMINADO,
 } from '../constants/diccionariosGRC';
 import { useCatalogos } from '../context/useCatalogos';
+import { leerPuente, retirarDelPuente } from '../services/navigationBridge.js';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import { analizarRiesgoConIA } from '../services/aiEngine';
 import { apiService } from '../services/apiService';
@@ -399,11 +400,11 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     
     setCustomId(maxId + 1); 
 
-    // 🚀 REVISAR SI VIENE UN HALLAZGO PROMOVIDO DESDE SESSIONSTORAGE
-    const tempPromoted = sessionStorage.getItem('promover_riesgo_temp');
+    // 🚀 REVISAR SI VIENE UN HALLAZGO PROMOVIDO (puente en memoria, sin almacenamiento del navegador)
+    const tempPromoted = leerPuente('promover_riesgo_temp');
     if (tempPromoted) {
       try {
-        const data = JSON.parse(tempPromoted);
+        const data = tempPromoted;
         const ubicacionPromovida = normalizarUbicacionRiesgo(data, MAPA_PROCESOS);
         const macrosPromovidos = ubicacionPromovida.macroprocesos.filter(macro => (
           macroprocesosDisponibles.some(opcion => normalizarTextoProceso(opcion) === normalizarTextoProceso(macro))
@@ -424,7 +425,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         setClasificacionRiesgo('Riesgo Emergente');
         showNotification(`📥 Datos del Hallazgo ${data.refHallazgo || ''} cargados automáticamente como Riesgo Emergente.`, "info");
       } catch (err) {
-        console.error("Error leyendo datos del bridge de sessionStorage", err);
+        console.error("Error leyendo datos del hallazgo promovido", err);
       }
     } else {
       setIdHallazgoOrigen(null);
@@ -1055,7 +1056,7 @@ const handleRiesgoSubmit = async (e) => {
           : [{ fecha: ts, accion: 'Creación manual con matriz completa' }]
       };
 
-      sessionStorage.removeItem('promover_riesgo_temp');
+      retirarDelPuente('promover_riesgo_temp');
 
       // 1. Guardar en el servidor Serverless (api/grc/riesgos.js)
       const response = await apiService.saveRiesgo(nuevoRiesgo);

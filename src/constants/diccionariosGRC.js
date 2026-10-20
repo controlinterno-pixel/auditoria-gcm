@@ -32,14 +32,6 @@ export const resolverCategoriaFuente = (referencia, fuentes = []) => (
     : resolverTipoFuente(referencia, fuentes)
 );
 
-// 📚 1. LISTA MAESTRA DE AUDITORES OFICIALES
-export const AUDITORES_OFICIALES = [
-  "Rodolfo González",
-  "Yehison Pineda",
-  "Angelica Hernandez",
-  "Luz Angela Chico"
-];
-
 // 🗺️ 2. MAPA DE PROCESOS EN CASCADA (MACROPROCESO -> SUBPROCESOS)
 export const MAPA_PROCESOS = {
   "Gestión de mercadeo y comunicaciones": ["General"],

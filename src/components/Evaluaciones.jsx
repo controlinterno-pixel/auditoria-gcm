@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCatalogos } from '../context/useCatalogos';
+import { dejarEnPuente } from '../services/navigationBridge.js';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
@@ -195,7 +196,7 @@ const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
         claseObservacion: 'Riesgo Emergente',
         severidad: calificacionFinal === 100 ? 'Bajo' : (calificacionFinal === 50 ? 'Medio' : 'Alto')
       };
-      sessionStorage.setItem('hallazgo_emergente_auto', JSON.stringify(payloadHallazgo));
+      dejarEnPuente('hallazgo_emergente_auto', payloadHallazgo);
       alert("✅ Evaluación guardada.\n\nSe ha preparado un Hallazgo automáticamente con tu observación. Por favor, ve al módulo 'Planes y Hallazgos' y presiona 'Nuevo Hallazgo' para radicarlo.");
     }
 
