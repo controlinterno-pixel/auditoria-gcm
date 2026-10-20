@@ -100,6 +100,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
   const tabla = (cabeceras, filas, opciones = {}) => {
     if (!filas.length) return;
     asegurarEspacio(21);
+    doc.setLineHeightFactor(1.15);
     autoTable(doc, {
       startY: y,
       head: cabeceras.length ? [cabeceras.map(textoPdf)] : [],
@@ -117,7 +118,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     });
     y = doc.lastAutoTable.finalY + 7;
   };
-  const ficha = filas => tabla(['Campo', 'Registro'], filas, { columnStyles: { 0: { cellWidth: 44, fontStyle: 'bold' }, 1: { halign: 'justify' } } });
+  const ficha = filas => tabla(['Campo', 'Registro'], filas, { columnStyles: { 0: { cellWidth: 44, fontStyle: 'bold' } } });
   const fichaEjecutiva = campos => {
     const filas = [];
     const etiqueta = content => ({ content, styles: { fontStyle: 'bold', textColor: COLORES.verde, fillColor: COLORES.fondo } });
@@ -130,12 +131,6 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     }
     tabla([], filas, {
       columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: contenido / 2 - 36 }, 2: { cellWidth: 36 }, 3: { cellWidth: contenido / 2 - 36 } },
-      didParseCell: data => {
-        const valor = typeof data.cell.raw === 'object' ? data.cell.raw.content : data.cell.raw;
-        if (data.section === 'body' && data.column.index % 2 === 1 && texto360(valor).includes('\n')) {
-          data.cell.styles.halign = 'justify';
-        }
-      },
     });
   };
   const archivos = (registro, etiqueta) => {
@@ -238,10 +233,11 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
         `${hallazgo.referencia}\n${texto360(h.titulo || h.descripcion || h.hallazgo || h.detalle || h.observacion)}\nFecha: ${fecha360(h.fecha)}`,
         `${texto360(h.claseObservacion)}\nSeveridad: ${texto360(h.severidad)}\nNorma: ${texto360(h.normaReferencia)}`,
         `${texto360(h.macroprocesos || h.macroproceso || h.proceso)}\n${texto360(h.subprocesos || h.subproceso)}\n${texto360(h.responsable)}`,
-        `Causa: ${texto360(h.causa)}\nMétodo: ${texto360(h.metodologiaCausa)}\nAnálisis: ${texto360(h.analisisCausa)}`,
+        grupo.tipoFuente === 'Programa de Auditoría' ? 'NO APLICA'
+          : `Causa: ${texto360(h.causa)}\nMétodo: ${texto360(h.metodologiaCausa)}\nAnálisis: ${texto360(h.analisisCausa)}`,
         `${texto360(h.estado)}\nCierre: ${fecha360(h.fechaCierre)}\n${hallazgo.planes.length ? `${hallazgo.planes.length} acción(es)` : 'Sin acciones vinculadas'}`,
       ];
-    }), { columnStyles: { 0: { cellWidth: 67, halign: 'justify' }, 1: { cellWidth: 39 }, 2: { cellWidth: 46 }, 3: { halign: 'justify' }, 4: { cellWidth: 32 } } });
+    }), { columnStyles: { 0: { cellWidth: 67 }, 1: { cellWidth: 39 }, 2: { cellWidth: 46 }, 4: { cellWidth: 32 } } });
 
     const acciones = [
       ...grupo.hallazgos.flatMap(hallazgo => hallazgo.planes.map(plan => ({ plan, hallazgo }))),
@@ -285,10 +281,10 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
       headStyles: { fillColor: COLORES.verde, textColor: COLORES.blanco, fontStyle: 'bold', fontSize: 6 },
       columnStyles: {
         0: { cellWidth: 7, halign: 'center' },
-        1: { cellWidth: 38, halign: 'justify' },
+        1: { cellWidth: 38 },
         2: { cellWidth: 17, halign: 'center' },
         3: { cellWidth: 18 },
-        4: { cellWidth: 38, halign: 'justify' },
+        4: { cellWidth: 38 },
         5: { cellWidth: 20 },
         6: { cellWidth: 22 },
         7: { cellWidth: 12, halign: 'center', textColor: COLORES.verde, fillColor: COLORES.cerrado },

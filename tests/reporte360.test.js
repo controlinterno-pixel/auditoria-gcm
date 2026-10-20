@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { jsPDF } from 'jspdf';
 import {
   construirReporte360, evaluacion360, evidencias360, planCerrado360, plazoSemanas360, progreso360, tiposFuente360,
 } from '../src/utils/reporte360.js';
@@ -257,7 +258,7 @@ test('plazo en semanas: mismo cálculo institucional con fechas de calendario v�
   assert.equal(plazoSemanas360('2026-10-19', 'invalida'), 'No registrado');
 });
 
-test('matriz institucional: 13 columnas, narrativas justificadas y encabezados repetidos', () => {
+test('matriz institucional: 13 columnas, espaciado natural y encabezados repetidos', () => {
   const logo = new Uint8Array(readFileSync(new URL('../public/logo_termales.png', import.meta.url)));
   const reporte = construir({
     modo: 'informe', idInforme: 1,
@@ -270,12 +271,87 @@ test('matriz institucional: 13 columnas, narrativas justificadas y encabezados r
   assert.equal(tabla.body[0].cells[0].raw, '1');
   assert.equal(tabla.body[0].cells[7].raw, '100%');
   assert.equal(tabla.body[0].cells[10].raw, '8.6');
-  assert.equal(tabla.body[0].cells[1].styles.halign, 'justify');
-  assert.equal(tabla.body[0].cells[4].styles.halign, 'justify');
+  assert.equal(tabla.body[0].cells[1].styles.halign, 'left');
+  assert.equal(tabla.body[0].cells[4].styles.halign, 'left');
   assert.equal(tabla.body[0].cells[8].styles.halign, 'center');
   assert.equal(tabla.settings.showHead, 'everyPage');
   const anchoTabla = tabla.columns.reduce((suma, columna) => suma + columna.width, 0);
   assert.ok(Math.abs(anchoTabla - (doc.internal.pageSize.getWidth() - 28)) < 0.01);
+});
+
+test('causa y análisis: NO APLICA para Programa de Auditoría, contenido real para otras fuentes', () => {
+  const logo = new Uint8Array(readFileSync(new URL('../public/logo_termales.png', import.meta.url)));
+  for (const tipo of ['Programa de Auditoría', 'Auditoría Interna', 'Auditoría Externa', 'Quejas']) {
+    const reporte = construir({
+      modo: 'informe', idInforme: 1,
+      informes: [{ ...informes[0], tipoFuente: 'FUENTE-PRUEBA' }],
+      fuentes: [{ codigo: 'FUENTE-PRUEBA', tipoFuente: tipo }],
+      hallazgos: [{ ...hallazgos[0], causa: 'Origen comprobado', metodologiaCausa: 'Metodo documentado', analisisCausa: 'Analisis completo verificado' }],
+      planes: [],
+    });
+    const { doc } = crearPdfReporte360(reporte, { logo });
+    const celda = doc.lastAutoTable.body[0].cells[3];
+    assert.equal(celda.styles.halign, 'left');
+    if (tipo === 'Programa de Auditoría') assert.equal(celda.raw, 'NO APLICA');
+    else assert.equal(celda.raw, 'Causa: Origen comprobado\nMétodo: Metodo documentado\nAnálisis: Analisis completo verificado');
+  }
+});
+
+test('texto de celdas permanece dentro de sus bordes al continuar filas extensas', () => {
+  const logo = new Uint8Array(readFileSync(new URL('../public/logo_termales.png', import.meta.url)));
+  const dibujos = [];
+  const alIniciar = function () {
+    const rectOriginal = this.rect;
+    const textOriginal = this.text;
+    let celda = null;
+    this.rect = (...args) => {
+      celda = args.slice(0, 4);
+      return rectOriginal.apply(this, args);
+    };
+    this.text = (texto, x, y, opciones) => {
+      if (celda && this.getFontSize() <= 8 && y >= 37 && y <= this.internal.pageSize.getHeight() - 22) {
+        dibujos.push({
+          celda, texto: Array.isArray(texto) ? texto : [texto], x, y,
+          tamano: this.getFontSize() / this.internal.scaleFactor,
+          interlineado: this.getLineHeightFactor(), opciones,
+          anchos: (Array.isArray(texto) ? texto : [texto]).map(linea => this.getTextWidth(linea)),
+        });
+      }
+      return textOriginal.call(this, texto, x, y, opciones);
+    };
+  };
+  const evento = ['initialized', alIniciar];
+  jsPDF.API.events.push(evento);
+  let resultado;
+  try {
+    const descripcion = 'Detalle verificado con palabras de longitud variable y seguimiento de la actividad. '.repeat(65);
+    resultado = crearPdfReporte360(construir({
+      modo: 'informe', idInforme: 1,
+      hallazgos: [{ ...hallazgos[0], titulo: descripcion, analisisCausa: descripcion }],
+      planes: [
+        { ...planes[0], accion: `INICIO-DE-ACCION\n${descripcion}\nFIN-DE-ACCION`, evaluacionHolistica: null },
+        { ...planes[2], accion: 'SEGUNDA-ACCION-COMPLETA' },
+      ],
+    }), { logo });
+  } finally {
+    jsPDF.API.events.splice(jsPDF.API.events.indexOf(evento), 1);
+  }
+  assert.ok(dibujos.length > 100);
+  for (const dibujo of dibujos) {
+    const [izquierda, arriba, ancho, alto] = dibujo.celda;
+    assert.notEqual(dibujo.opciones?.align, 'justify');
+    assert.ok(dibujo.x >= izquierda - 0.01, 'El texto empieza antes de la celda');
+    assert.ok(dibujo.x + Math.max(...dibujo.anchos) <= izquierda + ancho + 0.4, 'El texto supera el borde derecho');
+    const ultimaBase = dibujo.y + (dibujo.texto.length - 1) * dibujo.tamano * dibujo.interlineado;
+    assert.ok(dibujo.y >= arriba, 'El texto empieza encima de la celda');
+    assert.ok(ultimaBase + dibujo.tamano * 0.2 <= arriba + alto + 0.2, 'El texto supera el borde inferior');
+  }
+  const comandos = Object.values(resultado.doc.internal.pages).flat().join('\n');
+  assert.ok(comandos.includes('FIN-DE-ACCION'));
+  assert.ok(comandos.includes('SEGUNDA-ACCION-COMPLETA'));
+  if (process.env.REPORTE360_LAYOUT_SAMPLE_PATH) {
+    writeFileSync(process.env.REPORTE360_LAYOUT_SAMPLE_PATH, Buffer.from(resultado.doc.output('arraybuffer')));
+  }
 });
 
 test('PDF vectorial extenso: logo, paginación, texto completo, metadatos y vínculos', () => {
