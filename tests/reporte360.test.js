@@ -156,17 +156,40 @@ test('el corte y el nombre del PDF usan el mismo día de Colombia al cruzar medi
   assert.match(crearPdfReporte360(reporte, { logo }).nombre, /_2026-10-19\.pdf$/);
 });
 
-test('dos rutas de evaluación con umbral estricto y sin convertir control/diseño en cierre', () => {
+test('evaluación inicial desde 80%, finales legadas y eficacia sin confundir diseño con cierre', () => {
   assert.equal(evaluacion360(planes[3], true).resultado, 'Aprobada');
   assert.equal(evaluacion360({ evaluacionHolistica: { tipo: 'evaluacion-final-ejecucion', puntaje: 80, aprobado: true } }, true).resultado, 'No aprobada');
-  assert.equal(evaluacion360({ evaluacionHolistica: { puntaje: 100, aprobado: true } }, true).resultado, 'Pendiente de evaluación final');
+  assert.equal(evaluacion360({ evaluacionHolistica: { puntaje: 100, aprobado: true } }, true).resultado, 'Pendiente de evaluación inicial');
+  assert.equal(evaluacion360({ evaluacionHolistica: { tipo: 'evaluacion-inicial-diseno', puntaje: 80, aprobado: true } }, true).resultado, 'Aprobada');
+  assert.equal(evaluacion360({ evaluacionHolistica: { tipo: 'evaluacion-inicial-diseno', puntaje: 79, aprobado: false } }, true).resultado, 'No aprobada');
+  assert.equal(evaluacion360({ evaluacionHolistica: { tipo: 'evaluacion-inicial-diseno', puntaje: 80, aprobado: true }, evaluacionEficaciaCierre: { fueEficaz: true } }, true).cierre.fueEficaz, true);
   assert.equal(evaluacion360(planes[1], false).resultado, 'Eficaz');
   assert.equal(evaluacion360({ evaluacionEficaciaCierre: { fueEficaz: false } }, false).resultado, 'No eficaz');
   assert.equal(evaluacion360(planes[3], false).resultado, 'Pendiente');
   const r = construir({ modo: 'informe', idInforme: 2 });
   assert.equal(r.expedientes[0].esPrograma, true);
   const sinPrograma = construir({ informes: [{ id: 2, tipoFuente: 'Programa de Auditoría' }] });
-  assert.equal(sinPrograma.expedientes.find(grupo => grupo.informe)?.esPrograma, false);
+  assert.equal(sinPrograma.expedientes.find(grupo => grupo.informe)?.esPrograma, true);
+});
+
+test('PDF separa evaluación inicial aprobada al 80% del dictamen final por acción', () => {
+  const reporte = construir({
+    modo: 'informe', idInforme: 2,
+    planes: [{
+      id: 200, idHallazgo: 20, estadoWorkflow: 'En Ejecución', progreso: 40,
+      evaluacionHolistica: { tipo: 'evaluacion-inicial-diseno', puntaje: 80, aprobado: true, usuario: 'auditor-inicial@example.test' },
+      evaluacionEficaciaCierre: { fueEficaz: false, conclusion: 'Soporte insuficiente', usuario: 'auditor-final@example.test' },
+    }],
+  });
+  assert.equal(reporte.resumen.cerradas, 0);
+  const logo = new Uint8Array(readFileSync(new URL('../public/logo_termales.png', import.meta.url)));
+  const { doc } = crearPdfReporte360(reporte, { logo });
+  const texto = Object.values(doc.internal.pages).flat().join('\n');
+  assert.match(texto, /Evaluaci.n inicial del dise.o/);
+  assert.match(texto, /Dictamen final por acci.n/);
+  assert.match(texto, /auditor-inicial@example\.test/);
+  assert.match(texto, /auditor-final@example\.test/);
+  assert.match(texto, /Soporte insuficiente/);
 });
 
 test('no inventa avances y señala conflictos de vínculos y cierre', () => {

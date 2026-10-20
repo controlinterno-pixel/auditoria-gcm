@@ -7,7 +7,8 @@ export const processExcelRiesgos = ({
   saveToCloud,
   showNotification,
   setIsCloudLoaded,
-  user
+  user,
+  confirmarEliminacion
 }) => {
   if (!window.XLSX) {
     showNotification("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.", "error");
@@ -40,7 +41,7 @@ export const processExcelRiesgos = ({
         return 1;
       };
 
-      if (window.confirm("⚠️ ALERTA: ¿Deseas cargar esta Matriz de Riesgos? Reemplazará los riesgos actuales para NO acumular basura.")) {
+      if (await confirmarEliminacion('Se eliminará la matriz de riesgos actual y se reemplazará por los registros del archivo Excel seleccionado.')) {
         setIsCloudLoaded(false);
         const riesgosAgrupados = {};
 

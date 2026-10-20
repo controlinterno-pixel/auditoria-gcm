@@ -1,5 +1,6 @@
 // Ruta: src/components/AuditoriaAutomatizada/DashboardHistorico.jsx
 import React, { useState, useEffect } from 'react';
+import { useDeleteConfirmation } from '../../hooks/useDeleteConfirmation.js';
 import { obtenerListaHistoricos, cargarNominaHistorica, guardarMarcacionesEnLaNube, cargarMarcacionesDeLaNube, obtenerListaMarcaciones, eliminarMarcacionesHistoricas } from '../../services/historicoService';
 import * as XLSX from 'xlsx';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
@@ -158,6 +159,7 @@ const DashboardHistorico = ({
   pasoRedondeo = 500,
   setPasoRedondeo,
 }) => {
+  const confirmarEliminacion = useDeleteConfirmation();
   const [datosHistoricos, setDatosHistoricos] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -257,7 +259,7 @@ useEffect(() => {
 
   // Función para eliminar archivo de marcaciones de la nube
   const handleEliminarMarcaciones = async (id) => {
-    if (window.confirm("⚠️ ¿Estás seguro de eliminar este lote de marcaciones de la nube?\n\nEsta acción no se puede deshacer y afectará las gráficas.")) {
+    if (await confirmarEliminacion('Se eliminará este lote de marcaciones de la nube. La eliminación también afectará las gráficas.')) {
       setIsCargandoMarcaciones(true);
       try {
         await eliminarMarcacionesHistoricas(id);

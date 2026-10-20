@@ -5,6 +5,7 @@ import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const ESTADO_VALIDACION_REVISOR = 'Pendiente Validación Revisor';
@@ -25,6 +26,87 @@ function esAuditorAsignado(plan, user, perfil) {
     .map(normalizar)
     .filter(Boolean);
   return Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
+}
+
+async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justificacion }) {
+  let puntaje;
+  try {
+    puntaje = calcularPuntajeDiseno(criterios);
+  } catch (error) {
+    return sendError(res, error.message, 400);
+  }
+  const motivo = String(justificacion || '').trim().slice(0, 2000);
+  if (!idInforme || !Array.isArray(idsPlanes) || !idsPlanes.length || idsPlanes.length > 100 ||
+      new Set(idsPlanes.map(String)).size !== idsPlanes.length) {
+    return sendError(res, 'Selecciona entre 1 y 100 acciones distintas del informe.', 400);
+  }
+  if (puntaje < 80 && !motivo) return sendError(res, 'Justifica el resultado inferior al 80%.', 400);
+  const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
+  const perfil = perfilSnap.exists ? perfilSnap.data() : {};
+  const resultado = await adminDb.runTransaction(async transaction => {
+    const workspace = await leerWorkspaceGrc(transaction);
+    if (!workspace.workspaceExists) return { error: 'not-found' };
+    const { data, workspaceRef } = workspace;
+    let informe = (data.informesAuditoria || []).find(item => String(item.id) === String(idInforme));
+    if (!informe) {
+      const snap = await transaction.get(workspace.coleccionInformesRef.doc(String(idInforme).trim()));
+      if (snap.exists) informe = { id: idInforme, ...snap.data() };
+    }
+    if (!esInformePrograma(informe, data.fuentesMejora)) return { error: 'not-program' };
+    const planes = Array.isArray(data.planes) ? data.planes : [];
+    const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+    const seleccionados = idsPlanes.map(id => planes.find(plan => String(plan.id) === String(id)));
+    if (seleccionados.some(plan => {
+      const hallazgo = hallazgos.find(item => String(item.id) === String(plan?.idHallazgo));
+      return !plan || String(hallazgo?.idInforme || plan.idInforme) !== String(idInforme);
+    })) return { error: 'invalid-selection' };
+    if (seleccionados.some(plan => !esAuditorAsignado({
+      ...plan,
+      correoAuditor: plan.correoAuditor || informe.correoAuditor || informe.correoAuditorResponsable,
+      auditorAsignado: plan.auditorAsignado || informe.auditorResponsable || informe.auditor,
+    }, user, perfil) ||
+        String(plan.correoResponsable || '').split(',').map(normalizar).includes(normalizar(user.email)))) {
+      return { error: 'not-auditor' };
+    }
+    if (seleccionados.some(plan => !pendienteEvaluacionInicial(plan))) return { error: 'not-pending' };
+    const ahora = new Date();
+    const aprobado = puntaje >= 80;
+    const evaluacion = {
+      tipo: TIPO_EVALUACION_INICIAL, fecha: ahora.toLocaleString('es-CO'), timestamp: ahora.toISOString(),
+      usuario: user.email, puntaje, aprobado, criterios, justificacion: motivo,
+    };
+    const actualizados = seleccionados.map(plan => ({
+      ...plan,
+      evaluacionHolistica: evaluacion,
+      historialEvaluaciones: [evaluacion, ...(plan.historialEvaluaciones || (plan.evaluacionHolistica ? [plan.evaluacionHolistica] : []))],
+      estadoWorkflow: aprobado ? 'En Ejecución' : ESTADO_AJUSTES_INICIALES,
+      estado: 'En Proceso',
+      aprobadoPorCorreo: aprobado ? user.email : '',
+      aprobadoEn: aprobado ? ahora.toISOString() : '',
+      motivoRechazo: aprobado ? '' : motivo,
+      historialCambios: [...(plan.historialCambios || []), {
+        fecha: evaluacion.fecha, timestamp: evaluacion.timestamp, usuario: user.email,
+        accion: aprobado
+          ? `Diseño aprobado (${puntaje}%). Ejecución habilitada por el auditor asignado.`
+          : `Diseño no aprobado (${puntaje}%). Devuelto para correcciones. Motivo: ${motivo}`,
+      }],
+    }));
+    const porId = new Map(actualizados.map(plan => [String(plan.id), plan]));
+    if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
+    transaction.set(workspaceRef, { planes: planes.map(plan => porId.get(String(plan.id)) || plan) }, { merge: true });
+    return { planes: actualizados };
+  });
+  const errores = {
+    'not-found': ['No se encontró la matriz GRC.', 404],
+    'not-program': ['La evaluación inicial corresponde únicamente a fuentes Programa de Auditoría.', 409],
+    'invalid-selection': ['Las acciones no pertenecen al informe seleccionado.', 400],
+    'not-auditor': ['Solo el auditor asignado, distinto del ejecutor, puede evaluar estas acciones.', 403],
+    'not-pending': ['Las acciones ya no están pendientes de evaluación inicial. Actualiza la vista.', 409],
+  };
+  if (resultado.error) return sendError(res, ...errores[resultado.error]);
+  await notificarSemaforo();
+  logger.info('Evaluación inicial de acciones', { idInforme, puntaje, usuario: user.email });
+  return sendSuccess(res, resultado);
 }
 
 async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluacionEficacia }) {
@@ -59,19 +141,9 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
       );
       if (informeSnapshot.exists) informePlan = { id: idInformePlan, ...informeSnapshot.data() };
     }
-    if (cerrar && informePlan?.tipoFuente === 'Programa de Auditoría' && informePlan?.programaId) {
-      const planesDelPaquete = planes.filter(item => {
-        const hallazgoPlan = hallazgos.find(hallazgo => String(hallazgo.id) === String(item.idHallazgo));
-        return String(hallazgoPlan?.idInforme || item.idInforme) === String(idInformePlan);
-      });
-      const paqueteAutorizadoParaCierre = planesDelPaquete.length > 0 && planesDelPaquete.every(item => (
-        Number(item.progreso) === 100 &&
-        ['En Revisión (100%)', 'Cerrado'].includes(item.estadoWorkflow) &&
-        item.evaluacionHolistica?.tipo === 'evaluacion-final-ejecucion' &&
-        item.evaluacionHolistica?.aprobado === true &&
-        Number(item.evaluacionHolistica?.puntaje) > 80
-      ));
-      if (!paqueteAutorizadoParaCierre) return { error: 'program-package-evaluation-required' };
+    const esPrograma = esInformePrograma(informePlan, data.fuentesMejora);
+    if (esPrograma && (plan.estadoWorkflow !== 'En Revisión (100%)' || Number(plan.progreso) !== 100)) {
+      return { error: 'not-in-review' };
     }
 
     const ahora = new Date();
@@ -88,6 +160,7 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
       estadoWorkflow: cerrar ? 'Cerrado' : 'En Ejecución',
       estado: cerrar ? 'Cerrado' : 'En Proceso',
       progreso: cerrar ? 100 : 90,
+      ...(!cerrar ? { validadoPorRevisorCorreo: '', validadoPorRevisorEn: '' } : { fechaCierre: ahora.toISOString().slice(0, 10) }),
       ...(evaluacion ? { evaluacionEficaciaCierre: evaluacion } : {}),
       historialCambios: [...(Array.isArray(plan.historialCambios) ? plan.historialCambios : []), {
         fecha: ahora.toLocaleString('es-CO'),
@@ -100,10 +173,20 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
       }],
     };
     if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
+    const planesActualizados = planes.map(item => String(item.id) === String(idPlan) ? actualizado : item);
+    const accionesHallazgo = planesActualizados.filter(item => String(item.idHallazgo) === String(plan.idHallazgo));
+    const cerrarHallazgo = esPrograma && cerrar && hallazgoActual && accionesHallazgo.every(item => item.estadoWorkflow === 'Cerrado');
+    const hallazgoCerrado = cerrarHallazgo ? {
+      ...hallazgoActual, estado: 'Cerrado',
+      historialCambios: [...(hallazgoActual.historialCambios || []), {
+        fecha: ahora.toLocaleString('es-CO'), usuario: user.email, accion: 'Hallazgo cerrado: todas sus acciones fueron aprobadas por el auditor asignado.',
+      }],
+    } : null;
     transaction.set(workspaceRef, {
-      planes: planes.map(item => String(item.id) === String(idPlan) ? actualizado : item),
+      planes: planesActualizados,
+      ...(hallazgoCerrado ? { hallazgos: hallazgos.map(item => String(item.id) === String(plan.idHallazgo) ? hallazgoCerrado : item) } : {}),
     }, { merge: true });
-    return { plan: actualizado };
+    return { plan: actualizado, ...(hallazgoCerrado ? { hallazgo: hallazgoCerrado } : {}) };
   });
 
   const errores = {
@@ -111,7 +194,6 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
     'plan-not-found': ['No se encontró el plan de acción.', 404],
     'not-auditor': ['Solo el auditor de seguimiento asignado puede decidir este plan.', 403],
     'not-in-review': ['El plan no está en revisión del auditor.', 409],
-    'program-package-evaluation-required': ['La evaluación integral del Programa de Auditoría debe superar el 80% antes de cerrar individualmente sus acciones.', 409],
   };
   if (resultado.error && errores[resultado.error]) {
     const [mensaje, estado] = errores[resultado.error];
@@ -120,7 +202,7 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
 
   await notificarSemaforo();
   logger.info('Decisión del auditor sobre plan', { idPlan, decision, usuario: user.email });
-  return sendSuccess(res, { plan: resultado.plan });
+  return sendSuccess(res, resultado);
 }
 
 export default async function handler(req, res) {
@@ -132,6 +214,7 @@ export default async function handler(req, res) {
     if (!user) return;
 
     const { idInforme, idPlan, decision, motivo = '', evaluacionEficacia = null } = req.body || {};
+    if (decision === 'evaluar-diseno') return await evaluarDiseno(res, user, req.body);
     if (['cerrar', 'rechazar'].includes(decision)) {
       return await decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluacionEficacia });
     }
@@ -156,19 +239,22 @@ export default async function handler(req, res) {
       const { data, workspaceRef } = workspace;
       const planes = Array.isArray(data.planes) ? data.planes : [];
       const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
-      let informeExiste = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
-        .some(informe => String(informe.id) === String(idInforme));
-      if (!informeExiste) {
+      let informeActual = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
+        .find(informe => String(informe.id) === String(idInforme));
+      if (!informeActual) {
         // Los informes nuevos viven en una subcolección que la transacción no lista.
         const informeSnapshot = await transaction.get(
           workspace.coleccionInformesRef.doc(String(idInforme).trim())
         );
-        informeExiste = informeSnapshot.exists;
+        if (informeSnapshot.exists) informeActual = { id: idInforme, ...informeSnapshot.data() };
       }
-      if (!informeExiste) return { error: 'report-not-found' };
+      if (!informeActual) return { error: 'report-not-found' };
+      const esPrograma = esInformePrograma(informeActual, data.fuentesMejora);
 
       const pendientes = planes.filter(plan => {
         if (!['Pendiente Revisión Jefatura', ESTADO_VALIDACION_REVISOR].includes(plan.estadoWorkflow)) return false;
+        if (esPrograma && plan.estadoWorkflow === 'Pendiente Revisión Jefatura') return false;
+        if (esPrograma && Number(plan.progreso) !== 100) return false;
         const hallazgo = hallazgos.find(item => String(item.id) === String(plan.idHallazgo));
         const planInformeId = plan.idInforme || hallazgo?.idInforme;
         if (String(planInformeId) !== String(idInforme)) return false;

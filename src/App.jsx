@@ -3,6 +3,7 @@ import { ArrowLeft, MailWarning, RefreshCw } from 'lucide-react';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
+import { esInformePrograma, pendienteEvaluacionInicial, ESTADO_AJUSTES_INICIALES } from './utils/programPlanWorkflow.js';
 
 import Configuracion from './components/Configuracion';
 import Hallazgos from './components/Hallazgos';
@@ -57,6 +58,7 @@ import Navbar from './components/Navbar';
 import SidebarNavigation from './components/SidebarNavigation';
 import MiPerfil from './components/MiPerfil';
 import { useNavigationGuard } from './hooks/useUnsavedChangesGuard.js';
+import { useDeleteConfirmation } from './hooks/useDeleteConfirmation.js';
 
 import { enviarCorreoGmail, prepararAutorizacionGmail } from './services/gmailService';
 import { useGrcData } from './hooks/useGrcData';
@@ -86,6 +88,7 @@ const getInitialSidebarState = () => {
 
 
 export default function App() {
+  const confirmarEliminacion = useDeleteConfirmation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialSidebarState);
   const [detallePanelPlanes, setDetallePanelPlanes] = useState(null);
   const [solicitudTareasPlanes, setSolicitudTareasPlanes] = useState(0);
@@ -357,7 +360,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   
 
   const handleDeleteItem = async (listType, id) => {
-    if (!isAdmin || !window.confirm('¿Eliminar registro permanentemente?')) return;
+    if (!isAdmin) return;
     const mapLists = { 
       riesgos: [safeRiesgos, setRiesgos], evaluaciones: [safeEvaluaciones, setEvaluaciones], 
       hallazgos: [safeHallazgos, setHallazgos], planes: [safePlanes, setPlanes], 
@@ -367,6 +370,12 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     };
     const [targetList, setTarget] = mapLists[listType] || [];
     if (targetList && setTarget) {
+      const registro = targetList.find(item => String(item.id) === String(id));
+      const nombre = registro?.ref || registro?.titulo || registro?.nombre || id;
+      const vinculados = listType === 'informesAuditoria'
+        ? ' También se eliminarán sus hallazgos y planes de acción vinculados.'
+        : listType === 'hallazgos' ? ' También se eliminarán sus planes de acción vinculados.' : '';
+      if (!(await confirmarEliminacion(`Se eliminará el registro ${nombre}.${vinculados}`))) return;
       const updated = targetList.filter(item => item.id !== id);
       if (listType === 'hallazgos' || listType === 'informesAuditoria') {
         const hallazgosEliminados = listType === 'informesAuditoria'
@@ -398,8 +407,9 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
         return;
       }
 
+      const guardado = await saveToCloud({ [listType]: updated });
+      if (!guardado) return;
       setTarget(updated);
-      await saveToCloud({ [listType]: updated });
       showNotification('Registro eliminado.', 'success');
     }
   };
@@ -441,7 +451,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        if (window.confirm("⚠️ ALERTA: Sobrescribirá TODA la base de datos. ¿Continuar?")) {
+        if (await confirmarEliminacion('Se eliminarán los datos actuales de todos los módulos y se reemplazarán por el archivo de respaldo seleccionado.')) {
           setIsCloudLoaded(false); await saveToCloud(JSON.parse(event.target.result));
           showNotification("Base de datos actualizada.", "success"); setIsCloudLoaded(true);
         }
@@ -451,8 +461,8 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     reader.readAsText(file);
   };
 
-  const handleImportExcelRiesgos = (e) => processExcelRiesgos({ event: e, safeRiesgos, setRiesgos, saveToCloud, showNotification, setIsCloudLoaded, user });
-  const forceUpdateCronograma = async () => { if (window.confirm("¿Deseas cargar los 20 procesos del Plan Anual?")) { await saveToCloud({ cronograma: defaultCronograma }); showNotification("¡Plan Anual actualizado!", "success"); } };
+  const handleImportExcelRiesgos = (e) => processExcelRiesgos({ event: e, safeRiesgos, setRiesgos, saveToCloud, showNotification, setIsCloudLoaded, user, confirmarEliminacion });
+  const forceUpdateCronograma = async () => { if (await confirmarEliminacion('Se eliminará el cronograma actual y se reemplazará por los 20 procesos oficiales del Plan Anual.')) { await saveToCloud({ cronograma: defaultCronograma }); showNotification("¡Plan Anual actualizado!", "success"); } };
   const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
   const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification), [user, showNotification]);
   const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.email, showNotification), [user, showNotification]);
@@ -542,15 +552,18 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   // 1. Tareas que el usuario debe EJECUTAR (Subir evidencias y avance)
   const misPlanesEjecucion = planesConOrigen.filter(p => {
     const correoEjecutor = (p.correoResponsable || '').trim().toLowerCase();
-    return correoEjecutor === userEmailLower.trim() && p.estadoWorkflow === 'En Ejecución';
+    return correoEjecutor === userEmailLower.trim() && ['En Ejecución', ESTADO_AJUSTES_INICIALES].includes(p.estadoWorkflow);
   });
   const misTareasEjecucion = misPlanesEjecucion.length;
 
   // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
   const misPlanesRevision = planesConOrigen.filter(p => {
     const correoRevisor = (p.correoRevisor || '').trim().toLowerCase();
+    const hallazgo = safeHallazgos.find(item => String(item.id) === String(p.idHallazgo));
+    const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo?.idInforme || p.idInforme));
     return correoRevisor === userEmailLower.trim() &&
-      ['Pendiente Revisión Jefatura', 'Pendiente Validación Revisor'].includes(p.estadoWorkflow);
+      (p.estadoWorkflow === 'Pendiente Validación Revisor' ||
+        (p.estadoWorkflow === 'Pendiente Revisión Jefatura' && !esInformePrograma(informe, fuentesMejora)));
   });
   const misTareasRevision = misPlanesRevision.length;
 
@@ -561,6 +574,8 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
   const misPlanesAprobacion = planesConOrigen.filter(p => {
+    const hallazgo = safeHallazgos.find(item => String(item.id) === String(p.idHallazgo));
+    const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo?.idInforme || p.idInforme));
     const correosAuditor = [p.correoAuditor, p.correoAuditorResponsable, p.correo_auditor]
       .map(normalizarIdentidad)
       .filter(Boolean);
@@ -572,8 +587,9 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
       ? correosAuditor.includes(normalizarIdentidad(userEmailLower))
       : Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
     return esAuditorDelPlan &&
-           (['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow) ||
-            (p.estadoWorkflow === 'En Ejecución' && Number(p.progreso) >= 100));
+           ((esInformePrograma(informe, fuentesMejora) && pendienteEvaluacionInicial(p)) ||
+            ['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow) ||
+            (!esInformePrograma(informe, fuentesMejora) && p.estadoWorkflow === 'En Ejecución' && Number(p.progreso) >= 100));
   });
   const misTareasAprobacion = misPlanesAprobacion.length;
 

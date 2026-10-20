@@ -1,5 +1,6 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import { useState, useEffect, useCallback } from 'react';
+import { useDeleteConfirmation } from '../../hooks/useDeleteConfirmation.js';
 import { auditarAuxilioTransporte, auditarSeguridadSocial, auditarJornadaLaboral } from '../../utils/motorAuditoria';
 import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica, cargarNominaHistorica } from '../../services/historicoService';
 import DashboardHistorico from './DashboardHistorico';
@@ -10,6 +11,7 @@ const normalizarTexto = (str) => {
 };
 
 const ConceptMapper = () => {
+  const confirmarEliminacion = useDeleteConfirmation();
   const [datosExcel, setDatosExcel] = useState(null);
   const [conceptosExtraidosUI, setConceptosExtraidosUI] = useState([]);
 
@@ -508,7 +510,7 @@ if (empleado.usoHistoricoAnterior) {
   const [seleccionadosHistorico, setSeleccionadosHistorico] = useState([]);
 
   const handleEliminarHistorico = async (id, periodo, empresa) => {
-    if (window.confirm(`⚠️ ¿Estás seguro de eliminar permanentemente la base histórica de ${empresa} (${periodo})?\n\nEsta acción no se puede deshacer.`)) {
+    if (await confirmarEliminacion(`Se eliminará permanentemente la base histórica de ${empresa} (${periodo}).`)) {
       try {
         await eliminarNominaHistorica(id);
         const data = await obtenerListaHistoricos();
@@ -523,7 +525,7 @@ if (empleado.usoHistoricoAnterior) {
 
   const handleEliminarMultiplesHistoricos = async () => {
     if (seleccionadosHistorico.length === 0) return;
-    if (window.confirm(`⚠️ ¿Estás seguro de eliminar permanentemente ${seleccionadosHistorico.length} bases históricas en lote?\n\nEsta acción no se puede deshacer.`)) {
+    if (await confirmarEliminacion(`Se eliminarán permanentemente ${seleccionadosHistorico.length} bases históricas seleccionadas.`)) {
       setIsUploading(true); 
       try {
         await Promise.all(seleccionadosHistorico.map(id => eliminarNominaHistorica(id)));

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { createPortal } from 'react-dom';
 import { BadgeCheck, CheckCircle2, ClipboardCheck, Play, Search, X } from 'lucide-react';
 
@@ -7,6 +8,7 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
+import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, calcularPuntajeDiseno, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 
 const normalizarIdentidad = valor => String(valor || '')
   .trim()
@@ -143,6 +145,7 @@ export default function Planes({
   informesAuditoria = [],
   fuentesMejora = []
 }) {
+  const confirmarEliminacion = useDeleteConfirmation();
   const { catalogoCargos = [], cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
 
   const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
@@ -328,6 +331,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   const dictamenRef = useRef(null);
   const [criterios, setCriterios] = useState({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   const [justificacion, setJustificacion] = useState('');
+  const [guardandoEvaluacionInicial, setGuardandoEvaluacionInicial] = useState(false);
   const guardEvaluacionIntegral = useUnsavedChangesGuard(
     modalEval.activo && !modalEval.isReadOnly && (Object.values(criterios).some(valor => Number(valor) !== 100) || Boolean(justificacion.trim())),
     'la evaluación integral'
@@ -340,7 +344,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     modalEficaciaCierre.activo && Boolean(modalEficaciaCierre.conclusion.trim() || modalEficaciaCierre.fueEficaz || modalEficaciaCierre.requiereAcciones === 'si' || modalEficaciaCierre.observaciones.trim()),
     'la evaluación de eficacia'
   );
-  const cerrarModalEvaluacionIntegral = () => guardEvaluacionIntegral(() => {
+  const cerrarModalEvaluacionIntegral = () => !guardandoEvaluacionInicial && guardEvaluacionIntegral(() => {
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false });
     setJustificacion('');
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
@@ -362,9 +366,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     return correosPlanes.length === 1 ? correosPlanes[0] : correoInforme;
   };
 
-  const esFuenteProgramaAuditoria = informe => (
-    informe?.tipoFuente === 'Programa de Auditoría' && Boolean(informe?.programaId)
-  );
+  const esFuenteProgramaAuditoria = informe => esInformePrograma(informe, fuentesMejora);
 
   const esPlanProgramaAuditoria = plan => {
     const hallazgo = hallazgosPorId.get(String(plan?.idHallazgo));
@@ -374,6 +376,10 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   };
 
   const enviarNotificacionPlanConReintento = async (payload, autorizacionLista = true) => {
+    if (!payload?.destinatarios) {
+      showNotification('No se pudo notificar: falta el correo de la persona asignada. Revisa la asignación del plan.', 'error');
+      return false;
+    }
     let enviado = false;
     if (autorizacionLista && typeof ejecutarDespachoGmailApi === 'function') {
       try {
@@ -388,24 +394,41 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     return enviado;
   };
 
+  const notificarRegistroPlan = async (plan, correoPreparado) => {
+    const programa = esPlanProgramaAuditoria(plan);
+    const enlace = `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`;
+    const resultados = await Promise.all([
+      enviarNotificacionPlanConReintento({
+        ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        titulo_informe: programa ? 'Acción guardada: pendiente de evaluación del auditor' : 'Acción creada: pendiente de revisión',
+        proceso_auditado: programa
+          ? `La acción "${plan.accion}" quedó guardada. El auditor asignado debe evaluar su diseño; la ejecución se habilitará con un resultado mayor o igual al 80%.`
+          : `La acción "${plan.accion}" quedó guardada y está pendiente de revisión por ${plan.revisor}.`,
+        enlace_pdf: enlace,
+        destinatarios: plan.correoResponsable,
+      }, correoPreparado),
+      enviarNotificacionPlanConReintento({
+        ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        titulo_informe: programa ? 'Acción requerida: evaluar diseño de acciones' : 'Acción requerida: revisar plan de acción',
+        proceso_auditado: programa
+          ? `Se registró la acción "${plan.accion}". Como auditor asignado, evalúe el diseño antes de su ejecución. Mayor o igual al 80% aprueba; menos del 80% requiere correcciones.`
+          : `Se registró la acción "${plan.accion}"; ingrese para revisar el diseño.`,
+        enlace_pdf: enlace,
+        destinatarios: programa ? plan.correoAuditor : plan.correoRevisor,
+      }, correoPreparado),
+    ]);
+    return resultados.every(Boolean);
+  };
+
   // Un plan al 100% sigue pendiente del auditor aunque su fase guardada sea antigua.
   const enRevisionAuditor = plan => (
     plan?.estadoWorkflow === 'En Revisión (100%)' ||
-    (plan?.estadoWorkflow === 'En Ejecución' && Number(plan?.progreso) >= 100)
+    (!esPlanProgramaAuditoria(plan) && plan?.estadoWorkflow === 'En Ejecución' && Number(plan?.progreso) >= 100)
   );
+  const planCerrado = plan => plan.estadoWorkflow === 'Cerrado' || (!plan.estadoWorkflow && plan.estado === 'Cerrado');
 
   const paqueteListoParaEvaluacion = (informe, planes = []) => (
-    esFuenteProgramaAuditoria(informe) && planes.length > 0 && planes.every(plan => (
-      Number(plan.progreso) === 100 && plan.estadoWorkflow === 'En Revisión (100%)'
-    ))
-  );
-
-  const paqueteTieneEvaluacionAprobada = (planes = []) => (
-    planes.length > 0 && planes.every(plan => (
-      plan.evaluacionHolistica?.tipo === 'evaluacion-final-ejecucion' &&
-      plan.evaluacionHolistica?.aprobado === true &&
-      Number(plan.evaluacionHolistica?.puntaje) > 80
-    ))
+    esFuenteProgramaAuditoria(informe) && planes.length > 0 && planes.every(pendienteEvaluacionInicial)
   );
 
   const esAuditorAsignadoEvaluador = (informe, planes = []) => {
@@ -433,14 +456,15 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   };
 
   const iniciarEvaluacionIntegral = (informe, planes) => {
-    if (!paqueteListoParaEvaluacion(informe, planes) || !esAuditorAsignadoEvaluador(informe, planes)) return;
+    const pendientes = planes.filter(plan => pendienteEvaluacionInicial(plan) && esAuditorAsignado(plan, user?.email, perfilUsuario));
+    if (!paqueteListoParaEvaluacion(informe, pendientes) || !esAuditorAsignadoEvaluador(informe, pendientes)) return;
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
     setJustificacion('');
     setModalEval({
       activo: true,
       idInforme: informe.id,
-      planes,
-      totalActividades: planes.length,
+      planes: pendientes,
+      totalActividades: pendientes.length,
       isReadOnly: false,
     });
   };
@@ -451,43 +475,6 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       showNotification('Esta acción no está pendiente de aprobación para tu usuario.', 'error');
       return;
     }
-    if (esPlanProgramaAuditoria(plan)) {
-      const planesInforme = safePlanes.filter(item => {
-        const hallazgo = hallazgosPorId.get(String(item.idHallazgo));
-        return String(hallazgo?.idInforme || item.idInforme) === String(plan.idInforme);
-      });
-      if (!paqueteTieneEvaluacionAprobada(planesInforme)) {
-        const informe = informesAuditoria.find(item => String(item.id) === String(plan.idInforme));
-        if (!paqueteListoParaEvaluacion(informe, planesInforme)) {
-          showNotification('En Programa de Auditoría, todas las acciones deben estar al 100% y validadas por el revisor antes de la evaluación integral.', 'error');
-          return;
-        }
-        const esEjecutor = planesInforme.some(item => String(item.correoResponsable || '')
-          .split(',').map(normalizarIdentidad).includes(normalizarIdentidad(user?.email)));
-        if (esEjecutor) {
-          showNotification('El auditor también figura como ejecutor del paquete. Asigna otro auditor para la evaluación integral.', 'error');
-          return;
-        }
-        if (!esAuditorAsignadoEvaluador(informe, planesInforme)) {
-          showNotification('Tu correo o cargo no coincide con el auditor asignado al informe/paquete. Revisa la asignación del auditor y su correo.', 'error');
-          return;
-        }
-        iniciarEvaluacionIntegral(informe, planesInforme);
-        return;
-      }
-      if (!window.confirm('La evaluación integral está aprobada. ¿Cerrar únicamente esta acción?')) return;
-      try {
-        const respuesta = await apiService.decidirPlanComoAuditor(plan.id, 'cerrar');
-        if (!respuesta?.plan) throw new Error('El servidor no confirmó el cierre de la acción.');
-        setPlanes(prev => (Array.isArray(prev) ? prev : []).map(item => (
-          String(item.id) === String(plan.id) ? respuesta.plan : item
-        )));
-        showNotification('Acción cerrada. Las demás acciones conservan su estado.', 'success');
-      } catch (error) {
-        showNotification(error.message || 'No se pudo cerrar la acción.', 'error');
-      }
-      return;
-    }
     setModalEficaciaCierre({
       activo: true, plan, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '',
     });
@@ -495,7 +482,12 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   
   // 🛡️ Salvaguarda: Si el registro es viejo y no tiene criterios, usa 100 por defecto para no romper React
   const safeCriterios = criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 };
-  const puntajeHolistico = Math.round((safeCriterios.c1 * 0.3) + (safeCriterios.c2 * 0.2) + (safeCriterios.c3 * 0.2) + (safeCriterios.c4 * 0.2) + (safeCriterios.c5 * 0.1));
+  const puntajeHolistico = calcularPuntajeDiseno(Object.fromEntries(
+    Object.entries(safeCriterios).map(([clave, valor]) => [clave, Number(valor)])
+  ));
+  const evaluacionAprobadaVisible = modalEval.isReadOnly
+    ? modalEval.planes.find(plan => plan.evaluacionHolistica)?.evaluacionHolistica?.aprobado === true
+    : puntajeHolistico >= 80;
 
 
 // =========================================================
@@ -554,10 +546,10 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
 
   const evaluacionesIntegralesPendientes = informesAuditoria.flatMap(informe => {
     if (!esFuenteProgramaAuditoria(informe)) return [];
-    const planes = planesEnriquecidos.filter(plan => String(plan.idInforme) === String(informe.id));
+    const planes = planesEnriquecidos.filter(plan => String(plan.idInforme) === String(informe.id) &&
+      pendienteEvaluacionInicial(plan) && esAuditorAsignado(plan, user?.email, perfilUsuario));
     if (
       !paqueteListoParaEvaluacion(informe, planes) ||
-      paqueteTieneEvaluacionAprobada(planes) ||
       !esAuditorAsignadoEvaluador(informe, planes)
     ) return [];
     return [{ informe, planes, actividadesPendientes: planes.length }];
@@ -648,9 +640,9 @@ const handleNotificarPlan = async (planId) => {
   // 2. Filtrado Final (Incluye el clic en las tarjetas de estado)
   const planesDashboard = useMemo(() => planesFiltradosBase.filter(p => {
     if (dashFiltroEstado !== 'Todos') {
-      if (dashFiltroEstado === 'Cerrado' && p.progreso < 100) return false;
+      if (dashFiltroEstado === 'Cerrado' && !planCerrado(p)) return false;
       if (dashFiltroEstado === 'Vencido' && !p.esVencido) return false;
-      if (dashFiltroEstado === 'En Proceso' && (p.progreso === 100 || p.progreso === 0 || p.esVencido)) return false;
+      if (dashFiltroEstado === 'En Proceso' && (planCerrado(p) || p.progreso === 0 || p.esVencido)) return false;
       if (dashFiltroEstado === 'Pendiente' && (p.progreso > 0 || p.esVencido)) return false;
     }
     return true;
@@ -658,8 +650,8 @@ const handleNotificarPlan = async (planId) => {
 
   // 3. Cálculos Dinámicos de las Tarjetas (Basados en planesFiltradosBase para no desaparecer al hacer clic)
   const totalPlanesBase = planesFiltradosBase.length;
-  const cerrados = planesFiltradosBase.filter(p => p.progreso === 100).length;
-  const enProceso = planesFiltradosBase.filter(p => p.progreso > 0 && p.progreso < 100 && !p.esVencido).length;
+  const cerrados = planesFiltradosBase.filter(planCerrado).length;
+  const enProceso = planesFiltradosBase.filter(p => p.progreso > 0 && !planCerrado(p) && !p.esVencido).length;
   const pendientes = planesFiltradosBase.filter(p => (p.progreso === 0 || !p.progreso) && !p.esVencido).length;
   const vencidos = planesFiltradosBase.filter(p => p.esVencido).length;
   const cumplimientoGlobal = totalPlanesBase > 0 ? Math.round((cerrados / totalPlanesBase) * 100) : 0;
@@ -678,7 +670,7 @@ const handleNotificarPlan = async (planId) => {
       if (agruparPor === 'Año') key = p.anioTexto;
       if (agruparPor === 'Proceso') key = p.proceso;
       if (agruparPor === 'Subproceso') key = (p.subprocesos || [p.subproceso]).join(', ');
-      if (agruparPor === 'Estado') key = p.progreso === 100 ? 'Cerrados' : p.esVencido ? 'Vencidos' : 'En Proceso';
+      if (agruparPor === 'Estado') key = planCerrado(p) ? 'Cerrados' : p.esVencido ? 'Vencidos' : 'En Proceso';
       if (agruparPor === 'Responsable') key = p.responsable;
       if (agruparPor === 'Prioridad') key = p.severidad;
       if (agruparPor === 'Tipo de Fuente') key = p.tipoFuente || 'Sin fuente';
@@ -720,6 +712,8 @@ const handleNotificarPlan = async (planId) => {
     );
 
     const idInformeReal = informeEncontrado ? String(informeEncontrado.id) : String(formInformeId);
+    const esProgramaInforme = esFuenteProgramaAuditoria(informeEncontrado);
+    const notificarNuevas = enviarNotificaciones || esProgramaInforme;
 
     let errorCorreosEjecutor = false;
     let errorCorreosRevisor = false;
@@ -891,7 +885,7 @@ const handleNotificarPlan = async (planId) => {
         return;
       }
 
-      const requiereCorreoNuevo = actividadesNuevas.length > 0 && enviarNotificaciones;
+      const requiereCorreoNuevo = actividadesNuevas.length > 0 && notificarNuevas;
       const requierePrepararGmail = requiereCorreoNuevo || requiereNotificacionEdicion;
       let promesaPreparacionGmail = null;
       if (requierePrepararGmail && prepararEnvioGmail) {
@@ -922,12 +916,12 @@ const handleNotificarPlan = async (planId) => {
         setPlanes(planesFinales);
         handleInformeChange(formInformeId, planesFinales, safeHallazgos);
         const enlaceRevision = `${window.location.origin}/?reviewReportId=${encodeURIComponent(formInformeId)}`;
-        const hayReenvioDiseno = planesActualizados.some(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
+        const hayReenvioDiseno = planesActualizados.some(plan => ['Pendiente Revisión Jefatura', ESTADO_EVALUACION_INICIAL].includes(plan.estadoWorkflow));
         const hayAvanceAlCien = planesActualizados.some(plan => plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR);
         const mensajeGuardado = actividadesNuevas.length > 0
           ? `${planesCreados.length} plan(es) guardado(s) correctamente.`
           : hayReenvioDiseno
-            ? 'Diseño guardado y enviado a revisión de jefatura.'
+            ? 'Diseño guardado y enviado a la persona encargada de aprobarlo.'
             : hayAvanceAlCien
               ? 'Avance guardado y enviado a validación del revisor.'
               : 'Avance guardado correctamente.';
@@ -948,38 +942,25 @@ const handleNotificarPlan = async (planId) => {
           }
         }
         if ((requiereNotificacionEdicion || requiereCorreoNuevo) && !correoPreparado) todasNotificacionesEnviadas = false;
-        if (actividadesNuevas.length > 0 && enviarNotificaciones) {
+        if (actividadesNuevas.length > 0 && notificarNuevas) {
           for (const plan of planesCreados) {
-            const correoEjecutorEnviado = await enviarNotificacionPlanConReintento({
-              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-              titulo_informe: 'Acción Creada - Pendiente de Revisión',
-              proceso_auditado: `Has elaborado el plan de acción: "${plan.accion}". Está pendiente de revisión por ${plan.revisor}.`,
-              enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
-              destinatarios: plan.correoResponsable,
-            }, correoPreparado);
-            const correoRevisorEnviado = await enviarNotificacionPlanConReintento({
-              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-              titulo_informe: 'Acción requerida: revisar Plan de Acción',
-              proceso_auditado: `El responsable ${plan.responsable} creó el plan "${plan.accion}". Ingrese a la plataforma para revisarlo.`,
-              enlace_pdf: enlaceRevision,
-              destinatarios: plan.correoRevisor,
-            }, correoPreparado);
-            if (!correoEjecutorEnviado || !correoRevisorEnviado) todasNotificacionesEnviadas = false;
+            if (!(await notificarRegistroPlan(plan, correoPreparado))) todasNotificacionesEnviadas = false;
           }
         }
         if (actividadesEditadas.length > 0 && requiereNotificacionEdicion) {
-          const planesReenviadosARevision = planesActualizados.filter(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
+          const planesReenviadosARevision = planesActualizados.filter(plan => ['Pendiente Revisión Jefatura', ESTADO_EVALUACION_INICIAL].includes(plan.estadoWorkflow));
           for (const plan of planesReenviadosARevision) {
-            if (!plan.correoRevisor) {
+            const destinatario = esProgramaInforme ? plan.correoAuditor : plan.correoRevisor;
+            if (!destinatario) {
               todasNotificacionesEnviadas = false;
               continue;
             }
             const correoRevisorEnviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
               titulo_informe: 'Diseño corregido: pendiente de nueva revisión',
-              proceso_auditado: `El responsable ${plan.responsable} corrigió el plan "${plan.accion}". La acción volvió a Pendiente Revisión Jefatura; ingrese a la matriz para aprobarla o solicitar otra corrección.`,
+              proceso_auditado: `El responsable ${plan.responsable} corrigió el plan "${plan.accion}". Ingrese para ${esProgramaInforme ? 'evaluar nuevamente el diseño; la ejecución sigue bloqueada hasta aprobar con al menos el 80%' : 'aprobarlo o solicitar otra corrección'}.`,
               enlace_pdf: enlaceRevision,
-              destinatarios: plan.correoRevisor,
+              destinatarios: destinatario,
             }, correoPreparado);
             if (!correoRevisorEnviado) todasNotificacionesEnviadas = false;
           }
@@ -1022,7 +1003,7 @@ const handleNotificarPlan = async (planId) => {
       if (node.aplica) {
         node.actividades.forEach(act => {
           if (!String(act.id).startsWith('new-')) {
-            idsSobrevivientes.push(Number(act.id));
+            idsSobrevivientes.push(String(act.id));
           }
         });
       }
@@ -1038,20 +1019,10 @@ const handleNotificarPlan = async (planId) => {
     updatedPlanesList = updatedPlanesList.filter(plan => {
       if (idsHallazgosActuales.has(String(plan.idHallazgo))) {
         // Si el plan pertenece a este informe, SOLO se queda si está en los sobrevivientes
-        return idsSobrevivientes.includes(plan.id);
+        return idsSobrevivientes.includes(String(plan.id));
       }
       return true; // Conservamos intactos los planes de otros informes
     });
-
-    // Obtiene el correo desde el .env (o usa un respaldo genérico)
-const correoAdminDefault = import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com";
-
-const diccionarioCorreos = {
-  "Rodolfo González": correoAdminDefault,
-  "Yehison Pineda": correoAdminDefault,
-  "Angelica Hernandez": correoAdminDefault,
-  "Luz Angela Chico": correoAdminDefault
-};
 
     Object.keys(matrixState).forEach(hallazgoId => {
       const node = matrixState[hallazgoId];
@@ -1061,16 +1032,22 @@ const diccionarioCorreos = {
         if (!act.accion || act.accion.trim() === '') return;
 
         const isNew = String(act.id).startsWith('new-');
+        const planOriginal = safePlanes.find(plan => String(plan.id) === String(act.id));
         const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
+        const camposDiseno = ['accion', 'sede', 'responsable', 'correoResponsable', 'revisor', 'correoRevisor', 'auditorAsignado', 'correoAuditor', 'fechaInicio', 'fecha', 'tipoAccion', 'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal'];
+        const cambiaDisenoPrograma = esProgramaInforme && !isNew && camposDiseno.some(campo => (
+          JSON.stringify(planOriginal?.[campo] ?? '') !== JSON.stringify(act[campo] ?? '')
+        ));
         
        let workflowCalculado = act.estadoWorkflow || 'Pendiente Revisión Jefatura';
 
         // LÓGICA DE MÁQUINA DE ESTADOS 3 NIVELES
         if (isNew) {
-          workflowCalculado = 'Pendiente Revisión Jefatura';
+          workflowCalculado = esProgramaInforme ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura';
+        } else if (cambiaDisenoPrograma) {
+          workflowCalculado = ESTADO_EVALUACION_INICIAL;
         } else if (progresoEntero === 100 && workflowCalculado === 'En Ejecución') {
           workflowCalculado = ESTADO_PENDIENTE_VALIDACION_REVISOR;
-          notificacionesRevision100.push(act);
         } else if (progresoEntero < 100 && [ESTADO_PENDIENTE_VALIDACION_REVISOR, 'En Revisión (100%)'].includes(workflowCalculado)) {
           workflowCalculado = 'En Ejecución';
         }
@@ -1078,7 +1055,8 @@ const diccionarioCorreos = {
         // 🛡️ Salvaguardas para extraer datos correctamente, asegurando que no queden valores en blanco que rompan el sistema.
         const hallazgoReal = safeHallazgos.find(h => String(h.id) === String(hallazgoId));
         const planData = {
-          id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
+          ...planOriginal,
+          id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : planOriginal.id,
           idHallazgo: hallazgoReal ? hallazgoReal.id : hallazgoId,
           idInforme: idInformeReal,
           accion: act.accion,
@@ -1089,7 +1067,8 @@ const diccionarioCorreos = {
           correoRevisor: (act.correoRevisor || '').trim(),
           auditorAsignado: act.auditorAsignado || 'Sin Asignar',
           correoAuditor: (act.correoAuditor || '').trim(),
-          progreso: progresoEntero,
+          progreso: isNew && esProgramaInforme ? 0 : progresoEntero,
+          ...(cambiaDisenoPrograma ? { evaluacionHolistica: null, aprobadoPorCorreo: '', aprobadoEn: '', validadoPorRevisorCorreo: '', validadoPorRevisorEn: '' } : {}),
           fechaInicio: act.fechaInicio || null, // Mejor null que string vacío para fechas
           fecha: act.fecha || null,
           evidenciaUrl: act.evidenciaUrl || '',
@@ -1108,14 +1087,14 @@ const diccionarioCorreos = {
           updatedPlanesList.push(planData);
           notificacionesRadicadas.push(planData);
 } else {
-          const idx = updatedPlanesList.findIndex(p => p.id === Number(act.id));
+          const idx = updatedPlanesList.findIndex(p => String(p.id) === String(act.id));
           if (idx !== -1) {
             planData.historialCambios = [...(updatedPlanesList[idx].historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: 'Actividad modificada en matriz' }];
-            if (progresoEntero === 100 && updatedPlanesList[idx].progreso < 100) {
+            if (workflowCalculado === ESTADO_PENDIENTE_VALIDACION_REVISOR && planOriginal.estadoWorkflow !== ESTADO_PENDIENTE_VALIDACION_REVISOR) {
               notificacionesRevision100.push(planData);
             }
             updatedPlanesList[idx] = planData;
-            notificacionesRadicadas.push(planData);
+            if (cambiaDisenoPrograma) notificacionesRadicadas.push(planData);
           }
         }
       });
@@ -1159,8 +1138,7 @@ const diccionarioCorreos = {
       }
     });
 
-    const requiereCorreoAdmin = enviarNotificaciones &&
-      (notificacionesRadicadas.length > 0 || notificacionesRevision100.length > 0);
+    const requiereCorreoAdmin = (notificarNuevas && notificacionesRadicadas.length > 0) || notificacionesRevision100.length > 0;
     let correoPreparadoAdmin = true;
     let promesaPreparacionCorreoAdmin = null;
     if (requiereCorreoAdmin && prepararEnvioGmail) {
@@ -1196,39 +1174,21 @@ const diccionarioCorreos = {
 
    // 📧 NOTIFICACIÓN 1: CREACIÓN - CASCADA AL REVISOR
     let todasNotificacionesEnviadas = correoPreparadoAdmin;
-    if (enviarNotificaciones && notificacionesRadicadas.length > 0) {
+    if (notificarNuevas && notificacionesRadicadas.length > 0) {
       for (const plan of notificacionesRadicadas) {
-        // 1A. Avisar a quien elabora que la tarea quedó guardada
-        const correoEjecutorEnviado = await enviarNotificacionPlanConReintento({
-          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-          titulo_informe: `[Paso 1/3] Acción Creada - Pendiente de Revisión`,
-          proceso_auditado: `Has elaborado el plan de acción: "${plan.accion}". Actualmente se encuentra en estado 'Pendiente Revisión Jefatura' a cargo de ${plan.revisor}.`,
-          enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
-          destinatarios: plan.correoResponsable
-        }, correoPreparadoAdmin);
-
-        // 1B. Notificar AL REVISOR que tiene una tarea esperando su Visto Bueno
-        const correoRevisorEnviado = await enviarNotificacionPlanConReintento({
-          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-          titulo_informe: `⏳ ACCIÓN REQUERIDA: Revisar Plan de Acción`,
-          proceso_auditado: `El responsable ${plan.responsable} ha creado el plan: "${plan.accion}". Ingrese al sistema GRC para APROBAR este diseño y remitirlo al Auditor de seguimiento.`,
-          enlace_pdf: 'https://auditoria-gcm.vercel.app',
-          destinatarios: plan.correoRevisor
-        }, correoPreparadoAdmin);
-        if (!correoEjecutorEnviado || !correoRevisorEnviado) todasNotificacionesEnviadas = false;
+        if (!(await notificarRegistroPlan(plan, correoPreparadoAdmin))) todasNotificacionesEnviadas = false;
       }
     }
 
     // 📧 NOTIFICACIÓN 2: ALERTA DE TRABAJO AL 100% PARA EL AUDITOR
-    if (enviarNotificaciones && notificacionesRevision100.length > 0) {
+    if (notificacionesRevision100.length > 0) {
       for (const act of notificacionesRevision100) {
-        const correoAuditorTarget = act.correoAuditor || diccionarioCorreos[act.auditorAsignado] || correoAdminDefault;
         const correoRevisionEnviado = await enviarNotificacionPlanConReintento({
           ref_consecutivo: `PLA-${String(act.id).slice(-4)}`,
-          titulo_informe: `Verificar evidencias al 100% para cierre`,
-          proceso_auditado: `El plan de acción completó su ejecución al 100%. Ingrese a la plataforma para aprobar las evidencias y proceder al Cierre Formal.`,
-          enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
-          destinatarios: correoAuditorTarget
+          titulo_informe: 'Plan al 100%: validación del revisor requerida',
+          proceso_auditado: `La acción "${act.accion}" completó su ejecución al 100%. Valide las evidencias para remitirla al auditor asignado para el cierre final.`,
+          enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(idInformeReal)}`,
+          destinatarios: act.correoRevisor
         }, correoPreparadoAdmin);
         if (!correoRevisionEnviado) todasNotificacionesEnviadas = false;
       }
@@ -1241,91 +1201,40 @@ const diccionarioCorreos = {
 
  // 🛡️ NUEVA FUNCIÓN: EVALUACIÓN HOLÍSTICA Y PONDERADA DEL PLAN DE ACCIÓN
   const confirmarEvaluacionHolistica = async () => {
+    if (guardandoEvaluacionInicial) return;
     const informeEvaluado = informesAuditoria.find(informe => String(informe.id) === String(modalEval.idInforme));
     if (
       modalEval.isReadOnly ||
       !paqueteListoParaEvaluacion(informeEvaluado, modalEval.planes) ||
       !esAuditorAsignadoEvaluador(informeEvaluado, modalEval.planes)
     ) {
-      alert('La evaluación solo está disponible para el auditor asignado cuando todas las acciones estén al 100% y validadas por el revisor.');
+      alert('La evaluación inicial solo está disponible para el auditor asignado antes de habilitar la ejecución.');
       return;
     }
 
-    const esAprobado = puntajeHolistico > 80;
+    const esAprobado = puntajeHolistico >= 80;
     if (!esAprobado && justificacion.trim() === '') {
-      return alert('Debes justificar técnicamente la evaluación cuando el puntaje sea de 80% o menos.');
+      return alert('Debes justificar técnicamente la evaluación cuando el puntaje sea inferior al 80%.');
     }
     if (!window.confirm(`¿Confirmar evaluación de este paquete de acciones con un score de ${puntajeHolistico}%?`)) return;
 
-    const ts = new Date().toLocaleString();
-    let updatedPlanesList = [...safePlanes];
-    // Actualizamos en lote TODAS las actividades (Acumulando el Historial de Calificaciones)
-    let evaluacionesAplicadas = 0;
-    modalEval.planes.forEach(plan => {
-      const idx = updatedPlanesList.findIndex(p => String(p.id) === String(plan.id));
-      if (idx !== -1) {
-        evaluacionesAplicadas += 1;
-        const nuevaEval = {
-          tipo: 'evaluacion-final-ejecucion',
-          fecha: ts,
-          puntaje: puntajeHolistico,
-          justificacion: justificacion,
-          criterios: { ...criterios },
-          aprobado: esAprobado
-        };
-
-        // Preservamos todas las calificaciones anteriores
-        const historialPrevio = updatedPlanesList[idx].historialEvaluaciones || 
-          (updatedPlanesList[idx].evaluacionHolistica ? [updatedPlanesList[idx].evaluacionHolistica] : []);
-        const nuevoHistorial = [nuevaEval, ...historialPrevio];
-
-        updatedPlanesList[idx] = {
-          ...updatedPlanesList[idx],
-          estadoWorkflow: esAprobado ? 'Cerrado' : 'En Ejecución',
-          estado: esAprobado ? 'Cerrado' : 'En Proceso',
-          progreso: esAprobado ? 100 : 90,
-          ...(esAprobado ? {} : { validadoPorRevisorCorreo: '', validadoPorRevisorEn: '' }),
-          evaluacionHolistica: nuevaEval,
-          historialEvaluaciones: nuevoHistorial, // 👈 Se guarda el historial completo
-          historialCambios: [
-            ...(updatedPlanesList[idx].historialCambios || []),
-            { 
-              fecha: ts, 
-              usuario: 'Auditor', 
-              accion: esAprobado
-                ? `✅ EVALUACIÓN INTEGRAL APROBADA. Acción cerrada (Score: ${puntajeHolistico}%).`
-                : `❌ EVALUACIÓN INTEGRAL NO APROBADA. Se devuelve a ejecución (Score: ${puntajeHolistico}%). Motivo: ${justificacion}`
-            }
-          ]
-        };
-      }
-    });
-    if (evaluacionesAplicadas !== modalEval.planes.length) {
-      showNotification('No se pudieron identificar todas las actividades del paquete. No se guardó la evaluación.', 'error');
+    setGuardandoEvaluacionInicial(true);
+    let promesaCorreo = Promise.resolve(true);
+    try {
+      if (prepararEnvioGmail) promesaCorreo = Promise.resolve(prepararEnvioGmail()).catch(() => false);
+      const respuesta = await apiService.evaluarDisenoPlanes(
+        modalEval.idInforme, modalEval.planes.map(plan => plan.id), criterios, justificacion.trim()
+      );
+      if (respuesta?.planes?.length !== modalEval.planes.length) throw new Error('El servidor no confirmó todas las acciones evaluadas.');
+      const porId = new Map(respuesta.planes.map(plan => [String(plan.id), plan]));
+      setPlanes(prev => prev.map(plan => porId.get(String(plan.id)) || plan));
+    } catch (error) {
+      showNotification(error.message || 'No se pudo guardar la evaluación inicial.', 'error');
+      setGuardandoEvaluacionInicial(false);
       return;
     }
-    const idsHallazgosEvaluados = new Set(modalEval.planes.map(plan => String(plan.idHallazgo)));
-    const hallazgosActualizados = safeHallazgos.map(hallazgo => {
-      if (!esAprobado || !idsHallazgosEvaluados.has(String(hallazgo.id))) return hallazgo;
-      const acciones = updatedPlanesList.filter(plan => String(plan.idHallazgo) === String(hallazgo.id));
-      if (!acciones.length || !acciones.every(plan => plan.estadoWorkflow === 'Cerrado') || hallazgo.estado === 'Cerrado') return hallazgo;
-      return {
-        ...hallazgo,
-        estado: 'Cerrado',
-        historialCambios: [...(hallazgo.historialCambios || []), {
-          fecha: ts,
-          usuario: user?.email || 'Auditor',
-          accion: 'Hallazgo cerrado: todas sus acciones fueron aprobadas en la evaluación integral.',
-        }],
-      };
-    });
-    const guardado = await saveToCloud({
-      planes: updatedPlanesList,
-      ...(esAprobado ? { hallazgos: hallazgosActualizados } : {}),
-    });
-    if (!guardado) return;
-    setPlanes(updatedPlanesList);
-    if (esAprobado && setHallazgos) setHallazgos(hallazgosActualizados);
+    setGuardandoEvaluacionInicial(false);
+    const evaluacionesAplicadas = modalEval.planes.length;
 
     const destinatarios = [...new Set(modalEval.planes.flatMap(plan => [
       plan.correoResponsable, plan.correoRevisor, plan.correoAuditor,
@@ -1335,8 +1244,8 @@ const diccionarioCorreos = {
     const dictamen = justificacion.trim();
     volverAlHistorialTrasGuardarAccion(
       esAprobado
-        ? `Evaluación aprobada (${puntajeHolistico}%). Las ${evaluacionesAplicadas} acciones evaluadas quedaron cerradas.`
-        : `Evaluación guardada (${puntajeHolistico}%). Las acciones volvieron a ejecución al 90% para ajustes.`,
+        ? `Diseño aprobado (${puntajeHolistico}%). Ejecución habilitada para ${evaluacionesAplicadas} acciones.`
+        : `Diseño no aprobado (${puntajeHolistico}%). Se requieren correcciones antes de ejecutar.`,
       modalEval.idInforme
     );
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
@@ -1344,15 +1253,15 @@ const diccionarioCorreos = {
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
     void (async () => {
       try {
-        const autorizado = prepararEnvioGmail ? Boolean(await prepararEnvioGmail()) : true;
+        const autorizado = Boolean(await promesaCorreo);
         const enviado = await enviarNotificacionPlanConReintento({
           ref_consecutivo: informeEvaluado.ref || String(informeEvaluado.id),
-          asunto: esAprobado ? 'Evaluación aprobada y acciones cerradas' : 'Evaluación no aprobada: acciones devueltas para ajuste',
-          titulo_informe: esAprobado ? 'Cierre confirmado del plan de acción' : 'Acciones devueltas a ejecución',
+          asunto: esAprobado ? 'Diseño aprobado: ejecución habilitada' : 'Diseño no aprobado: corregir acciones',
+          titulo_informe: esAprobado ? 'Ya puedes ejecutar tus acciones' : 'Corrige el diseño y reenvíalo al auditor',
           proceso_auditado: esAprobado
-            ? `El auditor asignado aprobó la evaluación con ${puntajeHolistico}%. Las ${evaluacionesAplicadas} acciones evaluadas quedaron cerradas. Dictamen: ${dictamen || 'Sin observaciones adicionales.'}`
-            : `La evaluación obtuvo ${puntajeHolistico}%. Las acciones vuelven a ejecución al 90%. Justificación: ${dictamen}`,
-          enlace_pdf: window.location.origin,
+            ? `El auditor asignado aprobó el diseño con ${puntajeHolistico}%. Las ${evaluacionesAplicadas} acciones están habilitadas para ejecución. Al llegar al 100%, pasarán al revisor y después al auditor para el cierre final. Dictamen: ${dictamen || 'Sin observaciones adicionales.'}`
+            : `La evaluación inicial obtuvo ${puntajeHolistico}%. La ejecución sigue bloqueada. Corrige las acciones y guárdalas para reenviarlas al auditor asignado. Justificación: ${dictamen}`,
+          enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(informeEvaluado.id)}`,
           destinatarios: destinatarios.join(', '),
         }, autorizado);
         if (!enviado) showNotification('La evaluación quedó guardada. La notificación a los responsables está pendiente de reintento.', 'error');
@@ -1369,7 +1278,7 @@ if (!isAdmin && !puedeCrearPlanes) {
     return alert("❌ Permiso denegado. Solo un Administrador puede eliminar evaluaciones.");
     }
     
-    if (!window.confirm("¿Estás seguro de que deseas ELIMINAR esta evaluación del historial? Esta acción es irreversible y recalculará el estado del plan.")) return;
+    if (!(await confirmarEliminacion('Se eliminará esta evaluación del historial y se recalculará el estado del plan.'))) return;
 
     const ts = new Date().toLocaleString();
     let updatedPlanesList = [...safePlanes];
@@ -1502,8 +1411,8 @@ if (existingActivities.length > 0) {
             revisor: p.revisor || '',
             correoRevisor: p.correoRevisor || '',
             correoRevisorConfirmacion: p.correoRevisor || '',
-            auditorAsignado: informeBase ? auditorHeredado : (p.auditorAsignado || h.auditor || ''),
-            correoAuditor: informeBase ? correoAuditorHeredado : (p.correoAuditor || ''),
+            auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
+            correoAuditor: p.correoAuditor || correoAuditorHeredado,
           })) 
         };
       } else {
@@ -1522,7 +1431,7 @@ if (existingActivities.length > 0) {
             fecha: '', 
             progreso: 0, 
             evidenciaUrl: '', 
-            estadoWorkflow: 'Pendiente Revisión Jefatura',
+            estadoWorkflow: esInformePrograma(informeBase, fuentesMejora) ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
             tipoAccion: 'Acción Correctiva',
             matrizRiesgos: 'No aplica',
             matrizAspectos: 'No aplica',
@@ -1533,7 +1442,7 @@ if (existingActivities.length > 0) {
       }
     });
     setMatrixState(newState);
-  }, [safePlanes, safeHallazgos, informesAuditoria]);
+  }, [safePlanes, safeHallazgos, informesAuditoria, fuentesMejora]);
   // ⚡ Auto-abrir la vista de formulario cuando se selecciona un plan desde el menú lateral
   useEffect(() => {
     if (editPlan && vistaActiva !== 'nuevo') {
@@ -1614,7 +1523,7 @@ if (existingActivities.length > 0) {
           fecha: '', 
           progreso: 0, 
           evidenciaUrl: '', 
-          estadoWorkflow: 'Pendiente Revisión Jefatura',
+          estadoWorkflow: esFuenteProgramaAuditoria(informeBase) ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
           tipoAccion: 'Acción Correctiva',
           matrizRiesgos: 'No aplica',
           matrizAspectos: 'No aplica',
@@ -1625,7 +1534,8 @@ if (existingActivities.length > 0) {
     }));
   };
 
-  const handleRemoveActivity = (hallazgoId, index) => {
+  const handleRemoveActivity = async (hallazgoId, index) => {
+    if (!(await confirmarEliminacion('Se quitará esta actividad de la matriz de planes de acción.'))) return;
     setMatrixDirty(true);
     setMatrixState(prev => {
       const currentActividades = [...prev[hallazgoId].actividades];
@@ -1781,7 +1691,8 @@ if (existingActivities.length > 0) {
 
     setGuardandoAccionKey(key);
     try {
-      const requiereNotificacion = (esNueva && enviarNotificaciones) || llegaAlCien || (!isAdmin && cambioDiseno);
+      const notificarNueva = enviarNotificaciones || esFuenteProgramaAuditoria(informeActual);
+      const requiereNotificacion = (esNueva && notificarNueva) || llegaAlCien || cambioDiseno;
       let correoPreparado = !requiereNotificacion;
       let promesaPreparacionGmail = null;
       if (requiereNotificacion && prepararEnvioGmail) {
@@ -1850,7 +1761,7 @@ if (existingActivities.length > 0) {
         const sinCambios = camposComparados.every(campo => (
           JSON.stringify(planOriginal[campo] ?? null) === JSON.stringify(cambiosFinales[campo] ?? null)
         ));
-        if (sinCambios) {
+        if (sinCambios && !(progreso === 100 && planOriginal.estadoWorkflow === 'En Ejecución')) {
           volverAlHistorialTrasGuardarAccion('Esta acción ya estaba guardada. Puedes retomar las demás desde este historial.', idInformeReal);
           return;
         }
@@ -1881,25 +1792,8 @@ if (existingActivities.length > 0) {
 
       let notificacionEnviada = true;
       try {
-        if (esNueva && enviarNotificaciones) {
-          const enlaceRevision = `${window.location.origin}/?reviewReportId=${encodeURIComponent(idInformeReal)}`;
-          const resultados = await Promise.all([
-            enviarNotificacionPlanConReintento({
-              ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
-              titulo_informe: 'Acción creada: pendiente de revisión',
-              proceso_auditado: `Se registró la acción "${planGuardado.accion}" y está pendiente de revisión por ${planGuardado.revisor}.`,
-              enlace_pdf: planGuardado.evidenciaUrl || enlaceRevision,
-              destinatarios: planGuardado.correoResponsable,
-            }, correoPreparado),
-            enviarNotificacionPlanConReintento({
-              ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
-              titulo_informe: 'Acción requerida: revisar plan de acción',
-              proceso_auditado: `Se registró la acción "${planGuardado.accion}"; ingrese para revisar el diseño.`,
-              enlace_pdf: enlaceRevision,
-              destinatarios: planGuardado.correoRevisor,
-            }, correoPreparado),
-          ]);
-          notificacionEnviada = resultados.every(Boolean);
+        if (esNueva && notificarNueva) {
+          notificacionEnviada = await notificarRegistroPlan(planGuardado, correoPreparado);
         } else if (planGuardado.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && llegaAlCien) {
           const enlaceEvidencia = Array.isArray(planGuardado.evidenciaUrl)
             ? planGuardado.evidenciaUrl.at(-1)
@@ -1911,13 +1805,13 @@ if (existingActivities.length > 0) {
             enlace_pdf: enlaceEvidencia || window.location.origin,
             destinatarios: planGuardado.correoRevisor,
           }, correoPreparado);
-        } else if (!isAdmin && cambioDiseno && planGuardado.estadoWorkflow === 'Pendiente Revisión Jefatura') {
+        } else if (cambioDiseno && ['Pendiente Revisión Jefatura', ESTADO_EVALUACION_INICIAL].includes(planGuardado.estadoWorkflow)) {
           notificacionEnviada = await enviarNotificacionPlanConReintento({
             ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
             titulo_informe: 'Diseño corregido: pendiente de nueva revisión',
-            proceso_auditado: `La acción "${planGuardado.accion}" fue actualizada y requiere una nueva revisión.`,
+            proceso_auditado: `La acción "${planGuardado.accion}" fue actualizada y requiere ${esFuenteProgramaAuditoria(informeActual) ? 'una nueva evaluación inicial del auditor asignado, con aprobación desde el 80%, antes de ejecutar' : 'una nueva revisión'}.`,
             enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(idInformeReal)}`,
-            destinatarios: planGuardado.correoRevisor,
+            destinatarios: esFuenteProgramaAuditoria(informeActual) ? planGuardado.correoAuditor : planGuardado.correoRevisor,
           }, correoPreparado);
         }
       } catch (error) {
@@ -1951,6 +1845,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     const eficaz = fueEficaz === 'si';
 
     try {
+      let promesaCorreo = Promise.resolve(true);
+      if (prepararEnvioGmail) promesaCorreo = Promise.resolve(prepararEnvioGmail()).catch(() => false);
       let planActualizado;
       try {
         const respuesta = await apiService.decidirPlanComoAuditor(
@@ -1964,6 +1860,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           }
         );
         planActualizado = respuesta?.plan;
+        if (respuesta?.hallazgo && setHallazgos) setHallazgos(prev => prev.map(item => String(item.id) === String(respuesta.hallazgo.id) ? respuesta.hallazgo : item));
       } catch (error) {
         showNotification(error.message || 'No se pudo guardar la evaluación de eficacia. Intenta de nuevo.', 'error');
         return;
@@ -1994,7 +1891,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             : `La eficacia de la acción "${planActualizado.accion}" no fue demostrada. La acción vuelve a ejecución (90%). Observación: ${observaciones.trim()}`,
           enlace_pdf: window.location.origin,
           destinatarios: [planActualizado.correoResponsable, planActualizado.correoRevisor].filter(Boolean).join(', '),
-        });
+        }, Boolean(await promesaCorreo));
         if (!notificado) showNotification('La evaluación se guardó, pero no se pudo notificar a los responsables.', 'error');
       }
     } catch (error) {
@@ -2007,6 +1904,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const puedeDecidirRevision = modoRevisionMatriz && planesEnriquecidos.some(plan => (
     String(plan.idInforme) === String(revisionInformeId) &&
     ['Pendiente Revisión Jefatura', ESTADO_PENDIENTE_VALIDACION_REVISOR].includes(plan.estadoWorkflow) &&
+    !(esPlanProgramaAuditoria(plan) && plan.estadoWorkflow === 'Pendiente Revisión Jefatura') &&
     Boolean(correoUsuarioActual) &&
     String(plan.correoRevisor || '').trim().toLowerCase() === correoUsuarioActual
   ));
@@ -2040,6 +1938,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     const planesPendientes = planesEnriquecidos.filter(plan => (
       String(plan.idInforme) === String(revisionInformeId) &&
       ['Pendiente Revisión Jefatura', ESTADO_PENDIENTE_VALIDACION_REVISOR].includes(plan.estadoWorkflow) &&
+      !(esPlanProgramaAuditoria(plan) && plan.estadoWorkflow === 'Pendiente Revisión Jefatura') &&
       String(plan.correoRevisor || '').trim().toLowerCase() === correoSesion
     ));
     if (planesPendientes.length === 0) {
@@ -2093,22 +1992,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             correoPreparado = false;
           }
         }
-        const informePaquete = informesAuditoria.find(item => String(item.id) === String(revisionInformeId));
-        const planesPaqueteActualizados = planesEnriquecidos
-          .filter(plan => String(plan.idInforme) === String(revisionInformeId))
-          .map(plan => actualizadosPorId.get(String(plan.id)) || plan);
-        const evaluarPaquete = decision === 'aprobar'
-          && paqueteListoParaEvaluacion(informePaquete, planesPaqueteActualizados);
-        const correoAuditorPaquete = evaluarPaquete
-          ? obtenerCorreoAuditorEvaluador(informePaquete, planesPaqueteActualizados)
-          : '';
         for (const plan of planesActualizados) {
           const estadoAnterior = estadoAnteriorPorId.get(String(plan.id));
           const esValidacionFinal = estadoAnterior === ESTADO_PENDIENTE_VALIDACION_REVISOR;
           const validacionPendienteRevisor = plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR;
           const pasaAlAprobador = esValidacionFinal && decision === 'aprobar' && plan.estadoWorkflow === 'En Revisión (100%)';
           const informe = informesAuditoria.find(item => String(item.id) === String(plan.idInforme));
-          if (pasaAlAprobador && esFuenteProgramaAuditoria(informe)) continue;
           const destinatario = pasaAlAprobador
             ? plan.correoAuditor || informe?.correoAuditor || informe?.correoAuditorResponsable
             : validacionPendienteRevisor ? plan.correoRevisor : plan.correoResponsable;
@@ -2144,25 +2033,6 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             if (!enviado) todasNotificacionesEnviadas = false;
           } catch {
             todasNotificacionesEnviadas = false;
-          }
-        }
-        if (evaluarPaquete) {
-          if (!correoAuditorPaquete) {
-            todasNotificacionesEnviadas = false;
-          } else {
-            try {
-              const enviado = await enviarNotificacionPlanConReintento({
-                ref_consecutivo: informePaquete.ref || `INF-${revisionInformeId}`,
-                asunto: 'Evaluación final requerida: paquete validado al 100%',
-                titulo_informe: 'Diligenciar evaluación integral antes del cierre',
-                proceso_auditado: `El revisor aprobó el 100% de las ${planesPaqueteActualizados.length} acciones del informe ${informePaquete.ref || revisionInformeId}. La evaluación integral del paquete es opcional; cada acción puede evaluarse y cerrarse individualmente desde el Historial Matriz.`,
-                enlace_pdf: window.location.origin,
-                destinatarios: correoAuditorPaquete,
-              }, correoPreparado);
-              if (!enviado) todasNotificacionesEnviadas = false;
-            } catch {
-              todasNotificacionesEnviadas = false;
-            }
           }
         }
         if (todasNotificacionesEnviadas) {
@@ -2357,11 +2227,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div>
               <h3 className="flex items-center gap-2 text-sm font-black text-amber-900">
                 <span aria-hidden="true">🔔</span>
-                Evaluación final pendiente
+                Evaluación inicial pendiente
                 <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px]">{evaluacionesIntegralesPendientes.length}</span>
               </h3>
               <p className="mt-1 text-xs font-medium text-amber-800">
-                El revisor validó todas las acciones al 100%. Al guardar una evaluación superior al 80%, las acciones evaluadas quedarán cerradas.
+                Evalúa el diseño de las acciones registradas. Un resultado mayor o igual al 80% habilita su ejecución; no cierra las acciones.
               </p>
             </div>
           </div>
@@ -2650,8 +2520,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                ) : (
                  gruposOrdenados.map(grupo => {
                    const items = planesAgrupados[grupo];
-                   const gCerrados = items.filter(p => p.progreso === 100).length;
-                   const gProceso = items.filter(p => p.progreso < 100 && !p.esVencido).length;
+                   const gCerrados = items.filter(planCerrado).length;
+                   const gProceso = items.filter(p => !planCerrado(p) && !p.esVencido).length;
                    const gVencidos = items.filter(p => p.esVencido).length;
                    const gCumplimiento = items.length > 0 ? Math.round((gCerrados / items.length) * 100) : 0;
                    const isExpanded = grupoExpandido === grupo;
@@ -2833,7 +2703,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           {esEjecucion ? 'Planes por ejecutar' : esRevision ? 'Planes por revisar' : esAprobacion ? 'Planes por aprobar' : esVencido ? 'Planes vencidos' : 'Próximos a vencer'}
                         </h3>
                         <p className="text-[10px] text-slate-500 mt-1">
-                          {planesDetalle.length} {esEjecucion ? 'tareas por ejecutar' : esRevision ? 'planes esperando tu Visto Bueno' : esAprobacion ? 'evidencias por auditar' : 'casos para verificar'}
+                          {planesDetalle.length} {esEjecucion ? 'acciones por ejecutar o corregir' : esRevision ? 'planes esperando tu Visto Bueno' : esAprobacion ? 'diseños o evidencias por aprobar' : 'casos para verificar'}
                         </p>
                       </div>
                       <button type="button" onClick={() => setDetallePanelPlanes(null)} aria-label="Cerrar detalle de planes" className="text-slate-400 hover:text-slate-800 text-lg leading-none">×</button>
@@ -2856,7 +2726,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           </dl>
                           <button type="button" onClick={() => {
                             if (esAprobacion) {
-                              abrirEvaluacionAccion(plan);
+                              if (esPlanProgramaAuditoria(plan) && pendienteEvaluacionInicial(plan)) {
+                                const informe = informesAuditoria.find(item => String(item.id) === String(plan.idInforme));
+                                iniciarEvaluacionIntegral(informe, planesEnriquecidos.filter(item => String(item.idInforme) === String(plan.idInforme)));
+                              } else abrirEvaluacionAccion(plan);
                               return;
                             }
                             const hallazgo = safeHallazgos.find(item => String(item.id) === String(plan.idHallazgo));
@@ -3011,12 +2884,15 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     normalizarIdentidad(act.correoRevisor) !== normalizarIdentidad(planOriginal?.correoRevisor) ||
     normalizarIdentidad(correoAuditorAsignado) !== normalizarIdentidad(correoAuditorOriginal);
   const esResponsableActividad = !actividadNueva && correoActual && String(act.correoResponsable || '').trim().toLowerCase() === correoActual;
-  const puedeEditarActividad = !modoRevisionMatriz && (isAdmin || actividadNueva || esResponsableActividad);
+  const programaActividad = esFuenteProgramaAuditoria(informeDeActividad);
+  const bloqueadaPorAuditor = programaActividad && !actividadNueva && disenoInicialBloqueado(act);
+  const puedeEditarActividad = !modoRevisionMatriz && (isAdmin || actividadNueva || (esResponsableActividad &&
+    (!bloqueadaPorAuditor || act.estadoWorkflow === ESTADO_AJUSTES_INICIALES)));
   const puedeEditarAsignacion = !modoRevisionMatriz && (isAdmin || actividadNueva);
   const puedeEditarCorreo = !modoRevisionMatriz && (isAdmin || actividadNueva || esResponsableActividad);
   const puedeEditarCorreoAuditor = !modoRevisionMatriz && (!actividadNueva && (isAdmin || esResponsableActividad));
-  const puedeEditarAvance = !modoRevisionMatriz && !actividadNueva && (isAdmin || (
-    esResponsableActividad && ['En Ejecución', 'En Revisión (100%)'].includes(act.estadoWorkflow)
+  const puedeEditarAvance = !modoRevisionMatriz && !actividadNueva && !bloqueadaPorAuditor && (isAdmin || (
+    esResponsableActividad && act.estadoWorkflow === 'En Ejecución'
   ));
   return (
                           <fieldset key={`act-row-${index}`} disabled={!puedeEditarActividad} className="contents">
@@ -3294,7 +3170,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           ✅ Soporte #{i + 1}
                                         </a>
                                         {!modoRevisionMatriz && (
-                                          <button type="button" onClick={() => {
+                                          <button type="button" onClick={async () => {
+                                            if (!(await confirmarEliminacion(`Se quitará el soporte #${i + 1} de esta acción. Esta operación retira su vínculo; no borra el archivo del repositorio.`))) return;
                                             const nuevas = evidencias.filter((_, idx) => idx !== i);
                                             handleUpdateActivityField(h.id, index, 'evidenciaUrl', nuevas);
                                           }} className="text-red-500 hover:bg-red-50 font-bold text-[10px] px-2 rounded transition-colors" title="Borrar este soporte">✕</button>
@@ -3428,7 +3305,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     <label className="flex items-center gap-2 cursor-pointer text-[10px] font-bold text-slate-600 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 transition-all hover:bg-slate-100 shadow-sm mr-auto">
                       <input 
                         type="checkbox" 
-                        checked={enviarNotificaciones} 
+                        checked={enviarNotificaciones || esFuenteProgramaAuditoria(informesAuditoria.find(item => String(item.id) === String(formInformeId)))}
+                        disabled={esFuenteProgramaAuditoria(informesAuditoria.find(item => String(item.id) === String(formInformeId)))}
                         onChange={(e) => setEnviarNotificaciones(e.target.checked)}
                         className="w-4 h-4 text-[#004d40] rounded border-slate-300 focus:ring-[#004d40]"
                       />
@@ -3599,6 +3477,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       <select value={columnFilters['estadoWorkflow'] || ''} onChange={(e) => { setPaginaHistorialMatriz(1); handleColFilterChange('estadoWorkflow', e.target.value); }} className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
                         <option value="">Todas las fases</option>
                         <option value="Borrador">Borrador</option>
+                        <option value={ESTADO_EVALUACION_INICIAL}>{ESTADO_EVALUACION_INICIAL}</option>
+                        <option value={ESTADO_AJUSTES_INICIALES}>{ESTADO_AJUSTES_INICIALES}</option>
                         <option value="En Revisión">En revisión</option>
                         <option value="Cerrado">Cerrada</option>
                       </select>
@@ -3632,7 +3512,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   const procesoInforme = informeBase ? informeBase.proceso : "Varios Procesos";
                   const fechaInforme = informeBase ? informeBase.fecha : "Sin Fecha";
 
-                  const nCerrados = planesDelInforme.filter(p => p.progreso === 100).length;
+                  const nCerrados = planesDelInforme.filter(planCerrado).length;
                   const nVencidos = planesDelInforme.filter(p => p.esVencido).length;
                   const nProceso = planesDelInforme.length - nCerrados - nVencidos;
                   const isExpanded = informePlanesExpandido === idInf;
@@ -3680,16 +3560,21 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-900">
                                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500 motion-safe:animate-pulse" />
                                     <ClipboardCheck size={12} aria-hidden="true" />
-                                    Revisar diseño <span className="tabular-nums">{pendientesInforme.revision}</span>
+                                    Revisar acciones <span className="tabular-nums">{pendientesInforme.revision}</span>
                                   </span>
                                 )}
                                 {pendientesInforme.aprobacion > 0 && (
                                   <button
                                     type="button"
-                                    aria-label={`Evaluar cierre de ${pendientesInforme.aprobacion} acción(es) pendientes`}
+                                    aria-label={`Evaluar ${pendientesInforme.aprobacion} acción(es) pendientes`}
                                     onClick={event => {
                                       event.stopPropagation();
                                       const correoActual = String(user?.email || '').trim().toLowerCase();
+                                      const disenosPendientes = planesPaqueteCompleto.filter(plan => pendienteEvaluacionInicial(plan) && esAuditorAsignado(plan, correoActual, perfilUsuario));
+                                      if (esFuenteProgramaAuditoria(informeBase) && disenosPendientes.length) {
+                                        iniciarEvaluacionIntegral(informeBase, disenosPendientes);
+                                        return;
+                                      }
                                       const planPendiente = planesPaqueteCompleto.find(plan => (
                                         enRevisionAuditor(plan) && (
                                           esAuditorAsignado(plan, correoActual, perfilUsuario)
@@ -3706,7 +3591,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   >
                                     <span className="h-1.5 w-1.5 rounded-full bg-blue-600 motion-safe:animate-pulse" />
                                     <BadgeCheck size={12} aria-hidden="true" />
-                                    Aprobar cierre <span className="tabular-nums">{pendientesInforme.aprobacion}</span>
+                                    Aprobar acciones <span className="tabular-nums">{pendientesInforme.aprobacion}</span>
                                   </button>
                                 )}
                                 {pendientesInforme.ejecucion > 0 && (
@@ -3871,7 +3756,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                               </button>
                                             </div>
                                           )}
-                                          {p.estadoWorkflow === 'Pendiente Revisión Jefatura' && esRevisor && (
+                                          {p.estadoWorkflow === 'Pendiente Revisión Jefatura' && esRevisor && !esPlanProgramaAuditoria(p) && (
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
                                               <button type="button" onClick={() => abrirRevisionPlan(p)} className="bg-amber-500 hover:bg-amber-600 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all shadow-amber-500/30">
                                                 👀 Revisar Diseño
@@ -3883,11 +3768,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {/* NIVEL 3: AUDITOR -> Revisa el 100% y cierra o rechaza el plan             */}
                                           {/* ========================================================================= */}
                                           {enRevisionAuditor(p) && esAuditor && (
-                                            (!esPlanProgramaAuditoria(p) || paqueteTieneEvaluacionAprobada(planesPaqueteCompleto)) &&
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
                                               <button type="button" onClick={() => abrirEvaluacionAccion(p)} className="individual-close-glow flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border-2 border-emerald-300 bg-[#0A3B32] px-3 py-2 text-[10px] font-black uppercase tracking-wide text-white transition-transform hover:scale-[1.02] hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2">
                                                 <BadgeCheck size={15} aria-hidden="true" />
-                                                <span>{esPlanProgramaAuditoria(p) ? 'Cerrar acción evaluada' : 'Evaluar y cerrar acción'}</span>
+                                                <span>Evaluar y cerrar acción</span>
                                               </button>
                                               
                                               <button type="button" onClick={async () => {
@@ -3929,27 +3813,27 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           
                          {/* ⚖️ BOTÓN MAESTRO DE EVALUACIÓN HOLÍSTICA (DISEÑO Y MEMORIA) */}
                           {planesPaqueteCompleto.length > 0 &&
-                            paqueteListoParaEvaluacion(informeBase, planesPaqueteCompleto) &&
-                            esAuditorAsignadoEvaluador(informeBase, planesPaqueteCompleto) && (() => {
+                            esFuenteProgramaAuditoria(informeBase) && (() => {
                             const planConEval = planesPaqueteCompleto.find(p => p.evaluacionHolistica);
                             const evalGuardada = planConEval ? planConEval.evaluacionHolistica : null;
-                            const evaluacionFinalAprobada = paqueteTieneEvaluacionAprobada(planesPaqueteCompleto);
+                            const pendientes = planesPaqueteCompleto.filter(plan => pendienteEvaluacionInicial(plan) && esAuditorAsignado(plan, user?.email, perfilUsuario));
+                            const puedeEvaluar = paqueteListoParaEvaluacion(informeBase, pendientes) && esAuditorAsignadoEvaluador(informeBase, pendientes);
 
                             return (
                               <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row justify-between items-center shadow-sm gap-3 animate-in fade-in">
                                 <div className="text-center md:text-left">
-                                  <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Evaluación final del paquete de acciones</p>
-                                  {evaluacionFinalAprobada ? (
+                                  <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Evaluación inicial del diseño de acciones</p>
+                                  {evalGuardada?.aprobado ? (
                                     <p className="text-[9px] text-emerald-600 font-bold mt-0.5">
                                       ✅ Evaluación integral aprobada el {evalGuardada.fecha} con {evalGuardada.puntaje}%.
                                     </p>
-                                  ) : evalGuardada?.tipo === 'evaluacion-final-ejecucion' ? (
+                                  ) : evalGuardada ? (
                                     <p className="text-[9px] text-rose-600 font-bold mt-0.5">
-                                      ⚠️ Evaluación anterior no aprobada ({evalGuardada.puntaje}%). Requiere ajuste y nueva validación del revisor.
+                                      ⚠️ Evaluación anterior no aprobada ({evalGuardada.puntaje}%). Requiere corregir el diseño y reenviarlo al auditor.
                                     </p>
                                   ) : (
                                     <p className="text-[9px] text-slate-500 font-medium mt-0.5">
-                                      Un resultado superior al 80% cierra las acciones evaluadas al guardar.
+                                      Mayor o igual al 80% habilita la ejecución. El cierre requiere completar la ejecución, validación del revisor y aprobación final del auditor.
                                     </p>
                                   )}
                                 </div>
@@ -3970,36 +3854,22 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       <span>👁️</span> Ver Calificación Realizada
                                     </button>
 
-                                    {!evaluacionFinalAprobada && <button
-                                      onClick={() => {
-                                        setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
-                                        setJustificacion('');
-                                        setModalEval({
-                                          activo: true, idInforme: idInf, planes: planesPaqueteCompleto,
-                                          totalActividades: planesPaqueteCompleto.length, isReadOnly: false
-                                        });
-                                      }}
+                                    {puedeEvaluar && <button
+                                      onClick={() => iniciarEvaluacionIntegral(informeBase, pendientes)}
                                       className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-2.5 rounded-xl text-[10px] font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-1 w-full md:w-auto justify-center"
-                                      title={evalGuardada.tipo === 'evaluacion-final-ejecucion' ? 'Volver a evaluar el paquete' : 'Diligenciar la evaluación final del paquete'}
+                                      title="Evaluar acciones pendientes antes de su ejecución"
                                     >
-                                      {evalGuardada.tipo === 'evaluacion-final-ejecucion' ? '🔄 Re-Evaluar' : '⚖️ Evaluar paquete'}
+                                      ⚖️ Evaluar diseño pendiente
                                     </button>}
                                   </div>
-                                ) : (
+                                ) : puedeEvaluar ? (
                                   <button 
-                                    onClick={() => {
-                                      setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
-                                      setJustificacion('');
-                                      setModalEval({ 
-                                        activo: true, idInforme: idInf, planes: planesPaqueteCompleto,
-                                        totalActividades: planesPaqueteCompleto.length, isReadOnly: false
-                                      });
-                                    }}
+                                    onClick={() => iniciarEvaluacionIntegral(informeBase, pendientes)}
                                     className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
                                   >
                                     <span>⚖️</span> Evaluar Plan Integral
                                  </button>
-                                )}
+                                ) : null}
                               </div>
                             );
                           })()}
@@ -4042,18 +3912,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div className="break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
               <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">1. Calificación Global y Ponderada</h3>
               <div className="flex gap-6 items-center bg-slate-50 p-6 rounded-xl border border-slate-200">
-                <div className={`w-32 h-32 rounded-full flex flex-col items-center justify-center border-8 shrink-0 ${(puntajeHolistico || 0) > 80 ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : (puntajeHolistico || 0) >= 50 ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-red-500 text-red-700 bg-red-50'}`}>
+                <div className={`w-32 h-32 rounded-full flex flex-col items-center justify-center border-8 shrink-0 ${evaluacionAprobadaVisible ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : (puntajeHolistico || 0) >= 50 ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-red-500 text-red-700 bg-red-50'}`}>
                   <span className="text-5xl font-black leading-none">{puntajeHolistico || 0}</span>
                   <span className="text-xs font-bold uppercase mt-1">Puntos / 100</span>
                 </div>
                 <div className="flex-1">
-                  <h4 className={`text-2xl font-black uppercase mb-2 ${(puntajeHolistico || 0) > 80 ? 'text-emerald-700' : (puntajeHolistico || 0) >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
-                    {(puntajeHolistico || 0) > 80 ? 'EVALUACIÓN INTEGRAL: APROBADA' : 'EVALUACIÓN INTEGRAL: NO APROBADA'}
+                  <h4 className={`text-2xl font-black uppercase mb-2 ${evaluacionAprobadaVisible ? 'text-emerald-700' : (puntajeHolistico || 0) >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
+                    {evaluacionAprobadaVisible ? 'EVALUACIÓN: APROBADA' : 'EVALUACIÓN: NO APROBADA'}
                   </h4>
                   <p className="text-base text-slate-700 font-medium leading-relaxed">
-                    {(puntajeHolistico || 0) > 80
-                      ? 'El paquete supera el umbral de evaluación integral. Al guardar la evaluación, las acciones evaluadas quedan cerradas.'
-                      : 'El paquete no supera el umbral de evaluación integral. Justifique el resultado y devuelva las acciones del paquete para realizar ajustes.'}
+                    {modalEval.isReadOnly ? 'Dictamen histórico conservado con su resultado original.'
+                      : evaluacionAprobadaVisible
+                        ? 'El diseño cumple el umbral mayor o igual al 80%. Al guardar se habilita la ejecución; no se cierran las acciones.'
+                        : 'El diseño no alcanza el 80%. Se requieren correcciones del responsable y una nueva evaluación antes de ejecutar.'}
                   </p>
                 </div>
               </div>
@@ -4471,21 +4342,21 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     value={justificacion || ''}
                     onChange={(e) => setJustificacion(e.target.value)}
                     disabled={modalEval.isReadOnly}
-                    placeholder="Escriba la justificación (obligatoria si el puntaje es 80% o menos)..."
-                    className={`w-full border rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] transition-all shadow-sm ${modalEval.isReadOnly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ((puntajeHolistico || 0) <= 80 && (!justificacion || justificacion.trim() === '') ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:bg-white focus:border-[#0A3B32]')}`}
+                    placeholder="Escriba la justificación (obligatoria si el puntaje es inferior al 80%)..."
+                    className={`w-full border rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] transition-all shadow-sm ${modalEval.isReadOnly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : (puntajeHolistico < 80 && (!justificacion || justificacion.trim() === '') ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:bg-white focus:border-[#0A3B32]')}`}
                   />
-                  {!modalEval.isReadOnly && (puntajeHolistico || 0) <= 80 && (!justificacion || justificacion.trim() === '') && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para un resultado de 80% o menos.</span>}
+                  {!modalEval.isReadOnly && puntajeHolistico < 80 && !justificacion.trim() && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para un resultado inferior al 80%.</span>}
                 </div>
                 
               <div className="w-full md:w-64 flex flex-col gap-4 shrink-0">
                   <div className="bg-slate-900 rounded-2xl p-5 flex flex-col justify-center items-center text-center shadow-lg relative overflow-hidden flex-1">
-                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-20 ${(puntajeHolistico || 0) > 80 ? 'bg-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}></div>
+                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-20 ${evaluacionAprobadaVisible ? 'bg-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}></div>
                     <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-2 relative z-10">Score Ponderado</p>
-                    <span className={`text-6xl font-black font-mono leading-none relative z-10 ${(puntajeHolistico || 0) > 80 ? 'text-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                    <span className={`text-6xl font-black font-mono leading-none relative z-10 ${evaluacionAprobadaVisible ? 'text-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
                       {puntajeHolistico || 0}<span className="text-3xl text-slate-500 ml-1">%</span>
                     </span>
-                    <span className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider relative z-10 shadow-sm ${(puntajeHolistico || 0) > 80 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50'}`}>
-                      {(puntajeHolistico || 0) > 80 ? '✅ Se cerrará al guardar' : (puntajeHolistico || 0) >= 50 ? '⚠️ Requiere ajustes' : '❌ No aprobado'}
+                    <span className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider relative z-10 shadow-sm ${evaluacionAprobadaVisible ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50'}`}>
+                      {modalEval.isReadOnly ? evaluacionAprobadaVisible ? 'Aprobada' : 'No aprobada' : evaluacionAprobadaVisible ? '✅ Habilitará la ejecución' : '⚠️ Requiere ajustes'}
                     </span>
                   </div>
                 </div>
@@ -4509,8 +4380,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     <button type="button" onClick={cerrarModalEvaluacionIntegral} className="min-h-11 w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
                       Cancelar
                     </button>
-                    <button type="button" onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${(puntajeHolistico || 0) > 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                      {(puntajeHolistico || 0) > 80 ? '✅ Guardar evaluación y cerrar' : '✕ Devolver para ajustes'}
+                    <button type="button" disabled={guardandoEvaluacionInicial} onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white disabled:opacity-50 ${puntajeHolistico >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                      {guardandoEvaluacionInicial ? 'Guardando…' : puntajeHolistico >= 80 ? '✅ Aprobar y habilitar ejecución' : '✕ Devolver diseño para ajustes'}
                     </button>
                   </>
                 )}

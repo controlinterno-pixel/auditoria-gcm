@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react';
+import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { ThinkingOrb } from 'thinking-orbs';
 import { 
   CLASIFICACIONES_MANUAL,
@@ -260,6 +261,7 @@ export default function Riesgos({
   setRiesgos = () => console.warn("Modo offline: setRiesgos no detectado"), 
   showNotification = () => {} 
 }) {
+  const confirmarEliminacion = useDeleteConfirmation();
    // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen
   const safeRiesgos = Array.isArray(rawRiesgos) ? rawRiesgos : [];
   const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
@@ -575,7 +577,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       showNotification('Solo puedes modificar riesgos de los macroprocesos que tienes asignados.', 'error');
       return;
     }
-    if (window.confirm("⚠️ ¿Estás seguro de que deseas eliminar este riesgo de la matriz corporativa?")) {
+    if (await confirmarEliminacion(`Se eliminará el riesgo ${riesgo.ref || riesgo.id} de la matriz corporativa.`)) {
       try {
         // 1. Eliminación en el servidor
         await apiService.deleteRiesgo(id);
@@ -2590,7 +2592,7 @@ const renderMatriz = () => {
                     />
                   </div>                  
                   <div className="md:col-span-1 flex justify-center">
-                    <button type="button" onClick={() => setControles(controles.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 text-xs font-black uppercase tracking-widest bg-red-50 border border-red-200 px-3 py-2 rounded-xl transition-colors">🗑️ Borrar</button>
+                    <button type="button" onClick={async () => { if (await confirmarEliminacion('Se eliminará este control del formulario del riesgo.')) setControles(actuales => actuales.filter((_, i) => i !== idx)); }} className="text-red-500 hover:text-red-700 text-xs font-black uppercase tracking-widest bg-red-50 border border-red-200 px-3 py-2 rounded-xl transition-colors">🗑️ Borrar</button>
                   </div>
                 </div>
                 

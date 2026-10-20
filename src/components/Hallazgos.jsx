@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { CheckCircle2, Search, X } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
@@ -113,6 +114,7 @@ export default function Hallazgos({
   handleColFilterChange = () => {},
   exportToExcel
 }) {
+  const confirmarEliminacion = useDeleteConfirmation();
   const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
   const correoUsuarioActual = String(user?.email || '').trim().toLowerCase();
   const puedeEditarHallazgo = hallazgo => isAdmin || Boolean(
@@ -1340,7 +1342,7 @@ export default function Hallazgos({
                           
                           {/* Oculta la "X" para borrar evidencia si es solo lectura */}
                           {!esSoloLectura && (
-                            <button type="button" onClick={() => actualizarArchivosSubidos(prev => prev.filter((_, posicion) => posicion !== indice))} className="text-rose-500 font-black" title="Quitar evidencia">×</button>
+                            <button type="button" onClick={async () => { if (await confirmarEliminacion('Se quitará esta evidencia del hallazgo. Esta operación retira su vínculo; no borra el archivo del repositorio.')) actualizarArchivosSubidos(prev => prev.filter((_, posicion) => posicion !== indice)); }} className="text-rose-500 font-black" title="Quitar evidencia">×</button>
                           )}
                         </div>
                       ))}

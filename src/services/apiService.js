@@ -386,6 +386,11 @@ export const apiService = {
     body: { idInforme, decision, motivo }
   }),
 
+  evaluarDisenoPlanes: (idInforme, idsPlanes, criterios, justificacion) => request('/api/grc/review-plans', {
+    method: 'POST',
+    body: { decision: 'evaluar-diseno', idInforme, idsPlanes, criterios, justificacion },
+  }),
+
   decidirPlanComoAuditor: (idPlan, decision, motivo = '', evaluacionEficacia = null) => request('/api/grc/review-plans', {
     method: 'POST',
     body: { idPlan, decision, motivo, evaluacionEficacia }

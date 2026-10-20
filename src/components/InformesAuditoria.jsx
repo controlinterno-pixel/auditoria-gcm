@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect } from 'react';
+import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { renderHistorialSummary } from '../utils/historialCambios.js';
 import { useCatalogos } from '../context/useCatalogos';
 
@@ -13,30 +14,6 @@ const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
     if (!map.has(clave)) map.set(clave, item);
   });
   return [...map.values()];
-};
-
-const obtenerTiempoHistorial = valorFecha => {
-  const valor = String(valorFecha || '').trim();
-  if (!valor) return null;
-  const fechaLocal = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?)?$/i.exec(valor);
-  if (fechaLocal) {
-    const [, dia, mes, anio, hora = '0', minuto = '0', segundo = '0', periodo = ''] = fechaLocal;
-    let hora24 = Number(hora);
-    const periodoNormalizado = periodo.replace(/[\s.]/g, '').toLowerCase();
-    if (periodoNormalizado === 'pm' && hora24 < 12) hora24 += 12;
-    if (periodoNormalizado === 'am' && hora24 === 12) hora24 = 0;
-    return new Date(Number(anio), Number(mes) - 1, Number(dia), hora24, Number(minuto), Number(segundo)).getTime();
-  }
-  const tiempo = Date.parse(valor);
-  return Number.isFinite(tiempo) ? tiempo : null;
-};
-
-const obtenerUltimaActividadInforme = informe => {
-  const actividades = (Array.isArray(informe?.historialCambios) ? informe.historialCambios : [])
-    .map(cambio => obtenerTiempoHistorial(cambio?.timestamp || cambio?.fecha || cambio?.fechaHora))
-    .filter(tiempo => tiempo !== null);
-  if (actividades.length > 0) return Math.max(...actividades);
-  return obtenerTiempoHistorial(informe?.fechaHora) ?? obtenerTiempoHistorial(informe?.fecha);
 };
 
 const normalizarCatalogo = valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -118,6 +95,7 @@ export default function InformesAuditoria({
   FilterInput,
   fuentesMejora = []
 }) {
+  const confirmarEliminacion = useDeleteConfirmation();
   const { catalogoCargos = [], mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA } = useCatalogos();
 
   // 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
@@ -249,19 +227,10 @@ if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuen
     return true;
   });
   const informesCandidatosHistorial = [...applyFilters(informesFiltradosPorFecha, searchTerm, columnFilters)]
-    .sort((a, b) => {
-      const actividadA = obtenerUltimaActividadInforme(a);
-      const actividadB = obtenerUltimaActividadInforme(b);
-      if (actividadA !== actividadB) {
-        if (actividadA === null) return 1;
-        if (actividadB === null) return -1;
-        return actividadB - actividadA;
-      }
-      return String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', {
-        numeric: true,
-        sensitivity: 'base',
-      });
-    });
+  .sort((a, b) => String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', {
+    numeric: true,
+    sensitivity: 'base',
+  }));
   const paginasHistorial = Math.max(1, Math.ceil(informesCandidatosHistorial.length / 10));
   const paginaHistorialActual = Math.min(paginaActual, paginasHistorial);
   const informesPaginaHistorial = informesCandidatosHistorial.slice((paginaHistorialActual - 1) * 10, paginaHistorialActual * 10);
@@ -313,7 +282,11 @@ if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuen
     (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')
   ));
 
-  const informesFiltradosDashboard = applyFilters(informesDashboard, searchTerm, columnFilters);
+const informesFiltradosDashboard = applyFilters(informesDashboard, searchTerm, columnFilters)
+  .sort((a, b) => String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', {
+    numeric: true,
+    sensitivity: 'base',
+  }));
   const totalInformesFiltrados = informesFiltradosDashboard.length;
   const totalPaginasDashboard = Math.max(1, Math.ceil(totalInformesFiltrados / 10));
   const paginaActualDashboard = Math.min(paginaActual, totalPaginasDashboard);
@@ -2451,7 +2424,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                           else e.target.value = '';
                         }} />
                       </label>
-                      <button type="button" title="Eliminar documento principal" onClick={(e) => { e.preventDefault(); if (confirm("¿Seguro de quitar este adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
+                      <button type="button" title="Eliminar documento principal" onClick={async (e) => { e.preventDefault(); if (await confirmarEliminacion('Se quitará el documento principal de este informe. Esta operación retira su vínculo; no borra el archivo del repositorio.')) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
                         <span>🗑️</span><span>Eliminar</span>
                       </button>
                     </div>
@@ -2498,7 +2471,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                             <div className="flex gap-1">
                               <button type="button" onClick={(e) => { e.preventDefault(); abrirArchivo(anexo.url, anexo.nombre || 'anexo.pdf'); }} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-lg transition-colors" title="Ver archivo">👁️</button>
                               <button type="button" onClick={(e) => { e.preventDefault(); descargarArchivo(anexo.url, anexo.nombre || 'anexo.pdf'); }} className="text-emerald-600 hover:bg-emerald-100 p-1.5 rounded-lg transition-colors" title="Descargar archivo">⬇️</button>
-                              <button type="button" onClick={(e) => { e.preventDefault(); setAnexosMultiples(prev => prev.filter((_, i) => i !== index)); }} className="text-red-500 hover:bg-red-100 p-1.5 rounded-lg transition-colors" title="Eliminar">🗑️</button>
+                              <button type="button" onClick={async (e) => { e.preventDefault(); if (await confirmarEliminacion(`Se quitará el anexo "${anexo.nombre || 'Sin nombre'}" de este informe. Esta operación retira su vínculo; no borra el archivo del repositorio.`)) setAnexosMultiples(prev => prev.filter(item => item !== anexo)); }} className="text-red-500 hover:bg-red-100 p-1.5 rounded-lg transition-colors" title="Eliminar">🗑️</button>
                             </div>
                           </div>
                         ))}

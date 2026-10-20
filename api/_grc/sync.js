@@ -6,6 +6,7 @@ import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
+import { esInformePrograma, disenoInicialBloqueado, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 
 /**
  * Valida de forma estricta si el usuario posee rol administrativo o de auditoría.
@@ -66,7 +67,7 @@ async function hayConflictosDeRolesEnPlanesActualizados(planesActualizados) {
   });
 }
 
-async function usuarioPuedeEvaluarPlanes(partialData, user) {
+async function usuarioPuedeEvaluarPlanes(partialData) {
   if (!Array.isArray(partialData.planes)) return true;
 
   const { data } = await leerWorkspaceGrc();
@@ -75,77 +76,33 @@ async function usuarioPuedeEvaluarPlanes(partialData, user) {
   const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
   const hallazgosPorId = new Map(hallazgos.map(hallazgo => [String(hallazgo.id), hallazgo]));
   const planesPorId = new Map(planesGuardados.map(plan => [String(plan.id), plan]));
-  const correoUsuario = String(user?.email || '').trim().toLowerCase();
 
   for (const planActualizado of partialData.planes) {
     const planGuardado = planesPorId.get(String(planActualizado?.id));
-    if (serializarEvaluacion(planGuardado) === serializarEvaluacion(planActualizado)) continue;
-    if (!planGuardado) return false;
-    const correosEjecutores = String(planGuardado.correoResponsable || '')
-      .split(',')
-      .map(correo => correo.trim().toLowerCase())
-      .filter(Boolean);
-    if (correoUsuario && correosEjecutores.includes(correoUsuario)) return false;
-
-    const hallazgo = hallazgosPorId.get(String(planGuardado.idHallazgo));
-    const idInforme = hallazgo?.idInforme || planGuardado.idInforme;
-    const informe = informes.find(item => String(item.id) === String(idInforme));
-    if (informe?.tipoFuente !== 'Programa de Auditoría' || !informe?.programaId) return false;
-
-    const planesDelPaquete = planesGuardados.filter(plan => {
-      const hallazgoPlan = hallazgosPorId.get(String(plan.idHallazgo));
-      return String(hallazgoPlan?.idInforme || plan.idInforme) === String(idInforme);
-    });
-    if (planesDelPaquete.length === 0 || !planesDelPaquete.every(plan => (
-      Number(plan.progreso) === 100 && plan.estadoWorkflow === 'En Revisión (100%)'
-    ))) return false;
-
-    const evaluacionFinal = planActualizado.evaluacionHolistica;
-    const puntajeEvaluacion = Number(evaluacionFinal?.puntaje);
-    if (
-      evaluacionFinal?.tipo !== 'evaluacion-final-ejecucion' ||
-      !Number.isFinite(puntajeEvaluacion) ||
-      Boolean(evaluacionFinal.aprobado) !== (puntajeEvaluacion > 80)
-    ) return false;
-
-    const aprobado = puntajeEvaluacion > 80;
-    if (
-      planActualizado.estadoWorkflow !== (aprobado ? 'Cerrado' : 'En Ejecución') ||
-      planActualizado.estado !== (aprobado ? 'Cerrado' : 'En Proceso') ||
-      Number(planActualizado.progreso) !== (aprobado ? 100 : 90) ||
-      (!aprobado && !String(evaluacionFinal.justificacion || '').trim())
-    ) return false;
-    const actualizacionesPorId = new Map(partialData.planes.map(plan => [String(plan?.id), plan]));
-    if (!planesDelPaquete.every(plan => {
-      const actualizado = actualizacionesPorId.get(String(plan.id));
-      return actualizado &&
-        serializarEvaluacion(actualizado) !== serializarEvaluacion(plan) &&
-        JSON.stringify(actualizado.evaluacionHolistica) === JSON.stringify(evaluacionFinal);
-    })) return false;
-
-    const correoInforme = String(informe.correoAuditor || informe.correoAuditorResponsable || '').trim().toLowerCase();
-    const correosPlanes = [...new Set(planesGuardados
-      .filter(plan => {
-        const hallazgoPlan = hallazgosPorId.get(String(plan.idHallazgo));
-        return String(hallazgoPlan?.idInforme || plan.idInforme) === String(idInforme);
-      })
-      .map(plan => String(plan.correoAuditor || '').trim().toLowerCase())
-      .filter(Boolean))];
-    const correoAsignado = correosPlanes.length === 1 ? correosPlanes[0] : correoInforme;
-    const auditorInforme = String(
-      informe.auditorResponsable || informe.auditor || informe.auditorLider || ''
-    ).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const nombresAuditoresPlanes = [...new Set(planesDelPaquete
-      .map(plan => String(plan.auditorAsignado || plan.auditorResponsable || plan.auditor || '')
-        .trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
-      .filter(Boolean))];
-    const nombreAsignado = auditorInforme || (nombresAuditoresPlanes.length === 1 ? nombresAuditoresPlanes[0] : '');
-    const identidadesUsuario = [user.nombreResponsable, user.nombre, user.cargo]
-      .map(valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
-      .filter(Boolean);
-    const asignadoPorCorreo = Boolean(correoUsuario && correoAsignado && correoUsuario === correoAsignado);
-    const asignadoPorIdentidad = Boolean(nombreAsignado && identidadesUsuario.includes(nombreAsignado));
-    if (!(correoAsignado ? asignadoPorCorreo : asignadoPorIdentidad)) return false;
+    const hallazgoOrigen = hallazgosPorId.get(String(planGuardado?.idHallazgo || planActualizado?.idHallazgo));
+    const informeOrigen = informes.find(item => String(item.id) === String(hallazgoOrigen?.idInforme || planGuardado?.idInforme || planActualizado?.idInforme));
+    if (esInformePrograma(informeOrigen, data.fuentesMejora)) {
+      if (!planGuardado) {
+        if (planActualizado.estadoWorkflow !== ESTADO_EVALUACION_INICIAL || Number(planActualizado.progreso) !== 0 ||
+            planActualizado.evaluacionHolistica || planActualizado.historialEvaluaciones?.length) return false;
+        continue;
+      }
+      // Las decisiones del auditor se escriben exclusivamente mediante la transacción de review-plans.
+      if (serializarEvaluacion(planGuardado) !== serializarEvaluacion(planActualizado)) {
+        const invalidaDiseno = planActualizado.estadoWorkflow === ESTADO_EVALUACION_INICIAL &&
+          planActualizado.evaluacionHolistica === null &&
+          JSON.stringify(planActualizado.historialEvaluaciones ?? null) === JSON.stringify(planGuardado.historialEvaluaciones ?? null);
+        if (!invalidaDiseno) return false;
+      }
+      if (disenoInicialBloqueado(planGuardado) && Number(planActualizado.progreso) !== Number(planGuardado.progreso)) return false;
+      const desde = planGuardado.estadoWorkflow;
+      const hasta = planActualizado.estadoWorkflow;
+      if (desde !== hasta && hasta !== ESTADO_EVALUACION_INICIAL &&
+          !(desde === 'En Ejecución' && hasta === 'Pendiente Validación Revisor' && Number(planActualizado.progreso) === 100) &&
+          !(['Pendiente Validación Revisor', 'En Revisión (100%)'].includes(desde) && hasta === 'En Ejecución' && Number(planActualizado.progreso) < 100)) return false;
+      continue;
+    }
+    if (serializarEvaluacion(planGuardado) !== serializarEvaluacion(planActualizado)) return false;
   }
 
   return true;
@@ -369,7 +326,7 @@ export default async function handler(req, res) {
 
       if (!(await usuarioPuedeEvaluarPlanes(partialData, user))) {
         logger.warn('Intento de evaluación de plan sin asignación autorizada', { usuario: user.email });
-        return sendError(res, 'Solo el auditor asignado puede evaluar planes vinculados a un programa de auditoría.', 403);
+        return sendError(res, 'La transición o evaluación del plan no es válida. Usa la evaluación inicial o la revisión final de la persona asignada.', 403);
       }
 
       await guardarWorkspaceParcial(partialData);

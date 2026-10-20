@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { useCatalogos } from '../context/useCatalogos';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 
@@ -14,6 +15,7 @@ export default function ProgramasAuditoria({
   user, 
   handleDeleteItem 
 }) {
+  const confirmarEliminacion = useDeleteConfirmation();
   const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
   const [vistaActiva, setVistaActiva] = useState('kanban'); // 'kanban' o 'formulario'
   const [formularioModificado, setFormularioModificado] = useState(false);
@@ -191,8 +193,9 @@ const { isLoading: isUploading, ejecutarPeticion: ejecutarSubidaPrograma } = use
     setMatrizPruebas(matrizPruebas.map(fila => fila.id === id ? { ...fila, [campo]: valor } : fila));
   };
 
-  const eliminarFilaMatriz = (id) => {
-    setMatrizPruebas(matrizPruebas.filter(fila => fila.id !== id));
+  const eliminarFilaMatriz = async (id) => {
+    if (!(await confirmarEliminacion('Se eliminará esta fila y su contenido de la matriz de pruebas del programa.'))) return;
+    setMatrizPruebas(actuales => actuales.filter(fila => fila.id !== id));
   };
 
 const handleGuardarPrograma = async () => {

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { applyCors } from '../_lib/cors.js';
+import { esInformePrograma, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
@@ -241,6 +242,7 @@ export default async function handler(req, res) {
           const correoRevisor = String(item.correoRevisor || '').trim();
           const correoRevisorConfirmacion = String(item.correoRevisorConfirmacion || '').trim();
           const correoAuditor = String(item.correoAuditor || correoAuditorInforme).trim();
+          if (esInformePrograma(informe, data.fuentesMejora) && !esCorreoValido(correoAuditor)) return { error: 'invalid-auditor-email' };
           if (
             !esCorreoValido(correoResponsable) ||
             !esCorreoValido(correoRevisor) ||
@@ -257,10 +259,15 @@ export default async function handler(req, res) {
           items.push({
             ...datosPlan,
             id: siguienteId++,
+            idInforme: informe.id,
             idHallazgo: hallazgo.id,
             ...(correoAuditor ? { correoAuditor } : {}),
             progreso: 0,
-            estadoWorkflow: 'Pendiente Revisión Jefatura',
+            ...(esInformePrograma(informe, data.fuentesMejora) ? {
+              evaluacionHolistica: null, historialEvaluaciones: [],
+              aprobadoPorCorreo: '', aprobadoEn: '', validadoPorRevisorCorreo: '', validadoPorRevisorEn: '',
+            } : {}),
+            estadoWorkflow: esInformePrograma(informe, data.fuentesMejora) ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
             estado: 'En Proceso',
             creadoPor: user.email,
             historialCambios: [{
@@ -369,6 +376,9 @@ export default async function handler(req, res) {
     }
     if (registroGuardado.error === 'duplicate-plan-roles') {
       return sendError(res, 'Ejecutor, revisor y auditor deben ser personas distintas. Revisa los correos asignados.', 400);
+    }
+    if (registroGuardado.error === 'invalid-auditor-email') {
+      return sendError(res, 'Asigna un correo válido al auditor que evaluará las acciones.', 400);
     }
     await notificarSemaforo();
     logger.info('Registro GRC creado', { coleccion, usuario: user.email, id: registroGuardado.id });

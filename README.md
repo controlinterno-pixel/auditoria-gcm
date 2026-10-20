@@ -30,11 +30,29 @@ Los separadores de punto medio se normalizan a guiones compatibles con la fuente
 
 Las evidencias enlazadas, las evaluaciones registradas y el historial se conservan en un anexo documental, separado de los cuatro bloques ejecutivos y generado solo cuando hay contenido. Las acciones al 100% no se consideran cerradas mientras su workflow no esté cerrado. Los registros sin padre disponible y las inconsistencias aparecen explícitamente en el general; el reporte por informe sigue la relación acción > hallazgo > informe y señala vínculos conflictivos.
 
-Se separan las dos evaluaciones de cierre: integral del paquete para informes de **Programa de Auditoría** con programa vinculado (mayor a 80% aprueba), y eficacia por acción para otras fuentes. Las pruebas de controles del módulo Trabajo de Campo no se presentan como evaluaciones de cierre. Fechas, evaluadores o avances faltantes se indican como no registrados; no se infieren fechas de cierre de una fecha límite.
+Para fuentes **Programa de Auditoría**, la evaluación ponderada corresponde al diseño inicial y un resultado **mayor o igual al 80%** habilita la ejecución, sin cerrar acciones. El reporte diferencia esa evaluación del dictamen final por acción, posterior a la ejecución al 100% y la validación del revisor. Las evaluaciones finales del flujo anterior conservan su tipo y resultado histórico. Para otras fuentes se conserva la eficacia por acción. Las pruebas de controles del módulo Trabajo de Campo no se presentan como evaluaciones de cierre. Fechas, evaluadores o avances faltantes se indican como no registrados; no se infieren fechas de cierre de una fecha límite.
+
+### Flujo de acciones de Programa de Auditoría
+
+Al guardar acciones, individualmente o en matriz, quedan **Pendiente Evaluación Auditor** y se notifica al auditor asignado, con copia informativa al ejecutor. La evaluación inicial usa los cinco criterios existentes (30%, 20%, 20%, 20%, 10%), calculados también en servidor. Desde 80% pasa a **En Ejecución** y se notifica al ejecutor; debajo del 80% requiere justificación, pasa a **Requiere Ajustes Auditor** y permite corregir el diseño, pero no ejecutar. Al guardar las correcciones se reenvía al auditor. Cambiar un diseño de esta fuente requiere una nueva evaluación, conservando su historial y avance previo.
+
+Al alcanzar el 100%, pasa a **Pendiente Validación Revisor** y se notifica al revisor. Su aprobación remite cada acción a **En Revisión (100%)** y notifica al auditor asignado. El dictamen final del auditor cierra únicamente esa acción; el hallazgo se cierra cuando todas sus acciones están cerradas. Tanto el rechazo del revisor como el del auditor requieren motivo y devuelven al ejecutor al 90%, que debe pasar otra vez por ambas revisiones.
+
+Los planes que ya estaban en ejecución, revisión o cerrados conservan estado, avance e historial; no se migran ni se les exige retroactivamente una evaluación inicial. Los pendientes de aprobación del flujo anterior se evalúan al inicio. El tipo de fuente, no la presencia de un ID de programa, determina esta ruta. Las otras fuentes mantienen su flujo. Las notificaciones transaccionales de esta ruta no se pueden desmarcar en el formulario; si Gmail no está autorizado o falla el envío, se conserva el guardado, se informa el error y se utiliza la cola existente de reintentos. El correo no se considera entregado hasta que el despacho confirme éxito.
+
+Validación del flujo y destinatarios con persistencia y correos simulados: `node --test tests/programPlanWorkflow.test.js tests/reporte360.test.js`.
 
 El documento es una copia de seguimiento al momento de descargar, no una certificación de integridad del repositorio. Los enlaces a evidencias mantienen los controles de acceso del repositorio corporativo. El generador usa las dependencias existentes `jspdf` y `jspdf-autotable`, con texto seleccionable, tablas paginadas y encabezados y pies en todas las páginas.
 
 Validación local: `node tests/reporte360.test.js`.
+
+## Confirmación de eliminaciones
+
+Las opciones de eliminar registros, fuentes, catálogos, históricos, controles, filas de matrices y adjuntos utilizan un diálogo compartido con aviso de acción irreversible. El diálogo detalla el elemento y, cuando corresponde, los registros vinculados que también se eliminarán. Quitar un adjunto retira su vínculo del registro, no el archivo del repositorio corporativo. La restauración JSON y el reemplazo de la matriz de riesgos o del cronograma también requieren confirmación.
+
+El foco inicial está en **Cancelar, conservar**; Escape y el botón de cierre cancelan sin ejecutar la eliminación. La ventana bloquea la interacción con el fondo y se adapta a móvil. Los permisos y las reglas de guardado de cada módulo se conservan. Las deselecciones de filtros, responsables o sedes no son eliminaciones y no muestran este aviso.
+
+Validación local sin escribir datos reales: `node --test tests/deleteConfirmation.test.js`.
 
 ## Gmail OAuth
 

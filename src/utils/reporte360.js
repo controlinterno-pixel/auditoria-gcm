@@ -1,4 +1,5 @@
 import { formatSafeDate } from './helpers.js';
+import { esInformePrograma, TIPO_EVALUACION_INICIAL } from './programPlanWorkflow.js';
 
 export const texto360 = (valor, vacio = 'No registrado') => {
   if (Array.isArray(valor)) return valor.map(item => texto360(item, '')).filter(Boolean).join(', ') || vacio;
@@ -94,15 +95,17 @@ export function evaluacion360(plan, esPrograma) {
   }
   if (esPrograma) {
     const registro = plan.evaluacionHolistica;
-    const vigente = registro?.tipo === 'evaluacion-final-ejecucion';
+    const inicial = registro?.tipo === TIPO_EVALUACION_INICIAL;
+    const vigente = inicial || registro?.tipo === 'evaluacion-final-ejecucion';
     const puntaje = progreso360(registro?.puntaje);
     return {
-      tipo: 'Evaluación integral del paquete',
-      resultado: !vigente ? 'Pendiente de evaluación final'
-        : registro.aprobado === true && puntaje !== null && puntaje > 80
+      tipo: inicial || !vigente ? 'Evaluación inicial del diseño' : 'Evaluación integral del paquete',
+      resultado: !vigente ? 'Pendiente de evaluación inicial'
+        : registro.aprobado === true && puntaje !== null && (inicial ? puntaje >= 80 : puntaje > 80)
           ? 'Aprobada' : 'No aprobada',
       registro: vigente ? registro : null,
       anterior: !vigente ? registro : null,
+      cierre: plan.evaluacionEficaciaCierre || null,
     };
   }
   const registro = plan.evaluacionEficaciaCierre;
@@ -166,7 +169,7 @@ export function construirReporte360({
         titulo: informe ? texto360(informe.titulo) : 'Registros sin vínculo verificable con un informe',
         fuente,
         tipoFuente: informe ? tipoFuente360(informe, fuentes) : 'Origen sin verificar',
-        esPrograma: informe ? informe.tipoFuente === 'Programa de Auditoría' && Boolean(informe.programaId) : null,
+        esPrograma: informe ? esInformePrograma(informe, fuentes) : null,
         hallazgos: [], planesSinHallazgo: [],
       });
     }

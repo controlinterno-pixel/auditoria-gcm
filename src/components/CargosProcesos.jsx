@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import { CARGOS_EMPRESA, CARGOS_POR_SEDE, MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
@@ -54,6 +55,7 @@ export default function CargosProcesos({
   onDeleteCargo,
   showNotification = () => {},
 }) {
+  const confirmarEliminacion = useDeleteConfirmation();
   const [vistaActiva, setVistaActiva] = useState('cargos');
   const [busqueda, setBusqueda] = useState('');
   const [filtroMacro, setFiltroMacro] = useState('');
@@ -162,7 +164,7 @@ export default function CargosProcesos({
   };
 
   const eliminarSede = async sede => {
-    if (!window.confirm(`¿Quitar ${sede} de las opciones de sedes? Los hallazgos existentes conservarán su valor.`)) return;
+    if (!(await confirmarEliminacion(`Se eliminará ${sede} del catálogo de sedes. Los hallazgos existentes conservarán su valor.`))) return;
     const sedesSiguientes = sedesDisponibles.filter(item => item !== sede);
     if (await guardarCatalogos(listaCargos, mapaSeguro, sedesSiguientes) !== false) {
       showNotification('Sede eliminada del catálogo de opciones.', 'success');
@@ -223,7 +225,7 @@ export default function CargosProcesos({
   };
 
   const eliminarCargo = async registro => {
-    if (!window.confirm(`¿Eliminar la asignación de ${registro.cargo} (${registro.correoCorporativo || 'sin correo'})?`)) return;
+    if (!(await confirmarEliminacion(`Se eliminará la asignación de ${registro.cargo} (${registro.correoCorporativo || 'sin correo'}).`))) return;
     if (typeof onDeleteCargo === 'function') {
       try {
         const eliminado = await onDeleteCargo(registro.id);
@@ -285,7 +287,7 @@ export default function CargosProcesos({
       showNotification('Reasigna primero los cargos vinculados a este macroproceso.', 'error');
       return;
     }
-    if (!window.confirm(`¿Eliminar el macroproceso ${macroSeleccionado} y sus subprocesos?`)) return;
+    if (!(await confirmarEliminacion(`Se eliminará el macroproceso ${macroSeleccionado} junto con sus subprocesos.`))) return;
     const mapaSiguiente = { ...mapaSeguro };
     delete mapaSiguiente[macroSeleccionado];
     if (await guardarCatalogos(listaCargos, mapaSiguiente) !== false) {

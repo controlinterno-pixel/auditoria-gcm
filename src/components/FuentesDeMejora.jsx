@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import ModalNuevaFuente from './ModalNuevaFuente';
 
@@ -84,6 +85,7 @@ const PanelDistribucion = ({ titulo, datos, totalCentro, etiquetaCentro, selecci
 };
 
 export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveFuentes, onCreateFuente, user = null }) {
+  const confirmarEliminacion = useDeleteConfirmation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroNorma, setFiltroNorma] = useState('TODOS');
   const [filtroFuenteDashboard, setFiltroFuenteDashboard] = useState('TODOS');
@@ -356,9 +358,9 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
     return true;
   };
 
-  const handleDeleteFuente = (fuente) => {
+  const handleDeleteFuente = async (fuente) => {
     if (!isAdmin) return;
-    if (!window.confirm(`¿Seguro de eliminar la fuente ${fuente.codigo || fuente.id}?`)) return;
+    if (!(await confirmarEliminacion(`Se eliminará la fuente de mejora ${fuente.codigo || fuente.id}.`))) return;
 
     actualizarFuentes(fuentesActuales.filter((item) => (
       (item.codigo || item.id) !== (fuente.codigo || fuente.id)

@@ -157,11 +157,11 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     ].filter(Boolean).join('\n'),
   ]);
   const evaluacion = plan => {
-    const { tipo, resultado, registro, anterior } = plan.evaluacion;
+    const { tipo, resultado, registro, anterior, cierre } = plan.evaluacion;
     const filas = [['Evaluación aplicable', tipo], ['Resultado registrado', resultado]];
     if (registro) {
       filas.push(['Fecha y evaluador', `${fecha360(registro.fecha)}\n${texto360(registro.usuario)}`]);
-      if (tipo === 'Evaluación integral del paquete') {
+      if (tipo === 'Evaluación integral del paquete' || tipo === 'Evaluación inicial del diseño') {
         filas.push(['Puntaje / dictamen', `${avance(progreso360(registro.puntaje))} · ${resultado}`]);
         Object.entries(CRITERIOS).forEach(([clave, nombre]) => {
           filas.push([nombre, avance(progreso360(registro.criterios?.[clave]))]);
@@ -173,7 +173,12 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
         filas.push(['Observaciones', texto360(registro.observaciones)]);
       }
     }
-    if (anterior) filas.push(['Evaluación anterior', `No es una evaluación final de ejecución. Fecha: ${fecha360(anterior.fecha)}. Puntaje: ${avance(progreso360(anterior.puntaje))}.`]);
+    if (anterior) filas.push(['Evaluación anterior', `Tipo: ${texto360(anterior.tipo)}. Fecha: ${fecha360(anterior.fecha)}. Puntaje: ${avance(progreso360(anterior.puntaje))}.`]);
+    if (tipo === 'Evaluación inicial del diseño' || tipo === 'Evaluación integral del paquete') {
+      filas.push(['Dictamen final por acción', cierre
+        ? `${cierre.fueEficaz ? 'Aprobado' : 'No aprobado'}. ${fecha360(cierre.fecha)}. Auditor: ${texto360(cierre.usuario)}\n${texto360(cierre.conclusion)}\n${texto360(cierre.observaciones, '')}`
+        : 'Sin dictamen final registrado']);
+    }
     ficha(filas);
     const historico = lista(plan.registro.historialEvaluaciones);
     if (historico.length) {
@@ -222,7 +227,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
         ['Elaboró / revisó / aprobó', `Elaboró: ${texto360(informe.elaboradoPor)}\nRevisó: ${texto360(informe.revisadoPor)}\nAprobó: ${texto360(informe.aprobadoPor)}`],
         ['Auditor del informe', `${texto360(informe.auditorResponsable || informe.auditor)}\n${texto360(informe.correoAuditor || informe.correoAuditorResponsable)}`],
         ['Socialización', `${texto360(informe.socializado)}\nFecha: ${fecha360(informe.fechaSocializacion || informe.fecha_socializacion)}\nParticipantes: ${texto360(informe.participantes || informe.socializadoCon)}`],
-        ['Ruta de evaluación', grupo.esPrograma ? 'Integral del paquete. Mayor a 80% aprueba; 80% o menos requiere ajustes.' : 'Eficacia por acción. Dictamen de eficacia y observaciones del auditor.'],
+        ['Ruta de evaluación', grupo.esPrograma ? 'Diseño inicial: mayor o igual al 80% habilita ejecución. Al 100%: validación del revisor y dictamen final del auditor por acción.' : 'Eficacia por acción. Dictamen de eficacia y observaciones del auditor.'],
       ]);
     } else parrafo('No se dispone del informe de origen. Se presentan los registros sin atribuirles una fuente o una ruta de evaluación no verificadas.');
     seccion('Cuadro de hallazgos');

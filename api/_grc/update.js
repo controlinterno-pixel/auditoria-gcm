@@ -1,4 +1,5 @@
 import { applyCors } from '../_lib/cors.js';
+import { esInformePrograma, disenoInicialBloqueado, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../../src/utils/programPlanWorkflow.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
@@ -113,6 +114,7 @@ export default async function handler(req, res) {
         }
 
         if (!informeActual) return { error: 'report-not-found' };
+        const esPrograma = esInformePrograma(informeActual, data.fuentesMejora);
         const correoAuditorInforme = String(
           informeActual.correoAuditor || informeActual.correoAuditorResponsable || informeActual.correo_auditor || ''
         ).trim();
@@ -196,10 +198,15 @@ export default async function handler(req, res) {
           const cambioProgreso = camposCambiados.includes('progreso');
           // Subir evidencia es ejecución, no una corrección del diseño aprobado.
           const cambioDiseno = camposCambiados.some(campo => !['progreso', 'evidenciaUrl'].includes(campo));
-          if (!admin && camposCambiados.length > 0 && anterior.estadoWorkflow !== 'En Ejecución') {
+          const corrigeDisenoInicial = esPrograma && disenoInicialBloqueado(anterior);
+          if (corrigeDisenoInicial && Number(cambios.progreso ?? anterior.progreso) !== Number(anterior.progreso)) {
             return { error: 'progress-forbidden' };
           }
-          const reenviaRevision = !admin && cambioDiseno;
+          if (!admin && camposCambiados.length > 0 && anterior.estadoWorkflow !== 'En Ejecución' &&
+              !(corrigeDisenoInicial && anterior.estadoWorkflow === ESTADO_AJUSTES_INICIALES && !cambioProgreso)) {
+            return { error: 'progress-forbidden' };
+          }
+          const reenviaRevision = (cambioDiseno || (corrigeDisenoInicial && camposCambiados.length > 0)) && (!admin || esPrograma);
           let estadoWorkflow = anterior.estadoWorkflow;
           const alCien = Number(cambios.progreso ?? anterior.progreso) === 100;
           if (admin && (cambioProgreso || atascadoAlCien)) {
@@ -224,8 +231,9 @@ export default async function handler(req, res) {
             idInforme: idInformeAnterior,
             ...(cambiaEstadoEjecucion ? { estadoWorkflow, estado: 'En Proceso' } : {}),
             ...(reenviaRevision ? {
-              estadoWorkflow: 'Pendiente Revisión Jefatura',
+              estadoWorkflow: esPrograma ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
               estado: 'En Proceso',
+              ...(esPrograma ? { evaluacionHolistica: null, aprobadoPorCorreo: '', aprobadoEn: '', validadoPorRevisorCorreo: '', validadoPorRevisorEn: '' } : {}),
             } : {}),
             historialCambios: (camposCambiados.length || atascadoAlCien) ? [
               ...historial,
@@ -256,7 +264,7 @@ export default async function handler(req, res) {
 
         for (const item of nuevas) {
           const hallazgo = hallazgos.find(candidate => String(candidate.id) === String(item.idHallazgo));
-          if (!hallazgo) return { error: 'hallazgo-not-found' };
+          if (!hallazgo || String(hallazgo.idInforme) !== String(informeActual.id)) return { error: 'hallazgo-not-found' };
           const procesoHallazgo = normalizar(hallazgo.macroproceso || String(hallazgo.proceso || '').split('/')[0]);
           const subprocesosHallazgo = (Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso])
             .map(normalizar);
@@ -272,6 +280,7 @@ export default async function handler(req, res) {
           const correoResponsable = String(item.correoResponsable || '').trim();
           const correoRevisor = String(item.correoRevisor || '').trim();
           const correoAuditor = String(item.correoAuditor || correoAuditorInforme).trim();
+          if (esPrograma && !correoValido(correoAuditor)) return { error: 'invalid-auditor-email' };
           if (
             !normalizar(item.accion) ||
             !correoValido(correoResponsable) ||
@@ -293,7 +302,11 @@ export default async function handler(req, res) {
             idHallazgo: hallazgo.id,
             ...(correoAuditor ? { correoAuditor } : {}),
             progreso: 0,
-            estadoWorkflow: 'Pendiente Revisión Jefatura',
+            ...(esPrograma ? {
+              evaluacionHolistica: null, historialEvaluaciones: [],
+              aprobadoPorCorreo: '', aprobadoEn: '', validadoPorRevisorCorreo: '', validadoPorRevisorEn: '',
+            } : {}),
+            estadoWorkflow: esPrograma ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
             estado: 'En Proceso',
             creadoPor: user.email,
             historialCambios: [{

@@ -4,13 +4,16 @@ import './index.css'
 import App from './App.jsx'
 import { secureLogger } from './services/secureLogger.js'
 import { UnsavedChangesProvider } from './context/UnsavedChangesContext.jsx'
+import { DeleteConfirmationProvider } from './context/DeleteConfirmationProvider.jsx'
 
 secureLogger.installGlobal();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <UnsavedChangesProvider>
-      <App />
+      <DeleteConfirmationProvider>
+        <App />
+      </DeleteConfirmationProvider>
     </UnsavedChangesProvider>
   </StrictMode>,
 )
