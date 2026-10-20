@@ -2,6 +2,7 @@
 import { secureLogger } from './secureLogger.js';
 import { signOut } from 'firebase/auth';
 import { auth } from './firebase.js';
+import { markSignOutReason, recordAuthEvent } from './authDiagnostics.js';
 
 let renovacionSesionEnCurso = null;
 
@@ -28,7 +29,13 @@ const renovarCookieSesion = async () => {
   if (renovacionSesionEnCurso) return renovacionSesionEnCurso;
 
   renovacionSesionEnCurso = (async () => {
-    const idToken = await auth.currentUser.getIdToken(true);
+    let idToken;
+    try {
+      idToken = await auth.currentUser.getIdToken(true);
+    } catch (error) {
+      recordAuthEvent('token-refresh-error', { code: error?.code || 'unknown' });
+      throw error;
+    }
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       credentials: 'include',
@@ -112,9 +119,15 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
                 statusRenovacion: error.status,
                 codigoRenovacion: error.code || 'unknown',
               });
+              markSignOutReason('renewal-403', error.message);
               await signOut(auth).catch(() => {});
               throw error;
             }
+            recordAuthEvent('session-renewal-failed', {
+              endpoint: String(endpoint).split('?')[0],
+              status: error.status || 0,
+              code: error.code || 'unknown',
+            });
             throw new Error('No se pudo renovar la sesion temporalmente. Comprueba tu conexion e intenta nuevamente.', { cause: error });
           }
         }

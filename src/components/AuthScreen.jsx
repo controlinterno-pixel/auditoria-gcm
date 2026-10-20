@@ -21,11 +21,22 @@ import {
 } from 'lucide-react';
 
 import { apiService } from '../services/apiService';
+import { AUTH_NOTICE_EVENT, consumeAuthNotice, markSignOutReason } from '../services/authDiagnostics';
 
 export default function AuthScreen() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [loading, setLoading] = useState(false);
+  // ℹ️ Motivo del último cierre de sesión (si no fue solicitado por el usuario en esta pestaña)
+  const [authNotice, setAuthNoticeVisible] = useState(consumeAuthNotice);
+  useEffect(() => {
+    const mostrarAviso = () => {
+      const aviso = consumeAuthNotice();
+      if (aviso) setAuthNoticeVisible(aviso);
+    };
+    window.addEventListener(AUTH_NOTICE_EVENT, mostrarAviso);
+    return () => window.removeEventListener(AUTH_NOTICE_EVENT, mostrarAviso);
+  }, []);
 
   // Campos del Formulario
   const [email, setEmail] = useState('');
@@ -130,6 +141,7 @@ export default function AuthScreen() {
         subprocesoSolicitado: subproceso,
       });
       await sendEmailVerification(user);
+      markSignOutReason('registration');
       await signOut(auth);
       setPendingVerification(true);
     } catch (err) {
@@ -156,6 +168,7 @@ export default function AuthScreen() {
 // 🛡️ REGLA DE SEGURIDAD 2:
       // Bloqueo obligatorio para cuentas no verificadas (Sin excepciones o puertas traseras)
       if (!user.emailVerified) {
+        markSignOutReason('email-unverified');
         await signOut(auth);
         alert("⚠️ Acceso denegado: Tu correo aún no ha sido verificado. Revisa tu bandeja de entrada o spam para activar tu cuenta.");
         setPendingVerification(true);
@@ -381,6 +394,20 @@ export default function AuthScreen() {
             </p>
             <div className="w-10 h-0.5 bg-emerald-500 mx-auto rounded-full mt-2" />
           </div>
+
+          {authNotice && !isRegistering && (
+            <div role="status" aria-live="polite" className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-[11px] font-semibold leading-normal text-amber-900">
+              <p>{authNotice}</p>
+              <button
+                type="button"
+                onClick={() => setAuthNoticeVisible('')}
+                aria-label="Cerrar aviso"
+                className="shrink-0 rounded px-1 text-amber-700 hover:text-amber-950"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {isRegistering ? (
             /* 📝 FORMULARIO DE REGISTRO COMPLETO */

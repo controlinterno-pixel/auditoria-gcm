@@ -1,9 +1,14 @@
 // src/hooks/useGrcData.js
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, onIdTokenChanged, signOut } from 'firebase/auth';
 import { doc, getDocFromServer, onSnapshot } from 'firebase/firestore';
 import { apiService } from '../services/apiService';
 import { auth, db } from '../services/firebase';
+import {
+  consumeSignOutReason, installAuthDiagnostics, markSignOutReason,
+  recordAuthEvent, setAuthNotice, SIGN_OUT_NOTICES
+} from '../services/authDiagnostics';
+import { consumeSkipWelcome } from '../services/appUpdate';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
   defaultPlanes, defaultEvaluaciones, defaultMonitoreo 
@@ -14,7 +19,9 @@ export function useGrcData() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [perfilUsuario, setPerfilUsuario] = useState(null);
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
+  // Tras una recarga por versión nueva se vuelve directo al módulo, sin repetir la bienvenida.
+  const [showWelcome, setShowWelcome] = useState(() => !consumeSkipWelcome());
 
   // Entidades principales de base de datos
   const [riesgos, setRiesgos] = useState([]);
@@ -34,31 +41,54 @@ export function useGrcData() {
   const [sedesEmpresa, setSedesEmpresa] = useState([]);
   const [catalogosInicializados, setCatalogosInicializados] = useState(false);
 
-  // 1. Estado y validación de perfil/rol de usuario
+  // 1. Estado y validación de perfil/rol de usuario (único listener de autenticación de la app)
   useEffect(() => {
+    let authGeneration = 0;
+    let lastUid = null;
+    recordAuthEvent('auth-init-start');
+    const stopDiagnostics = installAuthDiagnostics(auth, onIdTokenChanged);
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      // 🛡️ Cada evento invalida las respuestas asíncronas de eventos anteriores (evita resucitar sesiones cerradas)
+      const generation = ++authGeneration;
+      const isCurrent = () => generation === authGeneration;
+
       if (currentUser) {
+        recordAuthEvent(lastUid === null ? 'session-restored' : 'user-changed', {
+          userChanged: lastUid !== null && lastUid !== currentUser.uid,
+        });
+        lastUid = currentUser.uid;
         try {
-          const idToken = await currentUser.getIdToken(true);
+          // El SDK entrega un token vigente y lo renueva solo cuando está por vencer.
+          const idToken = await currentUser.getIdToken();
           await apiService.login(idToken);
         } catch (err) {
+          if (!isCurrent()) return;
           console.error("Error renovando cookie de servidor:", err);
           if (err?.status === 403) {
             console.error('[AUTH] Cierre automático durante la validación inicial de la sesión.', {
               status: err.status,
               code: err.code || 'unknown',
             });
-            window.alert(err?.message || 'El servidor rechazó la sesión o el acceso de esta cuenta.');
+            // Con correo sin verificar, AuthScreen ya guía al usuario (registro / verificación pendiente).
+            markSignOutReason(
+              'initial-403',
+              currentUser.emailVerified ? (err?.message || 'El servidor rechazó la sesión o el acceso de esta cuenta.') : ''
+            );
             await signOut(auth);
             return;
           }
+          recordAuthEvent('session-cookie-temporary-failure', { status: err?.status || 0, code: err?.code || 'unknown' });
           console.warn('Fallo temporal al renovar la cookie. Se conserva la sesión de Firebase y las peticiones volverán a intentar renovarla.');
         }
 
+        if (!isCurrent()) return;
         setUser(currentUser);
+        setAuthReady(true);
 
         try {
           const respuesta = await apiService.checkSession();
+          if (!isCurrent()) return;
           const datosPerfil = respuesta?.user || {};
           setPerfilUsuario({
             ...datosPerfil,
@@ -67,17 +97,32 @@ export function useGrcData() {
           });
           setIsAdmin(['admin', 'administrador'].includes(String(datosPerfil.rol || '').trim().toLowerCase()));
         } catch (error) {
+          if (!isCurrent()) return;
           console.error("Error obteniendo perfil desde el servidor:", error);
           setIsAdmin(false);
         }
       } else {
+        if (lastUid !== null) {
+          const { reason, origin } = consumeSignOutReason();
+          recordAuthEvent('signed-out', { reason, origin });
+          // Los cierres de esta pestaña ya dejaron su propio aviso (o fueron solicitados por el usuario).
+          const aviso = origin === 'local' ? '' : SIGN_OUT_NOTICES[origin === 'other-tab' ? 'other-tab' : reason];
+          if (aviso) setAuthNotice(aviso);
+        } else {
+          recordAuthEvent('no-session');
+        }
+        lastUid = null;
         setUser(null);
         setPerfilUsuario(null);
         setIsAdmin(false);
         setShowWelcome(true);
+        setAuthReady(true);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      stopDiagnostics();
+    };
   }, []);
 
 // 2. Carga Inicial Centralizada SEGURA + Semáforo en Tiempo Real (Firestore)
@@ -224,6 +269,7 @@ export function useGrcData() {
 
   return {
     user, setUser,
+    authReady,
     isAdmin, setIsAdmin,
     perfilUsuario, setPerfilUsuario,
     isCloudLoaded, setIsCloudLoaded,

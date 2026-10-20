@@ -1,7 +1,12 @@
 import { useMemo, useCallback, lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { ArrowLeft, MailWarning, RefreshCw } from 'lucide-react';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth } from './services/firebase';
+import { markSignOutReason } from './services/authDiagnostics';
+import {
+  reloadForFreshAssets, reloadPreservingContext, rememberActiveTab, UPDATE_AVAILABLE_EVENT
+} from './services/appUpdate';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
 import { esInformePrograma, pendienteEvaluacionInicial, ESTADO_AJUSTES_INICIALES } from './utils/programPlanWorkflow.js';
 
@@ -18,18 +23,8 @@ import ProgramasAuditoria from './components/ProgramasAuditoria';
 import AuditorIA from './components/AuditorIA';
 import InformesAuditoria from './components/InformesAuditoria';
 
-const CHUNK_RELOAD_KEY = 'gcm_chunk_reload_at';
-const CHUNK_RELOAD_COOLDOWN_MS = 30_000;
-
-const reloadForFreshAssets = () => {
-  const lastAttempt = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
-  if (Date.now() - lastAttempt < CHUNK_RELOAD_COOLDOWN_MS) return false;
-  sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
-  window.location.reload();
-  return true;
-};
-
 // 🔄 Si una pestaña conserva un chunk de un deployment anterior, recarga una vez para obtener el HTML vigente.
+// Con cambios sin guardar no recarga: AppErrorBoundary ofrece actualizar cuando el usuario decida.
 const lazyWithReload = (importFn) =>
   lazy(() =>
     importFn().catch((err) => {
@@ -214,8 +209,8 @@ export default function App() {
     if (autoScrollDelayRef.current) window.clearTimeout(autoScrollDelayRef.current);
   }, []);
 
-  // 🛡️ ESTADO DE BLOQUEO: Previene la "condición de carrera" al recargar con F5
-  const [authInitialized, setAuthInitialized] = useState(false);
+  // 🔔 Versión nueva detectada con cambios sin guardar: se avisa en lugar de recargar
+  const [actualizacionPendiente, setActualizacionPendiente] = useState(false);
 
   // 🛡️ BARRERA DE CONTENCIÓN: Captura errores de importación dinámica (Chunk 404 Vercel)
   useEffect(() => {
@@ -223,16 +218,19 @@ export default function App() {
       event.preventDefault();
       reloadForFreshAssets();
     };
+    const handleUpdateAvailable = () => setActualizacionPendiente(true);
 
     window.addEventListener('vite:preload-error', handlePreloadError);
+    window.addEventListener(UPDATE_AVAILABLE_EVENT, handleUpdateAvailable);
     return () => {
       window.removeEventListener('vite:preload-error', handlePreloadError);
+      window.removeEventListener(UPDATE_AVAILABLE_EVENT, handleUpdateAvailable);
     };
   }, []);
 
  // 1. Extraemos TODA la información de Firebase y el Backend
   const {
-    user, setUser, isAdmin, setIsAdmin,
+    user, setUser, authReady, isAdmin, setIsAdmin,
     perfilUsuario,
     isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
     riesgos, setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
@@ -267,22 +265,7 @@ export default function App() {
     return () => observer.disconnect();
   }, [isCloudLoaded, showWelcome, user, programarScrollDeEnfoque]);
 
-  // 2. Escucha a Firebase y libera la carga (Depende de 'user')
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (!firebaseUser) {
-        setAuthInitialized(true);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      const t = setTimeout(() => setAuthInitialized(true), 0);
-      return () => clearTimeout(t);
-    }
-  }, [user]);
+  // 2. El estado de autenticación lo resuelve un único listener centralizado en useGrcData (authReady)
 
   const toggleSidebar = () => {
     const newVal = !isSidebarCollapsed;
@@ -313,6 +296,7 @@ export default function App() {
       if (nextTab !== activeTab) setActiveTab(nextTab);
     });
   }, [activeTab, guardNavigation, setActiveTab]);
+  useEffect(() => rememberActiveTab(activeTab), [activeTab]);
   const reviewReportId = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('reviewReportId')
     : null;
@@ -480,6 +464,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
 
  const handleLogout = async () => { 
     try {
+      markSignOutReason('manual');
       await apiService.logout();
       await signOut(auth);
       setUser(null); 
@@ -665,7 +650,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   if (isResettingPassword) return <ResetPassword oobCode={oobCode} />;
 
   // 🛡️ BARRERA DE CONTENCIÓN: Firebase está procesando el token guardado en caché
-  if (!authInitialized) {
+  if (!authReady) {
     return (
       <div className="min-h-screen bg-[#041224] flex flex-col items-center justify-center space-y-5">
          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(16,185,129,0.5)]"></div>
@@ -769,6 +754,22 @@ return (
         {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}
         
 <main ref={mainScrollAreaRef} onChangeCapture={manejarCambioConScroll} onClickCapture={manejarClickConScroll} id="main-scroll-area" tabIndex={-1} aria-label="Contenido principal" className={`min-h-0 min-w-0 flex-grow overflow-y-auto ${isPresentationMode ? 'p-4 sm:p-8 xl:p-12' : 'p-4 sm:p-5 xl:p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
+          {actualizacionPendiente && (
+            <section role="status" aria-live="polite" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 shadow-sm">
+              <div className="flex items-start gap-3">
+                <RefreshCw size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-blue-700" />
+                <p><b>Hay una versión nueva de GCM.</b> Guarda tus cambios y actualiza cuando termines; tu sesión seguirá activa.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => guardNavigation(reloadPreservingContext)}
+                className="min-h-11 rounded-lg bg-blue-700 px-4 py-2 text-xs font-bold text-white hover:bg-blue-800"
+              >
+                Actualizar ahora
+              </button>
+            </section>
+          )}
+          <AppErrorBoundary resetKey={activeTab}>
           <Suspense fallback={<div className="flex justify-center items-center p-12 text-slate-400 font-bold text-sm uppercase tracking-widest animate-pulse">⏳ Cargando módulo...</div>}>
 <div key={`${activeTab}-${subTabPlanificar}-${subTabResultados}-${subTabPlanes}-${subTabGobernanza}`} className={`app-content @container ${isPresentationMode ? 'max-w-none' : 'max-w-[1600px]'} min-w-0 w-full mx-auto transition-all duration-500`}>
           {notificacionesPendientesUsuario.length > 0 && (
@@ -1227,6 +1228,7 @@ return (
             )}
           </div>
           </Suspense>
+          </AppErrorBoundary>
         </main>
       </div>
 

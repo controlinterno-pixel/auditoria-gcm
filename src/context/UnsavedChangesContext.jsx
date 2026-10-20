@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { UnsavedChangesContext } from './unsavedChangesContextValue.js';
+import { setPendingChangesProbe } from '../services/appUpdate.js';
 
 export function UnsavedChangesProvider({ children }) {
   const pendingChanges = useRef(new Map());
@@ -28,6 +29,11 @@ export function UnsavedChangesProvider({ children }) {
 
     callback?.();
     return true;
+  }, []);
+
+  useEffect(() => {
+    setPendingChangesProbe(() => pendingChanges.current.size > 0);
+    return () => setPendingChangesProbe(null);
   }, []);
 
   useEffect(() => {

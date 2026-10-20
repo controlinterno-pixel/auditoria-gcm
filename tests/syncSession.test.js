@@ -72,7 +72,8 @@ const clientSource = clientText.slice(0, clientText.indexOf('const comprimirImag
   .replaceAll('import.meta.env.VITE_API_URL', "''");
 for (const [renewalStatus, expectedSignOuts] of [[401, 0], [500, 0], [403, 1]]) {
   let signOuts = 0;
-  const request = new Function('fetch', 'auth', 'signOut', 'secureLogger', `${clientSource}\nreturn request;`)(
+  const reasons = [];
+  const request = new Function('fetch', 'auth', 'signOut', 'secureLogger', 'markSignOutReason', 'recordAuthEvent', `${clientSource}\nreturn request;`)(
     async endpoint => ({
       ok: false, status: endpoint === '/api/auth/login' ? renewalStatus : 401,
       json: async () => ({ error: 'Simulated renewal rejection' }),
@@ -80,9 +81,13 @@ for (const [renewalStatus, expectedSignOuts] of [[401, 0], [500, 0], [403, 1]]) 
     { currentUser: { getIdToken: async () => 'simulated-token' } },
     async () => { signOuts++; },
     { error() {} },
+    reason => reasons.push(reason),
+    () => {},
   );
   await assert.rejects(request('/api/grc/sync'));
   assert.equal(signOuts, expectedSignOuts);
+  // Todo cierre automático deja un motivo trazable antes de ejecutar signOut().
+  assert.deepEqual(reasons, expectedSignOuts ? ['renewal-403'] : []);
 }
 
 const hookText = readFileSync(new URL('../src/hooks/useGrcData.js', import.meta.url), 'utf8');

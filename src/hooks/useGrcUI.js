@@ -1,5 +1,6 @@
 // src/hooks/useGrcUI.js
 import { useState, useEffect } from 'react';
+import { consumeResumeTab } from '../services/appUpdate';
 
 export function useGrcUI() {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
@@ -25,7 +26,7 @@ export function useGrcUI() {
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('reviewReportId')) {
       return 'planes_tab';
     }
-    return 'tablero';
+    return consumeResumeTab() || 'tablero';
   });
   const [menuAbierto, setMenuAbierto] = useState('inicio');
   const [subTabPlanificar, setSubTabPlanificar] = useState('plan_anual');
