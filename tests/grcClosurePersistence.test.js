@@ -87,11 +87,15 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
         set: (reference, data, options) => {
           pending.push({ reference, data, options });
         },
+        delete: reference => {
+          pending.push({ reference, remove: true });
+        },
       });
-      const next = pending.map(write => apply(write.reference.path, write.data, write.options));
+      const next = pending.map(write => (write.remove ? null : apply(write.reference.path, write.data, write.options)));
       pending.forEach((write, index) => {
         writes.push(write.reference.path);
-        documents.set(write.reference.path, next[index]);
+        if (write.remove) documents.delete(write.reference.path);
+        else documents.set(write.reference.path, next[index]);
       });
       return result;
     },
@@ -102,7 +106,7 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
       leerWorkspaceGrcLigero, obtenerHallazgoTx, obtenerPlanesDeInformeTx,
       obtenerPlanesTx, obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, reservarIdsPlanesTx, listarHallazgosTx,
       riesgosMigrados, leerRiesgosVigentes, guardarRiesgoFragmentado, eliminarRiesgoFragmentado,
-      guardarListaRiesgosFragmentada, migrarRiesgos,
+      guardarListaRiesgosFragmentada, migrarRiesgos, limpiarRiesgosLegados,
     };`)(
     adminDb, { delete: () => DELETE }, {}, { info() {}, error: (...args) => workspaceErrors.push(args) },
   );
@@ -124,6 +128,7 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
   const createHandler = load('../api/_grc/create.js');
   const riesgosHandler = load('../api/_grc/riesgos.js');
   const migrarHandler = load('../api/_grc/migrar-riesgos.js');
+  const limpiarHandler = load('../api/_grc/limpiar-riesgos.js');
   const call = async (target, method, body, url, query = {}) => {
     const res = {};
     await target({ method, body, url, query }, res);
@@ -138,6 +143,7 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
     sesion,
     riesgos: (method, body, query) => call(riesgosHandler, method, body, '/api/grc/riesgos', query),
     migrar: body => call(migrarHandler, 'POST', body, '/api/grc/migrar-riesgos'),
+    limpiar: body => call(limpiarHandler, 'POST', body, '/api/grc/limpiar-riesgos'),
   };
 }
 
@@ -611,4 +617,64 @@ test('sin migrar: el módulo Riesgos mantiene su comportamiento actual', async (
   assert.equal(response.code, 200, JSON.stringify(response));
   assert.ok(fixture.documents.has('riesgos/1'), 'escribe en la colección raíz como hoy');
   assert.ok(!fixture.documents.has(PARTE(0)));
+});
+
+// ============================================================================
+// Migración de riesgos — fase 6: limpieza de copias antiguas
+// ============================================================================
+const CONFIRMAR_LIMPIEZA = { ejecutar: true, confirmacion: 'LIMPIAR-RIESGOS' };
+
+test('limpieza: sin migrar no hace nada', async () => {
+  const fixture = escenarioMigracion();
+  const response = await fixture.limpiar(CONFIRMAR_LIMPIEZA);
+  assert.equal(response.body.estado, 'no-migrado');
+  assert.equal(fixture.documents.get(ROOT).riesgos.length, 3);
+  assert.ok(fixture.documents.has('riesgos/539'));
+});
+
+test('limpieza: simular no borra nada; solo admin y con confirmación', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  const antes = JSON.stringify([...fixture.documents]);
+  const simulacion = await fixture.limpiar({});
+  assert.equal(simulacion.body.estado, 'simulacion');
+  assert.deepEqual(simulacion.body.faltantesEnMatrizVigente, []);
+  assert.equal(simulacion.body.riesgosEnCampoAntiguo, 3);
+  assert.equal(simulacion.body.documentosColeccionAparte, 1);
+  assert.equal((await fixture.limpiar({ ejecutar: true })).code, 400);
+  fixture.sesion.usuario = { uid: 'u2', email: 'auditor@example.test', rol: 'auditor' };
+  assert.equal((await fixture.limpiar(CONFIRMAR_LIMPIEZA)).code, 403);
+  assert.equal(JSON.stringify([...fixture.documents]), antes, 'nada cambió');
+});
+
+test('limpieza: borra solo las copias antiguas; la matriz vigente y los demás datos quedan intactos', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  await fixture.riesgos('POST', { ...riesgo(900), proceso: 'Operaciones', probabilidadInherente: 60, impactoInherente: 60, controlesDetallados: [] });
+  const antes = (await fixture.workspace.leerWorkspaceGrc()).data.riesgos;
+  const response = await fixture.limpiar(CONFIRMAR_LIMPIEZA);
+  assert.equal(response.code, 200, JSON.stringify(response));
+  assert.equal(response.body.estado, 'limpiado');
+  assert.equal(fixture.documents.get(ROOT).riesgos, undefined, 'campo antiguo eliminado');
+  assert.ok(!fixture.documents.has('riesgos/539'), 'colección aparte vaciada');
+  assert.deepEqual(fixture.documents.get(ROOT).comites, [{ id: 'c1' }], 'otros datos intactos');
+  const despues = (await fixture.workspace.leerWorkspaceGrc()).data.riesgos;
+  assert.deepEqual(despues, antes, 'la app ve exactamente la misma matriz');
+  assert.equal(despues.find(item => item.id === 539).descripcion, 'Edición del 16/10');
+  assert.equal((await fixture.limpiar(CONFIRMAR_LIMPIEZA)).body.estado, 'ya-limpio');
+  // Después de limpiar, guardar sigue funcionando.
+  await fixture.workspace.guardarWorkspaceParcial({ riesgos: [riesgo(1, { descripcion: 'Tras limpiar' })] });
+  assert.equal((await fixture.workspace.leerWorkspaceGrc()).data.riesgos.find(item => item.id === 1).descripcion, 'Tras limpiar');
+});
+
+test('limpieza: se bloquea si un riesgo antiguo no está en la matriz vigente, salvo confirmación explícita', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  await fixture.riesgos('DELETE', null, { id: '2' }); // eliminado a propósito después de migrar
+  const bloqueado = await fixture.limpiar(CONFIRMAR_LIMPIEZA);
+  assert.equal(bloqueado.body.estado, 'bloqueado');
+  assert.deepEqual(bloqueado.body.faltantesEnMatrizVigente, ['2']);
+  assert.equal(fixture.documents.get(ROOT).riesgos.length, 3, 'no borró nada');
+  const confirmado = await fixture.limpiar({ ...CONFIRMAR_LIMPIEZA, faltantesConfirmados: ['2'] });
+  assert.equal(confirmado.body.estado, 'limpiado');
 });

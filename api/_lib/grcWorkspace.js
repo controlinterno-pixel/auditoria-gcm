@@ -266,6 +266,68 @@ export async function migrarRiesgos({ ejecutar = false, usuario = '' } = {}) {
   });
 }
 
+/**
+ * Fase 6: elimina las copias antiguas de los riesgos (campo `riesgos` del documento principal y
+ * colección raíz `riesgos`) una vez migrados.
+ * - Solo actúa si los riesgos están migrados y todas las partes existen.
+ * - Verifica que cada riesgo de las copias antiguas exista en la matriz vigente. Si falta alguno
+ *   (p. ej. se eliminó después de migrar), no borra nada salvo que esos IDs se confirmen explícitamente.
+ * - `ejecutar: false` (por defecto) solo simula. Idempotente.
+ */
+export async function limpiarRiesgosLegados({ ejecutar = false, faltantesConfirmados = [], usuario = '' } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const snapshotWorkspace = await transaction.get(workspaceRef());
+    const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+    if (!indiceRiesgosValido(datosWorkspace.riesgosFragmentados)) {
+      return { estado: 'no-migrado', mensaje: 'Primero hay que migrar los riesgos.' };
+    }
+    const vigente = await leerRiesgosFragmentados(datosWorkspace, transaction);
+    if (!vigente?.riesgos) {
+      return { estado: 'bloqueado', mensaje: 'Falta una parte de la matriz vigente: no se borra nada.' };
+    }
+    const snapshotRaiz = await transaction.get(adminDb.collection('riesgos'));
+    const campoLegado = Array.isArray(datosWorkspace.riesgos) ? datosWorkspace.riesgos : null;
+    if (!campoLegado && snapshotRaiz.docs.length === 0) return { estado: 'ya-limpio', riesgosVigentes: vigente.riesgos.length };
+
+    const idsVigentes = new Set(vigente.riesgos.filter(tieneId).map(riesgo => String(riesgo.id)));
+    const vigentesSinId = new Set(vigente.riesgos.filter(riesgo => !tieneId(riesgo)).map(serializarEstable));
+    const faltantes = [];
+    (campoLegado || []).forEach(riesgo => {
+      if (tieneId(riesgo) ? !idsVigentes.has(String(riesgo.id)) : !vigentesSinId.has(serializarEstable(riesgo))) {
+        faltantes.push(tieneId(riesgo) ? String(riesgo.id) : '(sin id)');
+      }
+    });
+    snapshotRaiz.docs.forEach(documento => {
+      const id = String(documento.data()?.id ?? documento.id);
+      if (!idsVigentes.has(id) && !faltantes.includes(id)) faltantes.push(id);
+    });
+
+    const confirmados = new Set((Array.isArray(faltantesConfirmados) ? faltantesConfirmados : []).map(String));
+    const faltantesSinConfirmar = faltantes.filter(id => !confirmados.has(id));
+    const reporte = {
+      estado: 'simulacion',
+      riesgosVigentes: vigente.riesgos.length,
+      riesgosEnCampoAntiguo: campoLegado ? campoLegado.length : 0,
+      documentosColeccionAparte: snapshotRaiz.docs.length,
+      faltantesEnMatrizVigente: faltantes,
+      tamanoCampoAntiguoKB: campoLegado ? Math.round(tamanoBytes(campoLegado) / 1024) : 0,
+    };
+    if (faltantesSinConfirmar.length > 0) {
+      return { ...reporte, estado: 'bloqueado', mensaje: 'Hay riesgos antiguos que no están en la matriz vigente; revísalos antes de limpiar.' };
+    }
+    if (!ejecutar) return reporte;
+
+    if (campoLegado) {
+      transaction.set(workspaceRef(), {
+        riesgos: FieldValue.delete(),
+        riesgosFragmentados: { ...datosWorkspace.riesgosFragmentados, legadoEliminadoEn: new Date().toISOString(), legadoEliminadoPor: usuario },
+      }, { merge: true });
+    }
+    snapshotRaiz.docs.forEach(documento => transaction.delete(documento.ref));
+    return { ...reporte, estado: 'limpiado' };
+  });
+}
+
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
 const workspaceReadCache = new Map();
 const workspaceReadInFlight = new Map();
