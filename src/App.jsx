@@ -352,6 +352,10 @@ export default function App() {
     : nombresVistas[activeTab]?.[contextoVista] || 'Módulo GRC';
   const puedeVerFuentesMejora = isAdmin || perfilUsuario?.permisos?.includes('sub_fuentes_mejora') === true;
   const puedeVerCronograma = isAdmin || perfilUsuario?.permisos?.includes('sub_cronograma') === true;
+  // Auditorías y Gobernanza solo con permiso explícito (el servidor tampoco entrega esos datos sin él).
+  const puedeVerProgramas = isAdmin || perfilUsuario?.permisos?.includes('sub_programas') === true;
+  const puedeVerComites = isAdmin || perfilUsuario?.permisos?.includes('sub_comites') === true;
+  const puedeVerTrazabilidad = isAdmin || perfilUsuario?.permisos?.includes('sub_trazabilidad') === true;
   const puedeCrearInformes = isAdmin || perfilUsuario?.permisos?.includes('sub_informes') === true;
   const puedeCrearHallazgos = isAdmin || perfilUsuario?.permisos?.includes('sub_hallazgos') === true;
   const puedeCrearPlanes = isAdmin || perfilUsuario?.permisos?.includes('sub_seguimiento_planes') === true;
@@ -735,6 +739,9 @@ return (
         isAdmin={isAdmin}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
         puedeVerCronograma={puedeVerCronograma}
+        puedeVerProgramas={puedeVerProgramas}
+        puedeVerComites={puedeVerComites}
+        puedeVerTrazabilidad={puedeVerTrazabilidad}
         user={user}
         handleLogout={handleLogout}
       />
@@ -932,8 +939,8 @@ return (
         selectedAnios={selectedAnios} renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
       />
     )}
-{subTabPlanificar === 'programas' && (
-      <ProgramasAuditoria 
+{puedeVerProgramas && subTabPlanificar === 'programas' && (
+      <ProgramasAuditoria
         programas={safeProgramas}
         setProgramas={setProgramas}
         saveToCloud={saveToCloud}
@@ -1194,10 +1201,10 @@ return (
             )}
 
            {/* 5️⃣ FASE DE GOBERNANZA, COMITÉS Y CIERRE */}
-            {isAdmin && activeTab === 'gobernanza_tab' && (
+            {(isAdmin || puedeVerComites || puedeVerTrazabilidad) && activeTab === 'gobernanza_tab' && (
               <div className="space-y-6">
-                
-                {subTabGobernanza === 'comites' && (
+
+                {subTabGobernanza === 'comites' && puedeVerComites && (
                   <Comites 
                     isAdmin={isAdmin} editComite={editComite} setEditComite={setEditComite} handleComiteSubmit={handleComiteSubmit}
                     setFormResetKey={setFormResetKey} formResetKey={formResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
@@ -1205,15 +1212,26 @@ return (
                     columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}
                   />
                 )}
-                {subTabGobernanza === 'trazabilidad' && isAdmin && (
+                {subTabGobernanza === 'trazabilidad' && puedeVerTrazabilidad && (
                   <Trazabilidad 
                     safeRiesgos={safeRiesgos} safeEvaluaciones={safeEvaluaciones} safeHallazgos={safeHallazgos}
                     safePlanes={safePlanes} safeIncidentes={safeIncidentes}
                   />
                 )}
-{subTabGobernanza === 'auditoria_auto' && (
+{/* Auditoría automatizada trabaja con nómina: solo administradores (el servidor también lo exige). */}
+{subTabGobernanza === 'auditoria_auto' && isAdmin && (
                   <ConceptMapper />
                 )}
+              </div>
+            )}
+
+            {/* 🔒 Pantallas de Auditorías / Gobernanza sin el permiso correspondiente: aviso en vez de un área vacía. */}
+            {((activeTab === 'plan_anual_tab' && ((subTabPlanificar === 'plan_anual' && !puedeVerCronograma) || (subTabPlanificar === 'programas' && !puedeVerProgramas))) ||
+              (activeTab === 'gobernanza_tab' && !((subTabGobernanza === 'comites' && puedeVerComites) || (subTabGobernanza === 'trazabilidad' && puedeVerTrazabilidad) || (subTabGobernanza === 'auditoria_auto' && isAdmin)))) && (
+              <div role="status" className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                <p className="text-3xl" aria-hidden="true">🔒</p>
+                <h2 className="mt-2 text-lg font-black text-slate-800">No tienes acceso a este módulo</h2>
+                <p className="mt-1 text-sm text-slate-600">Solicita el permiso correspondiente a un administrador desde Configuración.</p>
               </div>
             )}
 

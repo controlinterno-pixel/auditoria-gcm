@@ -109,6 +109,10 @@ enCurso.cleanup();
     informesAuditoria: [{ id: 'i1', proceso: 'Operaciones' }],
     riesgos: [], catalogoCargos: [],
     campoInternoNoPublico: 'no debe llegar a usuarios no administradores',
+    programas: [{ id: 'p1', proceso: 'Operaciones' }, { id: 'p2', proceso: 'Finanzas' }],
+    comites: [{ id: 'c1', nombre: 'Comité de control interno' }],
+    monitoreo: [{ id: 'm1', proceso: 'Operaciones' }, { id: 'm2', proceso: '' }, { id: 'm3', proceso: 'Finanzas' }],
+    cronograma: [{ id: 1, proceso: 'Compras' }],
   };
   const congelado = JSON.stringify(workspaceCompartido);
   const ejecutarGet = async user => {
@@ -141,6 +145,24 @@ enCurso.cleanup();
     // H4: la respuesta filtrada es una lista blanca; los campos no previstos no llegan a no administradores.
     assert.equal('campoInternoNoPublico' in res.body, user.rol === 'admin', `${user.rol}: campos no previstos`);
   }
+  // Permisos por módulo: Auditorías y Gobernanza solo con permiso; programas e indicadores por proceso.
+  const ids = lista => (lista || []).map(item => item.id);
+  const admin = (await ejecutarGet({ uid: 'a', email: 'admin@example.test', rol: 'admin' })).body;
+  assert.deepEqual([ids(admin.programas), ids(admin.comites), ids(admin.monitoreo)], [['p1', 'p2'], ['c1'], ['m1', 'm2', 'm3']], 'admin ve todo');
+  const sinPermisos = (await ejecutarGet({ uid: 'l', email: 'lider@example.test', rol: 'lider', procesosAsignados: ['Operaciones'], permisos: [] })).body;
+  assert.deepEqual(ids(sinPermisos.programas), [], 'sin sub_programas no recibe programas');
+  assert.deepEqual(ids(sinPermisos.comites), [], 'sin sub_comites no recibe comités');
+  assert.deepEqual(ids(sinPermisos.cronograma), [], 'sin sub_cronograma no recibe cronograma');
+  assert.deepEqual(ids(sinPermisos.monitoreo), ['m1', 'm2'], 'indicadores de su proceso y corporativos');
+  const conPermisos = (await ejecutarGet({
+    uid: 'l2', email: 'lider2@example.test', rol: 'lider', procesosAsignados: ['Operaciones'],
+    permisos: ['sub_programas', 'sub_comites', 'sub_cronograma'],
+  })).body;
+  assert.deepEqual(ids(conPermisos.programas), ['p1'], 'con permiso: solo programas de su proceso');
+  assert.deepEqual(ids(conPermisos.comites), ['c1'], 'con permiso: comités');
+  assert.deepEqual(ids(conPermisos.cronograma), [1], 'con permiso: cronograma completo');
+  assert.equal(conPermisos.riesgos.length, 0, 'la matriz de riesgos se entrega completa (aquí vacía)');
+
   assert.equal(JSON.stringify(workspaceCompartido), congelado, 'no se modifica el objeto compartido de la caché');
 }
 console.log('firestoreReads.test.js: OK (escrituras sin cambios, lectura única del POST, instrumentación, carga inicial sin duplicar, ráfagas, sin duplicado planesAccion)');

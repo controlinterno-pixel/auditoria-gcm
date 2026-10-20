@@ -28,6 +28,9 @@ export default function SidebarNavigation({
   isAdmin,
   puedeVerFuentesMejora = false,
   puedeVerCronograma = false,
+  puedeVerProgramas = false,
+  puedeVerComites = false,
+  puedeVerTrazabilidad = false,
   user,
   handleLogout
 }) {
@@ -137,7 +140,8 @@ export default function SidebarNavigation({
           </div>
         </div>
 
-        {/* 2. AUDITORÍAS */}
+        {/* 2. AUDITORÍAS — solo con algún permiso del módulo */}
+        {(isAdmin || puedeVerCronograma || puedeVerProgramas) && (
         <div className="flex flex-col">
           <button 
             onClick={() => toggleMenuAndNavigate('auditorias', 'plan_anual_tab', () => setSubTabPlanificar(puedeVerCronograma ? 'plan_anual' : 'programas'))}
@@ -156,11 +160,12 @@ export default function SidebarNavigation({
           <div id="submenu-auditorias" inert={menuAbierto !== 'auditorias' || isCollapsed} aria-hidden={menuAbierto !== 'auditorias' || isCollapsed} className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'auditorias' && !isCollapsed ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
               {puedeVerCronograma && <button onClick={() => navigateTo('plan_anual_tab', () => setSubTabPlanificar('plan_anual'))} aria-current={activeTab === 'plan_anual_tab' && subTabPlanificar === 'plan_anual' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'plan_anual' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Cronograma Anual</button>}
-              <button onClick={() => navigateTo('plan_anual_tab', () => setSubTabPlanificar('programas'))} aria-current={activeTab === 'plan_anual_tab' && subTabPlanificar === 'programas' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'programas' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Programas de Auditoría</button>
+              {puedeVerProgramas && <button onClick={() => navigateTo('plan_anual_tab', () => setSubTabPlanificar('programas'))} aria-current={activeTab === 'plan_anual_tab' && subTabPlanificar === 'programas' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'programas' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Programas de Auditoría</button>}
               {isAdmin && <button onClick={() => navigateTo('evaluaciones')} aria-current={activeTab === 'evaluaciones' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'evaluaciones' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Trabajo de Campo</button>}
             </div>
           </div>
         </div>
+        )}
 
         {/* 3. RIESGOS */}
         <div className="flex flex-col">
@@ -319,11 +324,11 @@ export default function SidebarNavigation({
           </div>
         </div>
 
-        {/* 6. GOBERNANZA E INTELIGENCIA */}
-        {isAdmin && (
+        {/* 6. GOBERNANZA E INTELIGENCIA — solo con algún permiso del módulo */}
+        {(isAdmin || puedeVerComites || puedeVerTrazabilidad) && (
           <div className="flex flex-col">
-            <button 
-              onClick={() => toggleMenuAndNavigate('gobernanza', 'gobernanza_tab', () => setSubTabGobernanza('comites'))}
+            <button
+              onClick={() => toggleMenuAndNavigate('gobernanza', 'gobernanza_tab', () => setSubTabGobernanza(puedeVerComites ? 'comites' : 'trazabilidad'))}
               type="button"
               aria-label="Gobernanza e inteligencia artificial"
               aria-expanded={menuAbierto === 'gobernanza'}
@@ -338,9 +343,9 @@ export default function SidebarNavigation({
             </button>
             <div id="submenu-gobernanza" inert={menuAbierto !== 'gobernanza' || isCollapsed} aria-hidden={menuAbierto !== 'gobernanza' || isCollapsed} className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'gobernanza' && !isCollapsed ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
               <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-                <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('comites'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Sesiones de Comité</button>
-                <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('trazabilidad'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Bitácora Trazabilidad</button>
-                <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('auditoria_auto'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Auditoría Automatizada</button>
+                {puedeVerComites && <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('comites'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Sesiones de Comité</button>}
+                {puedeVerTrazabilidad && <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('trazabilidad'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Bitácora Trazabilidad</button>}
+                {isAdmin && <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('auditoria_auto'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Auditoría Automatizada</button>}
               </div>
             </div>
           </div>

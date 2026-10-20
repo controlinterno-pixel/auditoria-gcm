@@ -242,7 +242,11 @@ export default async function handler(req, res) {
       const userEmail = String(user.email || '').toLowerCase().trim();
       const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
       const userSubprocesses = obtenerSubprocesosAsignados(user);
-      const puedeVerCronograma = Array.isArray(user.permisos) && user.permisos.includes('sub_cronograma');
+      // Los módulos de Auditorías y Gobernanza solo se entregan con el permiso correspondiente.
+      const tienePermiso = permiso => Array.isArray(user.permisos) && user.permisos.includes(permiso);
+      const puedeVerCronograma = tienePermiso('sub_cronograma');
+      const puedeVerProgramas = tienePermiso('sub_programas');
+      const puedeVerComites = tienePermiso('sub_comites');
       // Se libera el catálogo corporativo completo para permitir el autocompletado 
       // de los correos en la asignación de Planes de Acción, sin importar el rol.
       const catalogoCargosSeguro = Array.isArray(data.catalogoCargos) ? data.catalogoCargos : [];
@@ -317,12 +321,18 @@ export default async function handler(req, res) {
         evaluaciones: aplicarRLS(data.evaluaciones, userEmail, userCargo, userProcesses),
         incidentes: aplicarRLS(data.incidentes, userEmail, userCargo, userProcesses),
         
-        // Colecciones Públicas o de Configuración
+        // Catálogo de configuración (tipos de fuente), necesario para los formularios.
         fuentesMejora: data.fuentesMejora || [],
-        programas: data.programas || [],
+
+        // Módulo Auditorías: solo con permiso y, en programas, solo los de su proceso.
+        programas: puedeVerProgramas ? (Array.isArray(data.programas) ? data.programas : []).filter(tieneAccesoDirecto) : [],
         cronograma: puedeVerCronograma ? data.cronograma || [] : [],
-        comites: data.comites || [],
-        monitoreo: data.monitoreo || []
+        // Indicadores: los de su proceso y los corporativos (sin proceso asignado).
+        monitoreo: (Array.isArray(data.monitoreo) ? data.monitoreo : [])
+          .filter(indicador => !String(indicador?.proceso || '').trim() || tieneAccesoDirecto(indicador)),
+
+        // Módulo Gobernanza: las sesiones de comité no tienen proceso; se entregan solo con el permiso.
+        comites: puedeVerComites ? data.comites || [] : [],
       };
 
       logger.info('Datos entregados con políticas RLS RELACIONAL aplicadas.', { usuario: userEmail });
