@@ -5,7 +5,10 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import {
+  guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrc,
+  leerWorkspaceGrcLigero, obtenerHallazgoTx, obtenerPlanesDeInformeTx,
+} from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const CAMPOS_EDITABLES = [
@@ -393,11 +396,11 @@ export default async function handler(req, res) {
       }
 
       const resultado = await adminDb.runTransaction(async transaction => {
-        const workspace = await leerWorkspaceGrc(transaction, { origen: 'update-hallazgos-tx' });
+        // Solo se necesita el hallazgo editado (y el informe destino si cambia): no se listan colecciones.
+        const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'update-hallazgos-tx' });
         if (!workspace.workspaceExists) return { error: 'not-found' };
         const { data } = workspace;
-        const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
-        const anterior = hallazgos.find(hallazgo => String(hallazgo.id) === String(id));
+        const anterior = await obtenerHallazgoTx(transaction, workspace, id);
         if (!anterior) return { error: 'not-found' };
 
         const cambiaInforme = Object.hasOwn(cambios, 'idInforme') &&
@@ -510,7 +513,7 @@ export default async function handler(req, res) {
     }
 
     const resultado = await adminDb.runTransaction(async transaction => {
-      const workspace = await leerWorkspaceGrc(transaction, { origen: 'update-informes-tx' });
+      const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'update-informes-tx' });
       if (!workspace.workspaceExists) return { error: 'not-found' };
       const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
@@ -561,8 +564,10 @@ export default async function handler(req, res) {
       const cambiaAuditor = camposCambiados.some(campo => [
         'auditorResponsable', 'auditor', 'correoAuditor', 'correoAuditorResponsable',
       ].includes(campo));
-      const planes = Array.isArray(data.planes) ? data.planes : [];
-      const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+      // Los planes del informe solo se leen cuando cambia el auditor (lectura filtrada, no la colección).
+      const { planes, hallazgos } = cambiaAuditor
+        ? await obtenerPlanesDeInformeTx(transaction, workspace, id)
+        : { planes: [], hallazgos: [] };
       const idsHallazgosInforme = new Set(
         hallazgos
           .filter(hallazgo => String(hallazgo.idInforme) === String(id))
@@ -608,12 +613,10 @@ export default async function handler(req, res) {
           ? informes.map(informe => String(informe.id) === String(id) ? actualizado : informe)
           : [...informes, actualizado]
       );
-      if (planesActualizados.length > 0) {
-        const planesPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
-        transaction.set(workspace.workspaceRef, {
-          planes: planes.map(plan => planesPorId.get(String(plan.id)) || plan),
-        }, { merge: true });
-      }
+      // Cada plan se guarda en su documento de planes_accion. Antes se copiaba la lista completa al
+      // campo legado `planes` del documento principal, lo que podía revivir planes eliminados y
+      // acercar el documento al límite de 1 MiB.
+      if (planesActualizados.length > 0) guardarPlanesGrc(transaction, workspace, planesActualizados);
       return { informe: actualizado, planesActualizados };
     });
 

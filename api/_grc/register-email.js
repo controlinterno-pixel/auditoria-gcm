@@ -4,7 +4,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { guardarInformesGrc, leerWorkspaceGrcLigero } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
@@ -35,7 +35,8 @@ export default async function handler(req, res) {
     const subprocesosAsignados = obtenerSubprocesosAsignados(perfil);
 
     const informeActualizado = await adminDb.runTransaction(async (transaction) => {
-      const workspace = await leerWorkspaceGrc(transaction, { origen: 'register-email-tx' });
+      // Solo se actualiza el informe: no se necesitan planes ni hallazgos.
+      const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'register-email-tx' });
       const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
       let informe = informes.find(item => String(item.id) === String(id));

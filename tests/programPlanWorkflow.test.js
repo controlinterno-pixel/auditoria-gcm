@@ -5,7 +5,7 @@ import * as workflow from '../src/utils/programPlanWorkflow.js';
 import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
-const source = path => read(path).replace(/^import .*;\r?\n/gm, '').replace('export default async function handler', 'async function handler');
+const source = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default async function handler', 'async function handler');
 const criterios = puntaje => Object.fromEntries(['c1', 'c2', 'c3', 'c4', 'c5'].map(key => [key, puntaje]));
 const soporte = { nombre: 'Evaluacion.pdf', tamano: 100, url: 'https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/evaluacion.pdf' };
 const plan = (overrides = {}) => ({

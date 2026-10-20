@@ -29,7 +29,7 @@ assert.ok(syncText.indexOf('leerRevisionSemaforo()') < syncText.indexOf("origen:
 // 3. Toda lectura completa del workspace queda etiquetada para la instrumentación [FS-READS].
 for (const file of ['create', 'register-email', 'review-plans', 'update', 'sync']) {
   const source = read(`../api/_grc/${file}.js`);
-  const llamadas = (source.match(/leerWorkspaceGrc\(/g) || []).length;
+  const llamadas = (source.match(/leerWorkspaceGrc(?:Ligero)?\(/g) || []).length;
   const etiquetas = (source.match(/origen: '[a-z-]+'/g) || []).length;
   assert.equal(etiquetas, llamadas, `${file}.js tiene lecturas sin origen`);
 }

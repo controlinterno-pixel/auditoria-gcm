@@ -215,6 +215,130 @@ export function guardarPlanesGrc(transaction, workspace, planes) {
   });
 }
 
+// =============================================================================
+// 📉 LECTURAS PUNTUALES PARA TRANSACCIONES
+// leerWorkspaceGrc(transaction) descarga planes_accion y hallazgos completos (~116 lecturas).
+// Estas funciones leen solo los documentos que cada transacción usa, conservando la misma
+// precedencia que la lectura completa: el documento de la subcolección prevalece sobre el legado.
+// =============================================================================
+
+// Los IDs relacionales pueden estar guardados como texto o como número: se consultan ambas formas.
+const variantesId = valor => {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return [];
+  const numero = Number(texto);
+  return /^\d+$/.test(texto) && Number.isSafeInteger(numero) ? [texto, numero] : [texto];
+};
+const idDocumentoValido = valor => {
+  const texto = String(valor ?? '').trim();
+  return texto && !texto.includes('/') ? texto : '';
+};
+const conId = documento => ({ id: documento.id, ...documento.data() });
+
+/** Documento principal + informes legados (2 lecturas), sin listar subcolecciones. */
+export async function leerWorkspaceGrcLigero(transaction, { origen = '' } = {}) {
+  const inicio = Date.now();
+  const refWorkspace = workspaceRef();
+  const refInformes = informesRef();
+  const snapshotWorkspace = await transaction.get(refWorkspace);
+  const snapshotInformes = await transaction.get(refInformes);
+  registrarLecturas(origen, 2, inicio, true);
+
+  const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+  const informesSeparados = snapshotInformes.exists ? snapshotInformes.get('informesAuditoria') : null;
+  const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : [];
+  const planesLegados = new Map();
+  [
+    ...(Array.isArray(datosWorkspace.planesAccion) ? datosWorkspace.planesAccion : []),
+    ...(Array.isArray(datosWorkspace.planes) ? datosWorkspace.planes : []),
+  ].forEach(plan => { if (plan && plan.id) planesLegados.set(String(plan.id), plan); });
+
+  return {
+    workspaceRef: refWorkspace,
+    informesRef: refInformes,
+    coleccionInformesRef: coleccionInformesRef(),
+    coleccionPlanesRef: coleccionPlanesRef(),
+    coleccionHallazgosRef: coleccionHallazgosRef(),
+    workspaceExists: snapshotWorkspace.exists || snapshotInformes.exists,
+    tieneInformesLegados: Array.isArray(datosWorkspace.informesAuditoria),
+    tienePlanesLegados: Array.isArray(datosWorkspace.planesAccion),
+    origen,
+    data: {
+      ...datosWorkspace,
+      informesAuditoria: Array.isArray(informesSeparados) ? informesSeparados : informesLegados,
+      planes: [...planesLegados.values()],
+      planesAccion: [...planesLegados.values()],
+      hallazgos: Array.isArray(datosWorkspace.hallazgos) ? datosWorkspace.hallazgos : [],
+    },
+  };
+}
+
+/** Un hallazgo por ID (1 lectura). */
+export async function obtenerHallazgoTx(transaction, workspace, id) {
+  const clave = idDocumentoValido(id);
+  if (!clave) return null;
+  const inicio = Date.now();
+  const snapshot = await transaction.get(workspace.coleccionHallazgosRef.doc(clave));
+  registrarLecturas(`${workspace.origen}:hallazgo`, 1, inicio, true);
+  if (snapshot.exists) return conId(snapshot);
+  return (workspace.data.hallazgos || []).find(hallazgo => String(hallazgo?.id) === String(id)) || null;
+}
+
+/**
+ * Hallazgos y planes que pertenecen a un informe: planes con ese idInforme o cuyo hallazgo
+ * pertenece al informe (los planes antiguos no siempre guardan idInforme).
+ */
+export async function obtenerPlanesDeInformeTx(transaction, workspace, idInforme) {
+  const variantesInforme = variantesId(idInforme);
+  if (!variantesInforme.length) return { planes: [], hallazgos: [] };
+  const inicio = Date.now();
+  let documentos = 0;
+  const consultar = async consulta => {
+    const snapshot = await transaction.get(consulta);
+    documentos += snapshot.size ?? snapshot.docs.length;
+    return snapshot.docs.map(conId);
+  };
+  // Un registro legado solo cuenta si no existe su versión en la subcolección.
+  const completarLegados = async (mapa, legados, coleccionRef, pertenece) => {
+    for (const legado of legados) {
+      const clave = String(legado?.id ?? '');
+      if (!clave || mapa.has(clave) || !pertenece(legado)) continue;
+      const idDocumento = idDocumentoValido(clave);
+      const snapshot = idDocumento ? await transaction.get(coleccionRef.doc(idDocumento)) : null;
+      if (snapshot) documentos += 1;
+      if (snapshot?.exists) {
+        const actual = conId(snapshot);
+        if (pertenece(actual)) mapa.set(clave, actual);
+      } else {
+        mapa.set(clave, legado);
+      }
+    }
+  };
+
+  const delInforme = registro => String(registro?.idInforme) === String(idInforme);
+  const hallazgos = new Map();
+  (await consultar(workspace.coleccionHallazgosRef.where('idInforme', 'in', variantesInforme)))
+    .forEach(hallazgo => hallazgos.set(String(hallazgo.id), hallazgo));
+  await completarLegados(hallazgos, workspace.data.hallazgos || [], workspace.coleccionHallazgosRef, delInforme);
+  const hallazgosInforme = [...hallazgos.values()].filter(delInforme);
+  const idsHallazgos = new Set(hallazgosInforme.map(hallazgo => String(hallazgo.id)));
+
+  const planes = new Map();
+  const agregarPlanes = lista => lista.forEach(plan => planes.set(String(plan.id), plan));
+  agregarPlanes(await consultar(workspace.coleccionPlanesRef.where('idInforme', 'in', variantesInforme)));
+  const variantesHallazgos = [...idsHallazgos].flatMap(variantesId);
+  for (let indice = 0; indice < variantesHallazgos.length; indice += 30) {
+    agregarPlanes(await consultar(
+      workspace.coleccionPlanesRef.where('idHallazgo', 'in', variantesHallazgos.slice(indice, indice + 30))
+    ));
+  }
+  const delInformeOHallazgo = plan => delInforme(plan) || idsHallazgos.has(String(plan?.idHallazgo));
+  await completarLegados(planes, workspace.data.planes || [], workspace.coleccionPlanesRef, delInformeOHallazgo);
+
+  registrarLecturas(`${workspace.origen}:planes-informe`, documentos, inicio, true);
+  return { planes: [...planes.values()].filter(delInformeOHallazgo), hallazgos: hallazgosInforme };
+}
+
 export async function guardarWorkspaceParcial(partialData) {
   const inicio = Date.now();
   const refWorkspace = workspaceRef();
