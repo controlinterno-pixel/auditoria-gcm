@@ -90,7 +90,8 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
       const start = text.indexOf('function serializarEvaluacion');
       const functions = text.slice(start, text.indexOf('/**', start));
       const check = new Function(...Object.keys(bindings), `${functions}\nreturn usuarioPuedeEvaluarPlanes;`)(...Object.values(bindings));
-      return check({ planes }, user);
+      // sync.js lee el workspace una sola vez y lo comparte con sus validaciones.
+      return check({ planes }, user, (await bindings.leerWorkspaceGrc()).data);
     },
   };
 }

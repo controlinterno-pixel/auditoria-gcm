@@ -35,7 +35,7 @@ async function reservarConsecutivoInforme(anio) {
   let ultimoConsecutivo = Number(contadorExistente.data()?.ultimo) || 0;
 
   if (!contadorExistente.exists) {
-    const { data } = await leerWorkspaceGrc();
+    const { data } = await leerWorkspaceGrc(null, { origen: 'create-consecutivo' });
     ultimoConsecutivo = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
       .reduce((mayor, informe) => {
         const coincidencia = String(informe?.ref || '').match(new RegExp(`^INF-${anio}-(\\d+)$`));
@@ -61,7 +61,7 @@ async function repararConsecutivosInformes(user) {
   const perfil = perfilSnap.exists ? perfilSnap.data() : {};
   if (!esAdministrador(perfil.rol)) return { error: 'forbidden' };
 
-  const { data } = await leerWorkspaceGrc();
+  const { data } = await leerWorkspaceGrc(null, { origen: 'create-reparar-consecutivos' });
   const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
   const porReferencia = new Map();
   const maximosPorAnio = new Map();
@@ -191,7 +191,7 @@ export default async function handler(req, res) {
       : null;
 
     const registroGuardado = await adminDb.runTransaction(async (transaction) => {
-      const workspace = await leerWorkspaceGrc(transaction);
+      const workspace = await leerWorkspaceGrc(transaction, { origen: 'create-tx' });
       const { data, workspaceRef } = workspace;
       const registrosActuales = Array.isArray(data[coleccion]) ? data[coleccion] : [];
       const ahora = new Date();

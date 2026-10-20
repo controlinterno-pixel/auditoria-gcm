@@ -152,6 +152,11 @@ export function useGrcData() {
     let lastRecoveryAt = 0;
     let recoveryInFlight = false;
     let listenerFailed = false;
+    // 📉 Ahorro de lecturas: cada descarga cuesta todo el workspace en el servidor.
+    let revisionCargada = null; // revisión a la que corresponden los datos en pantalla
+    let datosCargados = false;
+    let semaforoTimer = null;
+    const ESPERA_RAFAGA_MS = 1500; // agrupa varios guardados seguidos en una sola descarga
     let unsubscribeSemaforo = () => {};
     const semaforoRef = doc(db, 'sistema', 'semaforo');
     const fetchSecureData = async (forceFresh = false) => {
@@ -163,12 +168,18 @@ export function useGrcData() {
 
       isFetching = true;
       window.clearTimeout(retryTimer);
+      window.clearTimeout(semaforoTimer);
       try {
         const data = await apiService.getGrcData({ forceFresh, revision: lastRevision || '' });
         if (!isMounted) return;
         syncFailed = false;
         retryCount = 0;
-        
+        datosCargados = true;
+        if (data.revision) {
+          revisionCargada = String(data.revision);
+          if (lastRevision === null) lastRevision = revisionCargada;
+        }
+
         setRiesgos(data.riesgos || defaultRiesgos);
         setHallazgos(data.hallazgos || defaultHallazgos);
         setPlanes(data.planes || defaultPlanes);
@@ -197,17 +208,25 @@ export function useGrcData() {
         if (isMounted) setIsCloudLoaded(true);
         if (isMounted && forcedRefreshPending) {
           forcedRefreshPending = false;
-          void fetchSecureData(true);
+          const yaActualizado = !syncFailed && revisionCargada !== null && lastRevision === revisionCargada;
+          if (!yaActualizado) void fetchSecureData(true);
         }
       }
     };
 
-    const recibirSemaforo = snapshot => {
+    const recibirSemaforo = (snapshot, inmediato = false) => {
       if (!isMounted || snapshot.metadata?.fromCache) return;
       const revision = snapshot.exists() ? String(snapshot.data().ultimaModificacion || '0') : '0';
       if (revision === lastRevision && !syncFailed) return;
       lastRevision = revision;
-      void fetchSecureData(true);
+      // La descarga en curso o ya terminada corresponde a esta misma revisión: no se repite.
+      if (revision === revisionCargada && !syncFailed) return;
+      window.clearTimeout(semaforoTimer);
+      if (inmediato || !datosCargados || isFetching) {
+        void fetchSecureData(true);
+        return;
+      }
+      semaforoTimer = window.setTimeout(() => void fetchSecureData(true), ESPERA_RAFAGA_MS);
     };
     const conectarSemaforo = () => {
       unsubscribeSemaforo();
@@ -228,7 +247,7 @@ export function useGrcData() {
       retryCount = 0;
       try {
         if (listenerFailed) conectarSemaforo();
-        recibirSemaforo(await getDocFromServer(semaforoRef));
+        recibirSemaforo(await getDocFromServer(semaforoRef), true);
       } catch (error) {
         console.warn('No se pudo recuperar la sincronizacion:', error?.code || 'network-error');
         if (syncFailed) void fetchSecureData(true);
@@ -248,6 +267,7 @@ export function useGrcData() {
       window.clearTimeout(loadingTimer);
       window.clearTimeout(initialLoadTimer);
       window.clearTimeout(retryTimer);
+      window.clearTimeout(semaforoTimer);
       window.removeEventListener('online', recuperarConexion);
       document.removeEventListener('visibilitychange', recuperarConexion);
       unsubscribeSemaforo();

@@ -1,5 +1,26 @@
 import { FieldValue, Filter } from 'firebase-admin/firestore';
 import { adminDb } from './firebaseAdmin.js';
+import { logger } from './logger.js';
+
+// 📊 Cada documento devuelto por Firestore cuenta como una lectura facturable (incluye Admin SDK).
+const registrarLecturas = (origen, documentos, inicio, transaccion = false) => {
+  logger.info('[FS-READS]', { origen: origen || 'desconocido', documentos, ms: Date.now() - inicio, transaccion });
+};
+
+// Comparación estable (independiente del orden de las llaves) para detectar escrituras sin cambios.
+const serializarEstable = valor => {
+  if (Array.isArray(valor)) return `[${valor.map(serializarEstable).join(',')}]`;
+  if (valor && typeof valor === 'object') {
+    return `{${Object.keys(valor).sort().map(llave => `${JSON.stringify(llave)}:${serializarEstable(valor[llave])}`).join(',')}}`;
+  }
+  return JSON.stringify(valor ?? null);
+};
+
+// set(..., { merge: true }) no modifica nada si cada campo enviado ya es idéntico al guardado.
+export const escrituraSinCambios = (nuevo, existente) => Boolean(existente) &&
+  Object.keys(nuevo || {}).every(llave => (
+    Object.hasOwn(existente, llave) && serializarEstable(nuevo[llave]) === serializarEstable(existente[llave])
+  ));
 
 const workspaceRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
 const informesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc_informes');
@@ -17,7 +38,7 @@ let workspaceCacheGeneration = 0;
 const leerInformesFragmentados = async (refColeccion, procesosAsignados) => {
   if (!Array.isArray(procesosAsignados) || procesosAsignados.length === 0) {
     const snapshot = await refColeccion.get();
-    return snapshot.docs.map(documento => ({ id: documento.id, ...documento.data() }));
+    return { documentos: snapshot.size, informes: snapshot.docs.map(documento => ({ id: documento.id, ...documento.data() })) };
   }
 
   const procesos = [...new Set(procesosAsignados.map(proceso => String(proceso || '').trim()).filter(Boolean))];
@@ -37,16 +58,22 @@ const leerInformesFragmentados = async (refColeccion, procesosAsignados) => {
   snapshots.forEach(snapshot => snapshot.docs.forEach(documento => {
     informesPorId.set(documento.id, { id: documento.id, ...documento.data() });
   }));
-  return [...informesPorId.values()];
+  // Un informe que coincide con ambas consultas se cobra dos veces.
+  return {
+    documentos: snapshots.reduce((total, snapshot) => total + snapshot.size, 0),
+    informes: [...informesPorId.values()],
+  };
 };
 
 // NUEVO: Función para leer planes desde la subcolección
 const leerPlanesFragmentados = async (refColeccion) => {
   const snapshot = await refColeccion.get();
-  return snapshot.docs.map(documento => ({ id: documento.id, ...documento.data() }));
+  return { documentos: snapshot.size, planes: snapshot.docs.map(documento => ({ id: documento.id, ...documento.data() })) };
 };
 
-async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsignados = null) {
+async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsignados = null, origen = '') {
+  const inicio = Date.now();
+  let documentosLeidos = 2;
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
   const refColeccionInformes = coleccionInformesRef();
@@ -70,12 +97,17 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
     planesIndependientes = snapshotPlanes.docs.map(documento => ({ id: documento.id, ...documento.data() }));
     const snapshotHallazgos = await transaction.get(refColeccionHallazgos);
     hallazgosIndependientes = snapshotHallazgos.docs.map(documento => ({ id: documento.id, ...documento.data() }));
+    documentosLeidos += snapshotPlanes.size + snapshotHallazgos.size;
   } else {
-    informesIndependientes = await leerInformesFragmentados(refColeccionInformes, procesosAsignados);
-    planesIndependientes = await leerPlanesFragmentados(refColeccionPlanes);
+    const lecturaInformes = await leerInformesFragmentados(refColeccionInformes, procesosAsignados);
+    informesIndependientes = lecturaInformes.informes;
+    const lecturaPlanes = await leerPlanesFragmentados(refColeccionPlanes);
+    planesIndependientes = lecturaPlanes.planes;
     const snapshotHallazgos = await refColeccionHallazgos.get();
     hallazgosIndependientes = snapshotHallazgos.docs.map(documento => ({ id: documento.id, ...documento.data() }));
+    documentosLeidos += lecturaInformes.documentos + lecturaPlanes.documentos + snapshotHallazgos.size;
   }
+  registrarLecturas(origen, documentosLeidos, inicio, Boolean(transaction));
 
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
   const informesSeparados = snapshotInformes.exists
@@ -131,8 +163,8 @@ export function invalidarCacheWorkspaceGrc() {
   workspaceReadInFlight.clear();
 }
 
-export async function leerWorkspaceGrc(transaction = null, { usarCache = false, procesosAsignados = null, revision = '' } = {}) {
-  if (transaction || !usarCache) return leerWorkspaceGrcDesdeFirestore(transaction, procesosAsignados);
+export async function leerWorkspaceGrc(transaction = null, { usarCache = false, procesosAsignados = null, revision = '', origen = '' } = {}) {
+  if (transaction || !usarCache) return leerWorkspaceGrcDesdeFirestore(transaction, procesosAsignados, origen);
 
   const scopeKey = Array.isArray(procesosAsignados) && procesosAsignados.length
     ? [...new Set(procesosAsignados.map(proceso => String(proceso || '').trim()).filter(Boolean))].sort().join('|')
@@ -143,7 +175,7 @@ export async function leerWorkspaceGrc(transaction = null, { usarCache = false, 
   if (cacheEntry && cacheEntry.expiraEn > Date.now()) return cacheEntry.valor;
   if (workspaceReadInFlight.has(cacheKey)) return workspaceReadInFlight.get(cacheKey);
 
-  const lectura = leerWorkspaceGrcDesdeFirestore(null, procesosAsignados)
+  const lectura = leerWorkspaceGrcDesdeFirestore(null, procesosAsignados, origen)
     .then(valor => {
       if (generation !== workspaceCacheGeneration) return valor;
       if (workspaceReadCache.size >= 100 && !workspaceReadCache.has(cacheKey)) {
@@ -184,6 +216,7 @@ export function guardarPlanesGrc(transaction, workspace, planes) {
 }
 
 export async function guardarWorkspaceParcial(partialData) {
+  const inicio = Date.now();
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
   const refColeccionInformes = coleccionInformesRef();
@@ -210,6 +243,11 @@ export async function guardarWorkspaceParcial(partialData) {
 
   const incluyeHallazgos = Object.hasOwn(partialData, 'hallazgos') && Array.isArray(partialData.hallazgos);
   const snapshotHallazgos = incluyeHallazgos ? await refColeccionHallazgos.get() : null;
+  const snapshotPlanes = incluyePlanes ? await refColeccionPlanes.get() : null;
+  registrarLecturas('sync-post-guardar', 2 + (snapshotHallazgos?.size || 0) + (snapshotPlanes?.size || 0), inicio);
+  const planesGuardados = new Map((snapshotPlanes?.docs || []).map(documento => [documento.id, documento.data()]));
+  const hallazgosGuardados = new Map((snapshotHallazgos?.docs || []).map(documento => [documento.id, documento.data()]));
+  let escriturasOmitidas = 0;
   const hallazgosActualizados = incluyeHallazgos ? partialData.hallazgos : null;
     
   const datosRestantes = { ...partialData };
@@ -240,12 +278,15 @@ export async function guardarWorkspaceParcial(partialData) {
     const idsEliminados = new Set(planesEliminados);
     listaPlanes.forEach(plan => {
       if (plan && plan.id && !idsEliminados.has(String(plan.id))) {
+        if (escrituraSinCambios(plan, planesGuardados.get(String(plan.id)))) {
+          escriturasOmitidas += 1;
+          return;
+        }
         operaciones.push({ tipo: 'guardar', referencia: refColeccionPlanes.doc(String(plan.id)), data: plan });
       }
     });
     planesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', referencia: refColeccionPlanes.doc(id) }));
     if (incluyePlanes) {
-      const snapshotPlanes = await refColeccionPlanes.get();
       const idsConservados = new Set(listaPlanes.map(plan => String(plan.id)));
       snapshotPlanes.docs.forEach(documento => {
         if (!idsConservados.has(documento.id) && !idsEliminados.has(documento.id)) {
@@ -261,6 +302,10 @@ export async function guardarWorkspaceParcial(partialData) {
       if (!hallazgo || hallazgo.id === undefined || hallazgo.id === null) return;
       const id = String(hallazgo.id);
       idsHallazgos.add(id);
+      if (escrituraSinCambios(hallazgo, hallazgosGuardados.get(id))) {
+        escriturasOmitidas += 1;
+        return;
+      }
       operaciones.push({ tipo: 'guardar', referencia: refColeccionHallazgos.doc(id), data: hallazgo });
     });
     snapshotHallazgos.docs.forEach(documento => {
@@ -269,6 +314,8 @@ export async function guardarWorkspaceParcial(partialData) {
       }
     });
   }
+
+  if (escriturasOmitidas > 0) logger.info('[FS-WRITES] Escrituras sin cambios omitidas', { escriturasOmitidas });
 
   // Ejecución en lotes seguros (Batches de 400 operaciones máximo)
   const chunkSize = 400;

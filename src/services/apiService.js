@@ -143,16 +143,7 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
         throw new Error(`ServerError: ${errorMessage}`);
       }
 
-      const metodo = String(configBase.method || 'GET').toUpperCase();
-      const esEscrituraGrc = endpoint.startsWith('/api/grc/') &&
-        metodo !== 'GET' &&
-        endpoint !== '/api/grc/stream' &&
-        !(endpoint === '/api/grc/catalogo-cargos' && metodo === 'POST');
-      if (esEscrituraGrc) {
-        fetch(`${import.meta.env.VITE_API_URL || ''}/api/grc/stream`, { method: 'POST' })
-          .catch(() => console.log('Error SSE'));
-      }
-
+      // La propagación de cambios la hace el servidor actualizando sistema/semaforo (no hay endpoint SSE).
       return data; // ✅ Éxito total. Entregamos los datos y salimos.
 
     } catch (error) {

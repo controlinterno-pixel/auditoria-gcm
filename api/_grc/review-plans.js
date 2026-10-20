@@ -47,7 +47,7 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
   const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
   const perfil = perfilSnap.exists ? perfilSnap.data() : {};
   const resultado = await adminDb.runTransaction(async transaction => {
-    const workspace = await leerWorkspaceGrc(transaction);
+    const workspace = await leerWorkspaceGrc(transaction, { origen: 'review-plans-evaluar-diseno-tx' });
     if (!workspace.workspaceExists) return { error: 'not-found' };
     const { data } = workspace;
     let informe = (data.informesAuditoria || []).find(item => String(item.id) === String(idInforme));
@@ -131,7 +131,7 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
   const perfil = perfilSnap.exists ? perfilSnap.data() : {};
 
   const resultado = await adminDb.runTransaction(async transaction => {
-    const workspace = await leerWorkspaceGrc(transaction);
+    const workspace = await leerWorkspaceGrc(transaction, { origen: 'review-plans-auditor-tx' });
     if (!workspace.workspaceExists) return { error: 'not-found' };
     const { data } = workspace;
     const planes = Array.isArray(data.planes) ? data.planes : [];
@@ -270,7 +270,7 @@ export default async function handler(req, res) {
     }
 
     const resultado = await adminDb.runTransaction(async transaction => {
-      const workspace = await leerWorkspaceGrc(transaction);
+      const workspace = await leerWorkspaceGrc(transaction, { origen: 'review-plans-revision-tx' });
       const { data } = workspace;
       const planes = Array.isArray(data.planes) ? data.planes : [];
       const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];

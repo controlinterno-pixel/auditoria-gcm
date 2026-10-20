@@ -91,7 +91,7 @@ export default async function handler(req, res) {
       }
 
       const resultado = await adminDb.runTransaction(async transaction => {
-        const workspace = await leerWorkspaceGrc(transaction);
+        const workspace = await leerWorkspaceGrc(transaction, { origen: 'update-planes-tx' });
         if (!workspace.workspaceExists) return { error: 'not-found' };
         const { data } = workspace;
         const planes = Array.isArray(data.planes) ? data.planes : [];
@@ -393,7 +393,7 @@ export default async function handler(req, res) {
       }
 
       const resultado = await adminDb.runTransaction(async transaction => {
-        const workspace = await leerWorkspaceGrc(transaction);
+        const workspace = await leerWorkspaceGrc(transaction, { origen: 'update-hallazgos-tx' });
         if (!workspace.workspaceExists) return { error: 'not-found' };
         const { data } = workspace;
         const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
@@ -510,7 +510,7 @@ export default async function handler(req, res) {
     }
 
     const resultado = await adminDb.runTransaction(async transaction => {
-      const workspace = await leerWorkspaceGrc(transaction);
+      const workspace = await leerWorkspaceGrc(transaction, { origen: 'update-informes-tx' });
       if (!workspace.workspaceExists) return { error: 'not-found' };
       const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];

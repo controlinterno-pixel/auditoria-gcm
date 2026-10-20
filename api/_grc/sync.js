@@ -3,7 +3,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
-import { notificarSemaforo } from '../_lib/semaforo.js';
+import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
 import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
@@ -35,10 +35,10 @@ function serializarEvaluacion(plan) {
 
 const normalizarCorreoPlan = correo => String(correo || '').trim().toLowerCase();
 
-async function hayConflictosDeRolesEnPlanesActualizados(planesActualizados) {
+// Ambas validaciones reciben la misma lectura del workspace (antes se leía dos veces por guardado).
+function hayConflictosDeRolesEnPlanesActualizados(planesActualizados, data) {
   if (!Array.isArray(planesActualizados)) return false;
 
-  const { data } = await leerWorkspaceGrc();
   const planesGuardados = Array.isArray(data.planes) ? data.planes : [];
   const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
   const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
@@ -67,10 +67,9 @@ async function hayConflictosDeRolesEnPlanesActualizados(planesActualizados) {
   });
 }
 
-async function usuarioPuedeEvaluarPlanes(partialData, user) {
+function usuarioPuedeEvaluarPlanes(partialData, user, data) {
   if (!Array.isArray(partialData.planes)) return true;
 
-  const { data } = await leerWorkspaceGrc();
   const planesGuardados = Array.isArray(data.planes) ? data.planes : [];
   const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
   const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
@@ -216,12 +215,19 @@ export default async function handler(req, res) {
           ? user.procesosAsignados
           : [user.procesoAsignado].filter(Boolean))
         : null;
-      const revision = typeof req.query?.revision === 'string' ? req.query.revision.slice(0, 100) : '';
-      const { data } = await leerWorkspaceGrc(null, {
+      let revision = typeof req.query?.revision === 'string' ? req.query.revision.slice(0, 100) : '';
+      if (!revision) {
+        // Se lee la revisión ANTES que los datos: así los datos nunca son más antiguos que la revisión
+        // devuelta y el cliente no repite la descarga cuando su listener del semáforo responde después.
+        revision = await leerRevisionSemaforo().catch(() => '');
+      }
+      const { data: workspaceData } = await leerWorkspaceGrc(null, {
         usarCache: req.query?.fresh !== '1' || Boolean(revision),
         procesosAsignados: procesosConsulta,
         revision,
+        origen: 'sync-get',
       });
+      const data = revision ? { ...workspaceData, revision } : workspaceData;
 
       // Administradores y Auditores acceden a la totalidad de la base de datos
       if (isAdmin) {
@@ -332,11 +338,15 @@ export default async function handler(req, res) {
         return sendError(res, 'Usa la colección planes para guardar acciones y validar su flujo.', 400);
       }
 
-      if (await hayConflictosDeRolesEnPlanesActualizados(partialData.planes)) {
+      const workspaceActual = Array.isArray(partialData.planes)
+        ? (await leerWorkspaceGrc(null, { origen: 'sync-post-validacion' })).data
+        : null;
+
+      if (hayConflictosDeRolesEnPlanesActualizados(partialData.planes, workspaceActual)) {
         return sendError(res, 'Ejecutor, revisor y auditor deben ser personas distintas. Revisa los correos asignados.', 400);
       }
 
-      if (!(await usuarioPuedeEvaluarPlanes(partialData, user))) {
+      if (!usuarioPuedeEvaluarPlanes(partialData, user, workspaceActual)) {
         logger.warn('Intento de evaluación de plan sin asignación autorizada', { usuario: user.email });
         return sendError(res, 'La asignación, transición o evaluación del plan no está autorizada. El ejecutor no puede cambiar los cargos ni correos asignados; las evaluaciones corresponden a la persona asignada.', 403);
       }

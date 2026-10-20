@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     const subprocesosAsignados = obtenerSubprocesosAsignados(perfil);
 
     const informeActualizado = await adminDb.runTransaction(async (transaction) => {
-      const workspace = await leerWorkspaceGrc(transaction);
+      const workspace = await leerWorkspaceGrc(transaction, { origen: 'register-email-tx' });
       const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
       let informe = informes.find(item => String(item.id) === String(id));
