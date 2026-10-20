@@ -30,6 +30,45 @@ const coleccionInformesRef = () => adminDb.collection('workspace_compartido').do
 const coleccionPlanesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('planes_accion'); // NUEVO
 const coleccionHallazgosRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('hallazgos');
 
+// =============================================================================
+// 🧩 MIGRACIÓN DE RIESGOS (fase 2: lectura doble)
+// El campo `riesgos` ocupa ~74 % del documento principal (límite 1 MiB). La migración repartirá los
+// riesgos en documentos `base_de_datos_grc_riesgos_N` y escribirá en el documento principal el índice
+// `riesgosFragmentados: { version, partes, orden }`. Sin ese índice todo funciona exactamente como antes
+// (cero lecturas adicionales).
+// =============================================================================
+const MAX_PARTES_RIESGOS = 10;
+const riesgosParteRef = indice => adminDb.collection('workspace_compartido').doc(`base_de_datos_grc_riesgos_${indice}`);
+
+const indiceRiesgosValido = indice => Boolean(indice) && typeof indice === 'object' &&
+  Number.isInteger(indice.partes) && indice.partes >= 1 && indice.partes <= MAX_PARTES_RIESGOS;
+
+async function leerRiesgosFragmentados(datosWorkspace, transaction = null) {
+  const indice = datosWorkspace.riesgosFragmentados;
+  if (!indiceRiesgosValido(indice)) return null;
+  const referencias = Array.from({ length: indice.partes }, (_, parte) => riesgosParteRef(parte));
+  const snapshots = await Promise.all(referencias.map(referencia => (
+    transaction ? transaction.get(referencia) : referencia.get()
+  )));
+  if (snapshots.some(snapshot => !snapshot.exists)) {
+    // Preferimos servir el campo original (aún presente hasta la limpieza) a mostrar una matriz incompleta.
+    logger.error('[RIESGOS] Migración incompleta: falta una parte; se usa el campo original', null, { partes: indice.partes });
+    return { riesgos: null, documentos: referencias.length };
+  }
+  const porId = new Map();
+  const sinId = [];
+  snapshots.forEach(snapshot => (snapshot.get('riesgos') || []).forEach(riesgo => {
+    if (riesgo && riesgo.id !== undefined && riesgo.id !== null) porId.set(String(riesgo.id), riesgo);
+    else if (riesgo) sinId.push(riesgo);
+  }));
+  // `orden` conserva el orden de la matriz (los riesgos nuevos se anteponen en el cliente).
+  const orden = Array.isArray(indice.orden) ? indice.orden.map(String) : [];
+  const enOrden = orden.filter(id => porId.has(id)).map(id => porId.get(id));
+  const vistos = new Set(orden);
+  const restantes = [...porId].filter(([id]) => !vistos.has(id)).map(([, riesgo]) => riesgo);
+  return { riesgos: [...enOrden, ...restantes, ...sinId], documentos: referencias.length };
+}
+
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
 const workspaceReadCache = new Map();
 const workspaceReadInFlight = new Map();
@@ -110,6 +149,12 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
   registrarLecturas(origen, documentosLeidos, inicio, Boolean(transaction));
 
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+  // Fase 2 de la migración de riesgos: solo lee las partes si el índice existe (si no, 0 lecturas extra).
+  const riesgosFragmentados = await leerRiesgosFragmentados(datosWorkspace, transaction);
+  if (riesgosFragmentados) {
+    registrarLecturas(`${origen || 'desconocido'}:riesgos`, riesgosFragmentados.documentos, inicio, Boolean(transaction));
+  }
+  const { riesgosFragmentados: _indiceRiesgos, ...datosPublicos } = datosWorkspace;
   const informesSeparados = snapshotInformes.exists
     ? snapshotInformes.get('informesAuditoria')
     : null;
@@ -145,7 +190,8 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
     tieneInformesLegados: Array.isArray(datosWorkspace.informesAuditoria),
     tienePlanesLegados: Array.isArray(datosWorkspace.planesAccion),
     data: {
-      ...datosWorkspace,
+      ...datosPublicos,
+      ...(riesgosFragmentados?.riesgos ? { riesgos: riesgosFragmentados.riesgos } : {}),
       hallazgos: [
         ...hallazgosLegados.filter(hallazgo => !hallazgo?.id),
         ...mapaHallazgos.values(),
@@ -445,7 +491,17 @@ export async function guardarWorkspaceParcial(partialData) {
   ]);
   
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
-  
+
+  // 🛡️ Migración de riesgos: si ya existe el índice, el campo `riesgos` del documento principal deja de
+  // leerse. Hasta que la escritura fragmentada (fase 4) esté desplegada, rechazar evita que un guardado
+  // termine en un campo que nadie lee (pérdida silenciosa). El índice nunca se envía al documento.
+  if (indiceRiesgosValido(datosWorkspace.riesgosFragmentados) && Object.hasOwn(partialData, 'riesgos')) {
+    throw new Error('La matriz de riesgos está en migración: el guardado de la lista completa no está habilitado todavía.');
+  }
+  if (Object.hasOwn(partialData, 'riesgosFragmentados')) {
+    throw new Error('El índice de riesgos solo lo administra la migración.');
+  }
+
   // Procesamiento Informes
   const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : null;
   const incluyeInformes = Object.hasOwn(partialData, 'informesAuditoria') && Array.isArray(partialData.informesAuditoria);

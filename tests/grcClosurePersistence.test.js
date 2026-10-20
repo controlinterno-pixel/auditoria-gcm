@@ -31,13 +31,15 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
   }
   documents.set('usuarios/u1', { rol: 'lider', permisos: ['sub_seguimiento_planes'] });
   const reads = [];
+  const directReads = [];
+  const workspaceErrors = [];
   const ref = path => ({
     path,
     doc: id => ref(`${path}/${id}`),
     collection: id => ref(`${path}/${id}`),
     // Igual que Firestore, la comparación de `in` es estricta por tipo ('5' !== 5).
     where: (field, operator, values) => ({ path, filtro: { field, values: operator === 'in' ? values : [values] } }),
-    get: async () => snapshot(path),
+    get: async () => { directReads.push(path); return snapshot(path); },
   });
   const snapshot = (path, filtro = null) => {
     if (path.split('/').length % 2 === 1) {
@@ -100,7 +102,7 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
       leerWorkspaceGrcLigero, obtenerHallazgoTx, obtenerPlanesDeInformeTx,
       obtenerPlanesTx, obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, reservarIdsPlanesTx, listarHallazgosTx,
     };`)(
-    adminDb, { delete: () => DELETE }, {}, { info() {} },
+    adminDb, { delete: () => DELETE }, {}, { info() {}, error: (...args) => workspaceErrors.push(args) },
   );
   const errors = [];
   const bindings = {
@@ -123,7 +125,7 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
     return res;
   };
   return {
-    documents, writes, errors, workspace, apply, reads,
+    documents, writes, errors, workspace, apply, reads, directReads, workspaceErrors,
     close: body => call(handler, 'POST', body, '/api/grc/review-plans'),
     update: body => call(updateHandler, 'PUT', body, '/api/grc/update'),
     registerEmail: body => call(registerEmailHandler, 'POST', body, '/api/grc/register-email'),
@@ -423,4 +425,71 @@ test('crear un hallazgo calcula el consecutivo leyendo hallazgos, no planes', as
   const creado = [...fixture.documents.entries()].find(([key, value]) => key.startsWith(`${ROOT}/hallazgos/`) && value.titulo === 'Nuevo hallazgo');
   assert.equal(creado[1].ref, `HAL-${anio}-005`);
   assert.ok(!fixture.reads.some(path => path.includes('planes_accion')), fixture.reads.join(', '));
+});
+
+// ============================================================================
+// Migración de riesgos — fase 2: lectura doble (sin índice todo queda igual)
+// ============================================================================
+const PARTE = indice => `workspace_compartido/base_de_datos_grc_riesgos_${indice}`;
+const riesgo = (id, extra = {}) => ({ id, proceso: 'Operaciones', descripcion: `Riesgo ${id}`, ...extra });
+
+test('riesgos sin índice de migración: se leen del documento principal sin lecturas adicionales', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(ROOT, { riesgos: [riesgo(1), riesgo(2)], comites: [] });
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  assert.deepEqual(data.riesgos.map(item => item.id), [1, 2]);
+  assert.ok(!fixture.directReads.some(path => path.includes('base_de_datos_grc_riesgos_')), fixture.directReads.join(', '));
+});
+
+test('riesgos con índice: se leen de las partes en el orden de la matriz y el índice no viaja al cliente', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(ROOT, {
+    riesgos: [riesgo(99, { descripcion: 'Copia original, ya no vigente' })],
+    riesgosFragmentados: { version: 1, partes: 2, orden: ['3', '1', '2'] },
+  });
+  fixture.documents.set(PARTE(0), { riesgos: [riesgo(1), riesgo(2)] });
+  fixture.documents.set(PARTE(1), { riesgos: [riesgo(3), riesgo(4)] });
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  assert.deepEqual(data.riesgos.map(item => item.id), [3, 1, 2, 4], 'orden del índice; los no listados al final');
+  assert.equal('riesgosFragmentados' in data, false);
+});
+
+test('riesgos con índice pero una parte faltante: se usa el campo original y se registra el error', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(ROOT, { riesgos: [riesgo(1)], riesgosFragmentados: { version: 1, partes: 2, orden: [] } });
+  fixture.documents.set(PARTE(0), { riesgos: [riesgo(5)] });
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  assert.deepEqual(data.riesgos.map(item => item.id), [1]);
+  assert.equal(fixture.workspaceErrors.length, 1);
+});
+
+test('índice inválido se ignora (comportamiento original)', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(ROOT, { riesgos: [riesgo(1)], riesgosFragmentados: { partes: 0 } });
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  assert.deepEqual(data.riesgos.map(item => item.id), [1]);
+  assert.ok(!fixture.directReads.some(path => path.includes('base_de_datos_grc_riesgos_')));
+});
+
+test('con índice activo, guardar la lista completa de riesgos se rechaza sin modificar nada', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  const indice = { version: 1, partes: 1, orden: ['1'] };
+  fixture.documents.set(ROOT, { riesgos: [riesgo(1)], riesgosFragmentados: indice, comites: [] });
+  fixture.documents.set(PARTE(0), { riesgos: [riesgo(1)] });
+  const antes = JSON.stringify(fixture.documents.get(ROOT));
+  await assert.rejects(fixture.workspace.guardarWorkspaceParcial({ riesgos: [riesgo(1, { descripcion: 'Editado' })] }), /migración/);
+  assert.equal(JSON.stringify(fixture.documents.get(ROOT)), antes);
+  // Otros guardados siguen funcionando y conservan el índice.
+  await fixture.workspace.guardarWorkspaceParcial({ comites: [{ id: 'c1' }] });
+  assert.deepEqual(fixture.documents.get(ROOT).riesgosFragmentados, indice);
+  assert.deepEqual(fixture.documents.get(ROOT).comites, [{ id: 'c1' }]);
+});
+
+test('sin índice, guardar riesgos funciona igual que antes; el cliente no puede escribir el índice', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(ROOT, { riesgos: [riesgo(1)] });
+  await fixture.workspace.guardarWorkspaceParcial({ riesgos: [riesgo(2), riesgo(1)] });
+  assert.deepEqual(fixture.documents.get(ROOT).riesgos.map(item => item.id), [2, 1]);
+  await assert.rejects(fixture.workspace.guardarWorkspaceParcial({ riesgosFragmentados: { partes: 1 } }), /índice/);
+  assert.equal(fixture.documents.get(ROOT).riesgosFragmentados, undefined);
 });
