@@ -5,10 +5,14 @@ import { evidencias360, fecha360, progreso360, texto360 } from '../utils/reporte
 const COLORES = {
   verde: [10, 59, 50],
   azul: [29, 78, 137],
-  tinta: [29, 29, 31],
-  tenue: [91, 91, 96],
-  linea: [222, 222, 227],
-  fondo: [246, 246, 248],
+  tinta: [35, 52, 48],
+  tenue: [79, 100, 94],
+  linea: [170, 190, 180],
+  fondo: [242, 247, 244],
+  oro: [165, 137, 82],
+  blanco: [255, 255, 255],
+  cerrado: [228, 242, 232],
+  vencido: [252, 237, 233],
   alerta: [153, 44, 35],
 };
 const CRITERIOS = {
@@ -52,18 +56,18 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
   const nuevaPagina = () => { doc.addPage(); y = inicio; };
   const asegurarEspacio = espacio => { if (y + espacio > limite) nuevaPagina(); };
   const seccion = (titulo, subtitulo) => {
-    asegurarEspacio(30);
-    y += 5;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(...COLORES.tinta);
-    const lineas = doc.splitTextToSize(textoPdf(titulo), contenido);
-    lineas.forEach(linea => {
-      asegurarEspacio(6);
-      doc.text(linea, margen, y);
-      y += 6;
-    });
-    y += 2;
+    doc.setFontSize(12);
+    const lineas = doc.splitTextToSize(textoPdf(titulo), contenido - 10);
+    const altoBanda = lineas.length * 5.5 + 6;
+    asegurarEspacio(altoBanda + 24);
+    doc.setFillColor(...COLORES.fondo);
+    doc.setDrawColor(...COLORES.linea);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(margen, y, contenido, altoBanda, 1.5, 1.5, 'FD');
+    doc.setTextColor(...COLORES.verde);
+    doc.text(lineas, margen + 5, y + 7, { lineHeightFactor: 1.3 });
+    y += altoBanda + 5;
     if (subtitulo) parrafo(subtitulo);
   };
   const parrafo = contenido => {
@@ -87,9 +91,12 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
       body: filas.map(fila => fila.map(celda => typeof celda === 'object' && celda !== null
         ? { ...celda, content: textoPdf(celda.content) } : textoPdf(celda))),
       margin: { top: inicio, bottom: alto - limite, left: margen, right: margen },
-      theme: 'plain',
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 3, textColor: COLORES.tinta, overflow: 'linebreak', valign: 'top', lineWidth: { bottom: 0.15 }, lineColor: COLORES.linea },
-      headStyles: { fillColor: COLORES.fondo, textColor: COLORES.tinta, fontStyle: 'bold', fontSize: 8 },
+      theme: 'grid',
+      styles: { font: 'helvetica', fontSize: 8, cellPadding: 3, textColor: COLORES.tinta, overflow: 'linebreak', valign: 'top', lineWidth: 0.2, lineColor: COLORES.linea },
+      headStyles: { fillColor: COLORES.verde, textColor: COLORES.blanco, fontStyle: 'bold', fontSize: 8 },
+      alternateRowStyles: { fillColor: COLORES.fondo },
+      tableLineColor: COLORES.linea,
+      tableLineWidth: 0.3,
       rowPageBreak: 'avoid',
       ...opciones,
     });
@@ -98,7 +105,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
   const ficha = filas => tabla(['Campo', 'Registro'], filas, { columnStyles: { 0: { cellWidth: 44, fontStyle: 'bold' } } });
   const fichaEjecutiva = campos => {
     const filas = [];
-    const etiqueta = content => ({ content, styles: { fontStyle: 'bold', textColor: COLORES.tenue } });
+    const etiqueta = content => ({ content, styles: { fontStyle: 'bold', textColor: COLORES.verde, fillColor: COLORES.fondo } });
     for (let i = 0; i < campos.length; i += 2) {
       const [nombre, valor] = campos[i];
       const siguiente = campos[i + 1];
@@ -166,9 +173,12 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     }
   };
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...COLORES.tinta);
+  doc.setTextColor(...COLORES.verde);
   doc.setFontSize(30);
   doc.text('Reporte 360', margen, y + 10);
+  doc.setDrawColor(...COLORES.oro);
+  doc.setLineWidth(0.7);
+  doc.line(margen, y + 15, margen + 38, y + 15);
   y += 20;
   doc.setFont('helvetica', 'normal');
   parrafo('Informe ejecutivo de seguimiento · Fuente, informe emitido, hallazgos y plan de acción.');
@@ -179,8 +189,6 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
   ]);
   const r = reporte.resumen;
   tabla(['Informes', 'Hallazgos', 'Acciones', 'Cerradas', 'Abiertas', 'Vencidas'], [[r.informes, r.hallazgos, r.acciones, r.cerradas, r.abiertas, r.vencidas]]);
-  parrafo(`Avance de ejecución promedio: ${avance(r.avance)}.${r.sinAvance ? ` ${r.sinAvance} acción(es) sin avance válido, excluidas del promedio.` : ''} Ejecutar al 100% no equivale a cerrar; el cierre se toma del workflow o, si no existe, del estado legado.`);
-  parrafo('Copia de seguimiento de los registros disponibles en la sesión autorizada. No certifica la integridad del repositorio ni consulta soportes externos.');
 
   reporte.expedientes.forEach(grupo => {
     nuevaPagina();
@@ -188,14 +196,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     const fuente = grupo.fuente;
     const informe = grupo.informe;
     seccion('Datos de la fuente');
-    fichaEjecutiva([
-      ['Tipo / referencia', `${grupo.tipoFuente}\n${texto360(fuente?.codigo || fuente?.id || informe?.tipoFuente)}`],
-      ['Fecha / estado', `${fecha360(fuente?.fecha)} · ${texto360(fuente?.estado)}`],
-      ['Responsable', texto360(fuente?.responsable || fuente?.auditor || fuente?.responsableCargo)],
-      ['Descripción / alcance', [fuente?.descripcion || fuente?.descripcionFuente || fuente?.detalleFuente || informe?.detalleFuente, fuente?.alcance || fuente?.objetivo].map(item => texto360(item, '')).filter(Boolean).join('\n') || 'No registrado'],
-      ['Procesos / normas', `${texto360(fuente?.macroprocesos || fuente?.macroproceso || fuente?.proceso)}\n${texto360(fuente?.subprocesos || fuente?.subproceso)}\nNormas: ${texto360(fuente?.norma || fuente?.tipoNorma)}`],
-    ]);
-    if (!fuente) parrafo('Sin ficha de fuente vinculada disponible. El tipo se muestra según el informe; no se infieren los demás datos.');
+    fichaEjecutiva([['Tipo de fuente', grupo.tipoFuente]]);
     seccion('Informe emitido');
     if (informe) {
       fichaEjecutiva([
@@ -239,7 +240,10 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
         `${avance(plan.avance)}\nMeta: 100%`,
         {
           content: `${texto360(p.estadoWorkflow || p.estado)}\n${plan.cerrado ? 'Cerrada' : plan.vencido ? 'Vencida sin cierre' : 'Abierta'}\n${plan.evaluacion.tipo}\n${plan.evaluacion.resultado}`,
-          styles: { textColor: plan.cerrado ? COLORES.verde : plan.vencido ? COLORES.alerta : COLORES.tinta },
+          styles: {
+            textColor: plan.cerrado ? COLORES.verde : plan.vencido ? COLORES.alerta : COLORES.tinta,
+            fillColor: plan.cerrado ? COLORES.cerrado : plan.vencido ? COLORES.vencido : COLORES.fondo,
+          },
         },
       ];
     }), { columnStyles: { 0: { cellWidth: 28 }, 1: { cellWidth: 60 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 35 }, 5: { cellWidth: 29 }, 6: { cellWidth: 20 } } });
@@ -292,7 +296,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     doc.addImage(logo, 'PNG', 14, 7, anchoLogo, altoLogo, 'logo-termales', 'FAST');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(...COLORES.tinta);
+    doc.setTextColor(...COLORES.verde);
     doc.text('Termales Santa Rosa de Cabal', 49, 15);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
@@ -300,8 +304,11 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     doc.text('Control interno · Informe ejecutivo de seguimiento', 49, 21);
     doc.setFontSize(7);
     doc.text(identificador, ancho - margen, 20, { align: 'right' });
-    doc.setDrawColor(...COLORES.linea);
+    doc.setDrawColor(...COLORES.oro);
+    doc.setLineWidth(0.45);
     doc.line(margen, 30, ancho - margen, 30);
+    doc.setDrawColor(...COLORES.linea);
+    doc.setLineWidth(0.25);
     doc.line(margen, alto - 17, ancho - margen, alto - 17);
     doc.setFontSize(7);
     doc.text(`Corte: ${fechaCorte} (Colombia)`, margen, alto - 12);

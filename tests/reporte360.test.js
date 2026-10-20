@@ -193,7 +193,7 @@ test('evidencias: múltiples formatos, deduplicación y enlaces seguros', () => 
   assert.equal(evidencias360({ evidenciaUrl: 'https://example.test/uno.pdf' }).length, 1);
 });
 
-test('PDF ejecutivo: cuatro bloques, fuente completa y todas las acciones con su estado real', () => {
+test('PDF ejecutivo: fuente simplificada, textos depurados y todas las acciones con su estado real', () => {
   const logo = new Uint8Array(readFileSync(new URL('../public/logo_termales.png', import.meta.url)));
   const reporte = construir({
     modo: 'informe', idInforme: 1,
@@ -213,7 +213,7 @@ test('PDF ejecutivo: cuatro bloques, fuente completa y todas las acciones con su
   const textoContinuo = comandos.replace(/\) Tj\s*T\* \(/g, ' ').replace(/\\([()\\])/g, '$1');
   for (const texto of [
     'Datos de la fuente', 'Informe emitido', 'Cuadro de hallazgos', 'Cuadro de acciones y estados',
-    'Responsable fuente demo', 'Descripcion de origen demo', 'ISO 9001', 'Proceso demo',
+    'Tipo de fuente',
     'PLA-PENDIENTE', 'PLA-CERRADA', 'PLA-HUERFANA', 'HAL-DEMO-011',
     'Ejecutor demo', 'Auditor demo', 'Jefatura demo', 'Operacion demo', 'Sede demo',
     '100%', 'Sin acciones vinculadas', 'Sin hallazgo disponible', 'Vencida sin cierre',
@@ -221,6 +221,16 @@ test('PDF ejecutivo: cuatro bloques, fuente completa y todas las acciones con su
   assert.match(textoContinuo, /En Revisi.n \(100%\)/);
   assert.match(comandos, /Cerrada/);
   assert.match(comandos, /Anexo documental/);
+  assert.match(textoContinuo, /Auditor.a Externa/);
+  for (const texto of [
+    'Responsable fuente demo', 'Descripcion de origen demo', 'ISO 9001', 'Proceso demo',
+    'Avance de ejecución promedio', 'Ejecutar al 100%', 'estado legado',
+    'Copia de seguimiento de los registros disponibles', 'No certifica la integridad',
+    'Sin ficha de fuente vinculada disponible', 'Tipo / referencia',
+  ]) assert.ok(!textoContinuo.includes(texto), `Texto que debe omitirse: ${texto}`);
+  assert.ok(doc.lastAutoTable.settings.tableLineWidth > 0);
+  assert.ok(doc.lastAutoTable.styles.styles.lineWidth > 0);
+  assert.deepEqual(doc.lastAutoTable.styles.headStyles.fillColor, [10, 59, 50]);
   assert.ok(!comandos.includes('Mapa de informes y compromisos'));
   // La ficha compacta de origen e informe debe caber en la primera página del expediente.
   assert.ok(doc.internal.pages[2].join('\n').includes('Socializaci'));
