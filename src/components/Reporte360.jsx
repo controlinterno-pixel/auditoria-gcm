@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, Download, FileCheck2, Files, ListFilter, LoaderCircle } from 'lucide-react';
-import { construirReporte360, fecha360, texto360, tiposFuente360 } from '../utils/reporte360.js';
+import { construirReporte360, fecha360, informesPorFuente360, texto360, tiposFuente360 } from '../utils/reporte360.js';
 
 const porcentaje = valor => valor === null ? 'Sin avance registrado' : `${valor}%`;
 
@@ -11,6 +11,7 @@ export default function Reporte360({
   const [modo, setModo] = useState('informe');
   const [idInforme, setIdInforme] = useState('');
   const [tiposSeleccionados, setTiposSeleccionados] = useState([]);
+  const [idsInformes, setIdsInformes] = useState(null);
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
@@ -22,15 +23,22 @@ export default function Reporte360({
   const seleccionDisponible = informes.some(informe => String(informe.id) === idInforme);
   const tiposDisponibles = useMemo(() => tiposFuente360(informes, fuentesMejora), [informes, fuentesMejora]);
   const fuentesSeleccionadasDisponibles = tiposSeleccionados.length > 0 && tiposSeleccionados.every(tipo => tiposDisponibles.includes(tipo));
+  const informesDeFuentes = useMemo(() => informesPorFuente360(informes, fuentesMejora, tiposSeleccionados), [informes, fuentesMejora, tiposSeleccionados]);
+  const idsDisponibles = informesDeFuentes.map(informe => String(informe.id));
+  const idsElegidos = idsInformes ?? idsDisponibles;
   const autor = [perfilUsuario?.nombreResponsable || perfilUsuario?.nombre || user?.displayName, user?.email].filter(Boolean).join(' · ');
   const reporte = useMemo(() => {
     if (modo === 'informe' && !seleccionDisponible) return null;
-    if (modo === 'fuentes' && !fuentesSeleccionadasDisponibles) return null;
+    if (modo === 'fuentes' && (
+      !fuentesSeleccionadasDisponibles || (idsInformes !== null && (
+        !idsInformes.length || idsInformes.some(id => !informesDeFuentes.some(informe => String(informe.id) === id))
+      ))
+    )) return null;
     return construirReporte360({
       informes, hallazgos: safeHallazgos, planes: safePlanes, fuentes: fuentesMejora,
-      modo, idInforme, tiposFuente: tiposSeleccionados, generadoEn: fechaVista, generadoPor: autor,
+      modo, idInforme, tiposFuente: tiposSeleccionados, idsInformes, generadoEn: fechaVista, generadoPor: autor,
     });
-  }, [informes, safeHallazgos, safePlanes, fuentesMejora, modo, idInforme, tiposSeleccionados, fuentesSeleccionadasDisponibles, seleccionDisponible, fechaVista, autor]);
+  }, [informes, safeHallazgos, safePlanes, fuentesMejora, modo, idInforme, tiposSeleccionados, idsInformes, fuentesSeleccionadasDisponibles, informesDeFuentes, seleccionDisponible, fechaVista, autor]);
   const cambiarAlcance = nuevoModo => {
     setModo(nuevoModo);
     setError('');
@@ -45,7 +53,7 @@ export default function Reporte360({
     try {
       const corte = construirReporte360({
         informes, hallazgos: safeHallazgos, planes: safePlanes, fuentes: fuentesMejora,
-        modo, idInforme, tiposFuente: tiposSeleccionados, generadoPor: autor,
+        modo, idInforme, tiposFuente: tiposSeleccionados, idsInformes, generadoPor: autor,
       });
       const { descargarReporte360 } = await import('../services/reporte360Pdf.js');
       const nombre = await descargarReporte360(corte);
@@ -110,12 +118,13 @@ export default function Reporte360({
             {modo === 'fuentes' && (
               <fieldset className="mt-5" aria-describedby="fuentes-reporte360-ayuda">
                 <legend className="text-sm font-semibold">Tipos de fuente de mejora</legend>
-                <p id="fuentes-reporte360-ayuda" className="mt-2 text-xs leading-relaxed text-slate-600">Marca uno o varios tipos. Se incluirán todos sus informes y registros vinculados disponibles. Los registros sin informe verificable quedan en General con todo.</p>
+                <p id="fuentes-reporte360-ayuda" className="mt-2 text-xs leading-relaxed text-slate-600">Marca uno o varios tipos y luego elige sus informes. Puedes incluir uno, varios o todos. Los registros sin informe verificable quedan en General con todo.</p>
                 <div className="mt-3 max-h-64 space-y-1 overflow-y-auto">
                   {tiposDisponibles.map(tipo => (
                     <label key={tipo} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-slate-50">
                       <input type="checkbox" checked={tiposSeleccionados.includes(tipo)} onChange={event => {
                         setTiposSeleccionados(actual => event.target.checked ? [...actual, tipo] : actual.filter(item => item !== tipo));
+                        setIdsInformes(null);
                         setError('');
                         setConfirmacion('');
                       }} className="h-4 w-4 shrink-0 accent-[#0A3B32] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" />
@@ -125,7 +134,41 @@ export default function Reporte360({
                 </div>
                 {!tiposDisponibles.length && <p className="mt-2 text-xs text-slate-600">No hay tipos de fuente asociados a informes disponibles.</p>}
                 {tiposSeleccionados.some(tipo => !tiposDisponibles.includes(tipo)) && <p role="alert" className="mt-2 text-xs text-amber-800">Un tipo seleccionado ya no está disponible. Vuelve a seleccionar los tipos para continuar.</p>}
-                <button type="button" onClick={() => { setTiposSeleccionados([]); setError(''); setConfirmacion(''); }} disabled={!tiposSeleccionados.length} className="mt-2 min-h-11 rounded px-2 text-xs font-semibold text-[#0A3B32] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:text-slate-500">Limpiar selección</button>
+                <button type="button" onClick={() => { setTiposSeleccionados([]); setIdsInformes(null); setError(''); setConfirmacion(''); }} disabled={!tiposSeleccionados.length} className="mt-2 min-h-11 rounded px-2 text-xs font-semibold text-[#0A3B32] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:text-slate-500">Limpiar selección</button>
+                {fuentesSeleccionadasDisponibles && (
+                  <fieldset className="mt-4 min-w-0 border-t border-slate-200 pt-4">
+                    <legend className="text-sm font-semibold text-[#0A3B32]">Informes asociados</legend>
+                    <p role="status" className="mt-2 text-xs text-slate-600">
+                      {idsElegidos.filter(id => idsDisponibles.includes(id)).length} de {informesDeFuentes.length} informes seleccionados
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-slate-600">Al cambiar los tipos de fuente se seleccionan todos sus informes. Desmarca los que no quieras incluir.</p>
+                    <div className="mt-2 flex flex-wrap gap-x-4">
+                      <button type="button" onClick={() => { setIdsInformes(null); setError(''); setConfirmacion(''); }} className="min-h-11 rounded text-xs font-semibold text-[#0A3B32] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">Seleccionar todos los informes</button>
+                      <button type="button" onClick={() => { setIdsInformes([]); setError(''); setConfirmacion(''); }} disabled={!idsElegidos.length} className="min-h-11 rounded text-xs font-semibold text-[#0A3B32] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:text-slate-500">Limpiar informes</button>
+                    </div>
+                    <div className="mt-2 max-h-80 divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200">
+                      {informesDeFuentes.map(informe => (
+                        <label key={informe.id} className={`flex min-h-11 cursor-pointer items-start gap-3 p-3 ${idsElegidos.includes(String(informe.id)) ? 'bg-emerald-50/60' : 'hover:bg-slate-50'}`}>
+                          <input type="checkbox" checked={idsElegidos.includes(String(informe.id))} onChange={event => {
+                            const seleccionado = event.target.checked;
+                            setIdsInformes(actual => seleccionado
+                              ? [...(actual ?? idsDisponibles), String(informe.id)]
+                              : (actual ?? idsDisponibles).filter(id => id !== String(informe.id)));
+                            setError('');
+                            setConfirmacion('');
+                          }} className="mt-1 h-4 w-4 shrink-0 accent-[#0A3B32] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" />
+                          <span className="min-w-0 break-words text-sm">
+                            <span className="block font-semibold text-[#0A3B32]">{informe.ref || informe.id}</span>
+                            <span className="mt-1 block">{informe.titulo || 'Sin título'}</span>
+                            <span className="mt-1 block text-xs text-slate-600">{fecha360(informe.fecha)}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {!idsElegidos.length && <p className="mt-3 text-xs text-slate-600">Selecciona al menos un informe para habilitar la descarga.</p>}
+                    {idsElegidos.some(id => !idsDisponibles.includes(id)) && <p role="alert" className="mt-3 text-xs text-amber-800">Un informe seleccionado ya no está disponible. Actualiza la selección o selecciona todos para continuar.</p>}
+                  </fieldset>
+                )}
               </fieldset>
             )}
           </fieldset>
@@ -156,7 +199,7 @@ export default function Reporte360({
           {!reporte ? (
             <div className="px-6 py-12">
               <FileCheck2 size={30} className="text-[#3e6570]" aria-hidden="true" />
-              <h4 className="mt-4 text-base font-semibold">{modo === 'fuentes' ? 'Selecciona los tipos de fuente que vas a consolidar' : 'Selecciona el informe que vas a presentar'}</h4>
+              <h4 className="mt-4 text-base font-semibold">{modo === 'fuentes' ? fuentesSeleccionadasDisponibles ? 'Selecciona los informes que vas a incluir' : 'Selecciona los tipos de fuente que vas a consolidar' : 'Selecciona el informe que vas a presentar'}</h4>
               <p className="mt-2 max-w-lg text-sm leading-relaxed text-slate-600">Aquí verás su cobertura antes de descargar. Para una lectura completa de la gestión, elige General con todo.</p>
             </div>
           ) : !hayContenido ? (

@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { jsPDF } from 'jspdf';
 import {
-  construirReporte360, evaluacion360, evidencias360, planCerrado360, plazoSemanas360, progreso360, tiposFuente360,
+  construirReporte360, evaluacion360, evidencias360, informesPorFuente360, planCerrado360, plazoSemanas360, progreso360, tiposFuente360,
 } from '../src/utils/reporte360.js';
 import { crearPdfReporte360 } from '../src/services/reporte360Pdf.js';
 
@@ -105,6 +105,55 @@ test('filtra un tipo o consolida varios sin perder hallazgos sin acciones ni dup
   for (const seleccion of [[], ['Inexistente'], ['Auditoría Externa', 'Inexistente'], 'Auditoría Externa']) {
     assert.throws(() => construir({ modo: 'fuentes', tiposFuente: seleccion }), /tipos de fuente disponibles/);
   }
+});
+
+test('informes asociados resuelve tipos vinculados y permite seleccionar uno, varios o todos', () => {
+  const datos = {
+    modo: 'fuentes', tiposFuente: ['Auditoría Externa', 'Programa de Auditoría'],
+    informes: [...informes, { id: 4, ref: 'INF-DEMO-004', tipoFuente: 'F-1' }],
+    hallazgos: [...hallazgos, { id: 40, idInforme: 4, estado: 'Abierto' }],
+  };
+  assert.deepEqual(informesPorFuente360(datos.informes, fuentes, ['Auditoría Externa']).map(informe => informe.id), [1, 4]);
+  const uno = construir({ ...datos, idsInformes: ['1', 1] });
+  assert.equal(uno.resumen.informes, 1);
+  assert.equal(uno.resumen.hallazgos, 2);
+  assert.equal(uno.resumen.acciones, 4);
+  assert.equal(uno.resumen.sinAcciones, 1);
+  assert.equal(uno.expedientes[0].planesSinHallazgo.length, 1);
+  const varios = construir({ ...datos, idsInformes: ['2', 4] });
+  assert.deepEqual(varios.expedientes.map(grupo => grupo.informe.id), ['2', 4]);
+  assert.equal(varios.resumen.hallazgos, 2);
+  assert.equal(varios.resumen.sinAcciones, 1);
+  assert.equal(varios.resumen.acciones, 1);
+  assert.deepEqual(construir({ ...datos, idsInformes: null }), construir(datos));
+  assert.equal(construir({ ...datos, idsInformes: null }).resumen.informes, 3);
+});
+
+test('selección vacía, informe retirado o ajeno al tipo no produce un PDF con alcance incorrecto', () => {
+  for (const idsInformes of [[], ['inexistente'], [1, 3], [2], '1']) {
+    assert.throws(() => construir({ modo: 'fuentes', tiposFuente: ['Auditoría Externa'], idsInformes }), /informes disponibles/);
+  }
+  assert.throws(() => construir({
+    modo: 'fuentes', tiposFuente: ['Auditoría Externa'], idsInformes: [1],
+    informes: [{ id: 1, tipoFuente: 'Programa de Auditoría' }, { id: 4, tipoFuente: 'F-1' }],
+  }), /informes disponibles/);
+  assert.deepEqual(construir({ idsInformes: [] }), construir());
+  assert.equal(construir({ modo: 'informe', idInforme: 1, idsInformes: [] }).resumen.informes, 1);
+});
+
+test('PDF por tipos de fuente incluye únicamente los informes elegidos y sus registros', () => {
+  const logo = new Uint8Array(readFileSync(new URL('../public/logo_termales.png', import.meta.url)));
+  const reporte = construir({
+    modo: 'fuentes', tiposFuente: ['Auditoría Externa', 'Programa de Auditoría'], idsInformes: [1],
+  });
+  const { doc } = crearPdfReporte360(reporte, { logo });
+  const texto = Object.values(doc.internal.pages).flat().join('\n');
+  assert.match(texto, /INF-DEMO-001/);
+  assert.match(texto, /HAL-DEMO-011/);
+  assert.match(texto, /PLA-900/);
+  assert.ok(!texto.includes('INF-DEMO-002'));
+  assert.ok(!texto.includes('INF-DEMO-003'));
+  assert.ok(!texto.includes('PLA-200'));
 });
 
 test('PDF consolidado identifica los tipos seleccionados y conserva ambas rutas de evaluación', () => {

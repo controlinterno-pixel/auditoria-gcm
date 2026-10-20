@@ -28,6 +28,10 @@ export const tiposFuente360 = (informes = [], fuentes = []) => (
     .sort((a, b) => a.localeCompare(b, 'es'))
 );
 
+export const informesPorFuente360 = (informes = [], fuentes = [], tiposFuente = []) => (
+  lista(informes).filter(informe => lista(tiposFuente).includes(tipoFuente360(informe, fuentes)))
+);
+
 export const progreso360 = valor => {
   if (!['number', 'string'].includes(typeof valor) || texto360(valor, '') === '') return null;
   const numero = Number(valor);
@@ -134,7 +138,7 @@ function resumen360(hallazgos, planes) {
 
 export function construirReporte360({
   informes = [], hallazgos = [], planes = [], fuentes = [],
-  modo = 'general', idInforme = '', tiposFuente = [], generadoEn = new Date(), generadoPor = '',
+  modo = 'general', idInforme = '', tiposFuente = [], idsInformes = null, generadoEn = new Date(), generadoPor = '',
 } = {}) {
   if (!['general', 'informe', 'fuentes'].includes(modo)) throw new Error('Selecciona un alcance válido para el Reporte 360.');
   if (!(generadoEn instanceof Date) || !Number.isFinite(generadoEn.getTime())) throw new Error('La fecha de corte del reporte no es válida.');
@@ -149,8 +153,17 @@ export function construirReporte360({
   if (modo === 'fuentes' && (!tiposSeleccionados.length || tiposSeleccionados.some(tipo => !tiposDisponibles.includes(tipo)))) {
     throw new Error('Selecciona uno o varios tipos de fuente disponibles antes de generar el PDF.');
   }
+  const informesDeFuentes = informesPorFuente360(informesLista, fuentes, tiposSeleccionados);
+  const idsSeleccionados = idsInformes === null ? null : [...new Set(lista(idsInformes).map(id))];
+  if (modo === 'fuentes' && idsSeleccionados !== null && (
+    !idsSeleccionados.length || idsSeleccionados.some(valor => !informesDeFuentes.some(informe => id(informe.id) === valor))
+  )) {
+    throw new Error('Selecciona uno o varios informes disponibles de los tipos de fuente elegidos antes de generar el PDF.');
+  }
   const incluyeInforme = informe => modo === 'general' || Boolean(informe && (
-    modo === 'informe' ? id(informe.id) === id(idInforme) : tiposSeleccionados.includes(tipoFuente360(informe, fuentes))
+    modo === 'informe' ? id(informe.id) === id(idInforme)
+      : tiposSeleccionados.includes(tipoFuente360(informe, fuentes)) &&
+        (idsSeleccionados === null || idsSeleccionados.includes(id(informe.id)))
   ));
   const porInforme = new Map(informesLista.map(informe => [id(informe.id), informe]));
   const porHallazgo = new Map(hallazgosLista.map(hallazgo => [id(hallazgo.id), hallazgo]));
