@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  construirReporte360, evaluacion360, evidencias360, planCerrado360, progreso360, tiposFuente360,
+  construirReporte360, evaluacion360, evidencias360, planCerrado360, plazoSemanas360, progreso360, tiposFuente360,
 } from '../src/utils/reporte360.js';
 import { crearPdfReporte360 } from '../src/services/reporte360Pdf.js';
 
@@ -210,13 +210,18 @@ test('PDF ejecutivo: fuente simplificada, textos depurados y todas las acciones 
   const { doc } = crearPdfReporte360(reporte, { logo });
   assert.ok(doc.internal.pageSize.getWidth() > doc.internal.pageSize.getHeight());
   const comandos = Object.values(doc.internal.pages).flat().join('\n');
-  const textoContinuo = comandos.replace(/\) Tj\s*T\* \(/g, ' ').replace(/\\([()\\])/g, '$1');
+  const textoContinuo = [...comandos.matchAll(/\(((?:\\.|[^\\)])*)\)\s*Tj/g)]
+    .map(match => match[1].replace(/\\([()\\])/g, '$1')).join(' ');
   for (const texto of [
     'Datos de la fuente', 'Informe emitido', 'Cuadro de hallazgos', 'Cuadro de acciones y estados',
     'Tipo de fuente',
     'PLA-PENDIENTE', 'PLA-CERRADA', 'PLA-HUERFANA', 'HAL-DEMO-011',
     'Ejecutor demo', 'Auditor demo', 'Jefatura demo', 'Operacion demo', 'Sede demo',
     '100%', 'Sin acciones vinculadas', 'Sin hallazgo disponible', 'Vencida sin cierre',
+    'No.', 'Descripción Observación y/o Hallazgo', 'Clase de Observación',
+    'Áreas / Procesos Vinculados', 'Acciones de Mejoramiento', 'Mecanismo de Seguimiento',
+    'Resp. Seguimiento (Auditor)', 'Meta / Unidad', 'Fecha Inicio', 'Fecha Terminación',
+    'Plazo (Semanas)', 'Estado / Observación', 'Responsable de Mejoramiento', '1.6',
   ]) assert.ok(textoContinuo.includes(texto), `Falta contenido: ${texto}`);
   assert.match(textoContinuo, /En Revisi.n \(100%\)/);
   assert.match(comandos, /Cerrada/);
@@ -232,11 +237,45 @@ test('PDF ejecutivo: fuente simplificada, textos depurados y todas las acciones 
   assert.ok(doc.lastAutoTable.styles.styles.lineWidth > 0);
   assert.deepEqual(doc.lastAutoTable.styles.headStyles.fillColor, [10, 59, 50]);
   assert.ok(!comandos.includes('Mapa de informes y compromisos'));
+  assert.ok(!textoContinuo.includes('·'));
+  assert.ok(!textoContinuo.includes('\uFFFD'));
+  assert.ok(doc.internal.pages[2].join('\n').includes('INF-DEMO-001 - Demostraci'));
   // La ficha compacta de origen e informe debe caber en la primera página del expediente.
   assert.ok(doc.internal.pages[2].join('\n').includes('Socializaci'));
   if (process.env.REPORTE360_EXECUTIVE_SAMPLE_PATH) {
     writeFileSync(process.env.REPORTE360_EXECUTIVE_SAMPLE_PATH, Buffer.from(doc.output('arraybuffer')));
   }
+});
+
+test('plazo en semanas: mismo cálculo institucional con fechas de calendario válidas', () => {
+  assert.equal(plazoSemanas360('2026-08-01', '2026-09-30'), '8.6');
+  assert.equal(plazoSemanas360('01/08/2026', '30/09/2026'), '8.6');
+  assert.equal(plazoSemanas360('2026-09-30', '2026-08-01'), '8.6');
+  assert.equal(plazoSemanas360('2026-10-19', '2026-10-19'), '0.0');
+  assert.equal(plazoSemanas360('2026-02-30', '2026-03-10'), 'No registrado');
+  assert.equal(plazoSemanas360(null, '2026-10-19'), 'No registrado');
+  assert.equal(plazoSemanas360('2026-10-19', 'invalida'), 'No registrado');
+});
+
+test('matriz institucional: 13 columnas, narrativas justificadas y encabezados repetidos', () => {
+  const logo = new Uint8Array(readFileSync(new URL('../public/logo_termales.png', import.meta.url)));
+  const reporte = construir({
+    modo: 'informe', idInforme: 1,
+    planes: [{ ...planes[0], fechaInicio: '2026-08-01', fecha: '2026-09-30' }],
+    hallazgos: [hallazgos[0]],
+  });
+  const { doc } = crearPdfReporte360(reporte, { logo });
+  const tabla = doc.lastAutoTable;
+  assert.equal(tabla.columns.length, 13);
+  assert.equal(tabla.body[0].cells[0].raw, '1');
+  assert.equal(tabla.body[0].cells[7].raw, '100%');
+  assert.equal(tabla.body[0].cells[10].raw, '8.6');
+  assert.equal(tabla.body[0].cells[1].styles.halign, 'justify');
+  assert.equal(tabla.body[0].cells[4].styles.halign, 'justify');
+  assert.equal(tabla.body[0].cells[8].styles.halign, 'center');
+  assert.equal(tabla.settings.showHead, 'everyPage');
+  const anchoTabla = tabla.columns.reduce((suma, columna) => suma + columna.width, 0);
+  assert.ok(Math.abs(anchoTabla - (doc.internal.pageSize.getWidth() - 28)) < 0.01);
 });
 
 test('PDF vectorial extenso: logo, paginación, texto completo, metadatos y vínculos', () => {

@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
-import { evidencias360, fecha360, progreso360, texto360 } from '../utils/reporte360.js';
+import { evidencias360, fecha360, plazoSemanas360, progreso360, texto360 } from '../utils/reporte360.js';
 
 const COLORES = {
   verde: [10, 59, 50],
@@ -27,7 +27,7 @@ const textoPdf = valor => texto360(valor)
   .replace(/\uFE0F/gu, '')
   .replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu, '')
   .replace(/→/g, ' > ').replace(/≤/g, '<=').replace(/≥/g, '>=')
-  .replace(/[–—]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").trim();
+  .replace(/[·•‧∙–—]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").trim();
 const avance = valor => valor === null ? 'No registrado' : `${valor}%`;
 
 export function crearPdfReporte360(reporte, { logo } = {}) {
@@ -74,11 +74,26 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...COLORES.tinta);
-    const lineas = doc.splitTextToSize(textoPdf(contenido), ancho - margen * 2);
-    lineas.forEach(linea => {
-      asegurarEspacio(6);
-      doc.text(linea, margen, y);
-      y += 4.6;
+    const anchoTexto = ancho - margen * 2;
+    textoPdf(contenido).split('\n').forEach(bloque => {
+      const lineas = doc.splitTextToSize(bloque, anchoTexto);
+      let indice = 0;
+      while (indice < lineas.length) {
+        asegurarEspacio(6);
+        const cantidad = Math.max(1, Math.floor((limite - y) / 4.6));
+        const fin = Math.min(indice + cantidad, lineas.length);
+        const pagina = lineas.slice(indice, fin);
+        // jsPDF no justifica la última línea; en una continuación no es el fin del párrafo.
+        if (fin < lineas.length) pagina.push('');
+        doc.text(pagina, margen, y, {
+          align: 'justify',
+          maxWidth: anchoTexto,
+          lineHeightFactor: 4.6 * doc.internal.scaleFactor / 9,
+        });
+        y += (fin - indice) * 4.6;
+        indice = fin;
+        if (indice < lineas.length) nuevaPagina();
+      }
     });
     y += 3;
   };
@@ -102,7 +117,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     });
     y = doc.lastAutoTable.finalY + 7;
   };
-  const ficha = filas => tabla(['Campo', 'Registro'], filas, { columnStyles: { 0: { cellWidth: 44, fontStyle: 'bold' } } });
+  const ficha = filas => tabla(['Campo', 'Registro'], filas, { columnStyles: { 0: { cellWidth: 44, fontStyle: 'bold' }, 1: { halign: 'justify' } } });
   const fichaEjecutiva = campos => {
     const filas = [];
     const etiqueta = content => ({ content, styles: { fontStyle: 'bold', textColor: COLORES.verde, fillColor: COLORES.fondo } });
@@ -115,6 +130,12 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     }
     tabla([], filas, {
       columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: contenido / 2 - 36 }, 2: { cellWidth: 36 }, 3: { cellWidth: contenido / 2 - 36 } },
+      didParseCell: data => {
+        const valor = typeof data.cell.raw === 'object' ? data.cell.raw.content : data.cell.raw;
+        if (data.section === 'body' && data.column.index % 2 === 1 && texto360(valor).includes('\n')) {
+          data.cell.styles.halign = 'justify';
+        }
+      },
     });
   };
   const archivos = (registro, etiqueta) => {
@@ -220,33 +241,64 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
         `Causa: ${texto360(h.causa)}\nMétodo: ${texto360(h.metodologiaCausa)}\nAnálisis: ${texto360(h.analisisCausa)}`,
         `${texto360(h.estado)}\nCierre: ${fecha360(h.fechaCierre)}\n${hallazgo.planes.length ? `${hallazgo.planes.length} acción(es)` : 'Sin acciones vinculadas'}`,
       ];
-    }), { columnStyles: { 0: { cellWidth: 67 }, 1: { cellWidth: 39 }, 2: { cellWidth: 46 }, 4: { cellWidth: 32 } } });
+    }), { columnStyles: { 0: { cellWidth: 67, halign: 'justify' }, 1: { cellWidth: 39 }, 2: { cellWidth: 46 }, 3: { halign: 'justify' }, 4: { cellWidth: 32 } } });
 
     const acciones = [
-      ...grupo.hallazgos.flatMap(hallazgo => hallazgo.planes.map(plan => ({ plan, hallazgo: hallazgo.referencia }))),
-      ...grupo.planesSinHallazgo.map(plan => ({ plan, hallazgo: `Sin hallazgo disponible\nID: ${texto360(plan.registro.idHallazgo)}` })),
+      ...grupo.hallazgos.flatMap(hallazgo => hallazgo.planes.map(plan => ({ plan, hallazgo }))),
+      ...grupo.planesSinHallazgo.map(plan => ({ plan, hallazgo: null })),
     ];
+    if (acciones.length) nuevaPagina();
     seccion('Cuadro de acciones y estados', `${acciones.length} acción(es) · ${grupo.resumen.cerradas} cerrada(s) · ${grupo.resumen.abiertas} abierta(s) · ${grupo.resumen.vencidas} vencida(s) sin cierre.`);
     if (!acciones.length) parrafo('No hay acciones vinculadas disponibles. Esto no se interpreta como cumplimiento ni cierre.');
-    tabla(['Acción / hallazgo', 'Acción de mejoramiento', 'Proceso / sede', 'Mecanismo de seguimiento', 'Responsables', 'Inicio / límite', 'Avance / meta', 'Estado / evaluación'], acciones.map(({ plan, hallazgo }) => {
+    tabla([
+      'No.', 'Descripción Observación y/o Hallazgo', 'Clase de Observación',
+      'Áreas / Procesos Vinculados', 'Acciones de Mejoramiento', 'Mecanismo de Seguimiento',
+      'Resp. Seguimiento (Auditor)', 'Meta / Unidad', 'Fecha Inicio', 'Fecha Terminación',
+      'Plazo (Semanas)', 'Estado / Observación', 'Responsable de Mejoramiento',
+    ], acciones.map(({ plan, hallazgo }, indice) => {
       const p = plan.registro;
+      const h = hallazgo?.registro;
       return [
-        `${plan.referencia}\n${hallazgo}`,
-        texto360(p.accion),
-        `${texto360(p.proceso || p.macroprocesos || p.macroproceso)}\n${texto360(p.sede)}\n${texto360(p.tipoAccion)}`,
-        texto360(p.mecanismo),
-        `Mejora: ${texto360(p.responsable)}\nAuditor: ${texto360(p.auditorAsignado || p.auditorResponsable || p.auditor)}\nRevisor: ${texto360(p.revisor)}`,
-        `Inicio: ${fecha360(p.fechaInicio)}\nLímite: ${fecha360(p.fecha)}\nCierre: ${fecha360(p.fechaCierre)}`,
-        `${avance(plan.avance)}\nMeta: 100%`,
+        indice + 1,
+        h ? `${hallazgo.referencia}\n${texto360(h.titulo || h.descripcion || h.hallazgo || h.detalle || h.observacion)}`
+          : { content: `Sin hallazgo disponible\nID: ${texto360(p.idHallazgo)}`, styles: { halign: 'left' } },
+        texto360(h?.claseObservacion),
+        `${texto360(p.proceso || p.macroprocesos || p.macroproceso)}\n${texto360(p.sede)}`,
+        `${plan.referencia}\n${texto360(p.accion)}`,
+        texto360(p.mecanismo, 'Revisión de Evidencias Digitales GCM'),
+        texto360(p.auditorAsignado || p.auditorResponsable || p.auditor, 'Auditoría Interna'),
+        '100%',
+        fecha360(p.fechaInicio),
+        fecha360(p.fecha),
+        plazoSemanas360(p.fechaInicio, p.fecha),
         {
-          content: `${texto360(p.estadoWorkflow || p.estado)}\n${plan.cerrado ? 'Cerrada' : plan.vencido ? 'Vencida sin cierre' : 'Abierta'}\n${plan.evaluacion.tipo}\n${plan.evaluacion.resultado}`,
+          content: `${texto360(p.estadoWorkflow || p.estado)}\n${avance(plan.avance)} Avance\n${plan.cerrado ? 'Cerrada' : plan.vencido ? 'Vencida sin cierre' : 'Abierta'}\n${plan.evaluacion.tipo}\n${plan.evaluacion.resultado}${p.observaciones ? `\n${texto360(p.observaciones)}` : ''}`,
           styles: {
             textColor: plan.cerrado ? COLORES.verde : plan.vencido ? COLORES.alerta : COLORES.tinta,
             fillColor: plan.cerrado ? COLORES.cerrado : plan.vencido ? COLORES.vencido : COLORES.fondo,
           },
         },
+        `${texto360(p.responsable, 'Sin asignar')}${p.revisor ? `\nRevisor: ${texto360(p.revisor)}` : ''}`,
       ];
-    }), { columnStyles: { 0: { cellWidth: 28 }, 1: { cellWidth: 60 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 35 }, 5: { cellWidth: 29 }, 6: { cellWidth: 20 } } });
+    }), {
+      styles: { font: 'helvetica', fontSize: 6.5, cellPadding: 1.5, textColor: COLORES.tinta, overflow: 'linebreak', valign: 'top', lineWidth: 0.2, lineColor: COLORES.linea },
+      headStyles: { fillColor: COLORES.verde, textColor: COLORES.blanco, fontStyle: 'bold', fontSize: 6 },
+      columnStyles: {
+        0: { cellWidth: 7, halign: 'center' },
+        1: { cellWidth: 38, halign: 'justify' },
+        2: { cellWidth: 17, halign: 'center' },
+        3: { cellWidth: 18 },
+        4: { cellWidth: 38, halign: 'justify' },
+        5: { cellWidth: 20 },
+        6: { cellWidth: 22 },
+        7: { cellWidth: 12, halign: 'center', textColor: COLORES.verde, fillColor: COLORES.cerrado },
+        8: { cellWidth: 17, halign: 'center' },
+        9: { cellWidth: 17, halign: 'center' },
+        10: { cellWidth: 14, halign: 'center', textColor: COLORES.azul },
+        11: { cellWidth: 25 },
+        12: { cellWidth: contenido - 245 },
+      },
+    });
 
     const soportes = [
       ...(fuente ? [{ registro: fuente, referencia: texto360(fuente.codigo || fuente.id) }] : []),
@@ -301,7 +353,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...COLORES.tenue);
-    doc.text('Control interno · Informe ejecutivo de seguimiento', 49, 21);
+    doc.text(textoPdf('Control interno · Informe ejecutivo de seguimiento'), 49, 21);
     doc.setFontSize(7);
     doc.text(identificador, ancho - margen, 20, { align: 'right' });
     doc.setDrawColor(...COLORES.oro);
@@ -313,7 +365,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     doc.setFontSize(7);
     doc.text(`Corte: ${fechaCorte} (Colombia)`, margen, alto - 12);
     doc.text(`Página ${pagina} de ${paginas}`, ancho - margen, alto - 12, { align: 'right' });
-    doc.text('Copia de seguimiento · Información disponible según alcance autorizado', margen, alto - 7);
+    doc.text(textoPdf('Copia de seguimiento · Información disponible según alcance autorizado'), margen, alto - 7);
   }
   const referenciaArchivo = reporte.modo === 'general' ? 'general' : reporte.modo === 'fuentes' ? 'fuentes_consolidadas' : reporte.expedientes[0].referencia;
   const nombre = `Plan_Accion_360_${referenciaArchivo.replace(/[^a-zA-Z0-9_-]/g, '_')}_${reporte.diaCorte}.pdf`;

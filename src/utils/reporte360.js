@@ -58,6 +58,13 @@ const diaCalendario = valor => {
   return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 };
 
+export const plazoSemanas360 = (inicio, fin) => {
+  const desde = diaCalendario(inicio);
+  const hasta = diaCalendario(fin);
+  if (!desde || !hasta) return 'No registrado';
+  return (Math.abs(Date.parse(hasta) - Date.parse(desde)) / (86400000 * 7)).toFixed(1);
+};
+
 export function evidencias360(registro) {
   const archivos = [
     ...lista(registro.evidencias),
