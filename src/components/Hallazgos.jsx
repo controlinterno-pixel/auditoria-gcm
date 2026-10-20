@@ -410,7 +410,7 @@ export default function Hallazgos({
     return { ...h, macroprocesos, subprocesosPorMacroproceso: mapaSubprocesos, tipoFuente, fechaReal, anioReal: fechaReal !== 'Sin Fecha' ? fechaReal.split('-')[0] : 'Sin Fecha', procesoLimpio };
   });
 
-  // 1. Filtrar los datos del Dashboard según el menú lateral
+ // 1. Filtrar los datos del Dashboard según el menú lateral
   const hallazgosDashboard = hallazgosEnriquecidos.filter(h => {
     if (dashFiltroAnio !== 'Todos' && h.anioReal !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && !h.macroprocesos.includes(dashFiltroProceso)) return false;
@@ -423,7 +423,10 @@ export default function Hallazgos({
     if (dashFiltroResponsable !== 'Todos' && !convertirResponsablesEnLista(h.responsable).includes(dashFiltroResponsable)) return false;
     if (dashFiltroTipoFuente !== 'Todos' && h.tipoFuente !== dashFiltroTipoFuente) return false;
     return true;
-  });
+  }).sort((a, b) => String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', {
+    numeric: true,
+    sensitivity: 'base',
+  })); 
 
   // 2. Calcular KPIs basados en lo que está filtrado
   const totalHallazgos = hallazgosDashboard.length;
@@ -1424,16 +1427,12 @@ export default function Hallazgos({
           acc[key].push(h);
           return acc;
         }, {});
-        Object.values(hallazgosPorInforme).forEach(hallazgos => hallazgos.sort((a, b) => {
-          const actividadA = obtenerTiempoUltimaActividad(a);
-          const actividadB = obtenerTiempoUltimaActividad(b);
-          if (actividadA !== actividadB) {
-            if (actividadA === null) return 1;
-            if (actividadB === null) return -1;
-            return actividadB - actividadA;
-          }
-          return String(b.id || '').localeCompare(String(a.id || ''), 'es', { numeric: true, sensitivity: 'base' });
-        }));
+        Object.values(hallazgosPorInforme).forEach(hallazgos => hallazgos.sort((a, b) => 
+          String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', { 
+            numeric: true, 
+            sensitivity: 'base' 
+          })
+        ));
 
         const listaInformesIds = Object.entries(hallazgosPorInforme)
           .map(([idInforme, hallazgos]) => {
