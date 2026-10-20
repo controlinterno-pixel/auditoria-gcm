@@ -8,7 +8,7 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, calcularPuntajeDiseno, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 
 const normalizarIdentidad = valor => String(valor || '')
   .trim()
@@ -271,11 +271,11 @@ export default function Planes({
   };
 
   // 🧭 PESTAÑAS DE CONTROL SUPERIOR
-  const [vistaActiva, setVistaActiva] = useState('dashboard');
+  const [vistaActiva, setVistaActiva] = useState(reviewReportId ? 'historial' : 'dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [paginaGrupoDashboard, setPaginaGrupoDashboard] = useState(1);
 const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20);
-  const [informePlanesExpandido, setInformePlanesExpandido] = useState(null);
+  const [informePlanesExpandido, setInformePlanesExpandido] = useState(reviewReportId ? String(reviewReportId) : null);
   const [paginaHistorialMatriz, setPaginaHistorialMatriz] = useState(1);
   const [informesPorPaginaMatriz, setInformesPorPaginaMatriz] = useState(10);
   const [filtroFuenteMatriz, setFiltroFuenteMatriz] = useState('');
@@ -384,7 +384,8 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     if (autorizacionLista && typeof ejecutarDespachoGmailApi === 'function') {
       try {
         enviado = Boolean(await ejecutarDespachoGmailApi(payload));
-      } catch {
+      } catch (error) {
+        console.error('[Planes] No se pudo enviar la notificación; se encolará el reintento:', error);
         enviado = false;
       }
     }
@@ -409,9 +410,9 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       }, correoPreparado),
       enviarNotificacionPlanConReintento({
         ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-        titulo_informe: programa ? 'Acción requerida: evaluar diseño de acciones' : 'Acción requerida: revisar plan de acción',
+        titulo_informe: programa ? 'Acción requerida: evaluar matriz' : 'Acción requerida: revisar plan de acción',
         proceso_auditado: programa
-          ? `Se registró la acción "${plan.accion}". Como auditor asignado, evalúe el diseño antes de su ejecución. Mayor o igual al 80% aprueba; menos del 80% requiere correcciones.`
+          ? `Se registró la acción "${plan.accion}". Como auditor asignado, ingrese a Planes de Acción y pulse "Evaluar matriz" para evaluar el diseño antes de su ejecución. Mayor o igual al 80% aprueba y habilita al ejecutor; menos del 80% requiere correcciones.`
           : `Se registró la acción "${plan.accion}"; ingrese para revisar el diseño.`,
         enlace_pdf: enlace,
         destinatarios: programa ? plan.correoAuditor : plan.correoRevisor,
@@ -419,6 +420,34 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     ]);
     return resultados.every(Boolean);
   };
+
+  const notificarResultadoEvaluacionInicial = async (informe, planes, puntaje, dictamen, correoPreparado) => {
+    let todosEnviados = true;
+    for (const plan of planes) {
+      const aprobado = puntaje >= 80;
+      const enviado = await enviarNotificacionPlanConReintento({
+        ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        asunto: aprobado ? 'Diseño aprobado: ejecución habilitada' : 'Diseño no aprobado: corregir matriz',
+        titulo_informe: aprobado ? 'Ya puedes ejecutar tu acción' : 'Corrige la matriz y reenvíala al auditor',
+        proceso_auditado: aprobado
+          ? `El auditor asignado aprobó el diseño de la acción "${plan.accion}" con ${puntaje}%. Ya puedes iniciar su ejecución desde "Ejecutar acción". Guarda el avance y las evidencias; al llegar al 100%, pasará al revisor y después al auditor para el cierre individual. Dictamen: ${dictamen || 'Sin observaciones adicionales.'}`
+          : `La evaluación inicial de la acción "${plan.accion}" obtuvo ${puntaje}%. La ejecución sigue bloqueada. Usa "Corregir matriz", guarda las correcciones y reenvía el diseño al auditor asignado. Justificación: ${dictamen}`,
+        enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(informe.id)}`,
+        destinatarios: plan.correoResponsable,
+      }, correoPreparado);
+      if (!enviado) todosEnviados = false;
+    }
+    return todosEnviados;
+  };
+
+  const notificarEjecucionCompleta = (plan, correoPreparado) => enviarNotificacionPlanConReintento({
+    ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+    asunto: 'Acción al 100%: revisión de evidencias requerida',
+    titulo_informe: 'Revisar matriz: ejecución al 100%',
+    proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Ingrese a Planes de Acción y pulse "Revisar matriz" para validar las evidencias. Si aprueba, la acción pasará al auditor asignado para su dictamen final. El 100% no cierra la acción.`,
+    enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
+    destinatarios: plan.correoRevisor,
+  }, correoPreparado);
 
   // Un plan al 100% sigue pendiente del auditor aunque su fase guardada sea antigua.
   const enRevisionAuditor = plan => (
@@ -553,6 +582,21 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       !esAuditorAsignadoEvaluador(informe, planes)
     ) return [];
     return [{ informe, planes, actividadesPendientes: planes.length }];
+  });
+
+  const tareasCicloPrograma = planesEnriquecidos.flatMap(plan => {
+    if (!esPlanProgramaAuditoria(plan)) return [];
+    const etapa = etapaAccionPrograma(plan);
+    if (!etapa) return [];
+    const correo = normalizarIdentidad(user?.email);
+    const ejecutor = Boolean(correo && correo === normalizarIdentidad(plan.correoResponsable));
+    const revisor = Boolean(correo && correo === normalizarIdentidad(plan.correoRevisor));
+    if (etapa.clave === 'evaluacion') {
+      return ejecutor ? [{ plan, etapa, enEspera: true }] : [];
+    }
+    const asignado = etapa.rol === 'ejecutor' ? ejecutor
+      : etapa.rol === 'revisor' ? revisor : esAuditorAsignado(plan, correo, perfilUsuario);
+    return asignado ? [{ plan, etapa, enEspera: false }] : [];
   });
 
   useEffect(() => {
@@ -971,14 +1015,8 @@ const handleNotificarPlan = async (planId) => {
               todasNotificacionesEnviadas = false;
               continue;
             }
-            const correoAuditorEnviado = await enviarNotificacionPlanConReintento({
-              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-              titulo_informe: 'Plan al 100%: validación del revisor requerida',
-              proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Valide las evidencias y, si están conformes, envíe la acción al aprobador final.`,
-              enlace_pdf: plan.evidenciaUrl || window.location.origin,
-              destinatarios: plan.correoRevisor,
-            }, correoPreparado);
-            if (!correoAuditorEnviado) todasNotificacionesEnviadas = false;
+            const correoRevisorEnviado = await notificarEjecucionCompleta(plan, correoPreparado);
+            if (!correoRevisorEnviado) todasNotificacionesEnviadas = false;
           }
         }
 
@@ -1180,16 +1218,10 @@ const handleNotificarPlan = async (planId) => {
       }
     }
 
-    // 📧 NOTIFICACIÓN 2: ALERTA DE TRABAJO AL 100% PARA EL AUDITOR
+    // La validación del revisor precede al dictamen final del auditor.
     if (notificacionesRevision100.length > 0) {
       for (const act of notificacionesRevision100) {
-        const correoRevisionEnviado = await enviarNotificacionPlanConReintento({
-          ref_consecutivo: `PLA-${String(act.id).slice(-4)}`,
-          titulo_informe: 'Plan al 100%: validación del revisor requerida',
-          proceso_auditado: `La acción "${act.accion}" completó su ejecución al 100%. Valide las evidencias para remitirla al auditor asignado para el cierre final.`,
-          enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(idInformeReal)}`,
-          destinatarios: act.correoRevisor
-        }, correoPreparadoAdmin);
+        const correoRevisionEnviado = await notificarEjecucionCompleta(act, correoPreparadoAdmin);
         if (!correoRevisionEnviado) todasNotificacionesEnviadas = false;
       }
     }
@@ -1236,11 +1268,7 @@ const handleNotificarPlan = async (planId) => {
     setGuardandoEvaluacionInicial(false);
     const evaluacionesAplicadas = modalEval.planes.length;
 
-    const destinatarios = [...new Set(modalEval.planes.flatMap(plan => [
-      plan.correoResponsable, plan.correoRevisor, plan.correoAuditor,
-    ]).concat([informeEvaluado?.correoAuditor || informeEvaluado?.correoAuditorResponsable])
-      .flatMap(correos => String(correos || '').split(','))
-      .map(correo => correo.trim().toLowerCase()).filter(Boolean))];
+    const planesEvaluados = modalEval.planes;
     const dictamen = justificacion.trim();
     volverAlHistorialTrasGuardarAccion(
       esAprobado
@@ -1254,16 +1282,7 @@ const handleNotificarPlan = async (planId) => {
     void (async () => {
       try {
         const autorizado = Boolean(await promesaCorreo);
-        const enviado = await enviarNotificacionPlanConReintento({
-          ref_consecutivo: informeEvaluado.ref || String(informeEvaluado.id),
-          asunto: esAprobado ? 'Diseño aprobado: ejecución habilitada' : 'Diseño no aprobado: corregir acciones',
-          titulo_informe: esAprobado ? 'Ya puedes ejecutar tus acciones' : 'Corrige el diseño y reenvíalo al auditor',
-          proceso_auditado: esAprobado
-            ? `El auditor asignado aprobó el diseño con ${puntajeHolistico}%. Las ${evaluacionesAplicadas} acciones están habilitadas para ejecución. Al llegar al 100%, pasarán al revisor y después al auditor para el cierre final. Dictamen: ${dictamen || 'Sin observaciones adicionales.'}`
-            : `La evaluación inicial obtuvo ${puntajeHolistico}%. La ejecución sigue bloqueada. Corrige las acciones y guárdalas para reenviarlas al auditor asignado. Justificación: ${dictamen}`,
-          enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(informeEvaluado.id)}`,
-          destinatarios: destinatarios.join(', '),
-        }, autorizado);
+        const enviado = await notificarResultadoEvaluacionInicial(informeEvaluado, planesEvaluados, puntajeHolistico, dictamen, autorizado);
         if (!enviado) showNotification('La evaluación quedó guardada. La notificación a los responsables está pendiente de reintento.', 'error');
       } catch {
         showNotification('La evaluación quedó guardada, pero no se pudo completar la notificación a los responsables.', 'error');
@@ -1795,16 +1814,7 @@ if (existingActivities.length > 0) {
         if (esNueva && notificarNueva) {
           notificacionEnviada = await notificarRegistroPlan(planGuardado, correoPreparado);
         } else if (planGuardado.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && llegaAlCien) {
-          const enlaceEvidencia = Array.isArray(planGuardado.evidenciaUrl)
-            ? planGuardado.evidenciaUrl.at(-1)
-            : planGuardado.evidenciaUrl;
-          notificacionEnviada = await enviarNotificacionPlanConReintento({
-            ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
-            titulo_informe: 'Plan al 100%: validación del revisor requerida',
-            proceso_auditado: `La acción "${planGuardado.accion}" llegó al 100%. Valide las evidencias para enviarla al aprobador final.`,
-            enlace_pdf: enlaceEvidencia || window.location.origin,
-            destinatarios: planGuardado.correoRevisor,
-          }, correoPreparado);
+          notificacionEnviada = await notificarEjecucionCompleta(planGuardado, correoPreparado);
         } else if (cambioDiseno && ['Pendiente Revisión Jefatura', ESTADO_EVALUACION_INICIAL].includes(planGuardado.estadoWorkflow)) {
           notificacionEnviada = await enviarNotificacionPlanConReintento({
             ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
@@ -1889,7 +1899,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           proceso_auditado: eficaz
             ? `La eficacia de la acción "${planActualizado.accion}" fue confirmada. Conclusión: ${conclusion.trim()}`
             : `La eficacia de la acción "${planActualizado.accion}" no fue demostrada. La acción vuelve a ejecución (90%). Observación: ${observaciones.trim()}`,
-          enlace_pdf: window.location.origin,
+          enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(planActualizado.idInforme || plan.idInforme)}`,
           destinatarios: [planActualizado.correoResponsable, planActualizado.correoRevisor].filter(Boolean).join(', '),
         }, Boolean(await promesaCorreo));
         if (!notificado) showNotification('La evaluación se guardó, pero no se pudo notificar a los responsables.', 'error');
@@ -2019,7 +2029,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   ? 'Validación final pendiente del revisor'
                   : decision === 'aprobar' ? 'Diseño del plan aprobado' : 'El plan requiere correcciones',
               proceso_auditado: pasaAlAprobador
-                ? `El revisor validó las evidencias de la acción "${plan.accion}" al 100%. Realice la aprobación final y cierre del plan.`
+                ? `El revisor validó las evidencias de la acción "${plan.accion}" al 100%. Como auditor asignado, pulse "Evaluar y cerrar acción" para registrar la aprobación final y cerrar esta acción individualmente, o devolverla al ejecutor con un motivo.`
                 : validacionPendienteRevisor
                   ? `El diseño de la acción "${plan.accion}" quedó aprobado con ejecución al 100%. Valide sus evidencias antes de enviarla al aprobador final.`
                   : esValidacionFinal
@@ -2027,7 +2037,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   : decision === 'aprobar'
                     ? `El diseño de la acción "${plan.accion}" fue aprobado. Ya puede iniciar su ejecución.`
                     : `El diseño de la acción "${plan.accion}" requiere correcciones. Motivo del revisor: ${motivoCorreccion.trim()}`,
-              enlace_pdf: window.location.origin,
+              enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme || revisionInformeId)}`,
               destinatarios: destinatario,
             }, correoPreparado);
             if (!enviado) todasNotificacionesEnviadas = false;
@@ -2254,11 +2264,52 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   onClick={() => iniciarEvaluacionIntegral(informe, planes)}
                   className="shrink-0 rounded-lg bg-[#0A3B32] px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-[#062620]"
                 >
-                  ⚖️ Diligenciar evaluación
+                  Evaluar matriz
                 </button>
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {tareasCicloPrograma.length > 0 && (
+        <section aria-labelledby="planes-ciclo-titulo" className="mb-6 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+          <h3 id="planes-ciclo-titulo" className="text-sm font-bold text-[#0A3B32]">Seguimiento de tus acciones</h3>
+          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-600">
+            Evaluación inicial del auditor (80% o más), ejecución, validación del revisor al 100% y cierre individual por el auditor.
+          </p>
+          <ul className="mt-4 max-h-96 divide-y divide-slate-200 overflow-y-auto">
+            {tareasCicloPrograma.map(({ plan, etapa, enEspera }) => (
+              <li key={`ciclo-${plan.id}`} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-600">PLA-{String(plan.id).slice(-4)} · {informesAuditoria.find(informe => String(informe.id) === String(plan.idInforme))?.ref || plan.idInforme}</p>
+                  <h4 className={`mt-1 text-sm font-semibold ${enEspera || etapa.clave === 'correccion' ? 'text-amber-900' : 'text-[#0A3B32]'}`}>{etapa.titulo}</h4>
+                  <p className="mt-1 break-words text-sm text-slate-800">{plan.accion}</p>
+                  <p className="mt-1 max-w-prose text-xs leading-relaxed text-slate-600">{etapa.descripcion}</p>
+                  {(plan.motivoRechazo || (etapa.clave === 'correccion' && plan.evaluacionHolistica?.justificacion)) && (
+                    <p className="mt-2 break-words text-xs text-amber-900"><strong>Motivo: </strong>{plan.motivoRechazo || plan.evaluacionHolistica.justificacion}</p>
+                  )}
+                </div>
+                {enEspera ? (
+                  <span className="self-start rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 sm:shrink-0">Ejecución bloqueada</span>
+                ) : (
+                  <button type="button" disabled={guardandoEficaciaCierre || guardandoDecisionRevision} onClick={() => guardNavigationPlanes(() => {
+                    if (etapa.clave === 'cierre') abrirEvaluacionAccion(plan);
+                    else if (etapa.clave === 'revision') abrirRevisionPlan(plan);
+                    else {
+                      setMatrixDirty(false);
+                      setModoRevisionMatriz(false);
+                      setEditPlan(plan);
+                      setVistaActiva('nuevo');
+                      if (typeof scrollToForm === 'function') scrollToForm();
+                    }
+                  })} className="min-h-11 shrink-0 self-start rounded-lg bg-[#0A3B32] px-4 py-2 text-xs font-semibold text-white hover:bg-[#145547] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60">
+                    {etapa.boton}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
@@ -3752,7 +3803,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           {p.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && esRevisor && (
                                             <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
                                               <button type="button" onClick={() => abrirRevisionPlan(p)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">
-                                                ✓ Validar ejecución al 100%
+                                                Revisar matriz
                                               </button>
                                             </div>
                                           )}
@@ -3859,7 +3910,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-2.5 rounded-xl text-[10px] font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-1 w-full md:w-auto justify-center"
                                       title="Evaluar acciones pendientes antes de su ejecución"
                                     >
-                                      ⚖️ Evaluar diseño pendiente
+                                      Evaluar matriz
                                     </button>}
                                   </div>
                                 ) : puedeEvaluar ? (
@@ -3867,7 +3918,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                     onClick={() => iniciarEvaluacionIntegral(informeBase, pendientes)}
                                     className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
                                   >
-                                    <span>⚖️</span> Evaluar Plan Integral
+                                    Evaluar matriz
                                  </button>
                                 ) : null}
                               </div>

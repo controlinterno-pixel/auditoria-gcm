@@ -93,6 +93,51 @@ test('tipo de fuente determina la ruta, incluso sin programaId y con fuente vinc
   assert.equal(workflow.esInformePrograma({ tipoFuente: 'Auditoría Interna', programaId: 'p1' }), false);
 });
 
+test('alertas y botones siguen cada etapa real; el 100% sin validar no habilita el cierre', () => {
+  const stages = [
+    [workflow.ESTADO_EVALUACION_INICIAL, 0, 'auditor', 'Evaluar matriz'],
+    [workflow.ESTADO_AJUSTES_INICIALES, 0, 'ejecutor', 'Corregir matriz'],
+    ['En Ejecución', 50, 'ejecutor', 'Ejecutar acción'],
+    ['En Ejecución', 100, 'ejecutor', 'Ejecutar acción'],
+    ['Pendiente Validación Revisor', 100, 'revisor', 'Revisar matriz'],
+    ['En Revisión (100%)', 100, 'auditor', 'Evaluar y cerrar acción'],
+  ];
+  for (const [estadoWorkflow, progreso, rol, boton] of stages) {
+    const etapa = workflow.etapaAccionPrograma(plan({ estadoWorkflow, progreso }));
+    assert.equal(etapa.rol, rol);
+    assert.equal(etapa.boton, boton);
+  }
+  assert.equal(workflow.etapaAccionPrograma(plan({ estadoWorkflow: 'Cerrado', progreso: 100 })), null);
+  assert.equal(workflow.etapaAccionPrograma(plan({ estadoWorkflow: 'Pendiente Validación Revisor', progreso: 90 })), null);
+  assert.equal(workflow.etapaAccionPrograma(plan({ estadoWorkflow: 'En Revisión (100%)', progreso: 90 })), null);
+});
+
+test('cada rol ve únicamente su siguiente tarea y el ejecutor ve el bloqueo inicial', () => {
+  const text = read('../src/components/Planes.jsx');
+  const fn = text.slice(text.indexOf('  const tareasCicloPrograma ='), text.indexOf('\n  useEffect', text.indexOf('  const tareasCicloPrograma =')));
+  const planes = [
+    plan(), plan({ id: 2, estadoWorkflow: 'En Ejecución' }),
+    plan({ id: 3, estadoWorkflow: 'Pendiente Validación Revisor', progreso: 100 }),
+    plan({ id: 4, estadoWorkflow: 'En Revisión (100%)', progreso: 100 }),
+    plan({ id: 5, estadoWorkflow: 'Cerrado', progreso: 100 }),
+  ];
+  const tasks = email => {
+    const bindings = {
+      planesEnriquecidos: planes, esPlanProgramaAuditoria: () => true,
+      etapaAccionPrograma: workflow.etapaAccionPrograma,
+      normalizarIdentidad: valor => String(valor || '').trim().toLowerCase(),
+      user: { email }, perfilUsuario: {},
+      esAuditorAsignado: (p, correo) => p.correoAuditor === correo,
+    };
+    return new Function(...Object.keys(bindings), `${fn}\nreturn tareasCicloPrograma;`)(...Object.values(bindings));
+  };
+  assert.deepEqual(tasks('ejecutor@example.test').map(item => [item.plan.id, item.enEspera]), [[1, true], [2, false]]);
+  assert.deepEqual(tasks('revisor@example.test').map(item => item.plan.id), [3]);
+  assert.deepEqual(tasks('auditor@example.test').map(item => item.plan.id), [4]);
+  assert.deepEqual(tasks('otro@example.test'), []);
+  assert.deepEqual(tasks(''), []);
+});
+
 for (const score of [79, 80, 81, 100]) {
   test(`evaluación inicial real con ${score}%: ${score >= 80 ? 'habilita, no cierra' : 'bloquea y devuelve'}`, async () => {
     const h = harness();
@@ -285,6 +330,41 @@ test('notificación de creación: ejecutor informado y auditor asignado recibe t
   assert.deepEqual(payloads.map(item => item.destinatarios), ['ejecutor@example.test', 'auditor@example.test']);
   assert.match(payloads[1].proceso_auditado, /80%/);
   assert.match(payloads[1].enlace_pdf, /reviewReportId=i1/);
+  assert.match(payloads[1].proceso_auditado, /Evaluar matriz/);
+});
+
+for (const puntaje of [79, 80, 100]) {
+  test(`resultado inicial ${puntaje}% notifica a cada ejecutor su acción, sin pedir tareas al revisor`, async () => {
+    const text = read('../src/components/Planes.jsx');
+    const fn = text.slice(text.indexOf('  const notificarResultadoEvaluacionInicial ='), text.indexOf('  const notificarEjecucionCompleta ='));
+    const payloads = [];
+    const notify = new Function('enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarResultadoEvaluacionInicial;`)(
+      async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
+    );
+    const planes = [plan(), plan({ id: 2, accion: 'Segunda acción', correoResponsable: 'otroejecutor@example.test' })];
+    assert.equal(await notify({ id: 'i1' }, planes, puntaje, 'Dictamen técnico', true), true);
+    assert.deepEqual(payloads.map(item => item.destinatarios), ['ejecutor@example.test', 'otroejecutor@example.test']);
+    assert.match(payloads[0].proceso_auditado, puntaje >= 80 ? /Ejecutar acción/ : /Corregir matriz/);
+    assert.match(payloads[0].proceso_auditado, new RegExp(`${puntaje}%`));
+    assert.ok(!payloads[0].proceso_auditado.includes('Segunda acción'));
+    assert.match(payloads[1].proceso_auditado, /Segunda acción/);
+    assert.ok(payloads.every(item => item.enlace_pdf === 'https://example.test/?reviewReportId=i1'));
+  });
+}
+
+test('aviso al 100% lleva al revisor a la matriz, no a la evidencia ni al cierre anticipado', async () => {
+  const text = read('../src/components/Planes.jsx');
+  const fn = text.slice(text.indexOf('  const notificarEjecucionCompleta ='), text.indexOf('  // Un plan al 100%'));
+  const payloads = [];
+  const notify = new Function('enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarEjecucionCompleta;`)(
+    async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
+  );
+  await notify(plan({ evidenciaUrl: 'https://soportes.example.test/archivo.pdf', progreso: 100 }), true);
+  assert.equal(payloads[0].destinatarios, 'revisor@example.test');
+  assert.equal(payloads[0].enlace_pdf, 'https://example.test/?reviewReportId=i1');
+  assert.match(payloads[0].proceso_auditado, /Revisar matriz/);
+  assert.match(payloads[0].proceso_auditado, /100% no cierra/);
+  assert.equal((text.match(/await notificarEjecucionCompleta\(/g) || []).length, 3);
 });
 
 test('rechazo del revisor devuelve al 90% y conserva la evaluación inicial', async () => {
@@ -312,12 +392,15 @@ test('error de Gmail conserva el guardado y encola exactamente el mensaje pendie
   const text = read('../src/components/Planes.jsx');
   const fn = text.slice(text.indexOf('  const enviarNotificacionPlanConReintento ='), text.indexOf('  const notificarRegistroPlan ='));
   const queued = [];
-  const notify = new Function('showNotification', 'ejecutarDespachoGmailApi', 'encolarReintentoNotificacion', `${fn}\nreturn enviarNotificacionPlanConReintento;`)(
+  const logs = [];
+  const notify = new Function('showNotification', 'ejecutarDespachoGmailApi', 'encolarReintentoNotificacion', 'console', `${fn}\nreturn enviarNotificacionPlanConReintento;`)(
     () => {}, async () => { throw new Error('Simulated Gmail error'); }, payload => queued.push(payload),
+    { error: (...args) => logs.push(args) },
   );
   const payload = { destinatarios: 'auditor@example.test', titulo_informe: 'Evaluar diseño' };
   assert.equal(await notify(payload), false);
   assert.deepEqual(queued, [payload]);
+  assert.equal(logs.length, 1);
 });
 
 const flush = async () => {
@@ -350,5 +433,7 @@ for (const decision of ['aprobar', 'corregir']) {
     assert.equal(payloads.length, 1);
     assert.equal(payloads[0].destinatarios, decision === 'aprobar' ? 'auditor@example.test' : 'ejecutor@example.test');
     assert.match(payloads[0].proceso_auditado, decision === 'aprobar' ? /aprobación final/ : /90%/);
+    assert.equal(payloads[0].enlace_pdf, 'https://example.test/?reviewReportId=i1');
+    if (decision === 'aprobar') assert.match(payloads[0].proceso_auditado, /Evaluar y cerrar acción/);
   });
 }
