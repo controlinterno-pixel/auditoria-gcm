@@ -35,8 +35,13 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
     leerWorkspaceGrc: async () => ({
       data: structuredClone(data), workspaceExists: true, workspaceRef: 'workspace',
       coleccionInformesRef: { doc: id => ({ reportId: id }) },
+      coleccionPlanesRef: { doc: id => ({ planId: id }) },
+      coleccionHallazgosRef: { doc: id => ({ findingId: id }) },
     }),
     guardarInformesGrc() {},
+    guardarPlanesGrc: (transaction, workspace, planes) => {
+      planes.forEach(plan => transaction.set(workspace.coleccionPlanesRef.doc(String(plan.id)), plan));
+    },
     guardarWorkspaceParcial: async partial => { writes.push(partial); data = { ...data, ...partial }; },
     obtenerProcesosAsignados: () => ['operaciones'],
     obtenerSubprocesosAsignados: () => [],
@@ -48,11 +53,16 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
         const pending = [];
         const result = await callback({
           get: async () => ({ exists: true, id: report.id, data: () => report }),
-          set: (ref, partial) => { if (failWrite) throw new Error('Simulated write failure'); pending.push(partial); },
+          set: (ref, partial) => { if (failWrite) throw new Error('Simulated write failure'); pending.push({ ref, partial }); },
         });
-        for (const partial of pending) {
+        for (const { ref, partial } of pending) {
           writes.push(partial);
-          data = { ...data, ...partial };
+          if (ref.planId) {
+            const existe = data.planes.some(plan => String(plan.id) === ref.planId);
+            data.planes = existe ? data.planes.map(plan => String(plan.id) === ref.planId ? partial : plan) : [...data.planes, partial];
+          } else if (ref.findingId) {
+            data.hallazgos = data.hallazgos.map(item => String(item.id) === ref.findingId ? partial : item);
+          } else data = { ...data, ...partial };
         }
         return result;
       },
@@ -300,6 +310,98 @@ test('cierre individual legado no exige nueva evaluación ni cierra acciones pen
   const h = harness({ planes: [plan({ progreso: 100, estadoWorkflow: 'En Revisión (100%)' }), plan({ id: 2, estadoWorkflow: 'En Ejecución', progreso: 50 })] });
   assert.equal((await h.review({ decision: 'cerrar', idPlan: 1 })).code, 200);
   assert.equal(h.data().planes[1].progreso, 50);
+  assert.equal(h.data().hallazgos[0].estado, 'Abierto');
+});
+
+const finalPlan = overrides => plan({ progreso: 100, estadoWorkflow: 'En Revisión (100%)', ...overrides });
+const closeAll = (h, overrides = {}) => h.review({
+  decision: 'cerrar', alcance: 'todas', idInforme: 'i1', idsPlanes: [1, 2],
+  evaluacionEficacia: { conclusion: 'Evidencias verificadas; resultados eficaces.', requiereAccionesAdicionales: false },
+  ...overrides,
+});
+
+test('eficacia conjunta cierra todas atómicamente, registra evaluador y conserva evaluación inicial', async () => {
+  const inicial = { tipo: workflow.TIPO_EVALUACION_INICIAL, puntaje: 80, aprobado: true };
+  const h = harness({ fragmented: true, planes: [finalPlan({ evaluacionHolistica: inicial }), finalPlan({ id: 2, evaluacionHolistica: inicial })] });
+  const res = await closeAll(h);
+  assert.equal(res.code, 200, res.message);
+  assert.equal(res.result.planes.length, 2);
+  assert.equal(res.result.hallazgos[0].estado, 'Cerrado');
+  assert.ok(h.data().planes.every(plan => plan.estadoWorkflow === 'Cerrado'));
+  assert.ok(h.data().planes.every(plan => plan.evaluacionEficaciaCierre.usuario === 'auditor@example.test'));
+  assert.ok(h.data().planes.every(plan => plan.evaluacionEficaciaCierre.alcance === 'todas'));
+  assert.ok(h.data().planes.every(plan => plan.historialEficacia.length === 1));
+  assert.ok(h.data().planes.every(plan => plan.evaluacionHolistica.puntaje === 80));
+  const repeated = await closeAll(h);
+  assert.equal(repeated.code, 409);
+  assert.ok(h.data().planes.every(plan => plan.historialEficacia.length === 1));
+});
+
+test('todas queda bloqueado si una acción sigue ejecutándose, pero permite cierre individual', async () => {
+  const h = harness({ planes: [finalPlan(), plan({ id: 2, estadoWorkflow: 'En Ejecución', progreso: 80 })] });
+  assert.equal((await closeAll(h)).code, 409);
+  assert.equal(h.writes.length, 0);
+  assert.equal((await closeAll(h, { idsPlanes: [1] })).code, 409);
+  assert.equal(h.writes.length, 0);
+  assert.equal((await h.review({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Acción eficaz' } })).code, 200);
+  assert.equal(h.data().planes[1].progreso, 80);
+});
+
+test('cierre conjunto no modifica cerradas ni acciones de otros informes; rechaza otro auditor', async () => {
+  const h = harness({ planes: [
+    finalPlan(), finalPlan({ id: 2 }), finalPlan({ id: 3, estadoWorkflow: 'Cerrado', estado: 'Cerrado' }),
+    finalPlan({ id: 4, idInforme: 'i2', idHallazgo: 'h2' }),
+  ] });
+  const cerrada = structuredClone(h.data().planes[2]);
+  assert.equal((await closeAll(h)).code, 200);
+  assert.deepEqual(h.data().planes[2], cerrada);
+  assert.equal(h.data().planes[3].estadoWorkflow, 'En Revisión (100%)');
+  const other = harness({ planes: [finalPlan(), finalPlan({ id: 2, correoAuditor: 'otro@example.test' })] });
+  assert.equal((await closeAll(other)).code, 403);
+  assert.equal(other.writes.length, 0);
+});
+
+test('fallo al escribir no cierra parte del informe ni sus hallazgos', async () => {
+  const h = harness({ failWrite: true, planes: [finalPlan(), finalPlan({ id: 2 })] });
+  assert.equal((await closeAll(h)).code, 500);
+  assert.ok(h.data().planes.every(plan => plan.estadoWorkflow === 'En Revisión (100%)'));
+  assert.equal(h.data().hallazgos[0].estado, 'Abierto');
+});
+
+test('cierre conjunto exige conclusión, selección exacta, origen común y validación previa', async () => {
+  for (const changes of [
+    { evaluacionEficacia: null }, { evaluacionEficacia: { conclusion: ' ' } },
+    { idsPlanes: [] }, { idsPlanes: [1, 1] }, { idsPlanes: [1, 'x/y'] },
+    { idInforme: 'i2' },
+  ]) {
+    const h = harness({ planes: [finalPlan(), finalPlan({ id: 2 })] });
+    assert.equal((await closeAll(h, changes)).code, 400);
+    assert.equal(h.writes.length, 0);
+  }
+  const pending = harness({ planes: [finalPlan(), finalPlan({ id: 2, estadoWorkflow: 'Pendiente Validación Revisor' })] });
+  assert.equal((await closeAll(pending)).code, 409);
+  assert.equal(pending.writes.length, 0);
+});
+
+test('auditor heredado del informe puede guardar eficacia; ejecutor no puede autoaprobarse', async () => {
+  const h = harness({ fragmented: true, planes: [finalPlan({ correoAuditor: '' })] });
+  assert.equal((await h.review({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Eficaz' } })).code, 200);
+  const own = harness({ email: 'ejecutor@example.test', planes: [finalPlan({ correoAuditor: 'ejecutor@example.test' })] });
+  assert.equal((await own.review({ decision: 'cerrar', idPlan: 1 })).code, 403);
+});
+
+test('otras fuentes conservan eficacia al final sin evaluación inicial ponderada', async () => {
+  const h = harness({ tipoFuente: 'Indicador de Gestión', planes: [finalPlan(), finalPlan({ id: 2 })] });
+  assert.equal((await closeAll(h)).code, 200);
+  assert.ok(h.data().planes.every(plan => !plan.evaluacionHolistica));
+  assert.equal(h.data().hallazgos[0].estado, 'Abierto');
+});
+
+test('dictamen conjunto no eficaz devuelve todas al 90% sin cerrar hallazgo', async () => {
+  const h = harness({ planes: [finalPlan(), finalPlan({ id: 2 })] });
+  assert.equal((await closeAll(h, { decision: 'rechazar', motivo: 'Falta demostrar resultado' })).code, 200);
+  assert.ok(h.data().planes.every(plan => plan.progreso === 90 && plan.evaluacionEficaciaCierre.fueEficaz === false));
+  assert.ok(h.data().planes.every(plan => plan.validadoPorRevisorCorreo === ''));
   assert.equal(h.data().hallazgos[0].estado, 'Abierto');
 });
 

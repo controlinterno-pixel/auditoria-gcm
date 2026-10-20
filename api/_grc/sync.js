@@ -285,6 +285,7 @@ export default async function handler(req, res) {
         informesAuditoria: informesPermitidos,
         hallazgos: hallazgosPermitidos,
         planes: planesPermitidos,
+        planesAccion: planesPermitidos,
         
         // La matriz de riesgos es corporativa y de consulta completa para todo usuario autenticado.
         riesgos: Array.isArray(data.riesgos) ? data.riesgos : [],
@@ -318,6 +319,9 @@ export default async function handler(req, res) {
 
       if (!partialData || typeof partialData !== 'object' || Array.isArray(partialData)) {
         return sendError(res, 'Estructura de datos (partialData) inválida o ausente.', 400);
+      }
+      if (Object.hasOwn(partialData, 'planesAccion')) {
+        return sendError(res, 'Usa la colección planes para guardar acciones y validar su flujo.', 400);
       }
 
       if (await hayConflictosDeRolesEnPlanesActualizados(partialData.planes)) {

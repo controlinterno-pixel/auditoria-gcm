@@ -63,9 +63,11 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
 
   // Lectura híbrida: Legacy + Subcolecciones
   let informesIndependientes = [];
-  let planesIndependientes = [];
+  let planesIndependientes;
   let hallazgosIndependientes;
   if (transaction) {
+    const snapshotPlanes = await transaction.get(refColeccionPlanes);
+    planesIndependientes = snapshotPlanes.docs.map(documento => ({ id: documento.id, ...documento.data() }));
     const snapshotHallazgos = await transaction.get(refColeccionHallazgos);
     hallazgosIndependientes = snapshotHallazgos.docs.map(documento => ({ id: documento.id, ...documento.data() }));
   } else {
@@ -81,7 +83,10 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
     : null;
     
   const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : [];
-  const planesLegados = Array.isArray(datosWorkspace.planesAccion) ? datosWorkspace.planesAccion : [];
+  const planesLegados = [
+    ...(Array.isArray(datosWorkspace.planesAccion) ? datosWorkspace.planesAccion : []),
+    ...(Array.isArray(datosWorkspace.planes) ? datosWorkspace.planes : []),
+  ];
   const hallazgosLegados = Array.isArray(datosWorkspace.hallazgos) ? datosWorkspace.hallazgos : [];
 
   const informesCombinados = [...(Array.isArray(informesSeparados) ? informesSeparados : informesLegados), ...informesIndependientes];
@@ -104,7 +109,7 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
     coleccionInformesRef: refColeccionInformes,
     coleccionPlanesRef: refColeccionPlanes,
     coleccionHallazgosRef: refColeccionHallazgos,
-    workspaceExists: snapshotWorkspace.exists || snapshotInformes.exists || hallazgosIndependientes.length > 0,
+    workspaceExists: snapshotWorkspace.exists || snapshotInformes.exists || hallazgosIndependientes.length > 0 || planesIndependientes.length > 0,
     tieneInformesLegados: Array.isArray(datosWorkspace.informesAuditoria),
     tienePlanesLegados: Array.isArray(datosWorkspace.planesAccion),
     data: {
@@ -114,6 +119,7 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
         ...mapaHallazgos.values(),
       ],
       informesAuditoria: Array.from(mapaInformes.values()),
+      planes: Array.from(mapaPlanes.values()),
       planesAccion: Array.from(mapaPlanes.values()),
     },
   };
@@ -171,6 +177,12 @@ export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
   }
 }
 
+export function guardarPlanesGrc(transaction, workspace, planes) {
+  planes.forEach(plan => {
+    transaction.set(workspace.coleccionPlanesRef.doc(String(plan.id)), plan);
+  });
+}
+
 export async function guardarWorkspaceParcial(partialData) {
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
@@ -192,9 +204,8 @@ export async function guardarWorkspaceParcial(partialData) {
   const informesEliminados = [...new Set((Array.isArray(partialData.informesEliminados) ? partialData.informesEliminados : []).map(id => String(id || '').trim()).filter(Boolean))];
 
   // Procesamiento Planes de Acción
-  const planesLegados = Array.isArray(datosWorkspace.planesAccion) ? datosWorkspace.planesAccion : null;
-  const incluyePlanes = Object.hasOwn(partialData, 'planesAccion') && Array.isArray(partialData.planesAccion);
-  const planesActualizados = incluyePlanes ? partialData.planesAccion : (planesLegados ? planesLegados : null);
+  const incluyePlanes = Array.isArray(partialData.planes) || Array.isArray(partialData.planesAccion);
+  const planesActualizados = incluyePlanes ? (partialData.planes || partialData.planesAccion) : null;
   const planesEliminados = [...new Set((Array.isArray(partialData.planesEliminados) ? partialData.planesEliminados : []).map(id => String(id || '').trim()).filter(Boolean))];
 
   const incluyeHallazgos = Object.hasOwn(partialData, 'hallazgos') && Array.isArray(partialData.hallazgos);
@@ -205,6 +216,7 @@ export async function guardarWorkspaceParcial(partialData) {
   delete datosRestantes.informesAuditoria;
   delete datosRestantes.informesEliminados;
   delete datosRestantes.planesAccion; // Aseguramos que NO se guarde en el documento padre
+  delete datosRestantes.planes;
   delete datosRestantes.planesEliminados;
   delete datosRestantes.hallazgos;
 
@@ -232,6 +244,15 @@ export async function guardarWorkspaceParcial(partialData) {
       }
     });
     planesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', referencia: refColeccionPlanes.doc(id) }));
+    if (incluyePlanes) {
+      const snapshotPlanes = await refColeccionPlanes.get();
+      const idsConservados = new Set(listaPlanes.map(plan => String(plan.id)));
+      snapshotPlanes.docs.forEach(documento => {
+        if (!idsConservados.has(documento.id) && !idsEliminados.has(documento.id)) {
+          operaciones.push({ tipo: 'eliminar', referencia: documento.ref });
+        }
+      });
+    }
   }
 
   if (incluyeHallazgos) {
@@ -268,7 +289,8 @@ export async function guardarWorkspaceParcial(partialData) {
       if (i + chunkSize >= operaciones.length) {
         batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
         if (Array.isArray(datosWorkspace.informesAuditoria)) datosRestantes.informesAuditoria = FieldValue.delete();
-        if (Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
+        if (incluyePlanes && Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
+        if (incluyePlanes && Array.isArray(datosWorkspace.planes)) datosRestantes.planes = FieldValue.delete();
         if (Array.isArray(datosWorkspace.hallazgos) && incluyeHallazgos) datosRestantes.hallazgos = FieldValue.delete();
         batch.set(refWorkspace, datosRestantes, { merge: true });
       }
@@ -280,7 +302,8 @@ export async function guardarWorkspaceParcial(partialData) {
     const batch = adminDb.batch();
     batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
     if (Array.isArray(datosWorkspace.informesAuditoria)) datosRestantes.informesAuditoria = FieldValue.delete();
-    if (Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
+    if (incluyePlanes && Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
+    if (incluyePlanes && Array.isArray(datosWorkspace.planes)) datosRestantes.planes = FieldValue.delete();
     if (Array.isArray(datosWorkspace.hallazgos) && incluyeHallazgos) datosRestantes.hallazgos = FieldValue.delete();
     batch.set(refWorkspace, datosRestantes, { merge: true });
     await batch.commit();

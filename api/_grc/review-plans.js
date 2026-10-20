@@ -4,7 +4,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
@@ -46,7 +46,7 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
   const resultado = await adminDb.runTransaction(async transaction => {
     const workspace = await leerWorkspaceGrc(transaction);
     if (!workspace.workspaceExists) return { error: 'not-found' };
-    const { data, workspaceRef } = workspace;
+    const { data } = workspace;
     let informe = (data.informesAuditoria || []).find(item => String(item.id) === String(idInforme));
     if (!informe) {
       const snap = await transaction.get(workspace.coleccionInformesRef.doc(String(idInforme).trim()));
@@ -91,9 +91,8 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
           : `Diseño no aprobado (${puntaje}%). Devuelto para correcciones. Motivo: ${motivo}`,
       }],
     }));
-    const porId = new Map(actualizados.map(plan => [String(plan.id), plan]));
     if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
-    transaction.set(workspaceRef, { planes: planes.map(plan => porId.get(String(plan.id)) || plan) }, { merge: true });
+    guardarPlanesGrc(transaction, workspace, actualizados);
     return { planes: actualizados };
   });
   const errores = {
@@ -109,11 +108,21 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
   return sendSuccess(res, resultado);
 }
 
-async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluacionEficacia }) {
+async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alcance, decision, motivo, evaluacionEficacia }) {
   const cerrar = decision === 'cerrar';
+  const conjunta = alcance === 'todas';
+  const seleccion = conjunta ? idsPlanes : [idPlan];
   const motivoSeguro = String(motivo || '').trim().slice(0, 2000);
-  if (!idPlan) return sendError(res, 'Falta el plan a decidir.', 400);
+  if (!Array.isArray(seleccion) || !seleccion.length || seleccion.length > 100 ||
+      seleccion.some(id => !['string', 'number'].includes(typeof id) || !String(id).trim() || String(id).includes('/')) ||
+      new Set(seleccion.map(String)).size !== seleccion.length || (conjunta && !idInforme)) {
+    return sendError(res, 'Selecciona entre 1 y 100 acciones distintas de un informe.', 400);
+  }
   if (!cerrar && !motivoSeguro) return sendError(res, 'Escribe el motivo del rechazo de la evidencia.', 400);
+  if ((conjunta || evaluacionEficacia !== null) && (
+    !evaluacionEficacia || typeof evaluacionEficacia !== 'object' ||
+    !String(evaluacionEficacia.conclusion || '').trim()
+  )) return sendError(res, 'Escribe la conclusión de la evaluación de eficacia.', 400);
 
   const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
   const perfil = perfilSnap.exists ? perfilSnap.data() : {};
@@ -121,18 +130,15 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
   const resultado = await adminDb.runTransaction(async transaction => {
     const workspace = await leerWorkspaceGrc(transaction);
     if (!workspace.workspaceExists) return { error: 'not-found' };
-    const { data, workspaceRef } = workspace;
+    const { data } = workspace;
     const planes = Array.isArray(data.planes) ? data.planes : [];
-    const plan = planes.find(item => String(item.id) === String(idPlan));
-    if (!plan) return { error: 'plan-not-found' };
-    if (!esAuditorAsignado(plan, user, perfil)) return { error: 'not-auditor' };
-    const enRevision = plan.estadoWorkflow === 'En Revisión (100%)' ||
-      (plan.estadoWorkflow === 'En Ejecución' && Number(plan.progreso) >= 100);
-    if (!enRevision) return { error: 'not-in-review' };
-
+    const seleccionados = seleccion.map(id => planes.find(item => String(item.id) === String(id)));
+    if (seleccionados.some(plan => !plan)) return { error: 'plan-not-found' };
     const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
-    const hallazgoActual = hallazgos.find(item => String(item.id) === String(plan.idHallazgo));
-    const idInformePlan = hallazgoActual?.idInforme || plan.idInforme;
+    const informeDePlan = plan => hallazgos.find(item => String(item.id) === String(plan.idHallazgo))?.idInforme || plan.idInforme;
+    const idInformePlan = informeDePlan(seleccionados[0]);
+    if (conjunta && (String(idInformePlan) !== String(idInforme) ||
+        seleccionados.some(plan => String(informeDePlan(plan)) !== String(idInforme)))) return { error: 'invalid-selection' };
     let informePlan = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
       .find(item => String(item.id) === String(idInformePlan));
     if (!informePlan && idInformePlan) {
@@ -141,27 +147,47 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
       );
       if (informeSnapshot.exists) informePlan = { id: idInformePlan, ...informeSnapshot.data() };
     }
+    if (!informePlan) return { error: 'report-not-found' };
     const esPrograma = esInformePrograma(informePlan, data.fuentesMejora);
-    if (esPrograma && (plan.estadoWorkflow !== 'En Revisión (100%)' || Number(plan.progreso) !== 100)) {
+    if (seleccionados.some(plan => !esAuditorAsignado({
+      ...plan,
+      correoAuditor: plan.correoAuditor || plan.correoAuditorResponsable || plan.correo_auditor ||
+        informePlan.correoAuditor || informePlan.correoAuditorResponsable || informePlan.correo_auditor,
+      auditorAsignado: plan.auditorAsignado || plan.auditorResponsable || plan.auditor ||
+        informePlan.auditorResponsable || informePlan.auditor,
+    }, user, perfil) || String(plan.correoResponsable || '').split(',').map(normalizar).includes(normalizar(user.email)))) {
+      return { error: 'not-auditor' };
+    }
+    if (seleccionados.some(plan => Number(plan.progreso) !== 100 ||
+        !(plan.estadoWorkflow === 'En Revisión (100%)' || (!esPrograma && plan.estadoWorkflow === 'En Ejecución')))) {
       return { error: 'not-in-review' };
+    }
+    if (conjunta) {
+      const abiertasInforme = planes.filter(plan => String(informeDePlan(plan)) === String(idInforme) &&
+        !(plan.estadoWorkflow === 'Cerrado' || (!plan.estadoWorkflow && plan.estado === 'Cerrado')));
+      if (abiertasInforme.length !== seleccion.length ||
+          abiertasInforme.some(plan => !seleccion.some(id => String(id) === String(plan.id)))) return { error: 'incomplete-report' };
     }
 
     const ahora = new Date();
     const evaluacion = evaluacionEficacia && typeof evaluacionEficacia === 'object' ? {
       fecha: ahora.toLocaleString('es-CO'),
+      timestamp: ahora.toISOString(),
       usuario: user.email,
+      alcance: conjunta ? 'todas' : 'accion',
       conclusion: String(evaluacionEficacia.conclusion || '').trim().slice(0, 2000),
       fueEficaz: cerrar,
       requiereAccionesAdicionales: Boolean(evaluacionEficacia.requiereAccionesAdicionales),
       observaciones: String(evaluacionEficacia.observaciones || '').trim().slice(0, 2000),
     } : null;
-    const actualizado = {
+    const actualizados = seleccionados.map(plan => ({
       ...plan,
       estadoWorkflow: cerrar ? 'Cerrado' : 'En Ejecución',
       estado: cerrar ? 'Cerrado' : 'En Proceso',
       progreso: cerrar ? 100 : 90,
       ...(!cerrar ? { validadoPorRevisorCorreo: '', validadoPorRevisorEn: '' } : { fechaCierre: ahora.toISOString().slice(0, 10) }),
       ...(evaluacion ? { evaluacionEficaciaCierre: evaluacion } : {}),
+      ...(evaluacion ? { historialEficacia: [...(Array.isArray(plan.historialEficacia) ? plan.historialEficacia : plan.evaluacionEficaciaCierre ? [plan.evaluacionEficaciaCierre] : []), evaluacion] } : {}),
       historialCambios: [...(Array.isArray(plan.historialCambios) ? plan.historialCambios : []), {
         fecha: ahora.toLocaleString('es-CO'),
         timestamp: ahora.toISOString(),
@@ -171,22 +197,25 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
           : `❌ Evidencia rechazada. Motivo: ${motivoSeguro}`,
         ...(motivoSeguro ? { motivo: motivoSeguro } : {}),
       }],
-    };
-    if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
-    const planesActualizados = planes.map(item => String(item.id) === String(idPlan) ? actualizado : item);
-    const accionesHallazgo = planesActualizados.filter(item => String(item.idHallazgo) === String(plan.idHallazgo));
-    const cerrarHallazgo = esPrograma && cerrar && hallazgoActual && accionesHallazgo.every(item => item.estadoWorkflow === 'Cerrado');
-    const hallazgoCerrado = cerrarHallazgo ? {
-      ...hallazgoActual, estado: 'Cerrado',
-      historialCambios: [...(hallazgoActual.historialCambios || []), {
+    }));
+    const porId = new Map(actualizados.map(plan => [String(plan.id), plan]));
+    const planesActualizados = planes.map(item => porId.get(String(item.id)) || item);
+    const idsHallazgos = new Set(seleccionados.map(plan => String(plan.idHallazgo)));
+    const hallazgosCerrados = esPrograma && cerrar ? hallazgos.filter(hallazgo => idsHallazgos.has(String(hallazgo.id)) &&
+      planesActualizados.filter(plan => String(plan.idHallazgo) === String(hallazgo.id)).every(plan => plan.estadoWorkflow === 'Cerrado')
+    ).map(hallazgo => ({
+      ...hallazgo, estado: 'Cerrado',
+      historialCambios: [...(Array.isArray(hallazgo.historialCambios) ? hallazgo.historialCambios : []), {
         fecha: ahora.toLocaleString('es-CO'), usuario: user.email, accion: 'Hallazgo cerrado: todas sus acciones fueron aprobadas por el auditor asignado.',
       }],
-    } : null;
-    transaction.set(workspaceRef, {
-      planes: planesActualizados,
-      ...(hallazgoCerrado ? { hallazgos: hallazgos.map(item => String(item.id) === String(plan.idHallazgo) ? hallazgoCerrado : item) } : {}),
-    }, { merge: true });
-    return { plan: actualizado, ...(hallazgoCerrado ? { hallazgo: hallazgoCerrado } : {}) };
+    })) : [];
+    if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
+    guardarPlanesGrc(transaction, workspace, actualizados);
+    hallazgosCerrados.forEach(hallazgo => transaction.set(workspace.coleccionHallazgosRef.doc(String(hallazgo.id)), hallazgo));
+    return {
+      planes: actualizados, hallazgos: hallazgosCerrados,
+      ...(!conjunta ? { plan: actualizados[0], ...(hallazgosCerrados[0] ? { hallazgo: hallazgosCerrados[0] } : {}) } : {}),
+    };
   });
 
   const errores = {
@@ -194,6 +223,9 @@ async function decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluac
     'plan-not-found': ['No se encontró el plan de acción.', 404],
     'not-auditor': ['Solo el auditor de seguimiento asignado puede decidir este plan.', 403],
     'not-in-review': ['El plan no está en revisión del auditor.', 409],
+    'report-not-found': ['No se encontró el informe de origen de la acción.', 404],
+    'invalid-selection': ['Las acciones deben pertenecer al informe seleccionado.', 400],
+    'incomplete-report': ['Para evaluar todas, todas las acciones pendientes del informe deben estar listas para cierre. Actualiza la vista.', 409],
   };
   if (resultado.error && errores[resultado.error]) {
     const [mensaje, estado] = errores[resultado.error];
@@ -213,10 +245,10 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const { idInforme, idPlan, decision, motivo = '', evaluacionEficacia = null } = req.body || {};
+    const { idInforme, idPlan, idsPlanes, alcance, decision, motivo = '', evaluacionEficacia = null } = req.body || {};
     if (decision === 'evaluar-diseno') return await evaluarDiseno(res, user, req.body);
     if (['cerrar', 'rechazar'].includes(decision)) {
-      return await decidirComoAuditor(res, user, { idPlan, decision, motivo, evaluacionEficacia });
+      return await decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alcance, decision, motivo, evaluacionEficacia });
     }
     if (!idInforme || !['aprobar', 'corregir'].includes(decision)) {
       return sendError(res, 'La decisión de revisión no es válida.', 400);
@@ -236,7 +268,7 @@ export default async function handler(req, res) {
 
     const resultado = await adminDb.runTransaction(async transaction => {
       const workspace = await leerWorkspaceGrc(transaction);
-      const { data, workspaceRef } = workspace;
+      const { data } = workspace;
       const planes = Array.isArray(data.planes) ? data.planes : [];
       const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
       let informeActual = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
@@ -292,11 +324,8 @@ export default async function handler(req, res) {
           historialCambios: [...(Array.isArray(plan.historialCambios) ? plan.historialCambios : []), evento],
         };
       });
-      const porId = new Map(actualizados.map(plan => [String(plan.id), plan]));
       if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
-      transaction.set(workspaceRef, {
-        planes: planes.map(plan => porId.get(String(plan.id)) || plan),
-      }, { merge: true });
+      guardarPlanesGrc(transaction, workspace, actualizados);
       return { planes: actualizados };
     });
 

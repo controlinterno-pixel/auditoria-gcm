@@ -6,7 +6,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { guardarInformesGrc, guardarPlanesGrc, guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const COLECCIONES_PERMITIDAS = {
@@ -279,7 +279,7 @@ export default async function handler(req, res) {
         }
 
         if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
-        transaction.set(workspaceRef, { planes: [...items, ...registrosActuales] }, { merge: true });
+        guardarPlanesGrc(transaction, workspace, items);
         return { registros: items };
       }
 

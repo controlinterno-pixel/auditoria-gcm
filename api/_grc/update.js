@@ -5,7 +5,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const CAMPOS_EDITABLES = [
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
       const resultado = await adminDb.runTransaction(async transaction => {
         const workspace = await leerWorkspaceGrc(transaction);
         if (!workspace.workspaceExists) return { error: 'not-found' };
-        const { data, workspaceRef } = workspace;
+        const { data } = workspace;
         const planes = Array.isArray(data.planes) ? data.planes : [];
         const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
         const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
@@ -317,13 +317,8 @@ export default async function handler(req, res) {
           });
         }
 
-        const actualizadosPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
-        const listaActualizada = [
-          ...planesNuevos,
-          ...planes.map(plan => actualizadosPorId.get(String(plan.id)) || plan),
-        ];
         if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
-        transaction.set(workspaceRef, { planes: listaActualizada }, { merge: true });
+        guardarPlanesGrc(transaction, workspace, [...planesNuevos, ...planesActualizados]);
         return { planesActualizados, planesNuevos };
       });
 
