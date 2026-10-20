@@ -4,12 +4,12 @@ import { evidencias360, fecha360, progreso360, texto360 } from '../utils/reporte
 
 const COLORES = {
   verde: [10, 59, 50],
-  azul: [62, 101, 112],
-  oro: [155, 119, 55],
-  tinta: [38, 53, 60],
-  tenue: [92, 108, 116],
-  linea: [218, 227, 225],
-  fondo: [242, 247, 245],
+  azul: [29, 78, 137],
+  tinta: [29, 29, 31],
+  tenue: [91, 91, 96],
+  linea: [222, 222, 227],
+  fondo: [246, 246, 248],
+  alerta: [153, 44, 35],
 };
 const CRITERIOS = {
   c1: 'Completitud y cobertura (30%)',
@@ -29,9 +29,15 @@ const avance = valor => valor === null ? 'No registrado' : `${valor}%`;
 export function crearPdfReporte360(reporte, { logo } = {}) {
   if (!logo) throw new Error('El logo empresarial es obligatorio para generar el Reporte 360.');
   if (!reporte?.expedientes?.length) throw new Error('No hay registros disponibles para exportar.');
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  const margen = 14;
+  const contenido = ancho - margen * 2;
+  const inicio = 37;
+  const limite = alto - 22;
   doc.setProperties({
-    title: 'Plan de acción 360',
+    title: 'Reporte 360 · Informe ejecutivo',
     subject: 'Informe, hallazgos, acciones, evaluaciones y trazabilidad',
     author: reporte.generadoPor,
     creator: 'Auditoría GCM - Termales Santa Rosa de Cabal',
@@ -42,22 +48,20 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
   const alcance = reporte.modo === 'general' ? 'General · registros disponibles'
     : reporte.modo === 'fuentes' ? `Tipos de fuente: ${reporte.tiposFuente.join(', ')}`
       : `Informe ${reporte.expedientes[0].referencia}`;
-  let y = 44;
-  const nuevaPagina = () => { doc.addPage(); y = 44; };
-  const asegurarEspacio = alto => { if (y + alto > 273) nuevaPagina(); };
+  let y = inicio;
+  const nuevaPagina = () => { doc.addPage(); y = inicio; };
+  const asegurarEspacio = espacio => { if (y + espacio > limite) nuevaPagina(); };
   const seccion = (titulo, subtitulo) => {
-    asegurarEspacio(42);
-    doc.setFillColor(...COLORES.verde);
-    doc.rect(14, y, 182, 1, 'F');
-    y += 8;
+    asegurarEspacio(30);
+    y += 5;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(...COLORES.verde);
-    const lineas = doc.splitTextToSize(textoPdf(titulo), 180);
+    doc.setFontSize(14);
+    doc.setTextColor(...COLORES.tinta);
+    const lineas = doc.splitTextToSize(textoPdf(titulo), contenido);
     lineas.forEach(linea => {
       asegurarEspacio(6);
-      doc.text(linea, 14, y);
-      y += 5;
+      doc.text(linea, margen, y);
+      y += 6;
     });
     y += 2;
     if (subtitulo) parrafo(subtitulo);
@@ -66,10 +70,10 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...COLORES.tinta);
-    const lineas = doc.splitTextToSize(textoPdf(contenido), 180);
+    const lineas = doc.splitTextToSize(textoPdf(contenido), ancho - margen * 2);
     lineas.forEach(linea => {
       asegurarEspacio(6);
-      doc.text(linea, 14, y);
+      doc.text(linea, margen, y);
       y += 4.6;
     });
     y += 3;
@@ -79,20 +83,33 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     asegurarEspacio(21);
     autoTable(doc, {
       startY: y,
-      head: [cabeceras.map(textoPdf)],
+      head: cabeceras.length ? [cabeceras.map(textoPdf)] : [],
       body: filas.map(fila => fila.map(celda => typeof celda === 'object' && celda !== null
         ? { ...celda, content: textoPdf(celda.content) } : textoPdf(celda))),
-      margin: { top: 44, bottom: 23, left: 14, right: 14 },
-      theme: 'striped',
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 2.6, textColor: COLORES.tinta, overflow: 'linebreak', valign: 'top', lineWidth: 0 },
-      headStyles: { fillColor: COLORES.verde, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-      alternateRowStyles: { fillColor: COLORES.fondo },
+      margin: { top: inicio, bottom: alto - limite, left: margen, right: margen },
+      theme: 'plain',
+      styles: { font: 'helvetica', fontSize: 8, cellPadding: 3, textColor: COLORES.tinta, overflow: 'linebreak', valign: 'top', lineWidth: { bottom: 0.15 }, lineColor: COLORES.linea },
+      headStyles: { fillColor: COLORES.fondo, textColor: COLORES.tinta, fontStyle: 'bold', fontSize: 8 },
       rowPageBreak: 'avoid',
       ...opciones,
     });
     y = doc.lastAutoTable.finalY + 7;
   };
   const ficha = filas => tabla(['Campo', 'Registro'], filas, { columnStyles: { 0: { cellWidth: 44, fontStyle: 'bold' } } });
+  const fichaEjecutiva = campos => {
+    const filas = [];
+    const etiqueta = content => ({ content, styles: { fontStyle: 'bold', textColor: COLORES.tenue } });
+    for (let i = 0; i < campos.length; i += 2) {
+      const [nombre, valor] = campos[i];
+      const siguiente = campos[i + 1];
+      filas.push(siguiente
+        ? [etiqueta(nombre), valor, etiqueta(siguiente[0]), siguiente[1]]
+        : [etiqueta(nombre), { content: valor, colSpan: 3 }]);
+    }
+    tabla([], filas, {
+      columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: contenido / 2 - 36 }, 2: { cellWidth: 36 }, 3: { cellWidth: contenido / 2 - 36 } },
+    });
+  };
   const archivos = (registro, etiqueta) => {
     const enlaces = evidencias360(registro);
     if (!enlaces.length) return;
@@ -148,72 +165,41 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
         ]));
     }
   };
-  const accion = (plan, referenciaHallazgo) => {
-    const registro = plan.registro;
-    seccion(`${plan.referencia} · ${plan.cerrado ? 'Cerrada' : 'Abierta'} · ${avance(plan.avance)}`, registro.accion);
-    ficha([
-      ['Vínculo de origen', `Hallazgo: ${referenciaHallazgo}\nID de la acción: ${texto360(registro.id)}`],
-      ['Estado / workflow', `${texto360(registro.estado)}\n${texto360(registro.estadoWorkflow)}`],
-      ['Oportunidad', plan.cerrado ? 'Cerrada' : plan.vencido ? 'Vencida sin cierre' : 'Abierta · consultar fecha límite'],
-      ['Responsable ejecutor', `${texto360(registro.responsable)}\n${texto360(registro.correoResponsable)}`],
-      ['Revisor / jefatura', `${texto360(registro.revisor)}\n${texto360(registro.correoRevisor)}`],
-      ['Auditor asignado', `${texto360(registro.auditorAsignado || registro.auditorResponsable || registro.auditor)}\n${texto360(registro.correoAuditor || registro.correoAuditorResponsable)}`],
-      ['Fechas', `Inicio: ${fecha360(registro.fechaInicio)}\nLímite: ${fecha360(registro.fecha)}\nCierre explícito: ${fecha360(registro.fechaCierre)}`],
-      ['Aprobación del diseño', `${texto360(registro.aprobadoPorCorreo)}\n${fecha360(registro.aprobadoEn)}`],
-      ['Validación del revisor', `${texto360(registro.validadoPorRevisorCorreo)}\n${fecha360(registro.validadoPorRevisorEn)}`],
-      ['Tipo / sede', `${texto360(registro.tipoAccion)}\n${texto360(registro.sede)}`],
-      ['Mecanismo / observaciones', [registro.mecanismo, registro.observaciones, registro.motivoRechazo].map(item => texto360(item, '')).filter(Boolean).join('\n') || 'No registrado'],
-      ['Matrices relacionadas', `Riesgos: ${texto360(registro.matrizRiesgos)}\nAspectos: ${texto360(registro.matrizAspectos)}\nPeligros: ${texto360(registro.matrizPeligros)}\nLegal: ${texto360(registro.matrizLegal)}`],
-    ]);
-    evaluacion(plan);
-    archivos(registro, plan.referencia);
-  };
-
-  doc.setFillColor(...COLORES.verde);
-  doc.roundedRect(14, y, 182, 40, 3, 3, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
-  doc.text('Plan de acción 360', 22, y + 14);
+  doc.setTextColor(...COLORES.tinta);
+  doc.setFontSize(30);
+  doc.text('Reporte 360', margen, y + 10);
+  y += 20;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.text('Del informe emitido a la evidencia de cierre', 22, y + 23);
-  doc.setFontSize(8);
-  const subtituloAlcance = reporte.modo === 'fuentes' ? `Consolidado de ${reporte.tiposFuente.length} tipo(s) de fuente de mejora` : alcance;
-  doc.text(doc.splitTextToSize(textoPdf(subtituloAlcance), 165).slice(0, 2), 22, y + 31);
-  y += 49;
-  ficha([
+  parrafo('Informe ejecutivo de seguimiento · Fuente, informe emitido, hallazgos y plan de acción.');
+  fichaEjecutiva([
     ['Fecha de corte', `${fechaCorte} (Colombia)`],
     ['Generado por', reporte.generadoPor],
-    ['Identificador documental', identificador],
     ['Alcance', alcance],
   ]);
-  seccion('Síntesis ejecutiva');
   const r = reporte.resumen;
   tabla(['Informes', 'Hallazgos', 'Acciones', 'Cerradas', 'Abiertas', 'Vencidas'], [[r.informes, r.hallazgos, r.acciones, r.cerradas, r.abiertas, r.vencidas]]);
-  ficha([
-    ['Avance de ejecución', `${avance(r.avance)}${r.sinAvance ? ` · ${r.sinAvance} acción(es) sin avance válido, excluidas del promedio` : ''}`],
-    ['Cierre y revisión', `${r.hallazgosCerrados} hallazgo(s) cerrado(s) · ${r.sinAcciones} sin acciones\n${r.enRevision} acción(es) en revisión o validación`],
-  ]);
-  parrafo('Lectura de gestión: ejecutar al 100% no equivale a cerrar. El cierre se toma del workflow y, solo si no existe, del estado legado. Una acción sin cierre y con fecha límite anterior al corte se considera vencida, incluso si su avance es 100%.');
-  parrafo('Alcance de información: incluye únicamente los registros disponibles en la sesión autorizada al generar este documento. No certifica la integridad total del repositorio ni consulta soportes externos.');
-  seccion('Mapa de informes y compromisos');
-  tabla(['Informe / origen', 'Hallazgos', 'Acciones', 'Cierre', 'Avance'], reporte.expedientes.map(grupo => [
-    `${grupo.referencia}\n${grupo.titulo}\n${grupo.tipoFuente}`,
-    grupo.resumen.hallazgos,
-    grupo.resumen.acciones,
-    `${grupo.resumen.cerradas} cerradas\n${grupo.resumen.abiertas} abiertas`,
-    avance(grupo.resumen.avance),
-  ]), { columnStyles: { 0: { cellWidth: 83 } } });
+  parrafo(`Avance de ejecución promedio: ${avance(r.avance)}.${r.sinAvance ? ` ${r.sinAvance} acción(es) sin avance válido, excluidas del promedio.` : ''} Ejecutar al 100% no equivale a cerrar; el cierre se toma del workflow o, si no existe, del estado legado.`);
+  parrafo('Copia de seguimiento de los registros disponibles en la sesión autorizada. No certifica la integridad del repositorio ni consulta soportes externos.');
 
   reporte.expedientes.forEach(grupo => {
     nuevaPagina();
-    seccion(`${grupo.referencia} · Expediente de seguimiento`, grupo.titulo);
+    seccion(`${grupo.referencia} · ${grupo.titulo}`);
+    const fuente = grupo.fuente;
     const informe = grupo.informe;
+    seccion('Datos de la fuente');
+    fichaEjecutiva([
+      ['Tipo / referencia', `${grupo.tipoFuente}\n${texto360(fuente?.codigo || fuente?.id || informe?.tipoFuente)}`],
+      ['Fecha / estado', `${fecha360(fuente?.fecha)} · ${texto360(fuente?.estado)}`],
+      ['Responsable', texto360(fuente?.responsable || fuente?.auditor || fuente?.responsableCargo)],
+      ['Descripción / alcance', [fuente?.descripcion || fuente?.descripcionFuente || fuente?.detalleFuente || informe?.detalleFuente, fuente?.alcance || fuente?.objetivo].map(item => texto360(item, '')).filter(Boolean).join('\n') || 'No registrado'],
+      ['Procesos / normas', `${texto360(fuente?.macroprocesos || fuente?.macroproceso || fuente?.proceso)}\n${texto360(fuente?.subprocesos || fuente?.subproceso)}\nNormas: ${texto360(fuente?.norma || fuente?.tipoNorma)}`],
+    ]);
+    if (!fuente) parrafo('Sin ficha de fuente vinculada disponible. El tipo se muestra según el informe; no se infieren los demás datos.');
+    seccion('Informe emitido');
     if (informe) {
-      ficha([
-        ['Informe emitido', `${grupo.referencia}\nID: ${texto360(informe.id)}\nFecha: ${fecha360(informe.fecha)}`],
-        ['Fuente de mejora', `${grupo.tipoFuente}\nReferencia: ${texto360(informe.tipoFuente)}\nDetalle: ${texto360(informe.detalleFuente || grupo.fuente?.alcance || grupo.fuente?.descripcion)}`],
+      fichaEjecutiva([
+        ['Referencia / fecha', `${grupo.referencia} · ${fecha360(informe.fecha)}\n${grupo.titulo}`],
         ['Programa vinculado', texto360(informe.programaId, 'No corresponde / no registrado')],
         ['Proceso / subproceso', `${texto360(informe.macroprocesos || informe.macroproceso || informe.proceso)}\n${texto360(informe.subprocesos || informe.subproceso)}`],
         ['Elaboró / revisó / aprobó', `Elaboró: ${texto360(informe.elaboradoPor)}\nRevisó: ${texto360(informe.revisadoPor)}\nAprobó: ${texto360(informe.aprobadoPor)}`],
@@ -221,27 +207,50 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
         ['Socialización', `${texto360(informe.socializado)}\nFecha: ${fecha360(informe.fechaSocializacion || informe.fecha_socializacion)}\nParticipantes: ${texto360(informe.participantes || informe.socializadoCon)}`],
         ['Ruta de evaluación', grupo.esPrograma ? 'Integral del paquete. Mayor a 80% aprueba; 80% o menos requiere ajustes.' : 'Eficacia por acción. Dictamen de eficacia y observaciones del auditor.'],
       ]);
-      archivos(informe, grupo.referencia);
     } else parrafo('No se dispone del informe de origen. Se presentan los registros sin atribuirles una fuente o una ruta de evaluación no verificadas.');
+    seccion('Cuadro de hallazgos');
     if (!grupo.hallazgos.length) parrafo('No hay hallazgos vinculados disponibles en este expediente.');
-    grupo.hallazgos.forEach(hallazgo => {
+    tabla(['Hallazgo / descripción', 'Clasificación', 'Proceso / responsable', 'Causa y análisis', 'Estado / acciones'], grupo.hallazgos.map(hallazgo => {
       const h = hallazgo.registro;
-      seccion(`${hallazgo.referencia} · ${texto360(h.estado)}`, h.titulo);
-      ficha([
-        ['Identificación', `ID: ${texto360(h.id)}\nInforme: ${texto360(h.idInforme)}\nFecha: ${fecha360(h.fecha)}`],
-        ['Proceso / responsable', `${texto360(h.macroprocesos || h.macroproceso || h.proceso)}\n${texto360(h.subprocesos || h.subproceso)}\n${texto360(h.responsable)}`],
-        ['Clasificación', `${texto360(h.claseObservacion)}\nSeveridad: ${texto360(h.severidad)}\nNorma: ${texto360(h.normaReferencia)}`],
-        ['Causa y análisis', `Causa: ${texto360(h.causa)}\nMétodo: ${texto360(h.metodologiaCausa)}\nAnálisis: ${texto360(h.analisisCausa)}`],
-        ['Estado / cierre', `${texto360(h.estado)}\nFecha de cierre explícita: ${fecha360(h.fechaCierre)}\nAcciones: ${hallazgo.planes.length}`],
-      ]);
-      archivos(h, hallazgo.referencia);
-      if (!hallazgo.planes.length) parrafo('Hallazgo sin acciones vinculadas disponibles. Esto no se interpreta como cumplimiento ni cierre.');
-      hallazgo.planes.forEach(plan => accion(plan, hallazgo.referencia));
-    });
-    if (grupo.planesSinHallazgo.length) {
-      seccion('Acciones sin hallazgo disponible', 'Se conservan para asegurar cobertura; requieren revisar su vínculo de origen.');
-      grupo.planesSinHallazgo.forEach(plan => accion(plan, texto360(plan.registro.idHallazgo)));
-    }
+      return [
+        `${hallazgo.referencia}\n${texto360(h.titulo || h.descripcion || h.hallazgo || h.detalle || h.observacion)}\nFecha: ${fecha360(h.fecha)}`,
+        `${texto360(h.claseObservacion)}\nSeveridad: ${texto360(h.severidad)}\nNorma: ${texto360(h.normaReferencia)}`,
+        `${texto360(h.macroprocesos || h.macroproceso || h.proceso)}\n${texto360(h.subprocesos || h.subproceso)}\n${texto360(h.responsable)}`,
+        `Causa: ${texto360(h.causa)}\nMétodo: ${texto360(h.metodologiaCausa)}\nAnálisis: ${texto360(h.analisisCausa)}`,
+        `${texto360(h.estado)}\nCierre: ${fecha360(h.fechaCierre)}\n${hallazgo.planes.length ? `${hallazgo.planes.length} acción(es)` : 'Sin acciones vinculadas'}`,
+      ];
+    }), { columnStyles: { 0: { cellWidth: 67 }, 1: { cellWidth: 39 }, 2: { cellWidth: 46 }, 4: { cellWidth: 32 } } });
+
+    const acciones = [
+      ...grupo.hallazgos.flatMap(hallazgo => hallazgo.planes.map(plan => ({ plan, hallazgo: hallazgo.referencia }))),
+      ...grupo.planesSinHallazgo.map(plan => ({ plan, hallazgo: `Sin hallazgo disponible\nID: ${texto360(plan.registro.idHallazgo)}` })),
+    ];
+    seccion('Cuadro de acciones y estados', `${acciones.length} acción(es) · ${grupo.resumen.cerradas} cerrada(s) · ${grupo.resumen.abiertas} abierta(s) · ${grupo.resumen.vencidas} vencida(s) sin cierre.`);
+    if (!acciones.length) parrafo('No hay acciones vinculadas disponibles. Esto no se interpreta como cumplimiento ni cierre.');
+    tabla(['Acción / hallazgo', 'Acción de mejoramiento', 'Proceso / sede', 'Mecanismo de seguimiento', 'Responsables', 'Inicio / límite', 'Avance / meta', 'Estado / evaluación'], acciones.map(({ plan, hallazgo }) => {
+      const p = plan.registro;
+      return [
+        `${plan.referencia}\n${hallazgo}`,
+        texto360(p.accion),
+        `${texto360(p.proceso || p.macroprocesos || p.macroproceso)}\n${texto360(p.sede)}\n${texto360(p.tipoAccion)}`,
+        texto360(p.mecanismo),
+        `Mejora: ${texto360(p.responsable)}\nAuditor: ${texto360(p.auditorAsignado || p.auditorResponsable || p.auditor)}\nRevisor: ${texto360(p.revisor)}`,
+        `Inicio: ${fecha360(p.fechaInicio)}\nLímite: ${fecha360(p.fecha)}\nCierre: ${fecha360(p.fechaCierre)}`,
+        `${avance(plan.avance)}\nMeta: 100%`,
+        {
+          content: `${texto360(p.estadoWorkflow || p.estado)}\n${plan.cerrado ? 'Cerrada' : plan.vencido ? 'Vencida sin cierre' : 'Abierta'}\n${plan.evaluacion.tipo}\n${plan.evaluacion.resultado}`,
+          styles: { textColor: plan.cerrado ? COLORES.verde : plan.vencido ? COLORES.alerta : COLORES.tinta },
+        },
+      ];
+    }), { columnStyles: { 0: { cellWidth: 28 }, 1: { cellWidth: 60 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 35 }, 5: { cellWidth: 29 }, 6: { cellWidth: 20 } } });
+
+    const soportes = [
+      ...(fuente ? [{ registro: fuente, referencia: texto360(fuente.codigo || fuente.id) }] : []),
+      ...(informe ? [{ registro: informe, referencia: grupo.referencia }] : []),
+      ...grupo.hallazgos.map(hallazgo => ({ registro: hallazgo.registro, referencia: hallazgo.referencia })),
+      ...acciones.map(({ plan }) => ({ registro: plan.registro, referencia: plan.referencia })),
+    ].filter(item => evidencias360(item.registro).length);
+    const evaluadas = acciones.filter(({ plan }) => plan.evaluacion.registro || plan.evaluacion.anterior || lista(plan.registro.historialEvaluaciones).length);
     const eventos = [
       ...(grupo.fuente ? historial(grupo.fuente, `Fuente ${texto360(grupo.fuente.codigo || grupo.fuente.id)}`) : []),
       ...(informe ? historial(informe, grupo.referencia) : []),
@@ -251,11 +260,21 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
       ]),
       ...grupo.planesSinHallazgo.flatMap(plan => historial(plan.registro, plan.referencia)),
     ];
-    seccion('Trazabilidad documental', 'Eventos agrupados por registro, conservando el orden original de su historial. Las fechas y usuarios se muestran como fueron registrados.');
-    if (eventos.length) tabla(['Registro', 'Fecha registrada', 'Usuario', 'Evento / motivo'], eventos, {
-      columnStyles: { 0: { cellWidth: 29 }, 1: { cellWidth: 32 }, 2: { cellWidth: 40 } },
-    });
-    else parrafo('No hay eventos de historial disponibles para este expediente.');
+    if (soportes.length || evaluadas.length || eventos.length) {
+      nuevaPagina();
+      seccion(`Anexo documental · ${grupo.referencia}`, 'Soportes, evaluaciones registradas e historial. El resumen ejecutivo se presenta en los cuatro bloques anteriores.');
+      soportes.forEach(item => archivos(item.registro, item.referencia));
+      evaluadas.forEach(({ plan }) => {
+        seccion(`Evaluación · ${plan.referencia}`);
+        evaluacion(plan);
+      });
+      if (eventos.length) {
+        seccion('Trazabilidad documental', 'Eventos agrupados por registro, conservando el orden original de su historial.');
+        tabla(['Registro', 'Fecha registrada', 'Usuario', 'Evento / motivo'], eventos, {
+          columnStyles: { 0: { cellWidth: 29 }, 1: { cellWidth: 32 }, 2: { cellWidth: 40 } },
+        });
+      }
+    }
   });
 
   if (reporte.incidencias.length) {
@@ -266,28 +285,28 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
   const paginas = doc.getNumberOfPages();
   const propiedadesLogo = doc.getImageProperties(logo);
   const proporcion = propiedadesLogo.width / propiedadesLogo.height;
-  const altoLogo = Math.min(27, 34 / proporcion);
+  const altoLogo = Math.min(21, 29 / proporcion);
   const anchoLogo = altoLogo * proporcion;
   for (let pagina = 1; pagina <= paginas; pagina += 1) {
     doc.setPage(pagina);
     doc.addImage(logo, 'PNG', 14, 7, anchoLogo, altoLogo, 'logo-termales', 'FAST');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(...COLORES.verde);
-    doc.text('Termales Santa Rosa de Cabal', 54, 16);
+    doc.setTextColor(...COLORES.tinta);
+    doc.text('Termales Santa Rosa de Cabal', 49, 15);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...COLORES.tenue);
-    doc.text('Control interno · Seguimiento de planes de acción', 54, 22);
+    doc.text('Control interno · Informe ejecutivo de seguimiento', 49, 21);
     doc.setFontSize(7);
-    doc.text(identificador, 54, 28);
+    doc.text(identificador, ancho - margen, 20, { align: 'right' });
     doc.setDrawColor(...COLORES.linea);
-    doc.line(14, 37, 196, 37);
-    doc.line(14, 278, 196, 278);
+    doc.line(margen, 30, ancho - margen, 30);
+    doc.line(margen, alto - 17, ancho - margen, alto - 17);
     doc.setFontSize(7);
-    doc.text(`Corte: ${fechaCorte} (Colombia)`, 14, 283);
-    doc.text(`Página ${pagina} de ${paginas}`, 196, 283, { align: 'right' });
-    doc.text('Copia de seguimiento · Información disponible según alcance autorizado', 14, 288);
+    doc.text(`Corte: ${fechaCorte} (Colombia)`, margen, alto - 12);
+    doc.text(`Página ${pagina} de ${paginas}`, ancho - margen, alto - 12, { align: 'right' });
+    doc.text('Copia de seguimiento · Información disponible según alcance autorizado', margen, alto - 7);
   }
   const referenciaArchivo = reporte.modo === 'general' ? 'general' : reporte.modo === 'fuentes' ? 'fuentes_consolidadas' : reporte.expedientes[0].referencia;
   const nombre = `Plan_Accion_360_${referenciaArchivo.replace(/[^a-zA-Z0-9_-]/g, '_')}_${reporte.diaCorte}.pdf`;
