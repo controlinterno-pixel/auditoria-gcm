@@ -95,4 +95,49 @@ await flush();
 assert.equal(enCursoCalls.length, 1, 'la descarga en curso ya correspondía a la revisión 300');
 enCurso.cleanup();
 
-console.log('firestoreReads.test.js: OK (escrituras sin cambios, lectura única del POST, instrumentación, carga inicial sin duplicar, ráfagas)');
+
+
+// 5. La descarga de sync no envía `planesAccion` (duplicado de `planes`) ni altera los datos en caché.
+{
+  const workflowModule = await import('../src/utils/programPlanWorkflow.js');
+  const alcanceModule = await import('../api/_lib/assignmentScope.js');
+  const syncSource = syncText.replace(/^import [^;]*;\r?\n/gm, '').replace('export default async function handler', 'async function handler');
+  const plan = { id: 1, idHallazgo: 'h1', idInforme: 'i1', correoResponsable: 'lider@example.test', proceso: 'Operaciones' };
+  const workspaceCompartido = {
+    planes: [plan], planesAccion: [plan],
+    hallazgos: [{ id: 'h1', idInforme: 'i1', proceso: 'Operaciones' }],
+    informesAuditoria: [{ id: 'i1', proceso: 'Operaciones' }],
+    riesgos: [], catalogoCargos: [],
+  };
+  const congelado = JSON.stringify(workspaceCompartido);
+  const ejecutarGet = async user => {
+    const bindings = {
+      ...workflowModule, ...alcanceModule,
+      applyCors: () => false,
+      requireAuth: async () => user,
+      sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
+      sendError: (res, error, code) => Object.assign(res, { code, error }),
+      logger: { info() {}, warn() {}, error() {} },
+      notificarSemaforo: async () => {},
+      leerRevisionSemaforo: async () => '500',
+      guardarWorkspaceParcial: async () => {},
+      leerWorkspaceGrc: async () => ({ data: workspaceCompartido }),
+    };
+    const handler = new Function(...Object.keys(bindings), `${syncSource}\nreturn handler;`)(...Object.values(bindings));
+    const res = {};
+    await handler({ method: 'GET', query: {}, url: '/api/grc/sync' }, res);
+    return res;
+  };
+  for (const user of [
+    { uid: 'a', email: 'admin@example.test', rol: 'admin' },
+    { uid: 'l', email: 'lider@example.test', rol: 'lider', procesosAsignados: ['Operaciones'], permisos: [] },
+  ]) {
+    const res = await ejecutarGet(user);
+    assert.equal(res.code, 200, JSON.stringify(res));
+    assert.equal('planesAccion' in res.body, false, `${user.rol}: sin duplicado`);
+    assert.equal(res.body.planes.length, 1, `${user.rol}: conserva planes`);
+    assert.equal(res.body.revision, '500');
+  }
+  assert.equal(JSON.stringify(workspaceCompartido), congelado, 'no se modifica el objeto compartido de la caché');
+}
+console.log('firestoreReads.test.js: OK (escrituras sin cambios, lectura única del POST, instrumentación, carga inicial sin duplicar, ráfagas, sin duplicado planesAccion)');

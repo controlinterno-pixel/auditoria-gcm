@@ -227,7 +227,10 @@ export default async function handler(req, res) {
         revision,
         origen: 'sync-get',
       });
-      const data = revision ? { ...workspaceData, revision } : workspaceData;
+      // `planesAccion` es una copia idéntica de `planes` (~17 % de la respuesta) que el cliente no usa.
+      // Se omite solo en la respuesta; el dato interno se conserva. Se copia: workspaceData es compartido por la caché.
+      const { planesAccion: _planesDuplicados, ...datosRespuesta } = workspaceData;
+      const data = revision ? { ...datosRespuesta, revision } : datosRespuesta;
 
       // Administradores y Auditores acceden a la totalidad de la base de datos
       if (isAdmin) {
@@ -299,7 +302,6 @@ export default async function handler(req, res) {
         informesAuditoria: informesPermitidos,
         hallazgos: hallazgosPermitidos,
         planes: planesPermitidos,
-        planesAccion: planesPermitidos,
         
         // La matriz de riesgos es corporativa y de consulta completa para todo usuario autenticado.
         riesgos: Array.isArray(data.riesgos) ? data.riesgos : [],
