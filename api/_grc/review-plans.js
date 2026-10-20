@@ -4,7 +4,10 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import {
+  guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrcLigero,
+  obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, obtenerPlanesDeInformeTx, obtenerPlanesTx,
+} from '../_lib/grcWorkspace.js';
 import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 import { validarAdjuntoEvaluacion } from '../../src/utils/evaluationAttachment.js';
 
@@ -47,7 +50,8 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
   const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
   const perfil = perfilSnap.exists ? perfilSnap.data() : {};
   const resultado = await adminDb.runTransaction(async transaction => {
-    const workspace = await leerWorkspaceGrc(transaction, { origen: 'review-plans-evaluar-diseno-tx' });
+    // Solo se leen el informe, las acciones seleccionadas y sus hallazgos (no las colecciones completas).
+    const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'review-plans-evaluar-diseno-tx' });
     if (!workspace.workspaceExists) return { error: 'not-found' };
     const { data } = workspace;
     let informe = (data.informesAuditoria || []).find(item => String(item.id) === String(idInforme));
@@ -56,11 +60,12 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
       if (snap.exists) informe = { id: idInforme, ...snap.data() };
     }
     if (!esInformePrograma(informe, data.fuentesMejora)) return { error: 'not-program' };
-    const planes = Array.isArray(data.planes) ? data.planes : [];
-    const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
-    const seleccionados = idsPlanes.map(id => planes.find(plan => String(plan.id) === String(id)));
+    const seleccionados = await obtenerPlanesTx(transaction, workspace, idsPlanes);
+    const hallazgosPorId = await obtenerHallazgosTx(
+      transaction, workspace, seleccionados.filter(Boolean).map(plan => plan.idHallazgo)
+    );
     if (seleccionados.some(plan => {
-      const hallazgo = hallazgos.find(item => String(item.id) === String(plan?.idHallazgo));
+      const hallazgo = hallazgosPorId.get(String(plan?.idHallazgo));
       return !plan || String(hallazgo?.idInforme || plan.idInforme) !== String(idInforme);
     })) return { error: 'invalid-selection' };
     if (seleccionados.some(plan => !esAuditorAsignado({
@@ -131,14 +136,14 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
   const perfil = perfilSnap.exists ? perfilSnap.data() : {};
 
   const resultado = await adminDb.runTransaction(async transaction => {
-    const workspace = await leerWorkspaceGrc(transaction, { origen: 'review-plans-auditor-tx' });
+    // Lecturas puntuales: acciones seleccionadas, sus hallazgos y, solo si hace falta, el resto del informe.
+    const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'review-plans-auditor-tx' });
     if (!workspace.workspaceExists) return { error: 'not-found' };
     const { data } = workspace;
-    const planes = Array.isArray(data.planes) ? data.planes : [];
-    const seleccionados = seleccion.map(id => planes.find(item => String(item.id) === String(id)));
+    const seleccionados = await obtenerPlanesTx(transaction, workspace, seleccion);
     if (seleccionados.some(plan => !plan)) return { error: 'plan-not-found' };
-    const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
-    const informeDePlan = plan => hallazgos.find(item => String(item.id) === String(plan.idHallazgo))?.idInforme || plan.idInforme;
+    const hallazgosPorId = await obtenerHallazgosTx(transaction, workspace, seleccionados.map(plan => plan.idHallazgo));
+    const informeDePlan = plan => hallazgosPorId.get(String(plan.idHallazgo))?.idInforme || plan.idInforme;
     const idInformePlan = informeDePlan(seleccionados[0]);
     if (conjunta && (String(idInformePlan) !== String(idInforme) ||
         seleccionados.some(plan => String(informeDePlan(plan)) !== String(idInforme)))) return { error: 'invalid-selection' };
@@ -166,7 +171,17 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
       return { error: 'not-in-review' };
     }
     if (conjunta) {
-      const abiertasInforme = planes.filter(plan => String(informeDePlan(plan)) === String(idInforme) &&
+      // Superconjunto de planes del informe; el criterio exacto (informeDePlan) se aplica abajo.
+      const relacionados = await obtenerPlanesDeInformeTx(transaction, workspace, idInforme);
+      relacionados.hallazgos.forEach(hallazgo => hallazgosPorId.set(String(hallazgo.id), hallazgo));
+      const hallazgosFaltantes = relacionados.planes
+        .map(plan => plan.idHallazgo)
+        .filter(id => id !== undefined && id !== null && String(id).trim() && !hallazgosPorId.has(String(id)));
+      if (hallazgosFaltantes.length) {
+        (await obtenerHallazgosTx(transaction, workspace, hallazgosFaltantes))
+          .forEach((hallazgo, id) => hallazgosPorId.set(id, hallazgo));
+      }
+      const abiertasInforme = relacionados.planes.filter(plan => String(informeDePlan(plan)) === String(idInforme) &&
         !(plan.estadoWorkflow === 'Cerrado' || (!plan.estadoWorkflow && plan.estado === 'Cerrado')));
       if (abiertasInforme.length !== seleccion.length ||
           abiertasInforme.some(plan => !seleccion.some(id => String(id) === String(plan.id)))) return { error: 'incomplete-report' };
@@ -202,8 +217,12 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
       }],
     }));
     const porId = new Map(actualizados.map(plan => [String(plan.id), plan]));
-    const planesActualizados = planes.map(item => porId.get(String(item.id)) || item);
     const idsHallazgos = new Set(seleccionados.map(plan => String(plan.idHallazgo)));
+    // Para cerrar un hallazgo se revisan todas sus acciones (consulta por idHallazgo, no la colección).
+    const planesActualizados = esPrograma && cerrar
+      ? (await obtenerPlanesDeHallazgosTx(transaction, workspace, idsHallazgos)).map(item => porId.get(String(item.id)) || item)
+      : [];
+    const hallazgos = [...hallazgosPorId.values()];
     const hallazgosCerrados = esPrograma && cerrar ? hallazgos.filter(hallazgo => idsHallazgos.has(String(hallazgo.id)) &&
       planesActualizados.filter(plan => String(plan.idHallazgo) === String(hallazgo.id)).every(plan => plan.estadoWorkflow === 'Cerrado')
     ).map(hallazgo => ({
@@ -270,10 +289,8 @@ export default async function handler(req, res) {
     }
 
     const resultado = await adminDb.runTransaction(async transaction => {
-      const workspace = await leerWorkspaceGrc(transaction, { origen: 'review-plans-revision-tx' });
+      const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'review-plans-revision-tx' });
       const { data } = workspace;
-      const planes = Array.isArray(data.planes) ? data.planes : [];
-      const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
       let informeActual = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
         .find(informe => String(informe.id) === String(idInforme));
       if (!informeActual) {
@@ -285,6 +302,8 @@ export default async function handler(req, res) {
       }
       if (!informeActual) return { error: 'report-not-found' };
       const esPrograma = esInformePrograma(informeActual, data.fuentesMejora);
+      // Superconjunto de planes del informe; el filtro de abajo aplica el criterio exacto.
+      const { planes, hallazgos } = await obtenerPlanesDeInformeTx(transaction, workspace, idInforme);
 
       const pendientes = planes.filter(plan => {
         if (!['Pendiente Revisión Jefatura', ESTADO_VALIDACION_REVISOR].includes(plan.estadoWorkflow)) return false;

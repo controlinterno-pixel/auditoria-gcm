@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as workflow from '../src/utils/programPlanWorkflow.js';
 import * as alcance from '../api/_lib/assignmentScope.js';
+import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
+import { randomUUID } from 'node:crypto';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const moduleBody = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default ', '').replaceAll('export ', '');
@@ -96,23 +98,25 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
     return {
       leerWorkspaceGrc, guardarPlanesGrc, guardarInformesGrc, guardarWorkspaceParcial,
       leerWorkspaceGrcLigero, obtenerHallazgoTx, obtenerPlanesDeInformeTx,
+      obtenerPlanesTx, obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, reservarIdsPlanesTx, listarHallazgosTx,
     };`)(
     adminDb, { delete: () => DELETE }, {}, { info() {} },
   );
   const errors = [];
   const bindings = {
-    ...workspace, ...workflow, ...alcance, adminDb,
+    ...workspace, ...workflow, ...alcance, validarAdjuntoEvaluacion, randomUUID, adminDb,
     applyCors: () => false,
     requireAuth: async () => ({ uid: 'u1', email: 'auditor@example.test' }),
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
     sendError: (res, error, code) => Object.assign(res, { code, error }),
     notificarSemaforo: async () => {},
-    logger: { info() {}, error: (...args) => errors.push(args) },
+    logger: { info() {}, error: (...args) => errors.push(args.map(arg => (arg instanceof Error ? arg.stack : arg))) },
   };
   const load = file => new Function(...Object.keys(bindings), `${moduleBody(file)}\nreturn handler;`)(...Object.values(bindings));
   const handler = load('../api/_grc/review-plans.js');
   const updateHandler = load('../api/_grc/update.js');
   const registerEmailHandler = load('../api/_grc/register-email.js');
+  const createHandler = load('../api/_grc/create.js');
   const call = async (target, method, body, url) => {
     const res = {};
     await target({ method, body, url }, res);
@@ -123,6 +127,7 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
     close: body => call(handler, 'POST', body, '/api/grc/review-plans'),
     update: body => call(updateHandler, 'PUT', body, '/api/grc/update'),
     registerEmail: body => call(registerEmailHandler, 'POST', body, '/api/grc/register-email'),
+    create: body => call(createHandler, 'POST', body, '/api/grc/create'),
   };
 }
 
@@ -257,5 +262,165 @@ test('editar un informe sin cambiar el auditor no consulta planes', async () => 
     registro: { titulo: 'Nuevo título', proceso: 'Operaciones', subprocesos: ['General'] },
   });
   assert.equal(response.code, 200, JSON.stringify(fixture.errors));
+  assert.ok(!fixture.reads.some(path => path.includes('planes_accion')), fixture.reads.join(', '));
+});
+
+// ============================================================================
+// Etapa 2B: review-plans con lecturas puntuales
+// ============================================================================
+const sinListados = fixture => assert.deepEqual(listaColeccion(fixture.reads), [], fixture.reads.join(', '));
+
+test('cierre conjunto detecta acciones abiertas del informe vinculadas solo por hallazgo (ID numérico)', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/hallazgos/1784`, { id: 1784, idInforme: 'i1', estado: 'Abierto' });
+  fixture.documents.set(`${ROOT}/planes_accion/3`, action(3, { idInforme: undefined, idHallazgo: 1784, estadoWorkflow: 'En Ejecución', progreso: 40 }));
+  const response = await fixture.close({
+    decision: 'cerrar', alcance: 'todas', idInforme: 'i1', idsPlanes: [1, 2],
+    evaluacionEficacia: { conclusion: 'Resultado verificado' },
+  });
+  assert.equal(response.code, 409, 'la acción 3 sigue abierta en el mismo informe');
+  assert.equal(fixture.writes.length, 0);
+  sinListados(fixture);
+});
+
+test('cierre conjunto ignora acciones de otros informes y no lista colecciones', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/9`, action(9, { idInforme: 'otro', idHallazgo: 'h-otro', estadoWorkflow: 'En Ejecución' }));
+  const response = await fixture.close({
+    decision: 'cerrar', alcance: 'todas', idInforme: 'i1', idsPlanes: [1, 2],
+    evaluacionEficacia: { conclusion: 'Resultado verificado' },
+  });
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/9`).estadoWorkflow, 'En Ejecución');
+  assert.equal(fixture.documents.get(`${ROOT}/hallazgos/h1`).estado, 'Cerrado');
+  sinListados(fixture);
+});
+
+test('cerrar una acción no cierra el hallazgo si tiene otra acción abierta', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  const response = await fixture.close({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Eficaz' } });
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'Cerrado');
+  assert.equal(fixture.documents.get(`${ROOT}/hallazgos/h1`).estado, 'Abierto', 'la acción 2 sigue en revisión');
+  assert.ok(fixture.reads.some(path => path.endsWith('planes_accion?idHallazgo')));
+  sinListados(fixture);
+});
+
+test('rechazar evidencia lee solo la acción y su hallazgo', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  const response = await fixture.close({ decision: 'rechazar', idPlan: 1, motivo: 'Falta soporte', evaluacionEficacia: null });
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'En Ejecución');
+  assert.ok(!fixture.reads.some(path => path.includes('?')), 'sin consultas de informe ni de hallazgo');
+  sinListados(fixture);
+});
+
+test('revisor aprueba solo sus acciones pendientes del informe, incluidas las vinculadas por hallazgo', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  const pendiente = { estadoWorkflow: 'Pendiente Validación Revisor', correoRevisor: 'auditor@example.test', correoAuditor: 'otro.auditor@example.test' };
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, pendiente));
+  fixture.documents.set(`${ROOT}/planes_accion/2`, action(2, { ...pendiente, idInforme: undefined }));
+  fixture.documents.set(`${ROOT}/planes_accion/8`, action(8, { ...pendiente, idInforme: 'otro', idHallazgo: 'h-otro' }));
+  const response = await fixture.close({ decision: 'aprobar', idInforme: 'i1' });
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'En Revisión (100%)');
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/2`).estadoWorkflow, 'En Revisión (100%)');
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/8`).estadoWorkflow, 'Pendiente Validación Revisor');
+  sinListados(fixture);
+});
+
+test('evaluación de diseño lee solo las acciones seleccionadas', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, {
+    estadoWorkflow: workflow.ESTADO_EVALUACION_INICIAL, progreso: 0, evaluacionHolistica: null,
+  }));
+  const response = await fixture.close({
+    decision: 'evaluar-diseno', idInforme: 'i1', idsPlanes: [1],
+    criterios: Object.fromEntries(['c1', 'c2', 'c3', 'c4', 'c5'].map(key => [key, 100])), justificacion: '',
+    adjuntoEvaluacion: { nombre: 'Evaluacion.pdf', tamano: 100, url: 'https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/evaluacion.pdf' },
+  });
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(response));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'En Ejecución');
+  assert.ok(!fixture.reads.some(path => path.includes('?')), fixture.reads.join(', '));
+  sinListados(fixture);
+});
+
+// ============================================================================
+// Etapa 2C: creación de planes y hallazgos sin listar planes_accion
+// ============================================================================
+const correosPlan = {
+  correoResponsable: 'ejecutor@example.test', correoConfirmacion: 'ejecutor@example.test',
+  correoRevisor: 'revisor@example.test', correoRevisorConfirmacion: 'revisor@example.test',
+};
+const conHoraFija = async (instante, prueba) => {
+  const original = Date.now;
+  Date.now = () => instante;
+  try { return await prueba(); } finally { Date.now = original; }
+};
+
+test('matriz de planes: edita y crea acciones leyendo solo lo necesario, con ID libre verificado', async () => {
+  const T = 1792000000000;
+  const fixture = storeFixture({ fragmented: true });
+  comoAdmin(fixture);
+  fixture.documents.set(`${ROOT}/planes_accion/${T}`, action(T, { accion: 'Ocupa el ID de la hora actual' }));
+  fixture.documents.set(ROOT, { planes: [action(T + 1, { accion: 'Legado con el siguiente ID' })] });
+  const response = await conHoraFija(T, () => fixture.update({
+    coleccion: 'planes',
+    registro: {
+      idInforme: 'i1',
+      actualizaciones: [{ id: 1, accion: 'Acción 1 corregida' }],
+      nuevas: [{ idHallazgo: 'h1', accion: 'Acción nueva', ...correosPlan }],
+    },
+  }));
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(response));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).accion, 'Acción 1 corregida');
+  assert.equal(response.body.planesNuevos[0].id, T + 2, 'salta el documento existente y el legado');
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/${T}`).accion, 'Ocupa el ID de la hora actual');
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/${T + 2}`).accion, 'Acción nueva');
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/2`).accion, 'Acción 2', 'las demás acciones no se tocan');
+  sinListados(fixture);
+});
+
+test('matriz de planes rechaza editar una acción de otro informe', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  comoAdmin(fixture);
+  fixture.documents.set(`${ROOT}/planes_accion/9`, action(9, { idInforme: 'otro', idHallazgo: 'h-otro' }));
+  const response = await fixture.update({
+    coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 9, accion: 'Intento' }], nuevas: [] },
+  });
+  assert.equal(response.code, 404);
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/9`).accion, 'Acción 9');
+  sinListados(fixture);
+});
+
+test('crear planes desde create.js reserva IDs consecutivos libres sin listar planes', async () => {
+  const T = 1793000000000;
+  const fixture = storeFixture({ fragmented: true });
+  comoAdmin(fixture);
+  fixture.documents.set(`${ROOT}/planes_accion/${T + 1}`, action(T + 1));
+  const response = await conHoraFija(T, () => fixture.create({
+    coleccion: 'planes',
+    registro: { idInforme: 'i1', items: [
+      { idHallazgo: 'h1', accion: 'Primera', ...correosPlan },
+      { idHallazgo: 'h1', accion: 'Segunda', ...correosPlan },
+    ] },
+  }));
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(response));
+  assert.deepEqual(response.body.registros.map(plan => plan.id), [T, T + 2]);
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/${T + 1}`).accion, `Acción ${T + 1}`, 'no sobrescribe');
+  sinListados(fixture);
+});
+
+test('crear un hallazgo calcula el consecutivo leyendo hallazgos, no planes', async () => {
+  const anio = new Date().getFullYear();
+  const fixture = storeFixture({ fragmented: true });
+  comoAdmin(fixture);
+  fixture.documents.set(`${ROOT}/hallazgos/h4`, { id: 'h4', idInforme: 'i1', ref: `HAL-${anio}-004` });
+  const response = await fixture.create({
+    coleccion: 'hallazgos', registro: { titulo: 'Nuevo hallazgo', idInforme: 'i1', proceso: 'Operaciones' },
+  });
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(response));
+  const creado = [...fixture.documents.entries()].find(([key, value]) => key.startsWith(`${ROOT}/hallazgos/`) && value.titulo === 'Nuevo hallazgo');
+  assert.equal(creado[1].ref, `HAL-${anio}-005`);
   assert.ok(!fixture.reads.some(path => path.includes('planes_accion')), fixture.reads.join(', '));
 });

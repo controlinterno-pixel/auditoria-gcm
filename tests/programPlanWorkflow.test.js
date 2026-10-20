@@ -41,6 +41,30 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
       coleccionPlanesRef: { doc: id => ({ planId: id }) },
       coleccionHallazgosRef: { doc: id => ({ findingId: id }) },
     }),
+    // Lecturas puntuales sobre los mismos datos en memoria (las reales se prueban en grcClosurePersistence).
+    leerWorkspaceGrcLigero: async (...args) => bindings.leerWorkspaceGrc(...args),
+    obtenerPlanesTx: async (_tx, ws, ids) => ids.map(id => ws.data.planes.find(item => String(item.id) === String(id)) || null),
+    obtenerHallazgosTx: async (_tx, ws, ids) => new Map(ids.map(String).flatMap(id => {
+      const hallazgo = ws.data.hallazgos.find(item => String(item.id) === id);
+      return hallazgo ? [[id, hallazgo]] : [];
+    })),
+    obtenerPlanesDeHallazgosTx: async (_tx, ws, ids) => {
+      const claves = new Set([...ids].map(String));
+      return ws.data.planes.filter(item => claves.has(String(item.idHallazgo)));
+    },
+    obtenerPlanesDeInformeTx: async (_tx, ws, idInforme) => {
+      const hallazgos = ws.data.hallazgos.filter(item => String(item.idInforme) === String(idInforme));
+      const ids = new Set(hallazgos.map(item => String(item.id)));
+      return {
+        hallazgos,
+        planes: ws.data.planes.filter(item => String(item.idInforme) === String(idInforme) || ids.has(String(item.idHallazgo))),
+      };
+    },
+    reservarIdsPlanesTx: async (_tx, ws, cantidad) => {
+      const maximo = ws.data.planes.reduce((mayor, item) => Math.max(mayor, Number(item.id) || 0), 0);
+      return Array.from({ length: cantidad }, (_, indice) => maximo + 1 + indice);
+    },
+    listarHallazgosTx: async (_tx, ws) => ws.data.hallazgos,
     guardarInformesGrc() {},
     guardarPlanesGrc: (transaction, workspace, planes) => {
       planes.forEach(plan => transaction.set(workspace.coleccionPlanesRef.doc(String(plan.id)), plan));

@@ -273,69 +273,161 @@ export async function leerWorkspaceGrcLigero(transaction, { origen = '' } = {}) 
   };
 }
 
+// Lector con contador de documentos para registrar el costo real de cada transacción.
+const crearLectorTx = (transaction, workspace) => {
+  let documentos = 0;
+  const lector = {
+    get documentos() { return documentos; },
+    // Documento por ID; si no existe en la subcolección se usa la copia legada (misma precedencia).
+    porId: async (coleccionRef, legados, id) => {
+      const clave = idDocumentoValido(id);
+      if (clave) {
+        const snapshot = await transaction.get(coleccionRef.doc(clave));
+        documentos += 1;
+        if (snapshot.exists) return conId(snapshot);
+      }
+      return (legados || []).find(registro => String(registro?.id) === String(id)) || null;
+    },
+    consultar: async consulta => {
+      const snapshot = await transaction.get(consulta);
+      documentos += snapshot.size ?? snapshot.docs.length;
+      return snapshot.docs.map(conId);
+    },
+    // Un registro legado solo cuenta si no existe su versión en la subcolección.
+    completarLegados: async (mapa, legados, coleccionRef, pertenece) => {
+      for (const legado of legados || []) {
+        const clave = String(legado?.id ?? '');
+        if (!clave || mapa.has(clave) || !pertenece(legado)) continue;
+        const idDocumento = idDocumentoValido(clave);
+        const snapshot = idDocumento ? await transaction.get(coleccionRef.doc(idDocumento)) : null;
+        if (snapshot) documentos += 1;
+        if (snapshot?.exists) {
+          const actual = conId(snapshot);
+          if (pertenece(actual)) mapa.set(clave, actual);
+        } else {
+          mapa.set(clave, legado);
+        }
+      }
+    },
+    // Planes cuyo idHallazgo está en la lista (consultas `in` de hasta 30 valores).
+    planesDeHallazgos: async (idsHallazgos, mapa = new Map()) => {
+      const variantes = [...new Set([...idsHallazgos].map(String))].flatMap(variantesId);
+      for (let indice = 0; indice < variantes.length; indice += 30) {
+        (await lector.consultar(
+          workspace.coleccionPlanesRef.where('idHallazgo', 'in', variantes.slice(indice, indice + 30))
+        )).forEach(plan => mapa.set(String(plan.id), plan));
+      }
+      return mapa;
+    },
+  };
+  return lector;
+};
+
 /** Un hallazgo por ID (1 lectura). */
 export async function obtenerHallazgoTx(transaction, workspace, id) {
-  const clave = idDocumentoValido(id);
-  if (!clave) return null;
   const inicio = Date.now();
-  const snapshot = await transaction.get(workspace.coleccionHallazgosRef.doc(clave));
-  registrarLecturas(`${workspace.origen}:hallazgo`, 1, inicio, true);
-  if (snapshot.exists) return conId(snapshot);
-  return (workspace.data.hallazgos || []).find(hallazgo => String(hallazgo?.id) === String(id)) || null;
+  const lector = crearLectorTx(transaction, workspace);
+  const hallazgo = await lector.porId(workspace.coleccionHallazgosRef, workspace.data.hallazgos, id);
+  registrarLecturas(`${workspace.origen}:hallazgo`, lector.documentos, inicio, true);
+  return hallazgo;
+}
+
+/** Planes por ID, en el mismo orden solicitado (null si no existe). */
+export async function obtenerPlanesTx(transaction, workspace, ids) {
+  const inicio = Date.now();
+  const lector = crearLectorTx(transaction, workspace);
+  const planes = await Promise.all((ids || []).map(id => lector.porId(workspace.coleccionPlanesRef, workspace.data.planes, id)));
+  registrarLecturas(`${workspace.origen}:planes`, lector.documentos, inicio, true);
+  return planes;
+}
+
+/** Hallazgos por ID como Map(String(id) → hallazgo); los ausentes no se incluyen. */
+export async function obtenerHallazgosTx(transaction, workspace, ids) {
+  const inicio = Date.now();
+  const lector = crearLectorTx(transaction, workspace);
+  const claves = [...new Set((ids || [])
+    .filter(id => id !== undefined && id !== null)
+    .map(id => String(id).trim())
+    .filter(Boolean))];
+  const encontrados = await Promise.all(claves.map(id => lector.porId(workspace.coleccionHallazgosRef, workspace.data.hallazgos, id)));
+  registrarLecturas(`${workspace.origen}:hallazgos`, lector.documentos, inicio, true);
+  return new Map(claves.flatMap((id, indice) => (encontrados[indice] ? [[id, encontrados[indice]]] : [])));
+}
+
+/** Todos los planes vinculados a alguno de los hallazgos indicados (incluye legados). */
+export async function obtenerPlanesDeHallazgosTx(transaction, workspace, idsHallazgos) {
+  const inicio = Date.now();
+  const lector = crearLectorTx(transaction, workspace);
+  const ids = new Set([...(idsHallazgos || [])].map(String));
+  const planes = await lector.planesDeHallazgos(ids);
+  const pertenece = plan => ids.has(String(plan?.idHallazgo));
+  await lector.completarLegados(planes, workspace.data.planes, workspace.coleccionPlanesRef, pertenece);
+  registrarLecturas(`${workspace.origen}:planes-hallazgos`, lector.documentos, inicio, true);
+  return [...planes.values()].filter(pertenece);
+}
+
+/**
+ * Reserva IDs numéricos para planes nuevos sin leer la colección completa.
+ * Los IDs existentes siguen el formato Date.now(): se parte de la hora actual y se verifica que el
+ * documento no exista (ni como legado). Si otra transacción concurrente reserva el mismo ID,
+ * Firestore reintenta esta transacción y la verificación avanza al siguiente número.
+ */
+export async function reservarIdsPlanesTx(transaction, workspace, cantidad) {
+  const inicio = Date.now();
+  const legados = new Set((workspace.data.planes || []).map(plan => String(plan?.id)));
+  const maximoLegado = (workspace.data.planes || []).reduce((maximo, plan) => Math.max(maximo, Number(plan?.id) || 0), 0);
+  const ids = [];
+  let candidato = Math.max(Date.now(), maximoLegado + 1);
+  let documentos = 0;
+  for (let intentos = 0; ids.length < cantidad; intentos += 1) {
+    if (intentos > cantidad + 100) throw new Error('No se pudo reservar un ID libre para el plan de acción.');
+    const snapshot = await transaction.get(workspace.coleccionPlanesRef.doc(String(candidato)));
+    documentos += 1;
+    if (!snapshot.exists && !legados.has(String(candidato))) ids.push(candidato);
+    candidato += 1;
+  }
+  registrarLecturas(`${workspace.origen}:reservar-ids`, documentos, inicio, true);
+  return ids;
+}
+
+/** Hallazgos legados + subcolección (sin planes): solo para calcular el consecutivo HAL-AAAA-NNN. */
+export async function listarHallazgosTx(transaction, workspace) {
+  const inicio = Date.now();
+  const snapshot = await transaction.get(workspace.coleccionHallazgosRef);
+  registrarLecturas(`${workspace.origen}:hallazgos`, snapshot.size ?? snapshot.docs.length, inicio, true);
+  const mapa = new Map();
+  (workspace.data.hallazgos || []).forEach(hallazgo => { if (hallazgo?.id) mapa.set(String(hallazgo.id), hallazgo); });
+  snapshot.docs.map(conId).forEach(hallazgo => mapa.set(String(hallazgo.id), hallazgo));
+  return [...(workspace.data.hallazgos || []).filter(hallazgo => !hallazgo?.id), ...mapa.values()];
 }
 
 /**
  * Hallazgos y planes que pertenecen a un informe: planes con ese idInforme o cuyo hallazgo
  * pertenece al informe (los planes antiguos no siempre guardan idInforme).
+ * Devuelve un superconjunto seguro: cada transacción aplica después su propio criterio exacto.
  */
 export async function obtenerPlanesDeInformeTx(transaction, workspace, idInforme) {
   const variantesInforme = variantesId(idInforme);
   if (!variantesInforme.length) return { planes: [], hallazgos: [] };
   const inicio = Date.now();
-  let documentos = 0;
-  const consultar = async consulta => {
-    const snapshot = await transaction.get(consulta);
-    documentos += snapshot.size ?? snapshot.docs.length;
-    return snapshot.docs.map(conId);
-  };
-  // Un registro legado solo cuenta si no existe su versión en la subcolección.
-  const completarLegados = async (mapa, legados, coleccionRef, pertenece) => {
-    for (const legado of legados) {
-      const clave = String(legado?.id ?? '');
-      if (!clave || mapa.has(clave) || !pertenece(legado)) continue;
-      const idDocumento = idDocumentoValido(clave);
-      const snapshot = idDocumento ? await transaction.get(coleccionRef.doc(idDocumento)) : null;
-      if (snapshot) documentos += 1;
-      if (snapshot?.exists) {
-        const actual = conId(snapshot);
-        if (pertenece(actual)) mapa.set(clave, actual);
-      } else {
-        mapa.set(clave, legado);
-      }
-    }
-  };
+  const lector = crearLectorTx(transaction, workspace);
 
   const delInforme = registro => String(registro?.idInforme) === String(idInforme);
   const hallazgos = new Map();
-  (await consultar(workspace.coleccionHallazgosRef.where('idInforme', 'in', variantesInforme)))
+  (await lector.consultar(workspace.coleccionHallazgosRef.where('idInforme', 'in', variantesInforme)))
     .forEach(hallazgo => hallazgos.set(String(hallazgo.id), hallazgo));
-  await completarLegados(hallazgos, workspace.data.hallazgos || [], workspace.coleccionHallazgosRef, delInforme);
+  await lector.completarLegados(hallazgos, workspace.data.hallazgos, workspace.coleccionHallazgosRef, delInforme);
   const hallazgosInforme = [...hallazgos.values()].filter(delInforme);
   const idsHallazgos = new Set(hallazgosInforme.map(hallazgo => String(hallazgo.id)));
 
   const planes = new Map();
-  const agregarPlanes = lista => lista.forEach(plan => planes.set(String(plan.id), plan));
-  agregarPlanes(await consultar(workspace.coleccionPlanesRef.where('idInforme', 'in', variantesInforme)));
-  const variantesHallazgos = [...idsHallazgos].flatMap(variantesId);
-  for (let indice = 0; indice < variantesHallazgos.length; indice += 30) {
-    agregarPlanes(await consultar(
-      workspace.coleccionPlanesRef.where('idHallazgo', 'in', variantesHallazgos.slice(indice, indice + 30))
-    ));
-  }
+  (await lector.consultar(workspace.coleccionPlanesRef.where('idInforme', 'in', variantesInforme)))
+    .forEach(plan => planes.set(String(plan.id), plan));
+  await lector.planesDeHallazgos(idsHallazgos, planes);
   const delInformeOHallazgo = plan => delInforme(plan) || idsHallazgos.has(String(plan?.idHallazgo));
-  await completarLegados(planes, workspace.data.planes || [], workspace.coleccionPlanesRef, delInformeOHallazgo);
+  await lector.completarLegados(planes, workspace.data.planes, workspace.coleccionPlanesRef, delInformeOHallazgo);
 
-  registrarLecturas(`${workspace.origen}:planes-informe`, documentos, inicio, true);
+  registrarLecturas(`${workspace.origen}:planes-informe`, lector.documentos, inicio, true);
   return { planes: [...planes.values()].filter(delInformeOHallazgo), hallazgos: hallazgosInforme };
 }
 

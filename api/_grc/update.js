@@ -6,8 +6,8 @@ import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import {
-  guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrc,
-  leerWorkspaceGrcLigero, obtenerHallazgoTx, obtenerPlanesDeInformeTx,
+  guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrcLigero,
+  obtenerHallazgoTx, obtenerHallazgosTx, obtenerPlanesDeInformeTx, obtenerPlanesTx, reservarIdsPlanesTx,
 } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
@@ -94,11 +94,15 @@ export default async function handler(req, res) {
       }
 
       const resultado = await adminDb.runTransaction(async transaction => {
-        const workspace = await leerWorkspaceGrc(transaction, { origen: 'update-planes-tx' });
+        // Lecturas puntuales: el informe, las acciones editadas y los hallazgos involucrados.
+        const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'update-planes-tx' });
         if (!workspace.workspaceExists) return { error: 'not-found' };
         const { data } = workspace;
-        const planes = Array.isArray(data.planes) ? data.planes : [];
-        const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+        const planesSolicitados = await obtenerPlanesTx(transaction, workspace, actualizaciones.map(plan => plan.id));
+        const hallazgosPorId = await obtenerHallazgosTx(transaction, workspace, [
+          ...planesSolicitados.filter(Boolean).map(plan => plan.idHallazgo),
+          ...nuevas.map(item => item.idHallazgo),
+        ]);
         const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
         const idInformeDocumento = String(idInforme || '').trim();
         const idInformeStr = String(idInforme || '').trim().toLowerCase();
@@ -122,7 +126,9 @@ export default async function handler(req, res) {
           informeActual.correoAuditor || informeActual.correoAuditorResponsable || informeActual.correo_auditor || ''
         ).trim();
 
-        const planesPorId = new Map(planes.map(plan => [String(plan.id), plan]));
+        const planesPorId = new Map(planesSolicitados.flatMap((plan, indice) => (
+          plan ? [[String(actualizaciones[indice].id), plan]] : []
+        )));
         const idsActualizados = new Set();
         const ahora = new Date();
         const usuarioEmail = normalizar(user.email);
@@ -131,9 +137,7 @@ export default async function handler(req, res) {
         for (const peticion of actualizaciones) {
           const clave = String(peticion.id);
           const anterior = planesPorId.get(clave);
-          const hallazgoAnterior = anterior
-            ? hallazgos.find(hallazgo => String(hallazgo.id) === String(anterior.idHallazgo))
-            : null;
+          const hallazgoAnterior = anterior ? hallazgosPorId.get(String(anterior.idHallazgo)) : null;
           const idInformeAnterior = anterior?.idInforme || hallazgoAnterior?.idInforme;
           if (!anterior || idsActualizados.has(clave) || String(idInformeAnterior) !== String(idInforme)) {
             return { error: 'plan-not-found' };
@@ -274,10 +278,12 @@ export default async function handler(req, res) {
         const procesosPerfil = obtenerProcesosAsignados(perfil, user);
         const subprocesosPerfil = obtenerSubprocesosAsignados(perfil);
         const planesNuevos = [];
-        let siguienteId = planes.reduce((maximo, plan) => Math.max(maximo, Number(plan?.id) || 0), 0) + 1;
+        // IDs libres verificados en la transacción (antes: máximo de toda la colección + 1).
+        const idsNuevos = nuevas.length ? await reservarIdsPlanesTx(transaction, workspace, nuevas.length) : [];
+        let indiceNuevo = 0;
 
         for (const item of nuevas) {
-          const hallazgo = hallazgos.find(candidate => String(candidate.id) === String(item.idHallazgo));
+          const hallazgo = hallazgosPorId.get(String(item.idHallazgo));
           if (!hallazgo || String(hallazgo.idInforme) !== String(informeActual.id)) return { error: 'hallazgo-not-found' };
           const procesoHallazgo = normalizar(hallazgo.macroproceso || String(hallazgo.proceso || '').split('/')[0]);
           const subprocesosHallazgo = (Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso])
@@ -311,7 +317,7 @@ export default async function handler(req, res) {
           const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
           planesNuevos.push({
             ...datosPlan,
-            id: siguienteId++,
+            id: idsNuevos[indiceNuevo++],
             idInforme,
             idHallazgo: hallazgo.id,
             ...(correoAuditor ? { correoAuditor } : {}),

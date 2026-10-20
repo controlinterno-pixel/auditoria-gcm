@@ -6,7 +6,10 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, guardarPlanesGrc, guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import {
+  guardarInformesGrc, guardarPlanesGrc, guardarWorkspaceParcial, leerWorkspaceGrc,
+  leerWorkspaceGrcLigero, listarHallazgosTx, obtenerHallazgosTx, reservarIdsPlanesTx,
+} from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const COLECCIONES_PERMITIDAS = {
@@ -191,16 +194,20 @@ export default async function handler(req, res) {
       : null;
 
     const registroGuardado = await adminDb.runTransaction(async (transaction) => {
-      const workspace = await leerWorkspaceGrc(transaction, { origen: 'create-tx' });
+      // Sin listar colecciones: los planes usan IDs reservados y solo los hallazgos necesitan la lista
+      // completa de hallazgos (para el consecutivo HAL-AAAA-NNN). Informes y fuentes viven en el documento principal.
+      const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'create-tx' });
       const { data, workspaceRef } = workspace;
-      const registrosActuales = Array.isArray(data[coleccion]) ? data[coleccion] : [];
+      const registrosActuales = coleccion === 'hallazgos'
+        ? await listarHallazgosTx(transaction, workspace)
+        : coleccion === 'planes' ? [] : (Array.isArray(data[coleccion]) ? data[coleccion] : []);
       const ahora = new Date();
       const fechaIso = ahora.toISOString();
       let nuevoRegistro;
 
       if (coleccion === 'planes') {
         const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
-        const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+        const hallazgosPorId = await obtenerHallazgosTx(transaction, workspace, registro.items.map(item => item.idHallazgo));
         let informe = informes.find(item => String(item.id) === String(registro.idInforme));
         if (!informe && registro.idInforme) {
           const informeSnapshot = await transaction.get(
@@ -214,11 +221,13 @@ export default async function handler(req, res) {
         ).trim();
 
         const items = [];
-        let siguienteId = registrosActuales.reduce((maximo, item) => Math.max(maximo, Number(item?.id) || 0), 0) + 1;
+        // IDs libres verificados en la transacción (antes: máximo de toda la colección + 1).
+        const idsNuevos = await reservarIdsPlanesTx(transaction, workspace, registro.items.length);
+        let indiceNuevo = 0;
         const email = normalizar(user.email);
 
         for (const item of registro.items) {
-          const hallazgo = hallazgos.find(candidate => String(candidate.id) === String(item.idHallazgo));
+          const hallazgo = hallazgosPorId.get(String(item.idHallazgo));
           if (!hallazgo || String(hallazgo.idInforme) !== String(registro.idInforme)) {
             return { error: 'hallazgo-not-found' };
           }
@@ -258,7 +267,7 @@ export default async function handler(req, res) {
           const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
           items.push({
             ...datosPlan,
-            id: siguienteId++,
+            id: idsNuevos[indiceNuevo++],
             idInforme: informe.id,
             idHallazgo: hallazgo.id,
             ...(correoAuditor ? { correoAuditor } : {}),
