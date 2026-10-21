@@ -193,6 +193,24 @@ test('ejecutor puede guardar avance y evidencia con los correos originales intac
   assert.equal(h.data().planes[0].correoRevisor, 'revisor@example.test');
 });
 
+test('acción reportada al 100% queda bloqueada para su ejecutor, incluso administrador', async () => {
+  for (const estadoWorkflow of ['Pendiente Validación Revisor', 'En Revisión (100%)']) {
+    const enviada = plan({ estadoWorkflow, progreso: 100 });
+    assert.equal(workflow.bloqueadaParaEjecutor(enviada, ' EJECUTOR@example.test '), true);
+    assert.equal(workflow.bloqueadaParaEjecutor(enviada, 'revisor@example.test'), false);
+    for (const rol of ['lider', 'admin']) {
+      const h = harness({ email: 'ejecutor@example.test', rol, planes: [enviada] });
+      const res = await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, accion: 'Otra acción', progreso: 100 }] });
+      assert.equal(res.code, 403, JSON.stringify({ estadoWorkflow, rol }));
+      assert.equal(h.writes.length, 0);
+    }
+  }
+  assert.equal(workflow.bloqueadaParaEjecutor(plan({ estadoWorkflow: 'En Ejecución', progreso: 90 }), 'ejecutor@example.test'), false);
+  const h = harness({ email: 'admin@example.test', rol: 'admin', planes: [plan({ estadoWorkflow: 'Pendiente Validación Revisor', progreso: 100 })] });
+  const res = await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, accion: 'Corrección del administrador' }] });
+  assert.equal(res.code, 200);
+});
+
 test('otro administrador puede corregir un correo con su confirmación', async () => {
   const h = harness({ email: 'admin@example.test', rol: 'admin', planes: [plan({ estadoWorkflow: 'En Ejecución' })] });
   const res = await h.update({ idInforme: 'i1', actualizaciones: [{

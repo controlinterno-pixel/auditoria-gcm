@@ -8,7 +8,7 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -3023,12 +3023,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const esResponsableActividad = !actividadNueva && correoActual && String(act.correoResponsable || '').trim().toLowerCase() === correoActual;
   const programaActividad = esFuenteProgramaAuditoria(informeDeActividad);
   const bloqueadaPorAuditor = programaActividad && !actividadNueva && disenoInicialBloqueado(act);
-  const puedeEditarActividad = !modoRevisionMatriz && (isAdmin || actividadNueva || (esResponsableActividad &&
+  // Se evalúa sobre lo guardado (planOriginal), no sobre lo que se está tecleando.
+  const enviadaARevision = !actividadNueva && bloqueadaParaEjecutor(planOriginal, user?.email);
+  const puedeEditarActividad = !modoRevisionMatriz && !enviadaARevision && (isAdmin || actividadNueva || (esResponsableActividad &&
     (!bloqueadaPorAuditor || act.estadoWorkflow === ESTADO_AJUSTES_INICIALES)));
-  const puedeEditarAsignacion = !modoRevisionMatriz && puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin);
+  const puedeEditarAsignacion = !modoRevisionMatriz && !enviadaARevision && puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin);
   const puedeEditarCorreo = puedeEditarAsignacion;
   const puedeEditarCorreoAuditor = !actividadNueva && puedeEditarAsignacion;
-  const puedeEditarAvance = !modoRevisionMatriz && !actividadNueva && !bloqueadaPorAuditor && (isAdmin || (
+  const puedeEditarAvance = !modoRevisionMatriz && !enviadaARevision && !actividadNueva && !bloqueadaPorAuditor && (isAdmin || (
     esResponsableActividad && act.estadoWorkflow === 'En Ejecución'
   ));
   return (
@@ -3043,8 +3045,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               No se puede guardar: el correo se repite entre {conflictoRoles}. Asigna personas distintas; el auditor se hereda del informe.
                             </div>
                           )}
-                          <div 
-                            className="relative space-y-4 rounded-xl border-2 border-emerald-900/25 border-l-[8px] border-l-[#0A3B32] bg-gradient-to-br from-white via-white to-emerald-50/40 p-5 pl-6 shadow-[0_2px_8px_-3px_rgba(15,23,42,0.16)] ring-1 ring-emerald-900/5 transition-colors hover:border-emerald-900/40"
+                          <div
+                            className={`relative space-y-4 rounded-xl border-2 border-l-[8px] p-5 pl-6 shadow-[0_2px_8px_-3px_rgba(15,23,42,0.16)] transition-colors ${enviadaARevision
+                              ? 'border-sky-300 border-l-sky-600 bg-gradient-to-br from-white via-white to-sky-50/60 ring-1 ring-sky-200'
+                              : 'border-emerald-900/25 border-l-[#0A3B32] bg-gradient-to-br from-white via-white to-emerald-50/40 ring-1 ring-emerald-900/5 hover:border-emerald-900/40'}`}
                           >
                             {/* CABECERA SUTIL DE LA ACTIVIDAD */}
                             <div className="flex justify-between items-center border-b border-emerald-900/15 bg-gradient-to-r from-emerald-50 to-white -ml-6 -mr-5 -mt-5 px-5 py-3 rounded-tr-lg rounded-tl-md mb-4">
@@ -3058,7 +3062,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                {!modoRevisionMatriz && (
+                                {enviadaARevision && (
+                                  <span className="flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-sky-800 shadow-sm">
+                                    <span aria-hidden="true">🔒</span> Listo · Ejecutada 100% · Pendiente por revisar
+                                  </span>
+                                )}
+                                {!modoRevisionMatriz && !enviadaARevision && (
                                   <>
                                     <button
                                       type="button"
@@ -3083,7 +3092,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
-                              {!actividadNueva && !puedeEditarCorreo && (
+                              {enviadaARevision && (
+                                <p role="status" className="md:col-span-6 rounded-lg border border-sky-300 bg-sky-50 p-3 text-xs font-semibold text-sky-900">
+                                  ✅ Reportaste esta acción como ejecutada al 100%. Quedó bloqueada para ti mientras el revisor valida las evidencias{planOriginal?.estadoWorkflow !== ESTADO_PENDIENTE_VALIDACION_REVISOR ? ' y el auditor emite el dictamen final' : ''}. Si la devuelven, podrás editarla de nuevo.
+                                </p>
+                              )}
+                              {!actividadNueva && !puedeEditarCorreo && !enviadaARevision && (
                                 <p className="md:col-span-6 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                                   Los cargos y correos asignados son de solo lectura para el ejecutor. Para corregirlos, solicita el ajuste a un administrador distinto del ejecutor.
                                 </p>
@@ -3826,6 +3840,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().slice(-4)}</td>
                                   <td className="p-3">
                                     <span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border bg-slate-100 text-slate-700">{p.estadoWorkflow}</span>
+                                    {bloqueadaParaEjecutor(p, user?.email) && (
+                                      <span className="mt-1 block w-fit rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-[9px] font-black uppercase text-sky-800">🔒 Ejecutada 100% · pendiente por revisar</span>
+                                    )}
                                   </td>
                                   <td className="p-3 text-red-600 font-bold">
                                     {p.proceso}
@@ -3853,7 +3870,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                          {/* BOTONES DEL EJECUTOR (Y Admin) - Pueden gestionar mientras no esté cerrado */}
                                           {(esEjecutor || isAdmin) && p.estadoWorkflow !== 'Cerrado' && (
                                             <>
-                                              <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-200 transition-colors shadow-sm">✏️ Modificar Matriz</button>
+                                              <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-200 transition-colors shadow-sm">{bloqueadaParaEjecutor(p, user?.email) ? '👁️ Ver acción enviada' : '✏️ Modificar Matriz'}</button>
                                               
                                               {/* NUEVO BOTÓN: Evaluar / Modo Lectura para Revisor o Auditor */}
                                               {(esRevisor || esAuditor || isAdmin) && (

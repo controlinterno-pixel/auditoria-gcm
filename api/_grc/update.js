@@ -1,5 +1,5 @@
 import { applyCors } from '../_lib/cors.js';
-import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../../src/utils/programPlanWorkflow.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
@@ -216,6 +216,10 @@ export default async function handler(req, res) {
           ));
           const atascadoAlCien = anterior.estadoWorkflow === 'En Ejecución' && Number(anterior.progreso) === 100;
           if (camposCambiados.length === 0 && !atascadoAlCien) continue;
+          // Aplica también al administrador que es ejecutor: no puede alterar lo que ya envió a revisión.
+          if (camposCambiados.length > 0 && bloqueadaParaEjecutor(anterior, user.email)) {
+            return { error: 'executor-locked-review' };
+          }
           const cambioProgreso = camposCambiados.includes('progreso');
           // Subir evidencia es ejecución, no una corrección del diseño aprobado.
           const cambioDiseno = camposCambiados.some(campo => !['progreso', 'evidenciaUrl'].includes(campo));
@@ -353,6 +357,7 @@ export default async function handler(req, res) {
         'invalid-action': ['La descripción de la acción no puede quedar vacía.', 400],
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
         'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
+        'executor-locked-review': ['Esta acción ya fue reportada al 100% y está pendiente por revisar; el ejecutor no puede modificarla.', 403],
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
         'assignment-forbidden': ['El ejecutor no puede modificar los cargos ni correos asignados. Solicita el ajuste a un administrador distinto del ejecutor.', 403],
         'invalid-reviewer-email': ['El correo del revisor debe ser válido y coincidir con su confirmación.', 400],

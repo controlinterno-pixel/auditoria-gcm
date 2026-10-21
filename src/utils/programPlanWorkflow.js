@@ -12,6 +12,19 @@ export function puedeEditarAsignacionPlan(plan, correoUsuario, esAdministrador) 
   return Boolean(esAdministrador && correo && !ejecutores.includes(correo));
 }
 
+const ESTADOS_EJECUCION_ENVIADA = ['Pendiente Validación Revisor', 'En Revisión (100%)', 'Pendiente Aprobación Auditor'];
+
+// Ejecución reportada al 100%: el ejecutor ya no puede modificarla mientras sigue el flujo de revisión.
+export function ejecucionEnviadaARevision(plan) {
+  return Boolean(plan && Number(plan.progreso) === 100 && ESTADOS_EJECUCION_ENVIADA.includes(plan.estadoWorkflow));
+}
+
+export function bloqueadaParaEjecutor(plan, correoUsuario) {
+  const correo = normalizar(correoUsuario);
+  const ejecutores = String(plan?.correoResponsable || '').split(',').map(normalizar).filter(Boolean);
+  return Boolean(correo && ejecutores.includes(correo) && ejecucionEnviadaARevision(plan));
+}
+
 export function esInformePrograma(informe, fuentes = []) {
   const referencia = normalizar(informe?.tipoFuente);
   if (!referencia) return false;
