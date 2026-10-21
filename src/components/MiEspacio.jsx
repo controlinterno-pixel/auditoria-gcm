@@ -76,7 +76,7 @@ export default function MiEspacio({
     // 1. Si el usuario ya configuró su nombre en "Mi Perfil" (displayName), lo usamos
     if (user?.displayName) {
       const partes = user.displayName.split(' ');
-      // Devuelve la primera y segunda palabra (ej. "Yehison Pineda")
+      // Devuelve la primera y segunda palabra (ej. "Nombre Apellido")
       if (partes.length >= 2) return `${partes[0]} ${partes[1]}`;
       return partes[0];
     }
@@ -84,7 +84,7 @@ export default function MiEspacio({
     // 2. Si no tiene nombre configurado, limpiamos la parte antes del @ del correo
     const emailPrefix = user?.email?.split('@')[0] || 'Controlinterno';
     
-    // Si el prefijo tiene un punto (ej. yehison.pineda), lo usamos como separador de nombre y apellido
+    // Si el prefijo tiene un punto (ej. nombre.apellido), lo usamos como separador de nombre y apellido
     if (emailPrefix.includes('.')) {
       const partesEmail = emailPrefix.split('.');
       const nombreLimpio = partesEmail[0].charAt(0).toUpperCase() + partesEmail[0].slice(1);

@@ -10,7 +10,7 @@ import {
 } from '../services/authDiagnostics';
 import { consumeSkipWelcome } from '../services/appUpdate';
 import { 
-  defaultCronograma, defaultRiesgos, defaultHallazgos, 
+  defaultRiesgos, defaultHallazgos,
   defaultPlanes, defaultEvaluaciones, defaultMonitoreo 
 } from '../constants/defaultData';
 
@@ -185,7 +185,8 @@ export function useGrcData() {
         setPlanes(data.planes || defaultPlanes);
         setIncidentes(data.incidentes || []);
         setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
-        setCronograma(data.cronograma || defaultCronograma);
+        // Sin cronograma del servidor se muestra vacío: la plantilla nunca aparece como si fueran datos reales.
+        setCronograma(Array.isArray(data.cronograma) ? data.cronograma : []);
         setMonitoreo(data.monitoreo || defaultMonitoreo);
         setInformesAuditoria(data.informesAuditoria || []);
         setComites(data.comites || []);

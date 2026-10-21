@@ -67,6 +67,7 @@ import { processExcelRiesgos } from './utils/excelImporter';
 import { analizarEvidenciaDocumento } from './services/copilotService';
 import { apiService } from './services/apiService';
 import { defaultCronograma } from './constants/defaultData';
+import { restaurarCronogramaOficial } from './utils/cronogramaOficial';
 import { CatalogosProvider } from './context/CatalogosContext.jsx';
 
 
@@ -518,7 +519,16 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   };
 
   const handleImportExcelRiesgos = (e) => processExcelRiesgos({ event: e, safeRiesgos, setRiesgos, saveToCloud, showNotification, setIsCloudLoaded, user, confirmarEliminacion });
-  const forceUpdateCronograma = async () => { if (await confirmarEliminacion('Se eliminará el cronograma actual y se reemplazará por los 20 procesos oficiales del Plan Anual.')) { await saveToCloud({ cronograma: defaultCronograma }); showNotification("¡Plan Anual actualizado!", "success"); } };
+  // Restaura los 20 procesos oficiales conservando el cargo responsable y de apoyo que cada proceso
+  // ya tenía (la plantilla no incluye nombres de personas: H11).
+  const forceUpdateCronograma = async () => {
+    if (!(await confirmarEliminacion('Se reemplazará el cronograma actual por los 20 procesos oficiales del Plan Anual. Se conservan los cargos responsables y de apoyo ya asignados.'))) return;
+    const cronogramaRestaurado = restaurarCronogramaOficial(defaultCronograma, safeCronograma);
+    if (await saveToCloud({ cronograma: cronogramaRestaurado })) {
+      setCronograma(cronogramaRestaurado);
+      showNotification("¡Plan Anual actualizado!", "success");
+    }
+  };
   const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
   const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification), [user, showNotification]);
   const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.email, showNotification), [user, showNotification]);

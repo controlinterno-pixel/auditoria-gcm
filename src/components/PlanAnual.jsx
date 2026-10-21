@@ -1,6 +1,34 @@
 import { useState, useRef } from 'react';
 import { exportarA_PDF } from '../utils/pdfUtils'; // <-- Ajusta esta ruta si tu pdfUtils está en otra carpeta
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
+import { useCatalogos } from '../context/useCatalogos';
+
+// H11: el responsable y el apoyo se asignan por CARGO del catálogo (no por nombre de persona).
+// Un valor antiguo (p. ej. un nombre) se conserva como "valor actual" hasta que se elija un cargo.
+function CampoCargo({ name, label, valorActual = '', requerido = false, cargos, className = '' }) {
+  const actual = String(valorActual || '').trim();
+  const clase = 'w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none bg-white';
+  if (cargos.length === 0) {
+    // Sin catálogo de cargos configurado: se mantiene el campo de texto anterior.
+    return (
+      <div className={className}>
+        <label htmlFor={`cronograma-${name}`} className="font-bold text-gray-600 block mb-1">{label}</label>
+        <input id={`cronograma-${name}`} name={name} defaultValue={actual} required={requerido} className={clase} />
+      </div>
+    );
+  }
+  const esCargo = cargos.includes(actual);
+  return (
+    <div className={className}>
+      <label htmlFor={`cronograma-${name}`} className="font-bold text-gray-600 block mb-1">{label}</label>
+      <select id={`cronograma-${name}`} name={name} defaultValue={actual} required={requerido} className={clase}>
+        <option value="">{requerido ? '— Selecciona un cargo —' : '— Sin apoyo —'}</option>
+        {actual && !esCargo && <option value={actual}>Valor actual: {actual} (elige un cargo)</option>}
+        {cargos.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
+      </select>
+    </div>
+  );
+}
 
 export default function PlanAnual({
   isAdmin,
@@ -25,6 +53,7 @@ export default function PlanAnual({
   selectedAnios = [],
   renderHeaderFiltros
 }) {
+  const { cargosEmpresa = [] } = useCatalogos();
   const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 const currentYear = new Date().getFullYear();
@@ -305,8 +334,8 @@ const descargarCronogramaPDF = () => {
             <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required placeholder="Ej: Enero - Abril" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
             <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" defaultValue={editCronograma?.proceso||''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-bold text-slate-800" /></div>
             
-            <div><label className="font-bold text-gray-600 block mb-1">Responsable</label><input name="responsable" defaultValue={editCronograma?.responsable||''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
-            <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" defaultValue={editCronograma?.apoyo||''} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
+            <CampoCargo key={`responsable-${editCronograma?.id || 'nuevo'}`} name="responsable" label="Cargo responsable" valorActual={editCronograma?.responsable} requerido cargos={cargosEmpresa} />
+            <CampoCargo key={`apoyo-${editCronograma?.id || 'nuevo'}`} name="apoyo" label="Cargo de apoyo (opcional)" valorActual={editCronograma?.apoyo} cargos={cargosEmpresa} className="md:col-span-2" />
             <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% Acumulado (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={editCronograma?.cumplimiento||0} required className="w-full border border-emerald-300 bg-emerald-50 rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-black text-emerald-700" /></div>
             
             <div className="md:col-span-5"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" defaultValue={editCronograma?.enfoque||''} required rows="2" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none"></textarea></div>
