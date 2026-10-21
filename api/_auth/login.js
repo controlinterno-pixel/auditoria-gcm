@@ -4,11 +4,10 @@ import { serialize } from 'cookie';
 import { applyCors } from '../_lib/cors.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { almacenCompartidoConfigurado, consultarLimite, limpiarIntentos, registrarFallo } from '../_lib/rateLimit.js';
 
-// 🛡️ Rate Limiting en memoria por instancia de función
-const loginAttempts = new Map();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 60 * 1000; // 60 segundos
+// 🛡️ H8: límite de intentos compartido entre instancias (Upstash/Vercel KV) con respaldo en memoria.
+const LIMITE = { maximo: 5, ventanaMs: 60 * 1000 }; // 5 intentos por 60 segundos
 
 /**
  * Extrae la IP de origen real del cliente evitando fallas por múltiples proxies.
@@ -33,19 +32,12 @@ export default async function handler(req, res) {
 
   // 🛡️ Control de Tasa (Rate Limiting)
   const clientIp = obtenerIpCliente(req);
-  const now = Date.now();
-  const userAttempts = loginAttempts.get(clientIp) || { count: 0, resetTime: now + WINDOW_MS };
-
-  if (now > userAttempts.resetTime) {
-    userAttempts.count = 0;
-    userAttempts.resetTime = now + WINDOW_MS;
+  const limite = await consultarLimite(clientIp, LIMITE);
+  if (limite.bloqueado) {
+    logger.warn('Rate limit excedido en login', { clientIp, compartido: almacenCompartidoConfigurado() });
+    return sendError(res, `Demasiados intentos fallidos. Intente nuevamente en ${limite.segundosRestantes} segundos.`, 429);
   }
-
-  if (userAttempts.count >= MAX_ATTEMPTS) {
-    const secondsLeft = Math.ceil((userAttempts.resetTime - now) / 1000);
-    logger.warn('Rate limit excedido en login', { clientIp });
-    return sendError(res, `Demasiados intentos fallidos. Intente nuevamente en ${secondsLeft} segundos.`, 429);
-  }
+  const limpiarSiHabiaFallos = () => (limite.intentos > 0 ? limpiarIntentos(clientIp) : Promise.resolve());
 
   try {
     const { idToken } = req.body || {};
@@ -98,7 +90,7 @@ export default async function handler(req, res) {
         motivo: 'access-not-active',
         estadoAcceso: userData.estadoAcceso,
       });
-      loginAttempts.delete(clientIp);
+      await limpiarSiHabiaFallos();
       const message = userData.estadoAcceso === 'rechazado'
         ? 'La solicitud de acceso fue rechazada. Contacta a un administrador.'
         : 'Tu correo está verificado. Espera la aprobación de un administrador para acceder.';
@@ -120,7 +112,7 @@ export default async function handler(req, res) {
       path: '/',
     });
 
-    loginAttempts.delete(clientIp);
+    await limpiarSiHabiaFallos();
 
     res.setHeader('Set-Cookie', cookieSerialized);
     logger.info('Inicio de sesión exitoso', { usuario: decoded.email, uid: decoded.uid });
@@ -141,8 +133,7 @@ export default async function handler(req, res) {
       'auth/invalid-id-token',
     ]);
     if (erroresToken.has(String(error?.code || ''))) {
-      userAttempts.count += 1;
-      loginAttempts.set(clientIp, userAttempts);
+      await registrarFallo(clientIp, LIMITE);
       logger.warn('Token de Firebase rechazado durante el inicio de sesión', { clientIp, codigo: error.code });
       return sendError(res, 'No se pudo validar la sesión de Firebase. Intenta iniciar sesión de nuevo.', 401);
     }

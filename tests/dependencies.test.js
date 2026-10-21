@@ -46,4 +46,14 @@ for (const [nombre, uso] of importados) {
   assert.doesNotThrow(() => import.meta.resolve(uso.especificador), `No se puede cargar '${uso.especificador}' (usada en ${uso.archivo})`);
 }
 
-console.log(`dependencies.test.js: OK (${importados.size} librerías importadas, todas declaradas y resolubles)`);
+// H12: las librerías exclusivas del servidor nunca se importan desde src/ (así no pueden llegar al navegador).
+const SOLO_SERVIDOR = ['firebase-admin', 'nodemailer', '@google/generative-ai', 'cookie'];
+for (const archivo of archivos(join(raiz, 'src'))) {
+  const fuente = readFileSync(archivo, 'utf8');
+  for (const paqueteServidor of SOLO_SERVIDOR) {
+    const patron = new RegExp(`(?:from\\s+|import\\s*\\(\\s*)['"]${paqueteServidor.replace('/', '\\/')}(?:/[^'"]*)?['"]`);
+    assert.equal(patron.test(fuente), false, `${archivo.slice(raiz.length)} importa la librería de servidor ${paqueteServidor}`);
+  }
+}
+
+console.log(`dependencies.test.js: OK (${importados.size} librerías importadas, todas declaradas y resolubles; ninguna de servidor en src/)`);
