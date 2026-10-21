@@ -4,6 +4,7 @@ import { useDeleteConfirmation } from '../../hooks/useDeleteConfirmation.js';
 import { auditarAuxilioTransporte, auditarSeguridadSocial, auditarJornadaLaboral } from '../../utils/motorAuditoria';
 import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica, cargarNominaHistorica } from '../../services/historicoService';
 import DashboardHistorico from './DashboardHistorico';
+import { cargarXLSX } from '../../utils/xlsxLoader';
 
 const normalizarTexto = (str) => {
   if (!str) return "";
@@ -192,24 +193,21 @@ const systemCategories = [
   }, [ejecutarAutoMapeoInteligente]);
 
   const handleFileUpload = (e) => {
-    if (!window.XLSX) {
-      alert("La librería de Excel aún no ha cargado. Intenta de nuevo.");
-      return;
-    }
-
     const file = e.target.files[0];
     if (!file) return;
 
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
+        // La librería se carga solo al subir el archivo (antes dependía de una variable global nunca definida).
+        const XLSX = await cargarXLSX();
         const data = new Uint8Array(evt.target.result);
-        const workbook = window.XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
+        const jsonDataRaw = XLSX.utils.sheet_to_json(worksheet, { raw: true });
         
         const jsonData = jsonDataRaw.filter(row => {
           const tipo = row['Tipo'] || row['tipo'] || row['TIPO'];

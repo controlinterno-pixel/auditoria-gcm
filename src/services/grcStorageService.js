@@ -1,5 +1,6 @@
 // src/services/grcStorageService.js
 import { apiService } from './apiService';
+import { cargarXLSX } from '../utils/xlsxLoader';
 export const saveToCloud = async (partialData, showNotification) => { 
   try {
     const sanitizedData = JSON.parse(JSON.stringify(partialData));
@@ -31,21 +32,24 @@ export const saveToCloud = async (partialData, showNotification) => {
   }
 };
 
-export const exportToExcel = (dataArray, fileName, xlsxLoaded, showNotification) => {
-  if (!xlsxLoaded || !window.XLSX) {
-    showNotification("La librería de exportación aún está cargando.", "error");
+export const exportToExcel = async (dataArray, fileName, showNotification = () => {}) => {
+  let XLSX;
+  try {
+    XLSX = await cargarXLSX();
+  } catch {
+    showNotification("No se pudo cargar la librería de Excel. Revisa tu conexión e intenta de nuevo.", "error");
     return;
   }
-  const cleanData = dataArray.map(item => {
+  const cleanData = (Array.isArray(dataArray) ? dataArray : []).map(item => {
     const rest = { ...item };
     delete rest.historialCambios;
     return rest;
   });
-  
-  const ws = window.XLSX.utils.json_to_sheet(cleanData);
-  const wb = window.XLSX.utils.book_new();
-  window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-  window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+  const ws = XLSX.utils.json_to_sheet(cleanData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+  XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
   showNotification(`Archivo ${fileName} exportado con éxito.`);
 };
 

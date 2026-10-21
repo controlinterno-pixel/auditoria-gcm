@@ -61,7 +61,7 @@ import { useGrcData } from './hooks/useGrcData';
 import { useGrcUI } from './hooks/useGrcUI';
 import { useGrcPeriodFilters } from './hooks/useGrcPeriodFilters';
 import { createFormHandlers } from './handlers/grcFormHandlers';
-import { exportToJSON, saveToCloud as syncCloud } from './services/grcStorageService';
+import { exportToExcel, exportToJSON, saveToCloud as syncCloud } from './services/grcStorageService';
 import { executeAuditorQuery } from './handlers/auditorIaHandler';
 import { processExcelRiesgos } from './utils/excelImporter';
 import { analizarEvidenciaDocumento } from './services/copilotService';
@@ -372,6 +372,14 @@ export default function App() {
   });
 
 const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, showNotification), [showNotification]);
+  const exportarExcel = useCallback((datos, nombreArchivo) => exportToExcel(datos, nombreArchivo, showNotification), [showNotification]);
+  // Respaldo JSON con las mismas claves que acepta el servidor, para poder restaurarlo con "Importar".
+  const exportarRespaldoJSON = () => exportToJSON({
+    riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, informesAuditoria,
+    evaluaciones: safeEvaluaciones, comites: safeComites, incidentes: safeIncidentes,
+    cronograma: safeCronograma, monitoreo: safeMonitoreo, programas: safeProgramas,
+    fuentesMejora, catalogoCargos, mapaProcesos, sedesEmpresa, catalogosInicializados,
+  });
 
   const guardarCatalogos = async (cargos, procesos, sedes = sedesEmpresa) => {
     if (!isAdmin) return false;
@@ -497,7 +505,10 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     reader.onload = async (event) => {
       try {
         if (await confirmarEliminacion('Se eliminarán los datos actuales de todos los módulos y se reemplazarán por el archivo de respaldo seleccionado.')) {
-          setIsCloudLoaded(false); await saveToCloud(JSON.parse(event.target.result));
+          setIsCloudLoaded(false);
+          const respaldo = JSON.parse(event.target.result);
+          // Restaurar un respaldo (ya confirmado arriba) reemplaza también la matriz de riesgos.
+          await saveToCloud(Array.isArray(respaldo?.riesgos) ? { ...respaldo, riesgosReemplazoTotal: true } : respaldo);
           showNotification("Base de datos actualizada.", "success"); setIsCloudLoaded(true);
         }
       } catch { showNotification("Error: Formato JSON no válido.", "error"); }
@@ -1019,8 +1030,9 @@ return (
               <div className="space-y-6">
                 
                 {subTabResultados === 'hallazgos' && (
-                  <Hallazgos 
-                    isAdmin={isAdmin} 
+                  <Hallazgos
+                    exportToExcel={exportarExcel}
+                    isAdmin={isAdmin}
                     user={user}
                     puedeCrearHallazgos={puedeCrearHallazgos}
                     safeRiesgos={safeRiesgos} 
@@ -1042,8 +1054,9 @@ return (
                   />
                 )}
              {subTabResultados === 'informes' && (
-                  <InformesAuditoria 
-                    informesAuditoria={informesAuditoria} 
+                  <InformesAuditoria
+                    exportToExcel={exportarExcel}
+                    informesAuditoria={informesAuditoria}
                     fuentesMejora={fuentesMejora}
                     safeProgramas={safeProgramas}
                     setInformesAuditoria={setInformesAuditoria} 
@@ -1240,7 +1253,7 @@ return (
               <Configuracion 
                 forceUpdateCronograma={forceUpdateCronograma}
                 handleImportExcelRiesgos={handleImportExcelRiesgos}
-                exportToJSON={exportToJSON}
+                exportToJSON={exportarRespaldoJSON}
                 handleImportJSON={handleImportJSON}
               />
             )}

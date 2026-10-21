@@ -1,4 +1,5 @@
 // src/utils/excelImporter.js
+import { cargarXLSX } from './xlsxLoader';
 
 export const processExcelRiesgos = ({
   event,
@@ -10,21 +11,19 @@ export const processExcelRiesgos = ({
   user,
   confirmarEliminacion
 }) => {
-  if (!window.XLSX) {
-    showNotification("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.", "error");
-    return;
-  }
   const file = event.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
+      // La librería se carga solo al importar (antes dependía de una variable global que nunca se definía).
+      const XLSX = await cargarXLSX();
       const data = new Uint8Array(e.target.result);
-      const workbook = window.XLSX.read(data, { type: 'array' });
+      const workbook = XLSX.read(data, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const json = window.XLSX.utils.sheet_to_json(worksheet);
+      const json = XLSX.utils.sheet_to_json(worksheet);
 
       const extraerNivel = (val) => {
         if (!val) return 1;
