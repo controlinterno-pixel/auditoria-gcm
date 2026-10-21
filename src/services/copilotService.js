@@ -2,50 +2,30 @@
 import { apiService } from './apiService';
 import { secureLogger } from './secureLogger.js';
 
-export const sugerirTextoConIA = async (tipoTarget, setIsThinking, showNotification) => {
-  let textoBase = "";
-  let inputDestino = null;
+const TIPOS_SUGERENCIA = new Set(['control', 'plan', 'hallazgo']);
 
-  if (tipoTarget === 'control') {
-    textoBase = document.querySelector('input[name="descripcion"]')?.value || "";
-    inputDestino = document.querySelector('input[name="control"]');
-  } else if (tipoTarget === 'plan') {
-    const selectElement = document.querySelector('select[name="idHallazgo"]');
-    textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
-    inputDestino = document.querySelector('input[name="accion"]');
-  } else if (tipoTarget === 'hallazgo') {
-    textoBase = document.querySelector('input[name="proceso"]')?.value || "";
-    inputDestino = document.querySelector('input[name="titulo"]');
-  }
-
-  textoBase = textoBase.replace(/[<>{}[\]\\]/g, '').trim();
-
-  if (!textoBase || textoBase === '' || textoBase.includes('-- Seleccione --')) {
+/**
+ * H14: sugerencia de redacción con IA SIN tocar el DOM. Recibe el texto base (desde el estado del
+ * formulario) y devuelve el texto sugerido, o null si no hay sugerencia. El formulario decide cómo
+ * mostrarlo (p. ej. `setValor(sugerencia)`), de modo que React mantiene el control de los campos.
+ */
+export const solicitarSugerenciaIA = async (tipoTarget, textoBase, { setIsThinking = () => {}, showNotification = () => {} } = {}) => {
+  if (!TIPOS_SUGERENCIA.has(tipoTarget)) return null;
+  const texto = String(textoBase || '').replace(/[<>{}[\]\\]/g, '').trim();
+  if (!texto || texto.includes('-- Seleccione --')) {
     showNotification("Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
-    return;
+    return null;
   }
 
   setIsThinking(true);
-  showNotification("Procesando consulta con el Motor GRC Serverless...", "success");
-
   try {
-    const res = await apiService.consultarAuditor({
-      tipoAccion: 'sugerir_grc',
-      tipoTarget,
-      prompt: textoBase
-    });
-    const sugerencia = res?.respuesta || res;
-
-    if (inputDestino) {
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-      nativeInputValueSetter.call(inputDestino, typeof sugerencia === 'string' ? sugerencia.replace(/(^"|"$)/g, '') : JSON.stringify(sugerencia));
-      inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
-      inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
-      showNotification("¡Sugerencia ejecutiva insertada con éxito!");
-    }
+    const res = await apiService.consultarAuditor({ tipoAccion: 'sugerir_grc', tipoTarget, prompt: texto });
+    const sugerencia = res?.respuesta ?? res;
+    return typeof sugerencia === 'string' ? sugerencia.replace(/(^"|"$)/g, '').trim() : null;
   } catch (error) {
     secureLogger.error('Error conectando al Asistente IA:', { message: error?.message || 'error' });
     showNotification("Error conectando con el servidor de auditoría.", "error");
+    return null;
   } finally {
     setIsThinking(false);
   }
