@@ -750,3 +750,25 @@ test('devuelta por el aprobador: el ejecutor edita solo esa; las cerradas quedan
   // Los valores por defecto del guardado masivo no cuentan como cambio.
   assert.equal(await s.syncAllowed([{ ...cerrada, sede: cerrada.sede, evidenciaUrl: '', matrizLegal: 'No aplica', tipoAccion: 'Acción Correctiva' }]), true);
 });
+
+test('eficacia rechazada: ejecutor -> revisor -> nueva evaluación del aprobador -> cierre', async () => {
+  const h = harness({ planes: [plan({ progreso: 100, estadoWorkflow: 'En Revisión (100%)', validadoPorRevisorCorreo: 'revisor@example.test' })] });
+  const eficacia = { conclusion: 'No demuestra eficacia', observaciones: 'Faltan soportes' };
+  assert.equal((await h.review({ decision: 'rechazar', idPlan: 1, motivo: 'Faltan soportes', evaluacionEficacia: eficacia })).code, 200);
+  assert.equal(h.data().planes[0].estadoWorkflow, 'En Ejecución');
+  assert.equal(h.data().planes[0].progreso, 90);
+  // El aprobador no puede cerrarla sin que vuelva a pasar por ejecutor y revisor.
+  assert.equal((await h.review({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Cumple', observaciones: '' } })).code, 409);
+  h.user.email = 'ejecutor@example.test';
+  assert.equal((await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 100 }] })).code, 200);
+  assert.equal(h.data().planes[0].estadoWorkflow, 'Pendiente Validación Revisor');
+  h.user.email = 'auditor@example.test';
+  assert.equal((await h.review({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Cumple', observaciones: '' } })).code, 409);
+  h.user.email = 'revisor@example.test';
+  assert.equal((await h.review({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [1] })).code, 200);
+  assert.equal(h.data().planes[0].estadoWorkflow, 'En Revisión (100%)');
+  h.user.email = 'auditor@example.test';
+  assert.equal((await h.review({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Cumple', observaciones: '' } })).code, 200);
+  assert.equal(h.data().planes[0].estadoWorkflow, 'Cerrado');
+  assert.equal(h.data().planes[0].historialEficacia.length, 2, 'conserva la evaluación rechazada y la nueva');
+});

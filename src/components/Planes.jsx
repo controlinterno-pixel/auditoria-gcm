@@ -2061,7 +2061,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           titulo_informe: eficaz ? 'Plan de acción cerrado' : 'Evidencia rechazada: requiere ajustes',
           proceso_auditado: eficaz
             ? `La eficacia de la acción "${planActualizado.accion}" fue confirmada. Conclusión: ${conclusion.trim()}`
-            : `La eficacia de la acción "${planActualizado.accion}" no fue demostrada. La acción vuelve a ejecución (90%). Observación: ${observaciones.trim()}`,
+            : `La eficacia de la acción "${planActualizado.accion}" no fue demostrada. La acción vuelve a ejecución (90%). Observación: ${observaciones.trim()}. Siguiente paso: el ejecutor corrige, carga las evidencias y guarda al 100%; luego el revisor valida y el auditor aprobador hace una nueva evaluación de eficacia para cerrarla.`,
           enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(planActualizado.idInforme || plan.idInforme)}`,
           destinatarios: [planActualizado.correoResponsable, planActualizado.correoRevisor].filter(Boolean).join(', '),
         }, correoPreparado);
