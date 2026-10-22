@@ -762,6 +762,12 @@ test('eficacia rechazada: ejecutor -> revisor -> nueva evaluación del aprobador
   h.user.email = 'ejecutor@example.test';
   assert.equal((await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 100 }] })).code, 200);
   assert.equal(h.data().planes[0].estadoWorkflow, 'Pendiente Validación Revisor');
+  // El revisor vuelve a tener la tarea, aunque ya la hubiera validado en la ronda anterior.
+  assert.equal(workflow.etapaAccionPrograma(h.data().planes[0])?.rol, 'revisor');
+  assert.equal(workflow.etapaAccionPrograma(h.data().planes[0])?.boton, 'Revisar matriz');
+  const textoPlanes = read('../src/components/Planes.jsx');
+  assert.match(textoPlanes, /p\.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && esRevisor &&/);
+  assert.match(read('../src/App.jsx'), /p\.estadoWorkflow === 'Pendiente Validación Revisor' \|\|/);
   h.user.email = 'auditor@example.test';
   assert.equal((await h.review({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Cumple', observaciones: '' } })).code, 409);
   h.user.email = 'revisor@example.test';
