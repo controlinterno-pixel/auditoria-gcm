@@ -306,6 +306,8 @@ export default function Riesgos({
   });
 // 🛡️ Estado para el modal explicativo de eficacia del control
   const [controlSeleccionadoIA, setControlSeleccionadoIA] = useState(null);
+  // Vista de solo lectura del control: { control, riesgo, codigo }.
+  const [controlDetalle, setControlDetalle] = useState(null);
   // 🚀 ESTADOS PARA EL EXPEDIENTE EXPANDIBLE (ACCORDEÓN 360°)
  const [expandedRiesgoId, setExpandedRiesgoId] = useState(null);
 // 🔍 ESTADOS DE BÚSQUEDA Y FILTROS ENTERPRISE
@@ -1950,9 +1952,16 @@ const renderMatriz = () => {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setControlSeleccionadoIA(c); }}
+                  className="whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100"
+                  title="Ver cómo se calculó la eficacia del control">
+                  📊 Ver evaluación
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setControlDetalle({ control: c, riesgo: r, codigo: `CTL-2${cIdx + 1}` }); }}
                   className="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
-                  title="Ver Detalles del Control">
-                  👁 Ver
+                  title="Ver toda la información del control en modo lectura">
+                  👁 Ver detalle completo
                 </button>
                 {puedeModificarRiesgo(r) && <button
                   type="button"
@@ -2092,6 +2101,113 @@ const renderMatriz = () => {
     <div className="space-y-6 animate-in fade-in duration-300 relative">
 
       {/* 🛡️ MODAL EXPLICATIVO DE EFICACIA DEL CONTROL (TABLA 6 DEL MANUAL) */}
+      {controlDetalle && (() => {
+        const { control: ctrl, riesgo: rDetalle, codigo } = controlDetalle;
+        const eficaciaDetalle = calcularEficaciaControl(ctrl);
+        const etiquetasConocidas = {
+          tipo: 'Tipo de control',
+          implementacion: 'Ejecución',
+          ejecucion: 'Ejecución',
+          documentacion: 'Documentación',
+          frecuencia: 'Frecuencia',
+          evidencia: 'Soporte de evidencia',
+        };
+        const filas = [
+          ['Tipo de control', ctrl.tipo || 'Preventivo'],
+          ['Ejecución', ctrl.implementacion || ctrl.ejecucion || 'Manual'],
+          ['Documentación', ctrl.documentacion || 'Sin dato'],
+          ['Frecuencia', ctrl.frecuencia || 'Mensual'],
+          ['Soporte de evidencia', ctrl.evidencia || 'Sin dato'],
+          ['Responsable', rDetalle.responsable || 'Coordinador del Proceso'],
+          ['Estado', 'Activo'],
+        ];
+        // Campos adicionales que traiga el control (p. ej. importados de Excel) también se muestran.
+        const adicionales = Object.entries(ctrl).filter(([clave, valor]) => (
+          !['descripcion', 'id'].includes(clave) && !etiquetasConocidas[clave] &&
+          valor !== null && valor !== undefined && valor !== '' && typeof valor !== 'object'
+        ));
+        return (
+          <div
+            className="fixed inset-0 z-[260] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-detalle-control"
+            onClick={() => setControlDetalle(null)}
+            onKeyDown={e => { if (e.key === 'Escape') setControlDetalle(null); }}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="bg-[#0A3B32] text-white px-5 py-4 flex justify-between items-start gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold text-emerald-200/90">Detalle del control · solo lectura</p>
+                  <h3 id="titulo-detalle-control" className="mt-0.5 text-base font-black">{codigo}</h3>
+                </div>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => setControlDetalle(null)}
+                  aria-label="Cerrar detalle del control"
+                  className="shrink-0 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-5 space-y-5 text-slate-700">
+                <section>
+                  <h4 className="text-[11px] font-bold text-slate-500 mb-1">Descripción del control</h4>
+                  <p className="text-sm font-semibold leading-relaxed text-slate-900 whitespace-pre-wrap">{ctrl.descripcion || 'Sin descripción registrada.'}</p>
+                </section>
+
+                <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h4 className="text-[11px] font-bold text-slate-500 mb-1">Riesgo que mitiga</h4>
+                  <p className="text-xs font-black text-slate-900">RSK-{rDetalle.id} <span className="font-semibold text-slate-500">· {rDetalle.proceso || 'Sin proceso'}</span></p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-700">{rDetalle.descripcion}</p>
+                </section>
+
+                <section>
+                  <h4 className="text-[11px] font-bold text-slate-500 mb-2">Características</h4>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200">
+                    {[...filas, ...adicionales.map(([clave, valor]) => [clave.replace(/([A-Z])/g, ' $1').replace(/^./, letra => letra.toUpperCase()), String(valor)])].map(([etiqueta, valor]) => (
+                      <div key={etiqueta} className="bg-white px-4 py-2.5">
+                        <dt className="text-[10px] font-semibold text-slate-500">{etiqueta}</dt>
+                        <dd className="text-xs font-bold text-slate-900 break-words">{valor}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+
+                <section className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                  <div>
+                    <p className="text-[10px] font-semibold text-emerald-800">Eficacia calculada</p>
+                    <p className="text-2xl font-black tabular-nums text-emerald-800">{eficaciaDetalle}%</p>
+                  </div>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-white" aria-hidden="true">
+                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${eficaciaDetalle}%` }}></div>
+                  </div>
+                </section>
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => { setControlDetalle(null); setControlSeleccionadoIA(ctrl); }}
+                  className="px-4 py-2 rounded-xl border border-emerald-200 bg-white text-emerald-800 font-bold text-xs hover:bg-emerald-50"
+                >
+                  📊 Ver evaluación
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setControlDetalle(null)}
+                  className="px-5 py-2 bg-[#0A3B32] hover:bg-[#062620] text-white font-bold rounded-xl text-xs shadow-sm"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {controlSeleccionadoIA && (
         <div className="fixed inset-0 z-[260] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
