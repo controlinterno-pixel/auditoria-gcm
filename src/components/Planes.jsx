@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Fragment, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { createPortal } from 'react-dom';
 import { BadgeCheck, CheckCircle2, ClipboardCheck, Play, Search, X } from 'lucide-react';
@@ -169,11 +169,10 @@ export default function Planes({
   const [mostrarMotivoCorreccion, setMostrarMotivoCorreccion] = useState(false);
   const [motivoCorreccion, setMotivoCorreccion] = useState('');
   const [guardandoDecisionRevision, setGuardandoDecisionRevision] = useState(false);
-  // Acciones que el revisor decide ahora (ids) en un informe; null = todas las pendientes.
-  // Ligada al informe para que al cambiar de informe vuelva a "todas".
-  const [seleccionRevisionGuardada, setSeleccionRevisionGuardada] = useState({ informe: null, ids: null });
-  const seleccionRevision = seleccionRevisionGuardada.informe === String(revisionInformeId) ? seleccionRevisionGuardada.ids : null;
-  const setSeleccionRevision = ids => setSeleccionRevisionGuardada({ informe: String(revisionInformeId), ids });
+  // Devolución en curso desde la tarjeta de una acción: { id, motivo }.
+  const [devolucionAccion, setDevolucionAccion] = useState(null);
+  // Acción cuya decisión individual se está guardando (para el texto del botón).
+  const [decidiendoRevisionId, setDecidiendoRevisionId] = useState(null);
   const [guardandoAccionKey, setGuardandoAccionKey] = useState(null);
   const [confirmacionAccionGuardada, setConfirmacionAccionGuardada] = useState('');
 
@@ -2100,14 +2099,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       String(plan.correoRevisor || '').trim().toLowerCase() === correoSesion
     ));
   };
-  // null = todas las pendientes seleccionadas.
-  const seleccionRevisionEfectiva = (pendientes) => {
-    const ids = pendientes.map(plan => String(plan.id));
-    return seleccionRevision === null ? ids : seleccionRevision.filter(id => ids.includes(id));
-  };
-
   const abrirRevisionPlan = plan => {
-    setSeleccionRevision(null);
+    setDevolucionAccion(null);
     setEditPlan(null);
     setModoRevisionMatriz(true);
     setRevisionInformeId(plan.idInforme);
@@ -2120,9 +2113,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     });
   };
 
-  const resolverDecisionRevision = async (decision) => {
+  // Sin `ids` decide todas las pendientes del revisor; con `ids`, solo esas (p. ej. una sola acción).
+  const resolverDecisionRevision = async (decision, { ids = null, motivo = null } = {}) => {
     if (!revisionInformeId || guardandoDecisionRevision) return;
-    if (decision === 'corregir' && !motivoCorreccion.trim()) {
+    const motivoDecision = String(motivo ?? motivoCorreccion).trim();
+    if (decision === 'corregir' && !motivoDecision) {
       alert('Escribe el motivo de la corrección solicitada.');
       return;
     }
@@ -2133,16 +2128,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       setRevisionInformeId(null);
       return;
     }
-    const idsSeleccionados = seleccionRevisionEfectiva(todosPendientes);
-    const planesPendientes = todosPendientes.filter(plan => idsSeleccionados.includes(String(plan.id)));
+    const idsDecision = Array.isArray(ids) ? ids.map(String) : null;
+    const planesPendientes = idsDecision
+      ? todosPendientes.filter(plan => idsDecision.includes(String(plan.id)))
+      : todosPendientes;
     if (planesPendientes.length === 0) {
-      showNotification('Selecciona al menos una acción para decidir.', 'error');
+      showNotification('Esta acción ya no está pendiente de tu revisión. Actualiza la vista.', 'error');
       return;
     }
     const restantes = todosPendientes.length - planesPendientes.length;
     const estadoAnteriorPorId = new Map(planesPendientes.map(plan => [String(plan.id), plan.estadoWorkflow]));
 
     setGuardandoDecisionRevision(true);
+    setDecidiendoRevisionId(idsDecision?.length === 1 ? idsDecision[0] : 'todas');
     try {
       let promesaPreparacionCorreo = null;
       if (prepararEnvioGmail) {
@@ -2155,7 +2153,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       const respuesta = await apiService.decidirRevisionPlanes(
         revisionInformeId,
         decision,
-        motivoCorreccion.trim(),
+        motivoDecision,
         planesPendientes.map(plan => plan.id)
       );
       const planesActualizados = Array.isArray(respuesta?.planes) ? respuesta.planes : [];
@@ -2167,13 +2165,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       const actualizadosPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
       setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => actualizadosPorId.get(String(plan.id)) || plan));
 
-      const motivoDecision = motivoCorreccion.trim();
       setMostrarMotivoCorreccion(false);
       setMotivoCorreccion('');
-      setSeleccionRevision(null);
+      setDevolucionAccion(null);
       if (restantes > 0) {
         // Quedan acciones por decidir: el revisor sigue en la revisión del mismo informe.
-        showNotification(`Decisión guardada para ${planesActualizados.length} acción(es). Quedan ${restantes} por revisar.`, 'success');
+        showNotification(`${decision === 'aprobar' ? 'Aprobada' : 'Devuelta'}: ${planesActualizados.length === 1 ? '1 acción' : `${planesActualizados.length} acciones`}. Te quedan ${restantes} por revisar.`, 'success');
       } else {
         setRevisionInformeId(null);
         setModoRevisionMatriz(false);
@@ -2247,6 +2244,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       alert(error.message || 'No se pudo guardar la decisión de revisión.');
     } finally {
       setGuardandoDecisionRevision(false);
+      setDecidiendoRevisionId(null);
     }
   };
 
@@ -3137,6 +3135,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   // Se evalúa sobre lo guardado (planOriginal), no sobre lo que se está tecleando.
   const enviadaARevision = !actividadNueva && bloqueadaParaEjecutor(planOriginal, user?.email);
   const soloConsultaRevisorAuditor = !actividadNueva && bloqueadaParaRevisorOAuditor(planOriginal, user?.email, correoAuditorOriginal);
+  // Revisión acción por acción: pendiente de mi decisión o ya decidida por mí.
+  const pendienteDeMiRevision = modoRevisionMatriz && !actividadNueva &&
+    obtenerPendientesRevision(revisionInformeId).some(plan => String(plan.id) === String(act.id));
+  const esValidacionFinalAccion = planOriginal?.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR;
+  const ultimaDecisionMia = modoRevisionMatriz && !pendienteDeMiRevision && planOriginal &&
+    normalizarIdentidad(planOriginal.correoRevisor) === normalizarIdentidad(user?.email)
+    ? [...(Array.isArray(planOriginal.historialCambios) ? planOriginal.historialCambios : [])].reverse()
+      .find(evento => normalizarIdentidad(evento?.usuario) === normalizarIdentidad(user?.email) && /revisor/i.test(String(evento?.accion || '')))
+    : null;
+  const decisionMiaDevuelta = Boolean(ultimaDecisionMia && /devuelt|corrección/i.test(String(ultimaDecisionMia.accion || '')));
   const puedeEditarActividad = !modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && (isAdmin || actividadNueva || (esResponsableActividad &&
     (!bloqueadaPorAuditor || act.estadoWorkflow === ESTADO_AJUSTES_INICIALES)));
   const puedeEditarAsignacion = !modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin);
@@ -3146,7 +3154,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     esResponsableActividad && act.estadoWorkflow === 'En Ejecución'
   ));
   return (
-                          <fieldset key={`act-row-${index}`} disabled={!puedeEditarActividad} className="contents">
+                          <Fragment key={`act-row-${index}`}>
+                          <fieldset disabled={!puedeEditarActividad} className="contents">
                           {!modoRevisionMatriz && !isAdmin && !actividadNueva && !esResponsableActividad && (
                             <div role="note" className="md:col-span-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950">
                               <strong>Edición bloqueada por correo:</strong> esta acción está asignada a {act.correoResponsable || 'un correo no registrado'}, pero tu sesión es {user?.email || 'un usuario sin correo'}. Solicita a un administrador que actualice el correo del ejecutor para que coincida con la cuenta con la que inicias sesión.
@@ -3177,6 +3186,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 {enviadaARevision && (
                                   <span className="flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-sky-800 shadow-sm">
                                     <span aria-hidden="true">🔒</span> Listo · Ejecutada 100% · Pendiente por revisar
+                                  </span>
+                                )}
+                                {pendienteDeMiRevision && (
+                                  <span className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-amber-800 shadow-sm">
+                                    <span aria-hidden="true">⏳</span> Pendiente de tu revisión
+                                  </span>
+                                )}
+                                {ultimaDecisionMia && (
+                                  <span className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider shadow-sm ${decisionMiaDevuelta ? 'border-orange-300 bg-orange-50 text-orange-800' : 'border-emerald-300 bg-emerald-50 text-emerald-800'}`}>
+                                    <span aria-hidden="true">{decisionMiaDevuelta ? '↩' : '✅'}</span> {decisionMiaDevuelta ? 'Devuelta por ti' : 'Aprobada por ti'}
                                   </span>
                                 )}
                                 {soloConsultaRevisorAuditor && !modoRevisionMatriz && (
@@ -3512,6 +3531,68 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             </div>
                           </div>
                           </fieldset>
+                          {pendienteDeMiRevision && (() => {
+                            const idAccion = String(act.id);
+                            const devolviendo = devolucionAccion?.id === idAccion;
+                            const guardandoEsta = guardandoDecisionRevision && decidiendoRevisionId === idAccion;
+                            return (
+                              <div className="-mt-2 rounded-b-xl border-2 border-t-0 border-amber-200 bg-amber-50/70 px-5 py-3">
+                                {!devolviendo ? (
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold text-amber-900">
+                                      {esValidacionFinalAccion ? 'Revisa las evidencias de esta acción y decide.' : 'Revisa el diseño de esta acción y decide.'}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={guardandoDecisionRevision}
+                                        onClick={() => setDevolucionAccion({ id: idAccion, motivo: '' })}
+                                        className="rounded-lg border border-orange-300 bg-white px-4 py-2 text-[11px] font-black text-orange-800 hover:bg-orange-50 disabled:opacity-50"
+                                      >
+                                        ↩ {esValidacionFinalAccion ? 'Devolver al ejecutor' : 'Solicitar corrección'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={guardandoDecisionRevision}
+                                        onClick={() => resolverDecisionRevision('aprobar', { ids: [idAccion] })}
+                                        className="rounded-lg bg-emerald-700 px-4 py-2 text-[11px] font-black text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
+                                      >
+                                        {guardandoEsta ? 'Guardando…' : `✓ ${esValidacionFinalAccion ? 'Validar y enviar al aprobador' : 'Aprobar diseño'}`}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <label htmlFor={`motivo-devolucion-${idAccion}`} className="block text-xs font-bold text-orange-900">
+                                      Motivo de la devolución de PLA-{idAccion.slice(-4)} (obligatorio){esValidacionFinalAccion ? ' · la acción vuelve al ejecutor al 90%' : ''}
+                                    </label>
+                                    <textarea
+                                      id={`motivo-devolucion-${idAccion}`}
+                                      autoFocus
+                                      rows="2"
+                                      maxLength={2000}
+                                      value={devolucionAccion.motivo}
+                                      onChange={event => setDevolucionAccion({ id: idAccion, motivo: event.target.value })}
+                                      placeholder={esValidacionFinalAccion ? 'Indica qué evidencia falta o qué debe corregir el ejecutor.' : 'Indica qué debe corregirse en el diseño de esta acción.'}
+                                      className="w-full rounded-lg border border-orange-200 bg-white p-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-orange-400"
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                      <button type="button" disabled={guardandoDecisionRevision} onClick={() => setDevolucionAccion(null)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancelar</button>
+                                      <button
+                                        type="button"
+                                        disabled={guardandoDecisionRevision || !devolucionAccion.motivo.trim()}
+                                        onClick={() => resolverDecisionRevision('corregir', { ids: [idAccion], motivo: devolucionAccion.motivo })}
+                                        className="rounded-lg bg-orange-600 px-4 py-2 text-[11px] font-black text-white shadow-sm hover:bg-orange-700 disabled:opacity-50"
+                                      >
+                                        {guardandoEsta ? 'Enviando…' : 'Confirmar devolución'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          </Fragment>
   );
 })}
                 {!modoRevisionMatriz && (
@@ -3553,50 +3634,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                      </div>
                    )}
                    
-                   {/* SELECCIÓN DE ACCIONES A DECIDIR */}
-                   {puedeDecidirRevision && (() => {
-                     const pendientes = obtenerPendientesRevision(revisionInformeId);
-                     const seleccion = seleccionRevisionEfectiva(pendientes);
-                     const ids = pendientes.map(plan => String(plan.id));
-                     return (
-                       <fieldset className="w-full min-w-0 rounded-xl border border-slate-200 bg-white p-4">
-                         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                           <legend className="text-xs font-black text-slate-800">Acciones a decidir <span className="font-semibold text-slate-500">({seleccion.length} de {pendientes.length})</span></legend>
-                           <div className="flex gap-2">
-                             <button type="button" disabled={guardandoDecisionRevision || seleccion.length === ids.length} onClick={() => setSeleccionRevision(null)} className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Todas</button>
-                             <button type="button" disabled={guardandoDecisionRevision || seleccion.length === 0} onClick={() => setSeleccionRevision([])} className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Ninguna</button>
-                           </div>
-                         </div>
-                         <p className="mb-3 text-[11px] text-slate-500">Aprueba o devuelve todas de una vez, o ve una a una: marca las que quieres decidir ahora y las demás seguirán pendientes.</p>
-                         <ul className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
-                           {pendientes.map(plan => {
-                             const id = String(plan.id);
-                             const marcado = seleccion.includes(id);
-                             return (
-                               <li key={`rev-sel-${id}`}>
-                                 <label className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition-colors ${marcado ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-                                   <input
-                                     type="checkbox"
-                                     checked={marcado}
-                                     disabled={guardandoDecisionRevision}
-                                     onChange={() => setSeleccionRevision(marcado ? seleccion.filter(valor => valor !== id) : [...seleccion, id])}
-                                     className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
-                                   />
-                                   <span className="min-w-0 text-xs">
-                                     <span className="font-mono font-black text-slate-500">PLA-{id.slice(-4)}</span>{' '}
-                                     <span className="font-semibold text-slate-800">{plan.accion}</span>
-                                     <span className="block text-[10px] text-slate-500">
-                                       {plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR ? `Ejecución al ${plan.progreso}% por validar` : 'Diseño por revisar'} · Ejecutor: {plan.responsable || 'Sin asignar'}
-                                     </span>
-                                   </span>
-                                 </label>
-                               </li>
-                             );
-                           })}
-                         </ul>
-                       </fieldset>
-                     );
-                   })()}
+                   {/* RESUMEN DE LA REVISIÓN */}
+                   {puedeDecidirRevision && (
+                     <p role="status" className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900">
+                       Te quedan <strong>{obtenerPendientesRevision(revisionInformeId).length}</strong> acción(es) por decidir. Decide cada una con los botones debajo de su tarjeta, o todas de una vez aquí.
+                     </p>
+                   )}
 
                    {/* BOTONES DE DECISIÓN */}
                    <div className="flex flex-wrap justify-end gap-3 w-full">
@@ -3608,17 +3651,17 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             setMatrixState({});
                             setModoRevisionMatriz(false);
                             setVistaActiva('historial');
-                            setSeleccionRevision(null);
+                            setDevolucionAccion(null);
                          }} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Cerrar Vista</button>
                          {puedeDecidirRevision && <>
-                         <button type="button" disabled={guardandoDecisionRevision || seleccionRevisionEfectiva(obtenerPendientesRevision(revisionInformeId)).length === 0} onClick={() => setMostrarMotivoCorreccion(true)} className="px-5 py-2.5 bg-orange-100 border border-orange-200 hover:bg-orange-200 text-orange-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-colors disabled:opacity-50">{modoValidacionFinalRevisor ? 'Devolver al ejecutor' : 'Solicitar corrección'}</button>
-                         <button type="button" disabled={guardandoDecisionRevision || seleccionRevisionEfectiva(obtenerPendientesRevision(revisionInformeId)).length === 0} onClick={() => resolverDecisionRevision('aprobar')} className="px-6 py-2.5 bg-[#69b193] hover:bg-[#549c7f] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50">{guardandoDecisionRevision ? 'Guardando…' : `${modoValidacionFinalRevisor ? 'Validar y enviar al aprobador' : 'Aprobar diseño'} (${seleccionRevisionEfectiva(obtenerPendientesRevision(revisionInformeId)).length})`}</button>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => setMostrarMotivoCorreccion(true)} className="px-5 py-2.5 bg-orange-100 border border-orange-200 hover:bg-orange-200 text-orange-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-colors disabled:opacity-50">↩ Devolver todas ({obtenerPendientesRevision(revisionInformeId).length})</button>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => resolverDecisionRevision('aprobar')} className="px-6 py-2.5 bg-[#69b193] hover:bg-[#549c7f] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50">{guardandoDecisionRevision && decidiendoRevisionId === 'todas' ? 'Guardando…' : `✓ ${modoValidacionFinalRevisor ? 'Validar todas' : 'Aprobar todas'} (${obtenerPendientesRevision(revisionInformeId).length})`}</button>
                          </>}
                        </>
                      ) : (
                        <>
                          <button type="button" disabled={guardandoDecisionRevision} onClick={() => guardMotivoCorreccion(() => { setMotivoCorreccion(''); setMostrarMotivoCorreccion(false); })} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Volver</button>
-                         <button type="button" disabled={!puedeDecidirRevision || guardandoDecisionRevision || !motivoCorreccion.trim()} onClick={() => resolverDecisionRevision('corregir')} className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50 flex items-center gap-2">{guardandoDecisionRevision ? 'Enviando…' : modoValidacionFinalRevisor ? 'Devolver al ejecutor al 90%' : 'Enviar corrección al Gestor'}</button>
+                         <button type="button" disabled={!puedeDecidirRevision || guardandoDecisionRevision || !motivoCorreccion.trim()} onClick={() => resolverDecisionRevision('corregir')} className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50 flex items-center gap-2">{guardandoDecisionRevision ? 'Enviando…' : `Devolver todas (${obtenerPendientesRevision(revisionInformeId).length})${modoValidacionFinalRevisor ? ' al 90%' : ''}`}</button>
                        </>
                      )}
                    </div>
