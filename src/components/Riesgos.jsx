@@ -539,6 +539,13 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     };
   };
 
+  // Filo izquierdo y etiqueta de cada control según su tipo.
+  const ESTILO_TIPO_CONTROL = {
+    Preventivo: { filo: 'border-l-blue-500', etiqueta: 'bg-blue-50 text-blue-700' },
+    Detectivo: { filo: 'border-l-amber-400', etiqueta: 'bg-amber-50 text-amber-700' },
+    Correctivo: { filo: 'border-l-purple-500', etiqueta: 'bg-purple-50 text-purple-700' },
+  };
+
   // Filo izquierdo de cada tarjeta de riesgo según su nivel residual.
   const ACENTO_NIVEL_RESIDUAL = {
     Extremo: 'border-l-red-600',
@@ -1872,106 +1879,115 @@ const renderMatriz = () => {
       </div>
     </div>
 
-    {/* 📋 2. TABLA SECUNDARIA COMPLETA DE CONTROLES */}
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-      <table className="w-full text-left text-xs">
-        <thead>
-          <tr className="bg-slate-900 text-white font-black uppercase text-[9px] tracking-wider">
-            <th className="p-3">ID</th>
-            <th className="p-3">Nombre del Control</th>
-            <th className="p-3">Tipo</th>
-            <th className="p-3">Frecuencia</th>
-            <th className="p-3">Responsable</th>
-            <th className="p-3 text-center">Documentado</th>
-            <th className="p-3 text-center">Automatizado</th>
-            <th className="p-3 text-center">Eficacia</th>
-            <th className="p-3 text-center">Estado</th>
-            <th className="p-3 text-right">Acciones</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-          {listaControles.length > 0 ? (
-            listaControles.map((c, cIdx) => (
-              <tr key={cIdx} className="hover:bg-slate-50/80 transition-colors">
-                <td className="p-3 font-mono font-bold text-[#0A3B32]">CTL-2{cIdx + 1}</td>
-                <td className="p-3 font-semibold text-slate-800">{c.descripcion}</td>
-                <td className="p-3">
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                    c.tipo === 'Preventivo' ? 'bg-blue-50 text-blue-700' :
-                    c.tipo === 'Detectivo' ? 'bg-amber-50 text-amber-700' : 'bg-purple-50 text-purple-700'
-                  }`}>
-                    {c.tipo || 'Preventivo'}
+    {/* 📋 2. CONTROLES COMO EXPEDIENTES INDIVIDUALES: el filo izquierdo indica el tipo de control */}
+    <ul className="space-y-2.5" aria-label={`Controles del riesgo RSK-${r.id}`}>
+      {listaControles.length > 0 ? (
+        listaControles.map((c, cIdx) => {
+          const tipoControl = c.tipo || 'Preventivo';
+          const estiloTipo = ESTILO_TIPO_CONTROL[tipoControl] || ESTILO_TIPO_CONTROL.Correctivo;
+          const eficacia = calcularEficaciaControl(c);
+          const tonoEficacia = eficacia >= 70
+            ? { texto: 'text-emerald-700', barra: 'bg-emerald-500' }
+            : eficacia >= 50
+              ? { texto: 'text-amber-700', barra: 'bg-amber-400' }
+              : { texto: 'text-red-700', barra: 'bg-red-500' };
+          const documentado = c.documentacion === 'Documentado';
+          const automatizado = c.implementacion === 'Automático';
+          return (
+            <li
+              key={cIdx}
+              className={`grid grid-cols-1 gap-4 rounded-xl border border-l-[5px] border-slate-300 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.07)] transition-shadow hover:border-slate-400 hover:shadow-md lg:grid-cols-[minmax(0,1fr)_7.5rem_auto] lg:items-center ${estiloTipo.filo}`}
+            >
+              {/* Identificación y ficha del control */}
+              <div className="min-w-0 space-y-3">
+                <div className="flex items-start gap-3">
+                  <span className="shrink-0 whitespace-nowrap rounded-md border border-emerald-900/20 bg-emerald-50 px-2 py-1 font-mono text-[11px] font-black text-[#0A3B32]">
+                    CTL-2{cIdx + 1}
                   </span>
-                </td>
-                <td className="p-3">{c.frecuencia || 'Mensual'}</td>
-                <td className="p-3 font-semibold text-slate-600">{r.responsable || 'Coordinador del Proceso'}</td>
-                <td className="p-3 text-center">
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${c.documentacion === 'Documentado' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {c.documentacion === 'Documentado' ? 'Sí' : 'No'}
-                  </span>
-                </td>
-                <td className="p-3 text-center">
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${c.implementacion === 'Automático' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {c.implementacion === 'Automático' ? 'Sí' : 'No'}
-                  </span>
-                </td>
-                <td className="p-3 text-center">
-<span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-  {calcularEficaciaControl(c)}%
-</span>
-                </td>
-                <td className="p-3 text-center">
-                  <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
-                    Activo
-                  </span>
-                </td>
-                <td className="p-3 text-right space-x-1 whitespace-nowrap">
-  {/* 1. BOTÓN VER: Abre el modal de desglose de eficacia (Ya funciona perfecto) */}
-  <button 
-    onClick={(e) => { e.stopPropagation(); setControlSeleccionadoIA(c); }} 
-    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold shadow-sm" 
-    title="Ver Detalles del Control">
-    👁 Ver
-  </button>
-  
-  {/* 2. BOTÓN EDITAR: Abre el formulario principal del Riesgo para recalcular todo */}
-  {puedeModificarRiesgo(r) && <button
-    onClick={(e) => { 
-      e.stopPropagation(); 
-      if(showNotification) showNotification("Abriendo el formulario del riesgo para editar sus controles.", "success");
-      handleEditRiesgo(r); 
-    }}
-    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold shadow-sm" 
-    title="Editar Control">
-    ✏️ Editar
-  </button>}
-  
-  {/* 3. BOTÓN IA: Conectado al prompt Enterprise GRC */}
-  <button 
-    onClick={(e) => { 
-      e.stopPropagation(); 
-      solicitarAnalisisControlIA(c, r); 
-    }}
-    className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold shadow-sm" 
-    title="Auditar diseño del control con IA">
-    🤖 IA
-  </button>  
- </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="10" className="p-6 text-center text-slate-400 font-medium italic bg-slate-50/50">
-                ⚠️ Este riesgo no cuenta con controles estructurados individualmente. 
-                <span className="block text-[10px] text-slate-500 mt-1 font-normal">
-                  Control registrado en texto: "{r.descripcionControl || 'Sin descripción de control'}"
-                </span>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+                  <p className="pt-0.5 text-[13px] font-semibold leading-snug text-slate-800">{c.descripcion}</p>
+                </div>
+                <dl className="flex flex-wrap gap-x-5 gap-y-2 text-[11px]">
+                  <div className="flex items-center gap-1.5">
+                    <dt className="text-slate-500">Tipo</dt>
+                    <dd className={`whitespace-nowrap rounded-md px-2 py-0.5 font-bold ${estiloTipo.etiqueta}`}>{tipoControl}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <dt className="text-slate-500">Frecuencia</dt>
+                    <dd className="whitespace-nowrap font-semibold text-slate-800">{c.frecuencia || 'Mensual'}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <dt className="text-slate-500">Responsable</dt>
+                    <dd className="font-semibold text-slate-800">{r.responsable || 'Coordinador del Proceso'}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <dt className="text-slate-500">Documentado</dt>
+                    <dd className={`whitespace-nowrap rounded-md px-2 py-0.5 font-bold ${documentado ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{documentado ? 'Sí' : 'No'}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <dt className="text-slate-500">Automatizado</dt>
+                    <dd className={`whitespace-nowrap rounded-md px-2 py-0.5 font-bold ${automatizado ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{automatizado ? 'Sí' : 'No'}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <dt className="text-slate-500">Estado</dt>
+                    <dd className="flex items-center gap-1 whitespace-nowrap font-bold text-emerald-700">
+                      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Activo
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Eficacia: cifra en una sola línea con su barra */}
+              <div className="lg:border-l lg:border-slate-200 lg:pl-4">
+                <p className="text-[10px] font-semibold text-slate-500">Eficacia</p>
+                <p className={`whitespace-nowrap text-xl font-black tabular-nums leading-tight ${tonoEficacia.texto}`}>{eficacia}%</p>
+                <div className="mt-1 h-1.5 w-full max-w-[7rem] overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                  <div className={`h-full rounded-full ${tonoEficacia.barra}`} style={{ width: `${Math.min(100, Math.max(0, eficacia))}%` }}></div>
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex flex-wrap gap-1.5 lg:flex-col lg:items-stretch">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setControlSeleccionadoIA(c); }}
+                  className="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+                  title="Ver Detalles del Control">
+                  👁 Ver
+                </button>
+                {puedeModificarRiesgo(r) && <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if(showNotification) showNotification("Abriendo el formulario del riesgo para editar sus controles.", "success");
+                    handleEditRiesgo(r);
+                  }}
+                  className="whitespace-nowrap rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
+                  title="Editar Control">
+                  ✏️ Editar
+                </button>}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    solicitarAnalisisControlIA(c, r);
+                  }}
+                  className="whitespace-nowrap rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-[11px] font-bold text-purple-800 hover:bg-purple-100"
+                  title="Auditar diseño del control con IA">
+                  🤖 IA
+                </button>
+              </div>
+            </li>
+          );
+        })
+      ) : (
+        <li className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-400 font-medium italic">
+          ⚠️ Este riesgo no cuenta con controles estructurados individualmente.
+          <span className="block text-[10px] text-slate-500 mt-1 font-normal">
+            Control registrado en texto: "{r.descripcionControl || 'Sin descripción de control'}"
+          </span>
+        </li>
+      )}
+    </ul>
 {(() => {
       const exp = obtenerExplicacionCalculo(r);
       return (
