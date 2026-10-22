@@ -539,6 +539,14 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     };
   };
 
+  // Filo izquierdo de cada tarjeta de riesgo según su nivel residual.
+  const ACENTO_NIVEL_RESIDUAL = {
+    Extremo: 'border-l-red-600',
+    Alto: 'border-l-orange-500',
+    Moderado: 'border-l-amber-400',
+    Bajo: 'border-l-emerald-500',
+  };
+
   const getSeverityZone = (prob, imp) => {
     let p = Number(prob) || 1;
     let i = Number(imp) || 1;
@@ -1684,8 +1692,8 @@ const renderMatriz = () => {
             <div className="col-span-1 text-right">Gestión</div>
           </div>
 
-          {/* Listado de Filas */}
-          <div className="divide-y divide-slate-100">
+          {/* Listado de Filas: cada riesgo es un expediente separado; el filo izquierdo indica su nivel residual */}
+          <div className="space-y-3 bg-slate-100/80 p-3 sm:p-4">
             {riesgosFiltrados.length === 0 ? (
               <div className="p-12 text-center text-slate-400 font-bold italic">No hay riesgos que coincidan con la búsqueda.</div>
             ) : (
@@ -1698,7 +1706,14 @@ const renderMatriz = () => {
                 const totalControles = listaControles.length || (r.descripcionControl ? 1 : 0);
 
                 return (
-                  <div key={r.id || index} className="transition-all duration-200">
+                  <div
+                    key={r.id || index}
+                    className={`overflow-hidden rounded-xl border border-l-[6px] bg-white transition-shadow duration-200 ${ACENTO_NIVEL_RESIDUAL[zoneRes.label] || 'border-l-slate-400'} ${
+                      isExpanded
+                        ? 'border-purple-300 shadow-lg ring-2 ring-purple-200/70'
+                        : 'border-slate-300 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-slate-400 hover:shadow-md'
+                    }`}
+                  >
                     
                     {/* FILA COMPACTA PRINCIPAL */}
                     <div 
@@ -1709,7 +1724,7 @@ const renderMatriz = () => {
                       onClick={() => toggleExpediente(r.id)}
                       onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); toggleExpediente(r.id); } }}
                       className={`grid grid-cols-12 gap-3 px-6 py-4 items-center cursor-pointer hover:bg-slate-50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
-                        isExpanded ? 'bg-purple-50/20 border-l-4 border-l-purple-600' : ''
+                        isExpanded ? 'bg-purple-50/40' : ''
                       }`}
                     >
                       {/* ID / PROCESO */}
@@ -1794,7 +1809,7 @@ const renderMatriz = () => {
 {/* 🚀 EXPEDIENTE SECUNDARIO DE CONTROLES (ACCORDEÓN ANIMADO 250ms)           */}
 {/* ========================================================================= */}
 {isExpanded && (
-  <div id={panelId} className="bg-slate-50/80 border-t border-b border-purple-200 px-8 py-6 transition-all duration-250 ease-in-out animate-in slide-in-from-top-2 space-y-4">
+  <div id={panelId} className="bg-slate-50/80 border-t border-purple-200 px-8 py-6 transition-all duration-250 ease-in-out animate-in slide-in-from-top-2 space-y-4">
     
     {/* 📊 1. RESUMEN VISUAL SUPERIOR (KPI BAR DEL RIESGO EXPANDIDO) */}
     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
