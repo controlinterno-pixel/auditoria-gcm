@@ -25,56 +25,46 @@ function normalizePanelEjecutivo(parsedData, rawText) {
   const kpis = data.kpis || {};
   const badges = data.headerBadges || {};
 
-  const scoreRiesgo = data.scoreRiesgo ?? kpis.scoreRiesgo ?? '36%';
-  const madurez = data.scoreMadurez ?? kpis.scoreMadurez ?? data.madurez ?? '62%';
-  const cobertura = data.coberturaControles ?? kpis.coberturaControles ?? data.cobertura ?? '95%';
-  const totalControles = data.totalControles ?? kpis.totalControles ?? 3;
+  // Sin cifras de relleno: si un dato no llegó se muestra "—" (antes se inventaban 36 %, 62 %, 95 % y 3 controles).
+  const scoreRiesgo = data.scoreRiesgo ?? kpis.scoreRiesgo ?? '—';
+  const madurez = data.scoreMadurez ?? kpis.scoreMadurez ?? data.madurez ?? '—';
+  const cobertura = data.coberturaControles ?? kpis.coberturaControles ?? data.cobertura ?? '—';
+  const totalControles = data.totalControles ?? kpis.totalControles ?? '—';
 
   // 2. Análisis Ejecutivo
   let analisis = data.analisis || data.analisisEjecutivo || data.diagnosticoGeneral;
   if (!analisis && typeof rawText === 'string' && !rawText.trim().startsWith('{')) {
     analisis = rawText;
   }
-  analisis = cleanMarkdown(analisis || "Evaluación técnica de auditoría realizada. No se detectaron suficientes datos para un análisis cruzado.");
+  analisis = cleanMarkdown(analisis || 'La IA no devolvió un análisis para estos datos. Intenta generarlo de nuevo.');
 
   // 3. Recomendaciones
   let recomendaciones = data.recomendaciones;
   if (typeof recomendaciones === 'string') {
     recomendaciones = recomendaciones.split(/(?:\r?\n|;|\. )+/).filter(r => r.trim().length > 5);
   }
-  if (!Array.isArray(recomendaciones) || recomendaciones.length === 0) {
-    recomendaciones = [
-      `Implementar un programa de fortalecimiento para elevar la efectividad operativa de los ${totalControles} controles hacia el nivel de diseño.`,
-      `Establecer un sistema de monitoreo continuo que asegure cerrar la brecha entre cobertura teórica y evidencia ejecutable.`
-    ];
-  }
+  // Sin recomendaciones genéricas de relleno: si la IA no las dio, el bloque no se muestra.
+  if (!Array.isArray(recomendaciones)) recomendaciones = [];
 
   // 4. Plan de Acción
   let planAccion = data.planAccion;
-  if (!Array.isArray(planAccion) || planAccion.length === 0) {
-    planAccion = [
-      {
-        prioridad: 'ALTA',
-        accion: `Diseñar e implementar el plan de mejora de efectividad para los ${totalControles} controles registrados.`,
-        responsable: 'Comité de Innovación y Dirección de Operaciones'
-      }
-    ];
-  }
+  if (!Array.isArray(planAccion)) planAccion = [];
 
   // 5. Dictamen del Director
-  let dictamen = data.dictamenDirector || data.dictamen || "\"Atención requerida sobre la efectividad operativa de los controles.\"";
+  let dictamen = data.dictamenDirector || data.dictamen || '';
   dictamen = cleanMarkdown(dictamen);
 
   // 6. Secciones Metodológicas
   const acuerdos = data.acuerdosTecnicos || {};
-  const iso31000 = cleanMarkdown(data.iso31000 || acuerdos.analisisMetodologico || "Análisis realizado bajo los principios de la norma ISO 31000, evaluando riesgo y exposición.");
-  const cosoErm = cleanMarkdown(data.cosoErm || acuerdos.evaluacionControles || acuerdos.isoCosoAlignment || "Evaluación de controles bajo el marco COSO ERM indicando la madurez operativa.");
-  const kris = cleanMarkdown(data.kris || data.kpisEvidencias || `1) KRI Madurez: Meta ${madurez}. 2) KRI Cobertura: Meta ${cobertura}.`);
+  const iso31000 = cleanMarkdown(data.iso31000 || acuerdos.analisisMetodologico || '');
+  const cosoErm = cleanMarkdown(data.cosoErm || acuerdos.evaluacionControles || acuerdos.isoCosoAlignment || '');
+  const kris = cleanMarkdown(data.kris || data.kpisEvidencias || '');
 
   return {
-    inherente: badges.inherente || data.inherente || 'MEDIO',
-    residual: badges.residual || data.residual || 'MEDIO',
-    calidad: badges.calidad || data.calidad || '90/100',
+    inherente: badges.inherente || data.inherente || '—',
+    residual: badges.residual || data.residual || '—',
+    // "Calidad" solo se muestra si viene calculada; antes era un 90/100 fijo.
+    calidad: badges.calidad || data.calidad || '',
     scoreRiesgo: typeof scoreRiesgo === 'number' ? `${scoreRiesgo}%` : scoreRiesgo,
     madurez: typeof madurez === 'number' ? `${madurez}%` : madurez,
     cobertura: typeof cobertura === 'number' ? `${cobertura}%` : cobertura,
@@ -111,7 +101,6 @@ export default function ModalIA({ aiModal, setAiModal }) {
     parsedData = null;
   }
   
-  console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
   const panelData = normalizePanelEjecutivo(parsedData, rawText);
 
   // Handlers para PDF
@@ -175,7 +164,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
               <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-500 uppercase border-b pb-2">
                 <span>INH: <strong className="text-slate-800">{panelData?.inherente}</strong></span>
                 <span>RESIDUAL: <strong className="text-slate-800">{panelData?.residual}</strong></span>
-                <span>CALIDAD: <strong className="text-slate-800">{panelData?.calidad}</strong></span>
+                {panelData?.calidad && <span>CALIDAD: <strong className="text-slate-800">{panelData.calidad}</strong></span>}
               </div>
 
               {/* BLOQUE 1: KPIS */}
@@ -206,7 +195,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
               </div>
 
               {/* BLOQUE 3: RECOMENDACIONES */}
-              <div className="space-y-2 pt-1">
+              {panelData?.recomendaciones.length > 0 && <div className="space-y-2 pt-1">
                 <h4 className="font-extrabold text-slate-900 border-b pb-1 text-[11px] uppercase tracking-wider">Recomendaciones</h4>
                 <ul className="space-y-2 text-slate-700">
                   {panelData?.recomendaciones.map((rec, idx) => (
@@ -216,10 +205,10 @@ export default function ModalIA({ aiModal, setAiModal }) {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </div>}
 
               {/* BLOQUE 4: PLAN DE ACCIÓN */}
-              <div className="space-y-2 pt-1">
+              {panelData?.planAccion.length > 0 && <div className="space-y-2 pt-1">
                 <h4 className="font-extrabold text-slate-900 border-b pb-1 text-[11px] uppercase tracking-wider">Plan de Acción Inmediato</h4>
                 <table className="w-full text-left border-collapse border border-slate-200 text-[11px]">
                   <thead>
@@ -239,37 +228,37 @@ export default function ModalIA({ aiModal, setAiModal }) {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </div>}
 
               {/* BLOQUE 5: DICTAMEN DEL DIRECTOR */}
-              <div className="bg-slate-50 border-l-4 border-slate-800 p-4 italic text-slate-700 text-justify rounded-r-xl">
+              {panelData?.dictamen && <div className="bg-slate-50 border-l-4 border-slate-800 p-4 italic text-slate-700 text-justify rounded-r-xl">
                 <h5 className="font-extrabold not-italic text-slate-900 mb-1 text-[10px] uppercase tracking-wider">Dictamen del Director</h5>
-                {panelData?.dictamen}
-              </div>
+                {panelData.dictamen}
+              </div>}
 
               {/* BLOQUE 6: ISO 31000 */}
-              <div className="space-y-1 pt-1">
+              {panelData?.iso31000 && <div className="space-y-1 pt-1">
                 <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                   <span>▼</span> Análisis Metodológico ISO 31000
                 </h5>
                 <p className="text-slate-600 text-justify">{panelData?.iso31000}</p>
-              </div>
+              </div>}
 
               {/* BLOQUE 7: COSO ERM & KRIS */}
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200">
-                <div className="space-y-1">
+              {(panelData?.cosoErm || panelData?.kris) && <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+                {panelData?.cosoErm && <div className="space-y-1">
                   <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                     <span>▼</span> Evaluación de Controles & COSO ERM
                   </h5>
                   <p className="text-slate-600 text-justify">{panelData?.cosoErm}</p>
-                </div>
-                <div className="space-y-1">
+                </div>}
+                {panelData?.kris && <div className="space-y-1">
                   <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                     <span>▼</span> KRIs, Monitoreo y Evidencias
                   </h5>
                   <p className="text-slate-600 text-justify">{panelData?.kris}</p>
-                </div>
-              </div>
+                </div>}
+              </div>}
 
             </div>
           </div>

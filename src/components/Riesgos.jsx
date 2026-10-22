@@ -8,7 +8,8 @@ import {
 import { useCatalogos } from '../context/useCatalogos';
 import { leerPuente, retirarDelPuente } from '../services/navigationBridge.js';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { analizarRiesgoConIA } from '../services/aiEngine';
+import { consultarPanelIA } from '../services/aiEngine';
+import { armarPanelIA, contextoMatriz, contextoRiesgo } from '../utils/contextoIARiesgos.js';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
 import { nivelEscala, riesgoEnPorcentaje, zonaSeveridad } from '../utils/nivelRiesgo.js';
@@ -599,79 +600,29 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   // =========================================================================
   const solicitarAnalisisFilaIA = async (riesgo) => {
     setProcesandoIA(true);
-    setDictamenIA(null); 
+    setDictamenIA(null);
 
     try {
-      // 1. CÁLCULOS 100% REALES HECHOS POR EL SISTEMA (MATEMÁTICA EXACTA)
-      const totalControlesReal = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : (riesgo.descripcionControl ? 1 : 0);
-      const coberturaReal = calcularMitigacionRiesgo(riesgo);
-      
-      const listaControles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
-      const madurezReal = listaControles.length > 0
-        ? Math.round(listaControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / listaControles.length)
-        : (totalControlesReal > 0 ? 50 : 0);
-        
-      const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
-
-      // 2. PROMPT DE AUDITORÍA AVANZADA (EVALUACIÓN MULTIMÓDULO BIG FOUR)
-      const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna (estilo Big Four). Evalúa el riesgo RSK-${riesgo.id}.
-
-DATOS DEL RIESGO Y CONTEXTO GRC:
-- Score Residual Calculado: ${scoreRiesgoReal}%
-- Madurez Teórica: ${madurezReal}%
-- Total de Controles: ${totalControlesReal}
-- Cobertura Teórica: ${coberturaReal}%
-- Bitácora / Evidencias: "${riesgo.seguimientoBitacora || 'Sin evidencias en bitácora.'}"
-- Plan de Acción: "${riesgo.planAccionRiesgo || 'Sin plan registrado.'}"
-- Descripción: "${riesgo.descripcion}"
-
-Tu misión es realizar un análisis cuantitativo y profundo contrastando el diseño teórico vs la realidad de campo.
-Responde ÚNICAMENTE con un objeto JSON (sin comillas de markdown ni texto extra) con la siguiente estructura exacta:
-
-{
-  "headerBadges": { "inherente": "MEDIO", "residual": "MEDIO", "calidad": "90/100" },
-  "kpis": { "scoreRiesgo": "${scoreRiesgoReal}%", "scoreMadurez": "${madurezReal}%", "totalControles": ${totalControlesReal}, "coberturaControles": "${coberturaReal}%" },
-  "analisisEjecutivo": "Párrafo 1: Análisis detallado del riesgo, brecha entre madurez teórica (${madurezReal}%) y real por falta de evidencia en bitácora.\\n\\nPárrafo 2: Impacto económico/operativo directo en el negocio y competitividad.",
-  "recomendaciones": [
-    "Implementar un programa de fortalecimiento que eleve la madurez operativa hacia el nivel de diseño teórico del ${madurezReal}%.",
-    "Establecer un sistema de monitoreo continuo y reporte de efectividad para cerrar la brecha de cobertura."
-  ],
-  "planAccion": [
-    {
-      "prioridad": "ALTA",
-      "accion": "Diseñar e implementar el plan de mejora de efectividad con KPIs y auditorías periódicas.",
-      "responsable": "Comité de Innovación y Dirección de Operaciones"
-    }
-  ],
-"dictamenDirector": "Evaluación de ATENCIÓN REQUERIDA para la Dirección. La disparidad entre el diseño teórico (${madurezReal}%) y la evidencia en bitácora expone a la empresa a un riesgo latente.",
-  "iso31000": "El análisis se realizó bajo ISO 31000, contrastando el diseño teórico con la evidencia operativa y revelando brechas de ejecución.",
-  "cosoErm": "Bajo COSO ERM, la evaluación de los ${totalControlesReal} controles indica ineficacia operativa para reducir el riesgo inherente al residual deseado.",
-  "kris": "1) KRI Madurez: Meta ${madurezReal}%. 2) KRI Cobertura: Meta ${coberturaReal}%. 3) KRI Respuesta: < 7 días."
-}`; 
-
-      // 3. Enviamos el prompt blindado
-      const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
-      
-      // 🔥 INTERCEPTAMOS EL JSON INDIVIDUAL PARA FORZAR LOS KPIS REALES EN LA CABECERA
-      let dictamenFinal = textoCompleto;
-      try {
-        let parsed = typeof textoCompleto === 'string' ? JSON.parse(textoCompleto) : textoCompleto;
-        if (parsed && parsed.kpis) {
-          parsed.kpis.scoreRiesgo = scoreRiesgoReal;
-          parsed.kpis.scoreMadurez = madurezReal;
-          parsed.kpis.totalControles = totalControlesReal;
-          parsed.kpis.coberturaControles = coberturaReal;
-        }
-        dictamenFinal = JSON.stringify(parsed);
-      } catch {
-        console.warn("Aviso: La respuesta de la IA no era JSON estricto.");
-      }
-
+      // Cifras calculadas por el sistema; la IA solo las interpreta.
+      const datos = contextoRiesgo(riesgo, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo });
+      const { riesgo: ficha, metricas } = datos;
+      const respuesta = await consultarPanelIA({
+        instruccion: `Evalúa el riesgo ${ficha.codigo} de la matriz corporativa. Contrasta el diseño de sus controles (tipo, ejecución, documentación, evidencia y eficacia de cada CTL) con lo que muestran la bitácora y el plan de acción, y explica si el nivel residual ${ficha.nivelResidual} es creíble frente al inherente ${ficha.nivelInherente}. Señala los controles débiles por su código y qué falta para sostener la mitigación.`,
+        datos,
+      });
       setDictamenIA({
-        titulo: `Panel Ejecutivo Inteligente — RSK-${riesgo.id}`,
-        dictamen: dictamenFinal
-      });      
-   } catch (error) {
+        titulo: `Panel Ejecutivo Inteligente — ${ficha.codigo}`,
+        dictamen: armarPanelIA(respuesta, {
+          badges: { inherente: ficha.nivelInherente.toUpperCase(), residual: ficha.nivelResidual.toUpperCase() },
+          kpis: {
+            scoreRiesgo: `${ficha.puntajeResidual}/25`,
+            scoreMadurez: metricas.eficaciaPromedioControles ?? 'Sin controles',
+            totalControles: metricas.totalControles,
+            coberturaControles: metricas.mitigacionLograda,
+          },
+        }),
+      });
+    } catch (error) {
       console.error("Error transmitiendo análisis de IA:", error);
       if (showNotification) {
         showNotification("Error al conectar con la Inteligencia Artificial.", "error");
@@ -679,44 +630,36 @@ Responde ÚNICAMENTE con un objeto JSON (sin comillas de markdown ni texto extra
     } finally {
       setProcesandoIA(false);
     }
-  };  
+  };
 
 // 🤖 FUNCIÓN DE AUDITORÍA DE CONTROLES INDIVIDUALES (ENTERPRISE PROMPT)
   const solicitarAnalisisControlIA = async (c, r) => {
     setProcesandoIA(true);
-    setDictamenIA(null); // Activa el modal de carga "Motor GRC Enterprise..."
+    setDictamenIA(null);
 
     try {
-      const promptAuditor = `Actúa como un Auditor Senior de Control Interno y Consultor Big Four especializado en marcos COSO, ISO 31000 y auditoría basada en riesgos.
-
-A continuación, te presento los datos de un control específico. Tu directriz estricta es NO describir el control, sino AUDITARLO profesionalmente evaluando su calidad de diseño, dependencia manual, riesgo de falla, trazabilidad y cobertura frente al riesgo asociado.
-
-Datos del Control a Auditar:
-- Descripción del Control: ${c.descripcion || 'No especificada'}
-- Riesgo que mitiga: ${r.descripcion || 'No especificado'}
-- Tipo: ${c.tipo || 'Preventivo'}
-- Ejecución: ${c.implementacion || 'Manual'}
-- Frecuencia: ${c.frecuencia || 'Continua'}
-- Evidencia: ${c.evidencia || 'Con registro'}
-- Score de Eficacia Actual: ${calcularEficaciaControl(c)}%
-
-Genera tu respuesta simulando ser el motor analítico de una plataforma Enterprise GRC (como AuditBoard o ServiceNow). No uses lenguaje de chatbot, saludos ni introducciones. Redacta de forma concisa, utilizando viñetas y negritas para simular tarjetas ejecutivas, estructurando tu respuesta estrictamente con estos apartados:
-
-**Estado del Control:**
-**Score de Eficacia:** (Analiza el ${calcularEficaciaControl(c)}% proporcionado)
-**Cobertura del Riesgo:**
-**Riesgo de Falla:**
-**Hallazgos Detectados:**
-**¿Qué pasaría si este control falla? (Impacto residual):**
-**Recomendación Prioritaria:**
-**Concepto del Auditor IA:**`;
-
-      // Enviamos el prompt estructurado al motor de IA
-      const dictamenRespuesta = await analizarRiesgoConIA(promptAuditor);
-      
+      const datosRiesgo = contextoRiesgo(r, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo });
+      const indice = (Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []).indexOf(c);
+      const control = datosRiesgo.controles[indice] || {
+        codigo: 'CTL', descripcion: c.descripcion || 'Sin dato', tipo: c.tipo || 'Sin dato',
+        ejecucion: c.implementacion || 'Sin dato', documentacion: c.documentacion || 'Sin dato',
+        frecuencia: c.frecuencia || 'Sin dato', evidencia: c.evidencia || 'Sin dato', eficacia: calcularEficaciaControl(c),
+      };
+      const respuesta = await consultarPanelIA({
+        instruccion: `Audita el control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. No lo describas: evalúa su diseño (tipo, ejecución, documentación, frecuencia y evidencia), su dependencia manual, su riesgo de falla, su trazabilidad y qué tanto cubre las causas del riesgo, comparándolo con los demás controles del mismo riesgo. Explica qué pasaría si falla y la recomendación prioritaria.`,
+        datos: { controlAuditado: control, ...datosRiesgo },
+      });
       setDictamenIA({
-        titulo: `Auditoría de Control — Motor GRC IA`,
-        dictamen: dictamenRespuesta
+        titulo: `Auditoría de Control ${control.codigo} — ${datosRiesgo.riesgo.codigo}`,
+        dictamen: armarPanelIA(respuesta, {
+          badges: { inherente: datosRiesgo.riesgo.nivelInherente.toUpperCase(), residual: datosRiesgo.riesgo.nivelResidual.toUpperCase() },
+          kpis: {
+            scoreRiesgo: `${datosRiesgo.riesgo.puntajeResidual}/25`,
+            scoreMadurez: control.eficacia,
+            totalControles: datosRiesgo.metricas.totalControles,
+            coberturaControles: datosRiesgo.metricas.mitigacionLograda,
+          },
+        }),
       });
     } catch (error) {
       console.error("Error transmitiendo análisis de control IA:", error);
@@ -775,134 +718,36 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
     try {
       if (safeRiesgos.length === 0) {
         if (showNotification) showNotification("No hay riesgos en la matriz para analizar.", "error");
-        setProcesandoIA(false);
         return;
       }
-
-      // 1. CÁLCULOS MATEMÁTICOS REALES DE LA MATRIZ GLOBAL (MÓDULO 2)
-      const totalRiesgos = safeRiesgos.length;
-      const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r)).label === 'Extremo').length;
-      const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r)).label === 'Alto').length;
-      const altosYCriticos = extremos + altos;
-
-      // Se removieron acumuladores conteoProcesos y conteoCategorias por no ser leídos posteriormente
-
-      // Controles y Madurez
-      const todosLosControles = safeRiesgos.flatMap(r => Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []);
-      const totalControles = todosLosControles.length || 613;
-      
-      const madurezGlobal = totalControles > 0 
-        ? Math.round(todosLosControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / totalControles) 
-        : 67;
-
-      const mitigacionPromedio = totalRiesgos > 0
-        ? Math.round(safeRiesgos.reduce((acc, r) => acc + calcularMitigacionRiesgo(r), 0) / totalRiesgos)
-        : 92;
-
-      const avgResidualScore = totalRiesgos > 0
-        ? Math.round(safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgos)
-        : 2;
-
-      // Módulos 3 y 4 (Auditoría)
-      const totalHallazgos = hallazgos.length || 72;
-      const totalPlanes = planesDeAccion.length || 47;
-      const planesVencidos = planesDeAccion.filter(p => p.estado === 'Vencido' || p.vencido).length || 19;
-
-// ====================================================================
-      // 2. PROMPT STRICTO CORPORATIVO (ESQUELETO BIG FOUR)
-      // ====================================================================
-      const promptGlobalReal = `Actúa como Socio Director Global de Enterprise Risk Management (ERM) de una firma Big Four.
-Tu misión es redactar el Informe Estratégico General de la MATRIZ CORPORATIVA COMPLETA (${totalRiesgos} RIESGOS Y ${totalControles} CONTROLES) para la Junta Directiva de Termales de Santa Rosa de Cabal.
-
-Aplica el protocolo de razonamiento Big Four (Diseño Teórico vs. Ejecución Real) e investiga si existe una "FALSA SENSACIÓN DE SEGURIDAD".
-
-DATOS DE ENTRADA:
-- Total Riesgos: ${totalRiesgos} (Altos/Críticos: ${altosYCriticos})
-- Total Controles: ${totalControles}
-- Cobertura Teórica: ${mitigacionPromedio}%
-- Madurez Real de Controles: ${madurezGlobal}%
-- Score Residual Global: ${avgResidualScore}%
-- Soporte Operativo: ${totalHallazgos} hallazgos y ${planesVencidos} planes vencidos de ${totalPlanes}.
-
-Escribe la respuesta en formato JSON exacto donde la propiedad 'dictamen' contenga estrictamente estos 6 encabezados en Markdown:
-### Dictamen Ejecutivo
-### Hallazgos Estratégicos
-### Análisis de Riesgos
-### Relaciones Encontradas
-### Tendencias
-### Recomendaciones Accionables
-
-FORMATO DE SALIDA JSON EXACTO:
-{
-  "encabezado": {
-    "codigo": "MATRIZ-GLOBAL",
-    "titulo": "Informe Estratégico de la Matriz de Riesgos — Junta Directiva",
-    "calidad": 90
-  },
-  "kpis": {
-    "scoreRiesgo": ${avgResidualScore},
-    "scoreMadurez": ${madurezGlobal},
-    "totalControles": ${totalControles},
-    "coberturaControles": ${mitigacionPromedio},
-    "calidad": 90
-  },
-  "dictamen": "Texto en markdown estructurado obligatoriamente con las 6 secciones anteriores."
-}`;
-
-      // ====================================================================
-      // 3. GENERACIÓN CON IA Y SANITIZACIÓN NUCLEAR FLEXIBLE (PRE-PARSE)
-      // ====================================================================
-      const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
-      
-      let rawText = typeof dictamenRespuesta === 'string' 
-        ? dictamenRespuesta 
-        : JSON.stringify(dictamenRespuesta);
-
-     // 🔥 EXTERMINIO QUIRÚRGICO DIRECTO CON REGEX
-      rawText = rawText
-        // 1. Todo lo que esté en los 30s (ej. 36%) se vuelve Riesgo (2%)
-        .replace(/3[0-9]\s*(?:%|por\s*ciento|\\%)/gi, `${avgResidualScore}%`) 
-        
-        // 2. Apuntamos al 20% para volverlo Madurez
-        .replace(/20\s*(?:%|por\s*ciento|\\%)/gi, `${madurezGlobal}%`)
-        
-        // 3. BLINDAJE TOTAL DE COBERTURA: Busca la palabra "cobertura" seguida de cualquier error (67%, 20%, 23%) y fuerza el 92%
-        .replace(/(cobertura(?:\s+(?:del|de|es|al|nominal))?\s+)(?:67|20|23|36)\s*(?:%|por\s*ciento|\\%)/gi, `$1${mitigacionPromedio}%`);
-
-      // ====================================================================
-      // 4. PARSER Y FORZADO DE VARIABLES
-      // ====================================================================
-      let parsed;
-      try {
-        parsed = JSON.parse(rawText);
-      } catch {
-        console.warn("La IA no devolvió un JSON perfecto, adaptando estructura...");
-        parsed = { dictamen: rawText };
-      }
-
-      // 5. INYECCIÓN OBLIGATORIA DE LA CABECERA (INCLUYENDO CALIDAD EN AMBOS NIVELES)
-      parsed.encabezado = {
-        codigo: "MATRIZ-GLOBAL",
-        titulo: "Informe Estratégico de la Matriz de Riesgos — Junta Directiva",
-        calidad: 90 // Inyectado aquí por si el PDF lo busca en la raíz
-      };
-      
-      parsed.kpis = {
-        scoreRiesgo: avgResidualScore,
-        scoreMadurez: madurezGlobal,
-        totalControles: totalControles,
-        coberturaControles: mitigacionPromedio,
-        calidad: 90 // Mantenido aquí también
-      };
-
-      if (typeof parsed.dictamen !== 'string') {
-         parsed.dictamen = JSON.stringify(parsed.dictamen);
-      }
-
+      // Datos reales de toda la matriz: sin valores de relleno ni reemplazos sobre el texto de la IA.
+      const datos = contextoMatriz(safeRiesgos, {
+        calcularEficacia: calcularEficaciaControl,
+        calcularMitigacion: calcularMitigacionRiesgo,
+        hallazgos,
+        planes: planesDeAccion,
+      });
+      const { metricas, distribucionInherente, distribucionResidual } = datos;
+      const respuesta = await consultarPanelIA({
+        instruccion: `Redacta el informe estratégico de la matriz corporativa de riesgos (${metricas.totalRiesgos} riesgos, ${metricas.totalControles} controles) para la Junta Directiva. Compara la distribución inherente con la residual y evalúa si la reducción es creíble según la calidad real de los controles (manuales, no documentados, sin evidencia, de baja eficacia) y el estado de hallazgos y planes vencidos. Identifica los procesos y riesgos (por RSK) que concentran la exposición, los riesgos sin controles y los seguimientos vencidos, y propón prioridades.`,
+        datos,
+      });
+      const altosExtremos = distribucion => distribucion.Extremo + distribucion.Alto;
       setDictamenIA({
         titulo: `Informe Estratégico de la Matriz de Riesgos — Junta Directiva`,
-        dictamen: JSON.stringify(parsed)
-      });     
+        dictamen: armarPanelIA(respuesta, {
+          badges: {
+            inherente: `${altosExtremos(distribucionInherente)} ALTOS/EXTREMOS`,
+            residual: `${altosExtremos(distribucionResidual)} ALTOS/EXTREMOS`,
+          },
+          kpis: {
+            scoreRiesgo: metricas.puntajeResidualPromedio === null ? 'Sin datos' : `${metricas.puntajeResidualPromedio}/25`,
+            scoreMadurez: metricas.eficaciaPromedioControles ?? 'Sin controles',
+            totalControles: metricas.totalControles,
+            coberturaControles: metricas.mitigacionPromedio ?? 'Sin datos',
+          },
+        }),
+      });
     } catch (error) {
       console.error("Error al procesar dictamen global:", error);
       if (showNotification) showNotification("Error al comunicarse con la IA.", "error");
@@ -1265,25 +1110,44 @@ const handleRiesgoSubmit = async (e) => {
       setDictamenIA(null);
 
       try {
-        if (totalRiesgos === 0) {
-          setDictamenIA({
-            titulo: "Diagnóstico General de Riesgos",
-            dictamen: "No hay datos de riesgos registrados en la matriz para procesar el análisis de Inteligencia Artificial."
-          });
+        if (riesgosDashboard.length === 0) {
+          if (showNotification) showNotification('No hay riesgos en la vista actual para analizar.', 'error');
           return;
         }
-
-        const datosResumen = {
-          proceso: "Diagnóstico Corporativo Global",
-          descripcion: `Evaluación de los ${totalRiesgos} riesgos visibles en el Dashboard. Principales procesos expuestos: ${topProcesos.map(([proceso, cantidad]) => `${proceso} (${cantidad} riesgos)`).join(', ')}. Distribución residual: Extremos (${extremos}), Altos (${altos}), Moderados (${moderados}), Bajos (${bajos}). Controles registrados: ${controlesRegistrados}; eficacia promedio estructurada: ${eficaciaPromedio}%; mitigación promedio: ${mitigacionPromedio}%.`,
-          probabilidadInherente: 80,
-          impactoInherente: 80
+        const datos = {
+          vista: {
+            momentoEvaluado: nivelActivo,
+            macroproceso: filtroProceso,
+            subproceso: filtroSubproceso,
+            clasificacion: filtroClasificacion,
+            nivel: filtroNivelDashboard,
+          },
+          ...contextoMatriz(riesgosDashboard, {
+            calcularEficacia: calcularEficaciaControl,
+            calcularMitigacion: calcularMitigacionRiesgo,
+            hallazgos,
+            planes: planesDeAccion,
+          }),
         };
-
-        const dictamenRespuesta = await analizarRiesgoConIA(datosResumen);
+        const respuesta = await consultarPanelIA({
+          instruccion: `Analiza la vista actual del panorama de riesgos (filtros en "vista"; momento evaluado: ${nivelActivo.toLowerCase()}). Explica dónde se concentra la exposición, qué procesos y riesgos (por RSK) requieren atención primero, y si los controles sostienen la reducción de inherente a residual.`,
+          datos,
+        });
+        const altosExtremos = distribucion => distribucion.Extremo + distribucion.Alto;
         setDictamenIA({
-          titulo: "Diagnóstico Corporativo Global — Inteligencia Artificial",
-          dictamen: dictamenRespuesta
+          titulo: "Diagnóstico de la vista — Inteligencia Artificial",
+          dictamen: armarPanelIA(respuesta, {
+            badges: {
+              inherente: `${altosExtremos(datos.distribucionInherente)} ALTOS/EXTREMOS`,
+              residual: `${altosExtremos(datos.distribucionResidual)} ALTOS/EXTREMOS`,
+            },
+            kpis: {
+              scoreRiesgo: datos.metricas.puntajeResidualPromedio === null ? 'Sin datos' : `${datos.metricas.puntajeResidualPromedio}/25`,
+              scoreMadurez: datos.metricas.eficaciaPromedioControles ?? 'Sin controles',
+              totalControles: datos.metricas.totalControles,
+              coberturaControles: datos.metricas.mitigacionPromedio ?? 'Sin datos',
+            },
+          }),
         });
       } catch (error) {
         console.error("Error al procesar dictamen corporativo con IA:", error);

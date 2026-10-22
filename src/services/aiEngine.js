@@ -25,9 +25,13 @@ const calcularMetricasMatematicas = (riesgo) => {
 };
 
 export const analizarRiesgoConIA = async (riesgo) => {
+  // Con un texto ya armado no hay métricas que calcular: enviar métricas sobre un texto produce cifras falsas.
+  if (typeof riesgo === 'string') {
+    const res = await apiService.consultarAuditor({ prompt: riesgo });
+    return res?.respuesta || res;
+  }
   const metricasFijas = calcularMetricasMatematicas(riesgo);
-  
-  const prompt = typeof riesgo === 'string' ? riesgo : `
+  const prompt = `
   Eres el Socio Director de Auditoría de un Software GRC Enterprise.
   Analiza el siguiente riesgo y devuelve un dictamen cuantitativo y estratégico:
   ${JSON.stringify(riesgo, null, 2)}
@@ -37,6 +41,29 @@ export const analizarRiesgoConIA = async (riesgo) => {
   const res = await apiService.consultarAuditor({
     prompt,
     datosContexto: { metricasFijas, riesgo }
+  });
+  return res?.respuesta || res;
+};
+
+// Estructura del "Panel Ejecutivo" (ModalIA). Las cifras (kpis, niveles) las pone el sistema, no la IA.
+const ESTRUCTURA_PANEL = `Responde SOLO con un objeto JSON con exactamente estas claves:
+{
+  "analisisEjecutivo": "dos párrafos separados por \\n\\n: qué muestran los datos y por qué importa para el negocio",
+  "recomendaciones": ["de 3 a 5 recomendaciones concretas; cita los RSK/CTL a los que aplican"],
+  "planAccion": [{ "prioridad": "ALTA | MEDIA | BAJA", "accion": "acción verificable", "responsable": "cargo; usa el del contexto si existe, si no 'Por asignar'" }],
+  "dictamenDirector": "conclusión de 1 a 2 frases para la Dirección",
+  "iso31000": "lectura breve bajo ISO 31000 basada en estos datos",
+  "cosoErm": "lectura breve bajo COSO ERM basada en estos datos",
+  "kris": "2 o 3 indicadores clave de riesgo con meta sugerida, derivados de estos datos"
+}
+No incluyas cifras que no estén en DATOS_GRC.`;
+
+// Análisis con datos separados de la instrucción y respuesta en JSON.
+export const consultarPanelIA = async ({ instruccion, datos }) => {
+  const res = await apiService.consultarAuditor({
+    prompt: `${instruccion}\n\n${ESTRUCTURA_PANEL}`,
+    datosContexto: datos,
+    formato: 'json',
   });
   return res?.respuesta || res;
 };
