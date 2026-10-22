@@ -385,9 +385,9 @@ export const apiService = {
     body: { coleccion: 'planes', registro }
   }),
 
-  decidirRevisionPlanes: (idInforme, decision, motivo = '') => request('/api/grc/review-plans', {
+  decidirRevisionPlanes: (idInforme, decision, motivo = '', idsPlanes) => request('/api/grc/review-plans', {
     method: 'POST',
-    body: { idInforme, decision, motivo }
+    body: { idInforme, decision, motivo, ...(Array.isArray(idsPlanes) ? { idsPlanes } : {}) }
   }),
 
   evaluarDisenoPlanes: (idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion) => request('/api/grc/review-plans', {

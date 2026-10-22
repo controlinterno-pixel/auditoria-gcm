@@ -661,6 +661,8 @@ for (const decision of ['aprobar', 'corregir']) {
       setPlanes() {}, setRevisionInformeId() {}, setMostrarMotivoCorreccion() {}, setMotivoCorreccion() {},
       setModoRevisionMatriz() {}, setEditPlan() {}, setFormInformeId() {}, setMatrixState() {}, setVistaActiva() {},
       setGuardandoDecisionRevision() {}, showNotification() {},
+      obtenerPendientesRevision: () => [before], seleccionRevisionEfectiva: pendientes => pendientes.map(item => String(item.id)),
+      setSeleccionRevision() {},
       informesAuditoria: [{ id: 'i1', tipoFuente: 'Programa de Auditoría' }],
       enviarNotificacionPlanConReintento: async payload => { payloads.push(payload); return true; },
       window: { location: { origin: 'https://example.test' } }, alert: message => assert.fail(message),
@@ -695,4 +697,35 @@ test('aprobado el diseño, revisor y auditor aprobador solo consultan, aunque se
   assert.equal((await ejecutor.update({ idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 60 }] })).code, 200);
   const revisorSync = harness({ email: 'revisor@example.test', rol: 'admin', planes: [enEjecucion] });
   assert.equal(await revisorSync.syncAllowed([{ ...enEjecucion, accion: 'Cambio indebido' }]), false);
+});
+
+test('revisor decide todas, una a una o aprueba unas y devuelve otras', async () => {
+  const listas = () => [1, 2, 3].map(id => plan({ id, progreso: 100, estadoWorkflow: 'Pendiente Validación Revisor' }));
+  const h = harness({ email: 'revisor@example.test', planes: listas() });
+  assert.equal((await h.review({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [1] })).code, 200);
+  assert.deepEqual(h.data().planes.map(p => p.estadoWorkflow), ['En Revisión (100%)', 'Pendiente Validación Revisor', 'Pendiente Validación Revisor']);
+  assert.equal((await h.review({ decision: 'corregir', idInforme: 'i1', idsPlanes: [2], motivo: 'Falta evidencia' })).code, 200);
+  assert.equal(h.data().planes[1].estadoWorkflow, 'En Ejecución');
+  assert.equal(h.data().planes[1].progreso, 90);
+  assert.equal(h.data().planes[2].estadoWorkflow, 'Pendiente Validación Revisor');
+  // Ya decidida o inexistente: rechazada sin escribir.
+  const escrituras = h.writes.length;
+  assert.equal((await h.review({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [1] })).code, 409);
+  assert.equal((await h.review({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [3, 99] })).code, 409);
+  assert.equal((await h.review({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [] })).code, 409);
+  assert.equal(h.writes.length, escrituras);
+  // Sin selección decide todas las pendientes (comportamiento anterior).
+  const todas = harness({ email: 'revisor@example.test', planes: listas() });
+  assert.equal((await todas.review({ decision: 'aprobar', idInforme: 'i1' })).code, 200);
+  assert.ok(todas.data().planes.every(p => p.estadoWorkflow === 'En Revisión (100%)'));
+});
+
+test('auditor evalúa el diseño de acciones individuales; las demás siguen pendientes', async () => {
+  const h = harness({ planes: [plan({ id: 1 }), plan({ id: 2 })] });
+  assert.equal((await evaluate(h, 90, { idsPlanes: [1] })).code, 200);
+  assert.equal(h.data().planes[0].estadoWorkflow, 'En Ejecución');
+  assert.equal(h.data().planes[1].estadoWorkflow, workflow.ESTADO_EVALUACION_INICIAL);
+  assert.equal((await evaluate(h, 60, { idsPlanes: [2] })).code, 200);
+  assert.equal(h.data().planes[1].estadoWorkflow, workflow.ESTADO_AJUSTES_INICIALES);
+  assert.equal(h.data().planes[0].estadoWorkflow, 'En Ejecución');
 });

@@ -169,6 +169,11 @@ export default function Planes({
   const [mostrarMotivoCorreccion, setMostrarMotivoCorreccion] = useState(false);
   const [motivoCorreccion, setMotivoCorreccion] = useState('');
   const [guardandoDecisionRevision, setGuardandoDecisionRevision] = useState(false);
+  // Acciones que el revisor decide ahora (ids) en un informe; null = todas las pendientes.
+  // Ligada al informe para que al cambiar de informe vuelva a "todas".
+  const [seleccionRevisionGuardada, setSeleccionRevisionGuardada] = useState({ informe: null, ids: null });
+  const seleccionRevision = seleccionRevisionGuardada.informe === String(revisionInformeId) ? seleccionRevisionGuardada.ids : null;
+  const setSeleccionRevision = ids => setSeleccionRevisionGuardada({ informe: String(revisionInformeId), ids });
   const [guardandoAccionKey, setGuardandoAccionKey] = useState(null);
   const [confirmacionAccionGuardada, setConfirmacionAccionGuardada] = useState('');
 
@@ -526,8 +531,16 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       planes: pendientes,
       totalActividades: pendientes.length,
       isReadOnly: false,
+      // Por defecto se evalúan todas; el auditor puede desmarcar para evaluar solo algunas.
+      seleccion: pendientes.map(plan => String(plan.id)),
     });
   };
+
+  const alternarSeleccionEvaluacion = (idPlan) => setModalEval(prev => {
+    const actual = Array.isArray(prev.seleccion) ? prev.seleccion : prev.planes.map(plan => String(plan.id));
+    const id = String(idPlan);
+    return { ...prev, seleccion: actual.includes(id) ? actual.filter(valor => valor !== id) : [...actual, id] };
+  });
 
   const abrirEvaluacionAccion = async plan => {
     const autorizado = esAuditorAsignado(plan, user?.email, perfilUsuario);
@@ -1332,14 +1345,25 @@ const handleNotificarPlan = async (planId) => {
       showNotification(error.message, 'error');
       return;
     }
-    if (!window.confirm(`¿Confirmar evaluación de este paquete de acciones con un score de ${puntajeHolistico}%?`)) return;
+    const seleccionEval = Array.isArray(modalEval.seleccion) ? modalEval.seleccion : modalEval.planes.map(plan => String(plan.id));
+    const planesSeleccionados = modalEval.planes.filter(plan => seleccionEval.includes(String(plan.id)));
+    if (planesSeleccionados.length === 0) {
+      showNotification('Selecciona al menos una acción para evaluar.', 'error');
+      return;
+    }
+    const pendientesSinEvaluar = modalEval.planes.length - planesSeleccionados.length;
+    const alcanceTexto = planesSeleccionados.length === modalEval.planes.length
+      ? 'todas las acciones'
+      : `${planesSeleccionados.length} de ${modalEval.planes.length} acciones`;
+    const avisoRestantes = pendientesSinEvaluar ? ` Las ${pendientesSinEvaluar} restantes seguirán pendientes de evaluación.` : '';
+    if (!window.confirm(`¿Confirmar evaluación de ${alcanceTexto} con un score de ${puntajeHolistico}%?${avisoRestantes}`)) return;
 
     setGuardandoEvaluacionInicial(true);
     try {
       const respuesta = await apiService.evaluarDisenoPlanes(
-        modalEval.idInforme, modalEval.planes.map(plan => plan.id), criterios, justificacion.trim(), soporte
+        modalEval.idInforme, planesSeleccionados.map(plan => plan.id), criterios, justificacion.trim(), soporte
       );
-      if (respuesta?.planes?.length !== modalEval.planes.length) throw new Error('El servidor no confirmó todas las acciones evaluadas.');
+      if (respuesta?.planes?.length !== planesSeleccionados.length) throw new Error('El servidor no confirmó todas las acciones evaluadas.');
       const porId = new Map(respuesta.planes.map(plan => [String(plan.id), plan]));
       setPlanes(prev => prev.map(plan => porId.get(String(plan.id)) || plan));
     } catch (error) {
@@ -1348,14 +1372,14 @@ const handleNotificarPlan = async (planId) => {
       return;
     }
     setGuardandoEvaluacionInicial(false);
-    const evaluacionesAplicadas = modalEval.planes.length;
+    const evaluacionesAplicadas = planesSeleccionados.length;
 
-    const planesEvaluados = modalEval.planes;
+    const planesEvaluados = planesSeleccionados;
     const dictamen = justificacion.trim();
     volverAlHistorialTrasGuardarAccion(
       esAprobado
-        ? `Diseño aprobado (${puntajeHolistico}%). Ejecución habilitada para ${evaluacionesAplicadas} acciones.`
-        : `Diseño no aprobado (${puntajeHolistico}%). Se requieren correcciones antes de ejecutar.`,
+        ? `Diseño aprobado (${puntajeHolistico}%). Ejecución habilitada para ${evaluacionesAplicadas} acciones.${pendientesSinEvaluar ? ` Quedan ${pendientesSinEvaluar} por evaluar.` : ''}`
+        : `Diseño no aprobado (${puntajeHolistico}%) para ${evaluacionesAplicadas} acciones. Se requieren correcciones antes de ejecutar.${pendientesSinEvaluar ? ` Quedan ${pendientesSinEvaluar} por evaluar.` : ''}`,
       modalEval.idInforme
     );
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
@@ -1591,7 +1615,23 @@ if (existingActivities.length > 0) {
   );
   const cerrarModalNoAplica = () => guardNoAplica(() => setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' }));
 
+  // Aprobado el diseño, revisor y auditor aprobador (o el ejecutor que ya envió al 100%) no cambian si el hallazgo aplica.
+  const aplicaBloqueadaParaUsuario = (hallazgoId) => {
+    const informe = informesAuditoria.find(item => (
+      String(item.id) === String(formInformeId) ||
+      String(item.ref || '').trim().toLowerCase() === String(formInformeId).trim().toLowerCase()
+    ));
+    const correoAuditorInforme = informe?.correoAuditor || informe?.correoAuditorResponsable || '';
+    return safePlanes.some(plan => String(plan.idHallazgo) === String(hallazgoId) && (
+      bloqueadaParaRevisorOAuditor(plan, user?.email, correoAuditorInforme) || bloqueadaParaEjecutor(plan, user?.email)
+    ));
+  };
+
   const handleToggleAplica = (hallazgoId, value) => {
+    if (aplicaBloqueadaParaUsuario(hallazgoId)) {
+      showNotification('Con el diseño aprobado, solo el ejecutor trabaja estas acciones. No puedes cambiar si el hallazgo aplica.', 'error');
+      return;
+    }
     if (value === false) {
       // Abre la ventana sutil en lugar de cambiar directamente a falso
       setModalNoAplica({
@@ -2049,7 +2089,25 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     && plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR
   ));
 
+  // Acciones del informe que esperan la decisión de este revisor.
+  const obtenerPendientesRevision = (idInforme) => {
+    const correoSesion = String(user?.email || '').trim().toLowerCase();
+    return planesEnriquecidos.filter(plan => (
+      String(plan.idInforme) === String(idInforme) &&
+      ['Pendiente Revisión Jefatura', ESTADO_PENDIENTE_VALIDACION_REVISOR].includes(plan.estadoWorkflow) &&
+      !(esPlanProgramaAuditoria(plan) && plan.estadoWorkflow === 'Pendiente Revisión Jefatura') &&
+      Boolean(correoSesion) &&
+      String(plan.correoRevisor || '').trim().toLowerCase() === correoSesion
+    ));
+  };
+  // null = todas las pendientes seleccionadas.
+  const seleccionRevisionEfectiva = (pendientes) => {
+    const ids = pendientes.map(plan => String(plan.id));
+    return seleccionRevision === null ? ids : seleccionRevision.filter(id => ids.includes(id));
+  };
+
   const abrirRevisionPlan = plan => {
+    setSeleccionRevision(null);
     setEditPlan(null);
     setModoRevisionMatriz(true);
     setRevisionInformeId(plan.idInforme);
@@ -2069,18 +2127,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       return;
     }
 
-    const correoSesion = String(user?.email || '').trim().toLowerCase();
-    const planesPendientes = planesEnriquecidos.filter(plan => (
-      String(plan.idInforme) === String(revisionInformeId) &&
-      ['Pendiente Revisión Jefatura', ESTADO_PENDIENTE_VALIDACION_REVISOR].includes(plan.estadoWorkflow) &&
-      !(esPlanProgramaAuditoria(plan) && plan.estadoWorkflow === 'Pendiente Revisión Jefatura') &&
-      String(plan.correoRevisor || '').trim().toLowerCase() === correoSesion
-    ));
-    if (planesPendientes.length === 0) {
+    const todosPendientes = obtenerPendientesRevision(revisionInformeId);
+    if (todosPendientes.length === 0) {
       alert('No hay planes pendientes asignados a este revisor para el informe.');
       setRevisionInformeId(null);
       return;
     }
+    const idsSeleccionados = seleccionRevisionEfectiva(todosPendientes);
+    const planesPendientes = todosPendientes.filter(plan => idsSeleccionados.includes(String(plan.id)));
+    if (planesPendientes.length === 0) {
+      showNotification('Selecciona al menos una acción para decidir.', 'error');
+      return;
+    }
+    const restantes = todosPendientes.length - planesPendientes.length;
     const estadoAnteriorPorId = new Map(planesPendientes.map(plan => [String(plan.id), plan.estadoWorkflow]));
 
     setGuardandoDecisionRevision(true);
@@ -2096,7 +2155,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       const respuesta = await apiService.decidirRevisionPlanes(
         revisionInformeId,
         decision,
-        motivoCorreccion.trim()
+        motivoCorreccion.trim(),
+        planesPendientes.map(plan => plan.id)
       );
       const planesActualizados = Array.isArray(respuesta?.planes) ? respuesta.planes : [];
       if (planesActualizados.length === 0) {
@@ -2107,16 +2167,23 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       const actualizadosPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
       setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => actualizadosPorId.get(String(plan.id)) || plan));
 
-      setRevisionInformeId(null);
+      const motivoDecision = motivoCorreccion.trim();
       setMostrarMotivoCorreccion(false);
       setMotivoCorreccion('');
-      setModoRevisionMatriz(false);
-      setEditPlan(null);
-      setFormInformeId('');
-      setMatrixState({});
-      setVistaActiva('historial');
+      setSeleccionRevision(null);
+      if (restantes > 0) {
+        // Quedan acciones por decidir: el revisor sigue en la revisión del mismo informe.
+        showNotification(`Decisión guardada para ${planesActualizados.length} acción(es). Quedan ${restantes} por revisar.`, 'success');
+      } else {
+        setRevisionInformeId(null);
+        setModoRevisionMatriz(false);
+        setEditPlan(null);
+        setFormInformeId('');
+        setMatrixState({});
+        setVistaActiva('historial');
+        showNotification('Decisión guardada. Preparando notificación para la siguiente etapa…', 'success');
+      }
       setGuardandoDecisionRevision(false);
-      showNotification('Decisión guardada. Preparando notificación para la siguiente etapa…', 'success');
       void (async () => {
         let todasNotificacionesEnviadas = true;
         let correoPreparado = !prepararEnvioGmail;
@@ -2158,10 +2225,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 : validacionPendienteRevisor
                   ? `El diseño de la acción "${plan.accion}" quedó aprobado con ejecución al 100%. Valide sus evidencias antes de enviarla al aprobador final.`
                   : esValidacionFinal
-                  ? `La acción "${plan.accion}" fue devuelta al ejecutor al 90% para corregir las evidencias. Motivo: ${motivoCorreccion.trim()}`
+                  ? `La acción "${plan.accion}" fue devuelta al ejecutor al 90% para corregir las evidencias. Motivo: ${motivoDecision}`
                   : decision === 'aprobar'
                     ? `El diseño de la acción "${plan.accion}" fue aprobado. Ya puede iniciar su ejecución.`
-                    : `El diseño de la acción "${plan.accion}" requiere correcciones. Motivo del revisor: ${motivoCorreccion.trim()}`,
+                    : `El diseño de la acción "${plan.accion}" requiere correcciones. Motivo del revisor: ${motivoDecision}`,
               enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme || revisionInformeId)}`,
               destinatarios: destinatario,
             }, correoPreparado);
@@ -3030,7 +3097,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     </div>
     <h4 className="text-xs font-black text-slate-900 mt-2">{h.titulo}</h4>
   </div>
-                      {(!modoRevisionMatriz) && (
+                      {(!modoRevisionMatriz) && aplicaBloqueadaParaUsuario(h.id) && (
+                        <span className="shrink-0 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-600" title="Con el diseño aprobado, solo el ejecutor trabaja estas acciones">
+                          🔒 {node.aplica ? 'Sí aplica' : 'No aplica'}
+                        </span>
+                      )}
+                      {(!modoRevisionMatriz) && !aplicaBloqueadaParaUsuario(h.id) && (
                         <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
                           <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
                           <button type="button" onClick={() => handleToggleAplica(h.id, false)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>No Aplica</button>
@@ -3455,7 +3527,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Motivo de rechazo (No Aplica)</span>
                           <p className="text-xs text-slate-700 font-medium italic whitespace-pre-wrap">"{node.justificacionNoAplica}"</p>
                         </div>
-                        {!modoRevisionMatriz && (
+                        {!modoRevisionMatriz && !aplicaBloqueadaParaUsuario(h.id) && (
                           <button type="button" onClick={() => handleToggleAplica(h.id, false)} className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase transition-colors shrink-0 shadow-sm flex items-center gap-1">
                             <span>✏️</span> Editar Observación
                           </button>
@@ -3481,6 +3553,51 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                      </div>
                    )}
                    
+                   {/* SELECCIÓN DE ACCIONES A DECIDIR */}
+                   {puedeDecidirRevision && (() => {
+                     const pendientes = obtenerPendientesRevision(revisionInformeId);
+                     const seleccion = seleccionRevisionEfectiva(pendientes);
+                     const ids = pendientes.map(plan => String(plan.id));
+                     return (
+                       <fieldset className="w-full min-w-0 rounded-xl border border-slate-200 bg-white p-4">
+                         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                           <legend className="text-xs font-black text-slate-800">Acciones a decidir <span className="font-semibold text-slate-500">({seleccion.length} de {pendientes.length})</span></legend>
+                           <div className="flex gap-2">
+                             <button type="button" disabled={guardandoDecisionRevision || seleccion.length === ids.length} onClick={() => setSeleccionRevision(null)} className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Todas</button>
+                             <button type="button" disabled={guardandoDecisionRevision || seleccion.length === 0} onClick={() => setSeleccionRevision([])} className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Ninguna</button>
+                           </div>
+                         </div>
+                         <p className="mb-3 text-[11px] text-slate-500">Aprueba o devuelve todas de una vez, o ve una a una: marca las que quieres decidir ahora y las demás seguirán pendientes.</p>
+                         <ul className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                           {pendientes.map(plan => {
+                             const id = String(plan.id);
+                             const marcado = seleccion.includes(id);
+                             return (
+                               <li key={`rev-sel-${id}`}>
+                                 <label className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition-colors ${marcado ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+                                   <input
+                                     type="checkbox"
+                                     checked={marcado}
+                                     disabled={guardandoDecisionRevision}
+                                     onChange={() => setSeleccionRevision(marcado ? seleccion.filter(valor => valor !== id) : [...seleccion, id])}
+                                     className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
+                                   />
+                                   <span className="min-w-0 text-xs">
+                                     <span className="font-mono font-black text-slate-500">PLA-{id.slice(-4)}</span>{' '}
+                                     <span className="font-semibold text-slate-800">{plan.accion}</span>
+                                     <span className="block text-[10px] text-slate-500">
+                                       {plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR ? `Ejecución al ${plan.progreso}% por validar` : 'Diseño por revisar'} · Ejecutor: {plan.responsable || 'Sin asignar'}
+                                     </span>
+                                   </span>
+                                 </label>
+                               </li>
+                             );
+                           })}
+                         </ul>
+                       </fieldset>
+                     );
+                   })()}
+
                    {/* BOTONES DE DECISIÓN */}
                    <div className="flex flex-wrap justify-end gap-3 w-full">
                      {!mostrarMotivoCorreccion ? (
@@ -3491,10 +3608,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             setMatrixState({});
                             setModoRevisionMatriz(false);
                             setVistaActiva('historial');
+                            setSeleccionRevision(null);
                          }} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Cerrar Vista</button>
                          {puedeDecidirRevision && <>
-                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => setMostrarMotivoCorreccion(true)} className="px-5 py-2.5 bg-orange-100 border border-orange-200 hover:bg-orange-200 text-orange-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-colors disabled:opacity-50">{modoValidacionFinalRevisor ? 'Devolver al ejecutor' : 'Solicitar corrección'}</button>
-                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => resolverDecisionRevision('aprobar')} className="px-6 py-2.5 bg-[#69b193] hover:bg-[#549c7f] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50">{guardandoDecisionRevision ? 'Guardando…' : modoValidacionFinalRevisor ? 'Validar y enviar al aprobador' : 'Aprobar diseño'}</button>
+                         <button type="button" disabled={guardandoDecisionRevision || seleccionRevisionEfectiva(obtenerPendientesRevision(revisionInformeId)).length === 0} onClick={() => setMostrarMotivoCorreccion(true)} className="px-5 py-2.5 bg-orange-100 border border-orange-200 hover:bg-orange-200 text-orange-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-colors disabled:opacity-50">{modoValidacionFinalRevisor ? 'Devolver al ejecutor' : 'Solicitar corrección'}</button>
+                         <button type="button" disabled={guardandoDecisionRevision || seleccionRevisionEfectiva(obtenerPendientesRevision(revisionInformeId)).length === 0} onClick={() => resolverDecisionRevision('aprobar')} className="px-6 py-2.5 bg-[#69b193] hover:bg-[#549c7f] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50">{guardandoDecisionRevision ? 'Guardando…' : `${modoValidacionFinalRevisor ? 'Validar y enviar al aprobador' : 'Aprobar diseño'} (${seleccionRevisionEfectiva(obtenerPendientesRevision(revisionInformeId)).length})`}</button>
                          </>}
                        </>
                      ) : (
@@ -4487,13 +4605,46 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div className="bg-[#0A3B32] p-5 flex justify-between items-center shrink-0">
               <div>
                 <h3 id="evaluacion-integral-titulo" className="text-white font-black text-lg flex items-center gap-2"><span aria-hidden="true">⚖️</span> Evaluación Ponderada del Plan de Acción</h3>
-                <p className="text-emerald-100 text-[10px] font-medium tracking-wide uppercase mt-0.5">Metodología COSO/ISO 31000 - Evaluando {modalEval?.planes?.length || 0} actividad(es).</p>
+                <p className="text-emerald-100 text-[10px] font-medium tracking-wide uppercase mt-0.5">Metodología COSO/ISO 31000 - {modalEval.isReadOnly ? `${modalEval?.planes?.length || 0} actividad(es)` : `Evaluando ${(modalEval.seleccion || modalEval.planes || []).length} de ${modalEval?.planes?.length || 0} actividad(es)`}.</p>
               </div>
               <button type="button" onClick={cerrarModalEvaluacionIntegral} aria-label="Cerrar evaluación integral" className="min-h-11 min-w-11 text-emerald-100 hover:text-white font-black text-xl px-2 transition-colors">✕</button>
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              
+              {!modalEval.isReadOnly && modalEval.planes.length > 0 && (() => {
+                const seleccion = Array.isArray(modalEval.seleccion) ? modalEval.seleccion : modalEval.planes.map(plan => String(plan.id));
+                const todas = seleccion.length === modalEval.planes.length;
+                return (
+                  <fieldset className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <legend className="text-xs font-black text-slate-800">Acciones a evaluar <span className="font-semibold text-slate-500">({seleccion.length} de {modalEval.planes.length})</span></legend>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setModalEval(prev => ({ ...prev, seleccion: prev.planes.map(plan => String(plan.id)) }))} disabled={todas} className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Todas</button>
+                        <button type="button" onClick={() => setModalEval(prev => ({ ...prev, seleccion: [] }))} disabled={seleccion.length === 0} className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Ninguna</button>
+                      </div>
+                    </div>
+                    <p className="mb-3 text-[11px] text-slate-500">Evalúa todo el paquete o solo algunas acciones. Las que no marques quedan pendientes para otra evaluación, con su propio puntaje y soporte.</p>
+                    <ul className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                      {modalEval.planes.map(plan => {
+                        const marcado = seleccion.includes(String(plan.id));
+                        return (
+                          <li key={`eval-sel-${plan.id}`}>
+                            <label className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition-colors ${marcado ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+                              <input type="checkbox" checked={marcado} onChange={() => alternarSeleccionEvaluacion(plan.id)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700" />
+                              <span className="min-w-0 text-xs">
+                                <span className="font-mono font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>{' '}
+                                <span className="font-semibold text-slate-800">{plan.accion}</span>
+                                <span className="block text-[10px] text-slate-500">Ejecutor: {plan.responsable || 'Sin asignar'} · {plan.correoResponsable || 'sin correo'}</span>
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </fieldset>
+                );
+              })()}
+
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-inner">
                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Parámetros de Calificación del Paquete</h4>
                 

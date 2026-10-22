@@ -315,9 +315,17 @@ export default async function handler(req, res) {
         return normalizar(plan.correoRevisor) === normalizar(user.email);
       });
       if (pendientes.length === 0) return { error: 'no-pending-plans' };
+      // Sin selección decide sobre todas; con selección, solo sobre esas y todas deben estar pendientes para este revisor.
+      let decididos = pendientes;
+      if (idsPlanes !== undefined) {
+        const ids = Array.isArray(idsPlanes) ? idsPlanes.map(String) : [];
+        if (!ids.length || new Set(ids).size !== ids.length ||
+            ids.some(id => !pendientes.some(plan => String(plan.id) === id))) return { error: 'invalid-review-selection' };
+        decididos = pendientes.filter(plan => ids.includes(String(plan.id)));
+      }
 
       const ahora = new Date();
-      const actualizados = pendientes.map(plan => {
+      const actualizados = decididos.map(plan => {
         const aprobado = decision === 'aprobar';
         const validaEjecucionCompleta = plan.estadoWorkflow === ESTADO_VALIDACION_REVISOR;
         const evento = {
@@ -355,6 +363,7 @@ export default async function handler(req, res) {
       'not-found': ['No se encontró la matriz GRC.', 404],
       'report-not-found': ['No se encontró el informe seleccionado.', 404],
       'no-pending-plans': ['No hay planes pendientes asignados a este revisor para el informe.', 409],
+      'invalid-review-selection': ['Selecciona acciones que estén pendientes de tu revisión en este informe. Actualiza la vista.', 409],
     };
     if (resultado.error && errores[resultado.error]) {
       const [mensaje, estado] = errores[resultado.error];
