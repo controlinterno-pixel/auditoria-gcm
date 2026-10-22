@@ -7,7 +7,7 @@ import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { sanitizarUrls, validarDatosSync } from '../_lib/validation.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
-import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaRevisorOAuditor, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaRevisorOAuditor, bloqueadaParaEjecutor, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 
 /**
  * Valida de forma estricta si el usuario posee rol administrativo o de auditoría.
@@ -72,6 +72,18 @@ const CAMPOS_CONTENIDO_EJECUTOR = [
   'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion',
   'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
 ];
+// El guardado masivo rellena estos valores por defecto; vacío y valor por defecto no cuentan como cambio.
+const VALOR_POR_DEFECTO_CONTENIDO = {
+  sede: 'No especificada', tipoAccion: 'Acción Correctiva',
+  matrizRiesgos: 'No aplica', matrizAspectos: 'No aplica', matrizPeligros: 'No aplica', matrizLegal: 'No aplica',
+};
+const valorContenido = (campo, valor) => {
+  const vacio = valor === undefined || valor === null || valor === '' || (Array.isArray(valor) && valor.length === 0);
+  return JSON.stringify(vacio ? (VALOR_POR_DEFECTO_CONTENIDO[campo] ?? '') : valor);
+};
+const cambiaContenidoEjecutor = (actualizado, guardado) => CAMPOS_CONTENIDO_EJECUTOR.some(campo => (
+  valorContenido(campo, actualizado[campo]) !== valorContenido(campo, guardado[campo])
+));
 
 function usuarioPuedeEvaluarPlanes(partialData, user, data) {
   if (!Array.isArray(partialData.planes)) return true;
@@ -88,8 +100,9 @@ function usuarioPuedeEvaluarPlanes(partialData, user, data) {
     const informeOrigen = informes.find(item => String(item.id) === String(hallazgoOrigen?.idInforme || planGuardado?.idInforme || planActualizado?.idInforme));
     const correoAuditorInforme = informeOrigen?.correoAuditor || informeOrigen?.correoAuditorResponsable || informeOrigen?.correo_auditor || '';
     // Aprobado el diseño, revisor y auditor aprobador no alteran el contenido que trabaja el ejecutor.
-    if (planGuardado && bloqueadaParaRevisorOAuditor(planGuardado, user.email, correoAuditorInforme) &&
-        CAMPOS_CONTENIDO_EJECUTOR.some(campo => JSON.stringify(planActualizado[campo] ?? null) !== JSON.stringify(planGuardado[campo] ?? null))) {
+    // El ejecutor tampoco altera lo que ya envió a revisión o lo que quedó cerrado.
+    if (planGuardado && (bloqueadaParaRevisorOAuditor(planGuardado, user.email, correoAuditorInforme) ||
+        bloqueadaParaEjecutor(planGuardado, user.email)) && cambiaContenidoEjecutor(planActualizado, planGuardado)) {
       return false;
     }
     if (planGuardado && !puedeEditarAsignacionPlan(planGuardado, user.email, true)) {

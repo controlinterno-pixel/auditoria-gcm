@@ -19,10 +19,17 @@ export function ejecucionEnviadaARevision(plan) {
   return Boolean(plan && Number(plan.progreso) === 100 && ESTADOS_EJECUCION_ENVIADA.includes(plan.estadoWorkflow));
 }
 
+// Cerrada con eficacia aprobada: ya no admite cambios del ejecutor.
+export function accionCerrada(plan) {
+  return Boolean(plan && (plan.estadoWorkflow === 'Cerrado' || (!plan.estadoWorkflow && plan.estado === 'Cerrado')));
+}
+
+// El ejecutor solo trabaja lo que está en ejecución: lo enviado a revisión y lo cerrado queda bloqueado.
+// Si el aprobador devuelve una acción, esa vuelve a "En Ejecución" y se desbloquea sin tocar las cerradas.
 export function bloqueadaParaEjecutor(plan, correoUsuario) {
   const correo = normalizar(correoUsuario);
   const ejecutores = String(plan?.correoResponsable || '').split(',').map(normalizar).filter(Boolean);
-  return Boolean(correo && ejecutores.includes(correo) && ejecucionEnviadaARevision(plan));
+  return Boolean(correo && ejecutores.includes(correo) && (ejecucionEnviadaARevision(plan) || accionCerrada(plan)));
 }
 
 const ESTADOS_POSTERIORES_A_APROBACION = ['En Ejecución', ...ESTADOS_EJECUCION_ENVIADA, 'Cerrado'];

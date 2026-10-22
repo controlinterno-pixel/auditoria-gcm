@@ -8,7 +8,7 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -3134,6 +3134,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const bloqueadaPorAuditor = programaActividad && !actividadNueva && disenoInicialBloqueado(act);
   // Se evalúa sobre lo guardado (planOriginal), no sobre lo que se está tecleando.
   const enviadaARevision = !actividadNueva && bloqueadaParaEjecutor(planOriginal, user?.email);
+  // Cerrada con eficacia aprobada: bloqueada; si el aprobador devolvió otra acción, solo esa queda editable.
+  const cerradaParaEjecutor = enviadaARevision && accionCerrada(planOriginal);
   const soloConsultaRevisorAuditor = !actividadNueva && bloqueadaParaRevisorOAuditor(planOriginal, user?.email, correoAuditorOriginal);
   // Revisión acción por acción: pendiente de mi decisión o ya decidida por mí.
   const pendienteDeMiRevision = modoRevisionMatriz && !actividadNueva &&
@@ -3184,8 +3186,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               </div>
                               <div className="flex items-center gap-2">
                                 {enviadaARevision && (
-                                  <span className="flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-sky-800 shadow-sm">
-                                    <span aria-hidden="true">🔒</span> Listo · Ejecutada 100% · Pendiente por revisar
+                                  <span className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider shadow-sm ${cerradaParaEjecutor ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-sky-300 bg-sky-50 text-sky-800'}`}>
+                                    <span aria-hidden="true">🔒</span> {cerradaParaEjecutor ? 'Cerrada · eficacia aprobada' : 'Listo · Ejecutada 100% · Pendiente por revisar'}
                                   </span>
                                 )}
                                 {pendienteDeMiRevision && (
@@ -3229,8 +3231,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
                               {enviadaARevision && (
-                                <p role="status" className="md:col-span-6 rounded-lg border border-sky-300 bg-sky-50 p-3 text-xs font-semibold text-sky-900">
-                                  ✅ Reportaste esta acción como ejecutada al 100%. Quedó bloqueada para ti mientras el revisor valida las evidencias{planOriginal?.estadoWorkflow !== ESTADO_PENDIENTE_VALIDACION_REVISOR ? ' y el auditor emite el dictamen final' : ''}. Si la devuelven, podrás editarla de nuevo.
+                                <p role="status" className={`md:col-span-6 rounded-lg border p-3 text-xs font-semibold ${cerradaParaEjecutor ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-sky-300 bg-sky-50 text-sky-900'}`}>
+                                  {cerradaParaEjecutor ? '🏁 El aprobador cerró esta acción con eficacia aprobada. Quedó bloqueada; solo puedes consultarla.' : <>✅ Reportaste esta acción como ejecutada al 100%. Quedó bloqueada para ti mientras el revisor valida las evidencias{planOriginal?.estadoWorkflow !== ESTADO_PENDIENTE_VALIDACION_REVISOR ? ' y el auditor emite el dictamen final' : ''}. Si la devuelven, podrás editarla de nuevo.</>}
                                 </p>
                               )}
                               {soloConsultaRevisorAuditor && !modoRevisionMatriz && (
@@ -4057,7 +4059,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().slice(-4)}</td>
                                   <td className="p-3">
                                     <span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border bg-slate-100 text-slate-700">{p.estadoWorkflow}</span>
-                                    {bloqueadaParaEjecutor(p, user?.email) && (
+                                    {bloqueadaParaEjecutor(p, user?.email) && !accionCerrada(p) && (
                                       <span className="mt-1 block w-fit rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-[9px] font-black uppercase text-sky-800">🔒 Ejecutada 100% · pendiente por revisar</span>
                                     )}
                                   </td>

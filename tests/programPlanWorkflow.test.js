@@ -728,3 +728,25 @@ test('auditor evalúa el diseño de acciones individuales; las demás siguen pen
   assert.equal(h.data().planes[1].estadoWorkflow, workflow.ESTADO_AJUSTES_INICIALES);
   assert.equal(h.data().planes[0].estadoWorkflow, 'En Ejecución');
 });
+
+test('devuelta por el aprobador: el ejecutor edita solo esa; las cerradas quedan bloqueadas', async () => {
+  const cerrada = plan({ id: 1, progreso: 100, estadoWorkflow: 'Cerrado', estado: 'Cerrado' });
+  const devuelta = plan({ id: 2, progreso: 90, estadoWorkflow: 'En Ejecución' });
+  assert.equal(workflow.accionCerrada(cerrada), true);
+  assert.equal(workflow.bloqueadaParaEjecutor(cerrada, 'ejecutor@example.test'), true);
+  assert.equal(workflow.bloqueadaParaEjecutor(devuelta, 'ejecutor@example.test'), false);
+  for (const rol of ['lider', 'admin']) {
+    const h = harness({ email: 'ejecutor@example.test', rol, planes: [cerrada, devuelta] });
+    const rechazo = await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, accion: 'Cambio sobre cerrada' }] });
+    assert.equal(rechazo.code, 403, rol);
+    assert.equal(h.writes.length, 0);
+    const ok = await h.update({ idInforme: 'i1', actualizaciones: [{ id: 2, progreso: 100, evidenciaUrl: 'https://example.test/nueva' }] });
+    assert.equal(ok.code, 200, rol);
+    assert.equal(h.data().planes[1].estadoWorkflow, 'Pendiente Validación Revisor');
+    assert.equal(h.data().planes[0].accion, 'Acción de prueba');
+  }
+  const s = harness({ email: 'ejecutor@example.test', rol: 'admin', planes: [cerrada] });
+  assert.equal(await s.syncAllowed([{ ...cerrada, accion: 'Cambio sobre cerrada' }]), false);
+  // Los valores por defecto del guardado masivo no cuentan como cambio.
+  assert.equal(await s.syncAllowed([{ ...cerrada, sede: cerrada.sede, evidenciaUrl: '', matrizLegal: 'No aplica', tipoAccion: 'Acción Correctiva' }]), true);
+});
