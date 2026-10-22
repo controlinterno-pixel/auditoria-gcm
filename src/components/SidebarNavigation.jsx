@@ -56,6 +56,10 @@ export default function SidebarNavigation({
   const tieneAlertas = totalMisTareas > 0;
   
   const colorAlerta = misTareasEjecucion > 0 ? 'bg-rose-500' : 'bg-amber-500';
+  // Toda la fila "Planes de Acción" brilla con el color de la alerta mientras haya tareas pendientes.
+  const claseFilaAlerta = tieneAlertas
+    ? `menu-alerta ${misTareasEjecucion > 0 ? 'menu-alerta-ejecucion' : 'menu-alerta-revision'}`
+    : '';
   return (
     <>
       {mobileNavOpen && !isPresentationMode && <button type="button" aria-label="Cerrar menú y volver al contenido" onClick={onCloseMobileNavigation} className="fixed inset-0 z-[70] bg-slate-950/60 md:hidden" />}
@@ -233,10 +237,10 @@ export default function SidebarNavigation({
           <button 
             onClick={() => toggleMenuAndNavigate('planes', 'planes_tab', () => setSubTabPlanes('planes'))}
             type="button"
-            aria-label="Planes de Acción"
+            aria-label={tieneAlertas ? `Planes de Acción: ${totalMisTareas} tarea(s) pendiente(s)` : 'Planes de Acción'}
             aria-expanded={menuAbierto === 'planes'}
             aria-controls="submenu-planes"
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'planes_tab' && subTabPlanes === 'planes') ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
+            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'planes_tab' && subTabPlanes === 'planes') ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : tieneAlertas ? 'text-white' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'} ${claseFilaAlerta}`}>
             <div className="flex items-center gap-3 group relative">
               <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span className={`font-bold transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>Planes de Acción</span>

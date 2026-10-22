@@ -64,6 +64,33 @@
 	animation: notification-bell-ring 1.6s ease-in-out 3;
 }
 
+/* Fila del menú con tareas pendientes: toda la fila se ilumina con el color de la alerta. */
+@keyframes menu-alerta-brillo {
+	0%,
+	100% {
+		background-color: rgb(var(--menu-alerta) / 0.06);
+		box-shadow: inset 0 0 0 1px rgb(var(--menu-alerta) / 0.25), 0 0 0 0 rgb(var(--menu-alerta) / 0);
+		color: #dbe7f5;
+	}
+	50% {
+		background-color: rgb(var(--menu-alerta) / 0.2);
+		box-shadow: inset 0 0 0 1px rgb(var(--menu-alerta) / 0.75), 0 0 16px 1px rgb(var(--menu-alerta) / 0.4);
+		color: #ffffff;
+	}
+}
+
+.menu-alerta {
+	animation: menu-alerta-brillo 1.8s ease-in-out infinite;
+}
+
+.menu-alerta-ejecucion {
+	--menu-alerta: 244 63 94; /* rose-500: acciones por ejecutar */
+}
+
+.menu-alerta-revision {
+	--menu-alerta: 245 158 11; /* amber-500: revisiones y aprobaciones */
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
@@ -82,5 +109,12 @@
 	}
 	.notification-bell-ring {
 		animation: none;
+	}
+	/* Sin movimiento: la fila queda iluminada de forma fija. */
+	.menu-alerta {
+		animation: none;
+		background-color: rgb(var(--menu-alerta) / 0.16);
+		box-shadow: inset 0 0 0 1px rgb(var(--menu-alerta) / 0.6);
+		color: #ffffff;
 	}
 }
