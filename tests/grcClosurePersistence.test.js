@@ -379,6 +379,8 @@ test('matriz de planes: edita y crea acciones leyendo solo lo necesario, con ID 
   const T = 1792000000000;
   const fixture = storeFixture({ fragmented: true });
   comoAdmin(fixture);
+  // El administrador no es el auditor de esta acción: revisor y auditor aprobador solo la consultan.
+  fixture.documents.set(`${ROOT}/planes_accion/1`, { ...fixture.documents.get(`${ROOT}/planes_accion/1`), correoAuditor: 'otro.auditor@example.test' });
   fixture.documents.set(`${ROOT}/planes_accion/${T}`, action(T, { accion: 'Ocupa el ID de la hora actual' }));
   fixture.documents.set(ROOT, { planes: [action(T + 1, { accion: 'Legado con el siguiente ID' })] });
   const response = await conHoraFija(T, () => fixture.update({

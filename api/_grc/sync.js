@@ -7,7 +7,7 @@ import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { sanitizarUrls, validarDatosSync } from '../_lib/validation.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
-import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaRevisorOAuditor, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 
 /**
  * Valida de forma estricta si el usuario posee rol administrativo o de auditoría.
@@ -68,6 +68,11 @@ function hayConflictosDeRolesEnPlanesActualizados(planesActualizados, data) {
   });
 }
 
+const CAMPOS_CONTENIDO_EJECUTOR = [
+  'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion',
+  'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
+];
+
 function usuarioPuedeEvaluarPlanes(partialData, user, data) {
   if (!Array.isArray(partialData.planes)) return true;
 
@@ -81,6 +86,12 @@ function usuarioPuedeEvaluarPlanes(partialData, user, data) {
     const planGuardado = planesPorId.get(String(planActualizado?.id));
     const hallazgoOrigen = hallazgosPorId.get(String(planGuardado?.idHallazgo || planActualizado?.idHallazgo));
     const informeOrigen = informes.find(item => String(item.id) === String(hallazgoOrigen?.idInforme || planGuardado?.idInforme || planActualizado?.idInforme));
+    const correoAuditorInforme = informeOrigen?.correoAuditor || informeOrigen?.correoAuditorResponsable || informeOrigen?.correo_auditor || '';
+    // Aprobado el diseño, revisor y auditor aprobador no alteran el contenido que trabaja el ejecutor.
+    if (planGuardado && bloqueadaParaRevisorOAuditor(planGuardado, user.email, correoAuditorInforme) &&
+        CAMPOS_CONTENIDO_EJECUTOR.some(campo => JSON.stringify(planActualizado[campo] ?? null) !== JSON.stringify(planGuardado[campo] ?? null))) {
+      return false;
+    }
     if (planGuardado && !puedeEditarAsignacionPlan(planGuardado, user.email, true)) {
       const correoAuditor = planGuardado.correoAuditor || informeOrigen?.correoAuditor || informeOrigen?.correoAuditorResponsable || informeOrigen?.correo_auditor || '';
       if (['responsable', 'revisor', 'correoResponsable', 'correoRevisor'].some(campo => (

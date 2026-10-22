@@ -25,6 +25,19 @@ export function bloqueadaParaEjecutor(plan, correoUsuario) {
   return Boolean(correo && ejecutores.includes(correo) && ejecucionEnviadaARevision(plan));
 }
 
+const ESTADOS_POSTERIORES_A_APROBACION = ['En Ejecución', ...ESTADOS_EJECUCION_ENVIADA, 'Cerrado'];
+
+// Aprobado el diseño, solo el ejecutor trabaja la acción: revisor y auditor aprobador solo la consultan,
+// aunque tengan rol administrador.
+export function bloqueadaParaRevisorOAuditor(plan, correoUsuario, correoAuditorInforme = '') {
+  const correo = normalizar(correoUsuario);
+  if (!correo || !plan || !ESTADOS_POSTERIORES_A_APROBACION.includes(plan.estadoWorkflow)) return false;
+  const lista = valor => String(valor || '').split(',').map(normalizar).filter(Boolean);
+  if (lista(plan.correoResponsable).includes(correo)) return false;
+  return lista(plan.correoRevisor).includes(correo) ||
+    lista(plan.correoAuditor || correoAuditorInforme).includes(correo);
+}
+
 export function esInformePrograma(informe, fuentes = []) {
   const referencia = normalizar(informe?.tipoFuente);
   if (!referencia) return false;

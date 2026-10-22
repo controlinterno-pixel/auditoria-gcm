@@ -8,7 +8,7 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -333,6 +333,9 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   const [criterios, setCriterios] = useState({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   const [justificacion, setJustificacion] = useState('');
   const [guardandoEvaluacionInicial, setGuardandoEvaluacionInicial] = useState(false);
+  // Evaluación ya guardada cuyo correo espera que el auditor autorice Gmail con un clic.
+  const [envioEvaluacionPendiente, setEnvioEvaluacionPendiente] = useState(null);
+  const [despachandoEvaluacion, setDespachandoEvaluacion] = useState(false);
   const [adjuntoEvaluacion, setAdjuntoEvaluacion] = useState(null);
   const [subiendoEvaluacion, setSubiendoEvaluacion] = useState(false);
   const [errorAdjuntoEvaluacion, setErrorAdjuntoEvaluacion] = useState('');
@@ -1312,9 +1315,7 @@ const handleNotificarPlan = async (planId) => {
     if (!window.confirm(`¿Confirmar evaluación de este paquete de acciones con un score de ${puntajeHolistico}%?`)) return;
 
     setGuardandoEvaluacionInicial(true);
-    let promesaCorreo = Promise.resolve(true);
     try {
-      if (prepararEnvioGmail) promesaCorreo = Promise.resolve(prepararEnvioGmail()).catch(() => false);
       const respuesta = await apiService.evaluarDisenoPlanes(
         modalEval.idInforme, modalEval.planes.map(plan => plan.id), criterios, justificacion.trim(), soporte
       );
@@ -1342,15 +1343,33 @@ const handleNotificarPlan = async (planId) => {
     setAdjuntoEvaluacion(null);
     setErrorAdjuntoEvaluacion('');
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
-    void (async () => {
-      try {
-        const autorizado = Boolean(await promesaCorreo);
-        const enviado = await notificarResultadoEvaluacionInicial(informeEvaluado, planesEvaluados, puntajeHolistico, dictamen, autorizado, soporte);
-        if (!enviado) showNotification('La evaluación quedó guardada. La notificación a los responsables está pendiente de reintento.', 'error');
-      } catch {
-        showNotification('La evaluación quedó guardada, pero no se pudo completar la notificación a los responsables.', 'error');
+    // Guardado primero; la ventana de Google se abre con el clic del auditor en el aviso de despacho.
+    setEnvioEvaluacionPendiente({ informe: informeEvaluado, planes: planesEvaluados, puntaje: puntajeHolistico, dictamen, soporte });
+  };
+
+  const despacharNotificacionEvaluacion = async (autorizarAhora) => {
+    const pendiente = envioEvaluacionPendiente;
+    if (!pendiente || despachandoEvaluacion) return;
+    setDespachandoEvaluacion(true);
+    try {
+      // Sin await previo: la ventana de Google debe abrirse dentro del mismo clic.
+      const autorizado = autorizarAhora && prepararEnvioGmail
+        ? Boolean(await Promise.resolve(prepararEnvioGmail()).catch(() => false))
+        : false;
+      const { informe, planes: planesEvaluados, puntaje, dictamen, soporte } = pendiente;
+      const enviado = await notificarResultadoEvaluacionInicial(informe, planesEvaluados, puntaje, dictamen, autorizado, soporte);
+      setEnvioEvaluacionPendiente(null);
+      if (enviado) {
+        showNotification(`Notificación enviada a ${planesEvaluados.length === 1 ? 'el ejecutor' : 'los ejecutores'} de la evaluación.`, 'success');
+      } else {
+        showNotification('La evaluación quedó guardada. La notificación quedó en "Notificaciones pendientes" para reintentarla.', 'error');
       }
-    })();
+    } catch {
+      setEnvioEvaluacionPendiente(null);
+      showNotification('La evaluación quedó guardada, pero no se pudo completar la notificación a los responsables.', 'error');
+    } finally {
+      setDespachandoEvaluacion(false);
+    }
   };
 
   // 🗑️ NUEVA FUNCIÓN: ELIMINAR UNA EVALUACIÓN DEL HISTORIAL (SOLO ADMIN)
@@ -3025,12 +3044,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const bloqueadaPorAuditor = programaActividad && !actividadNueva && disenoInicialBloqueado(act);
   // Se evalúa sobre lo guardado (planOriginal), no sobre lo que se está tecleando.
   const enviadaARevision = !actividadNueva && bloqueadaParaEjecutor(planOriginal, user?.email);
-  const puedeEditarActividad = !modoRevisionMatriz && !enviadaARevision && (isAdmin || actividadNueva || (esResponsableActividad &&
+  const soloConsultaRevisorAuditor = !actividadNueva && bloqueadaParaRevisorOAuditor(planOriginal, user?.email, correoAuditorOriginal);
+  const puedeEditarActividad = !modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && (isAdmin || actividadNueva || (esResponsableActividad &&
     (!bloqueadaPorAuditor || act.estadoWorkflow === ESTADO_AJUSTES_INICIALES)));
-  const puedeEditarAsignacion = !modoRevisionMatriz && !enviadaARevision && puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin);
+  const puedeEditarAsignacion = !modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin);
   const puedeEditarCorreo = puedeEditarAsignacion;
   const puedeEditarCorreoAuditor = !actividadNueva && puedeEditarAsignacion;
-  const puedeEditarAvance = !modoRevisionMatriz && !enviadaARevision && !actividadNueva && !bloqueadaPorAuditor && (isAdmin || (
+  const puedeEditarAvance = !modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && !actividadNueva && !bloqueadaPorAuditor && (isAdmin || (
     esResponsableActividad && act.estadoWorkflow === 'En Ejecución'
   ));
   return (
@@ -3067,7 +3087,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                     <span aria-hidden="true">🔒</span> Listo · Ejecutada 100% · Pendiente por revisar
                                   </span>
                                 )}
-                                {!modoRevisionMatriz && !enviadaARevision && (
+                                {soloConsultaRevisorAuditor && !modoRevisionMatriz && (
+                                  <span className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-700 shadow-sm">
+                                    <span aria-hidden="true">👁</span> Solo consulta
+                                  </span>
+                                )}
+                                {!modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && (
                                   <>
                                     <button
                                       type="button"
@@ -3097,7 +3122,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   ✅ Reportaste esta acción como ejecutada al 100%. Quedó bloqueada para ti mientras el revisor valida las evidencias{planOriginal?.estadoWorkflow !== ESTADO_PENDIENTE_VALIDACION_REVISOR ? ' y el auditor emite el dictamen final' : ''}. Si la devuelven, podrás editarla de nuevo.
                                 </p>
                               )}
-                              {!actividadNueva && !puedeEditarCorreo && !enviadaARevision && (
+                              {soloConsultaRevisorAuditor && !modoRevisionMatriz && (
+                                <p role="status" className="md:col-span-6 rounded-lg border border-slate-300 bg-slate-50 p-3 text-xs font-semibold text-slate-700">
+                                  👁 El diseño de esta acción ya fue aprobado. Solo el ejecutor ({planOriginal?.correoResponsable || 'sin correo'}) puede ejecutarla y actualizarla; como {normalizarIdentidad(planOriginal?.correoRevisor).split(',').map(valor => valor.trim()).includes(normalizarIdentidad(user?.email)) ? 'revisor' : 'auditor aprobador'} solo puedes consultarla.
+                                </p>
+                              )}
+                              {!actividadNueva && !puedeEditarCorreo && !enviadaARevision && !soloConsultaRevisorAuditor && (
                                 <p className="md:col-span-6 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                                   Los cargos y correos asignados son de solo lectura para el ejecutor. Para corregirlos, solicita el ajuste a un administrador distinto del ejecutor.
                                 </p>
@@ -3870,7 +3900,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                          {/* BOTONES DEL EJECUTOR (Y Admin) - Pueden gestionar mientras no esté cerrado */}
                                           {(esEjecutor || isAdmin) && p.estadoWorkflow !== 'Cerrado' && (
                                             <>
-                                              <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-200 transition-colors shadow-sm">{bloqueadaParaEjecutor(p, user?.email) ? '👁️ Ver acción enviada' : '✏️ Modificar Matriz'}</button>
+                                              <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-200 transition-colors shadow-sm">{bloqueadaParaEjecutor(p, user?.email) ? '👁️ Ver acción enviada' : bloqueadaParaRevisorOAuditor(p, user?.email) ? '👁️ Ver acción (solo consulta)' : '✏️ Modificar Matriz'}</button>
                                               
                                               {/* NUEVO BOTÓN: Evaluar / Modo Lectura para Revisor o Auditor */}
                                               {(esRevisor || esAuditor || isAdmin) && (
@@ -4032,6 +4062,48 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               </div>
                             );
                           })()}
+
+      {envioEvaluacionPendiente && createPortal(
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-envio-evaluacion">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="bg-[#0A3B32] px-5 py-4 text-white">
+              <h3 id="titulo-envio-evaluacion" className="text-sm font-black">✅ Evaluación guardada</h3>
+              <p className="mt-0.5 text-[11px] text-emerald-100">
+                {envioEvaluacionPendiente.puntaje >= 80 ? 'Diseño aprobado' : 'Diseño no aprobado'} con {envioEvaluacionPendiente.puntaje}%.
+              </p>
+            </div>
+            <div className="space-y-3 p-5 text-xs text-slate-700">
+              <p>Ahora autoriza tu cuenta de Gmail para notificar el resultado, con el soporte adjunto, a:</p>
+              <ul className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                {[...new Set(envioEvaluacionPendiente.planes.map(plan => plan.correoResponsable).filter(Boolean))].map(correo => (
+                  <li key={correo} className="font-semibold text-slate-900 break-all">{correo}</li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-slate-500">Se abrirá la ventana de Google; elige la misma cuenta con la que iniciaste sesión.</p>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
+              <button
+                type="button"
+                disabled={despachandoEvaluacion}
+                onClick={() => despacharNotificacionEvaluacion(false)}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:opacity-50"
+              >
+                Enviar más tarde
+              </button>
+              <button
+                type="button"
+                autoFocus
+                disabled={despachandoEvaluacion}
+                onClick={() => despacharNotificacionEvaluacion(true)}
+                className="rounded-xl bg-[#0A3B32] px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#062620] disabled:opacity-60"
+              >
+                {despachandoEvaluacion ? 'Enviando…' : '📧 Autorizar Gmail y enviar'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
                    {/* ===================================================================== */}
       {/* 📄 LIENZO OCULTO PARA EXPORTAR EL DICTAMEN A PDF (BLINDADO ANTI-CORTES) */}

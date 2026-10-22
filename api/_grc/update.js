@@ -1,5 +1,5 @@
 import { applyCors } from '../_lib/cors.js';
-import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../../src/utils/programPlanWorkflow.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
@@ -147,6 +147,7 @@ export default async function handler(req, res) {
           }
           idsActualizados.add(clave);
           if (!admin && normalizar(anterior.correoResponsable) !== usuarioEmail) return { error: 'not-owner' };
+          if (bloqueadaParaRevisorOAuditor(anterior, user.email, correoAuditorInforme)) return { error: 'reviewer-read-only' };
 
           const actualizaCorreoResponsable = Object.hasOwn(peticion, 'correoResponsable') || Object.hasOwn(peticion, 'correoConfirmacion');
           const actualizaCorreoRevisor = Object.hasOwn(peticion, 'correoRevisor') || Object.hasOwn(peticion, 'correoRevisorConfirmacion');
@@ -357,6 +358,7 @@ export default async function handler(req, res) {
         'invalid-action': ['La descripción de la acción no puede quedar vacía.', 400],
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
         'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
+        'reviewer-read-only': ['Con el diseño aprobado, solo el ejecutor puede trabajar esta acción. El revisor y el auditor aprobador solo pueden consultarla.', 403],
         'executor-locked-review': ['Esta acción ya fue reportada al 100% y está pendiente por revisar; el ejecutor no puede modificarla.', 403],
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
         'assignment-forbidden': ['El ejecutor no puede modificar los cargos ni correos asignados. Solicita el ajuste a un administrador distinto del ejecutor.', 403],

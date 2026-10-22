@@ -675,3 +675,24 @@ for (const decision of ['aprobar', 'corregir']) {
     if (decision === 'aprobar') assert.match(payloads[0].proceso_auditado, /Evaluar y cerrar acción/);
   });
 }
+
+test('aprobado el diseño, revisor y auditor aprobador solo consultan, aunque sean administradores', async () => {
+  const enEjecucion = plan({ estadoWorkflow: 'En Ejecución', progreso: 40 });
+  assert.equal(workflow.bloqueadaParaRevisorOAuditor(enEjecucion, 'revisor@example.test'), true);
+  assert.equal(workflow.bloqueadaParaRevisorOAuditor(enEjecucion, 'AUDITOR@example.test'), true);
+  assert.equal(workflow.bloqueadaParaRevisorOAuditor(enEjecucion, 'ejecutor@example.test'), false);
+  assert.equal(workflow.bloqueadaParaRevisorOAuditor(enEjecucion, 'admin@example.test'), false);
+  assert.equal(workflow.bloqueadaParaRevisorOAuditor(plan({ correoAuditor: '', estadoWorkflow: 'En Ejecución' }), 'auditor@example.test', 'auditor@example.test'), true);
+  assert.equal(workflow.bloqueadaParaRevisorOAuditor(plan(), 'auditor@example.test'), false);
+  for (const email of ['revisor@example.test', 'auditor@example.test']) {
+    const h = harness({ email, rol: 'admin', planes: [enEjecucion] });
+    const res = await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 80, accion: 'Cambio indebido' }] });
+    assert.equal(res.code, 403, email);
+    assert.match(res.message, /solo el ejecutor/);
+    assert.equal(h.writes.length, 0);
+  }
+  const ejecutor = harness({ email: 'ejecutor@example.test', planes: [enEjecucion] });
+  assert.equal((await ejecutor.update({ idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 60 }] })).code, 200);
+  const revisorSync = harness({ email: 'revisor@example.test', rol: 'admin', planes: [enEjecucion] });
+  assert.equal(await revisorSync.syncAllowed([{ ...enEjecucion, accion: 'Cambio indebido' }]), false);
+});
