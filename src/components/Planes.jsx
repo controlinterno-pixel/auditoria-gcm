@@ -776,9 +776,29 @@ const handleNotificarPlan = async (planId) => {
   };
 
 // 💾 PROCESOR DE ENVÍO MATRICIAL UNIFICADO CON VALIDACIÓN Y CORREOS AUTOMÁTICOS
+  // Matriz sin nada que el usuario pueda guardar: solo acciones que consulta como revisor/auditor
+  // o que ya envió al 100% como ejecutor.
+  const matrizSoloConsulta = () => {
+    const informe = informesAuditoria.find(item => (
+      String(item.id) === String(formInformeId) ||
+      String(item.ref || '').trim().toLowerCase() === String(formInformeId).trim().toLowerCase()
+    ));
+    const correoAuditorInforme = informe?.correoAuditor || informe?.correoAuditorResponsable || '';
+    const actividades = Object.values(matrixState).flatMap(node => (node?.aplica && Array.isArray(node.actividades) ? node.actividades : []));
+    return actividades.length > 0 && actividades.every(act => {
+      if (String(act.id).startsWith('new-')) return false;
+      const original = safePlanes.find(plan => String(plan.id) === String(act.id));
+      return bloqueadaParaRevisorOAuditor(original, user?.email, correoAuditorInforme) || bloqueadaParaEjecutor(original, user?.email);
+    });
+  };
+
   const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
+    if (matrizSoloConsulta()) {
+      showNotification('Esta matriz es solo de consulta para ti: no hay acciones que te corresponda guardar.', 'error');
+      return;
+    }
 
     // 🛡️ RESOLUCIÓN ROBUSTA DEL ID REAL DEL INFORME
     // Busca el informe coincidente tanto por ID directo como por la referencia consecutivo (INF-XXXX-XXX)
@@ -3507,9 +3527,15 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       ❌ Salir sin guardar
                     </button>
                     
-                    <button type="submit" className="bg-[#0A3B32] hover:bg-[#062620] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-md transition-all w-full md:w-auto flex items-center gap-2">
-                      <span>💾</span> Guardar Matriz y Sincronizar
-                    </button>
+                    {matrizSoloConsulta() ? (
+                      <span role="status" className="flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-5 py-3 text-xs font-bold text-slate-700 w-full md:w-auto">
+                        <span aria-hidden="true">👁</span> Solo consulta: no tienes acciones por guardar en esta matriz
+                      </span>
+                    ) : (
+                      <button type="submit" className="bg-[#0A3B32] hover:bg-[#062620] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-md transition-all w-full md:w-auto flex items-center gap-2">
+                        <span>💾</span> Guardar Matriz y Sincronizar
+                      </button>
+                    )}
                  </div>
                )}
               </div>
