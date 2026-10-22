@@ -1562,8 +1562,12 @@ const renderMatriz = () => {
         : r.subprocesosPorMacroproceso[filtroProceso] || [];
       const matchSubproceso = filtroSubproceso === 'Todos' || subprocesosDelProceso.includes(filtroSubproceso);
       const matchClasificacion = filtroClasificacion === 'Todas' || r.clasificacionRiesgo === filtroClasificacion;
-      const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
-      const matchNivel = filtroNivel === 'Todos' || zoneRes.label === filtroNivel;
+      // filtroNivel: 'Todos', 'inh:<nivel>' (inherente) o 'res:<nivel>' (residual).
+      const [tipoNivel, etiquetaNivel] = filtroNivel.includes(':') ? filtroNivel.split(':') : ['res', filtroNivel];
+      const zonaFiltro = tipoNivel === 'inh'
+        ? getSeverityZone(r.probabilidadInherente, r.impactoInherente)
+        : getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+      const matchNivel = filtroNivel === 'Todos' || zonaFiltro.label === etiquetaNivel;
       return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel;
     });
 
@@ -1685,13 +1689,16 @@ const renderMatriz = () => {
             <select
               value={filtroNivel}
               onChange={(e) => setFiltroNivel(e.target.value)}
-              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32]"
+              aria-label="Filtrar por nivel de riesgo inherente o residual"
+              className={`text-xs p-2 border rounded-xl font-bold focus:ring-2 focus:ring-[#0A3B32] ${filtroNivel === 'Todos' ? 'border-slate-200 bg-white text-slate-700' : 'border-[#0A3B32] bg-emerald-50 text-[#0A3B32]'}`}
             >
               <option value="Todos">Todos los niveles</option>
-              <option value="Bajo">Bajo</option>
-              <option value="Moderado">Moderado</option>
-              <option value="Alto">Alto</option>
-              <option value="Extremo">Extremo</option>
+              <optgroup label="Nivel inherente (antes de controles)">
+                {['Bajo', 'Moderado', 'Alto', 'Extremo'].map(nivel => <option key={`inh-${nivel}`} value={`inh:${nivel}`}>Inherente: {nivel}</option>)}
+              </optgroup>
+              <optgroup label="Nivel residual (después de controles)">
+                {['Bajo', 'Moderado', 'Alto', 'Extremo'].map(nivel => <option key={`res-${nivel}`} value={`res:${nivel}`}>Residual: {nivel}</option>)}
+              </optgroup>
             </select>
 
             <span className="text-xs bg-emerald-50 text-emerald-800 font-extrabold px-3 py-2 rounded-xl border border-emerald-200 flex items-center gap-1.5">
@@ -1703,8 +1710,16 @@ const renderMatriz = () => {
         {/* ========================================================================= */}
         {/* 📋 3. TABLA PRINCIPAL ENTERPRISE SAAS                                    */}
         {/* ========================================================================= */}
+        <p role="status" aria-live="polite" className="mb-2 px-1 text-xs font-semibold text-slate-600">
+          Mostrando <strong className="text-slate-900">{riesgosFiltrados.length}</strong> de {riesgosNormalizados.length} riesgos
+          {filtroNivel !== 'Todos' && (
+            <> · nivel {filtroNivel.startsWith('inh:') ? 'inherente' : 'residual'} <strong className="text-slate-900">{filtroNivel.split(':').pop()}</strong>
+              <button type="button" onClick={() => setFiltroNivel('Todos')} className="ml-2 font-bold text-[#0A3B32] underline">Quitar</button>
+            </>
+          )}
+        </p>
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-          
+
           {/* Encabezado Principal */}
           <div className="grid grid-cols-12 gap-3 bg-slate-900 text-white px-6 py-3.5 text-[10px] font-black uppercase tracking-wider items-center">
             <div className="col-span-2">ID / Proceso</div>
