@@ -435,18 +435,30 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   };
 
   const notificarResultadoEvaluacionInicial = async (informe, planes, puntaje, dictamen, correoPreparado, soporte = null) => {
-    let todosEnviados = true;
+    // Un solo correo por ejecutor con todas sus acciones evaluadas (antes llegaba uno por acción).
+    const aprobado = puntaje >= 80;
+    const porEjecutor = new Map();
     for (const plan of planes) {
-      const aprobado = puntaje >= 80;
+      const clave = String(plan.correoResponsable || '').trim().toLowerCase();
+      if (!porEjecutor.has(clave)) porEjecutor.set(clave, { destinatarios: plan.correoResponsable, planes: [] });
+      porEjecutor.get(clave).planes.push(plan);
+    }
+    let todosEnviados = true;
+    for (const { destinatarios, planes: planesEjecutor } of porEjecutor.values()) {
+      const referencias = planesEjecutor.map(plan => `PLA-${String(plan.id).slice(-4)}`);
+      const listado = planesEjecutor.map((plan, indice) => `${referencias[indice]}: "${plan.accion}"`).join('; ');
+      const varias = planesEjecutor.length > 1;
       const enviado = await enviarNotificacionPlanConReintento({
-        ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        ref_consecutivo: referencias.join(', '),
         asunto: aprobado ? 'Diseño aprobado: ejecución habilitada' : 'Diseño no aprobado: corregir matriz',
-        titulo_informe: aprobado ? 'Ya puedes ejecutar tu acción' : 'Corrige la matriz y reenvíala al auditor',
+        titulo_informe: aprobado
+          ? (varias ? `Ya puedes ejecutar tus ${planesEjecutor.length} acciones` : 'Ya puedes ejecutar tu acción')
+          : 'Corrige la matriz y reenvíala al auditor',
         proceso_auditado: aprobado
-          ? `El auditor asignado aprobó el diseño de la acción "${plan.accion}" con ${puntaje}%. Ya puedes iniciar su ejecución desde "Ejecutar acción". Guarda el avance y las evidencias; al llegar al 100%, pasará al revisor y después al auditor para el cierre individual. Dictamen: ${dictamen || 'Sin observaciones adicionales.'}`
-          : `La evaluación inicial de la acción "${plan.accion}" obtuvo ${puntaje}%. La ejecución sigue bloqueada. Usa "Corregir matriz", guarda las correcciones y reenvía el diseño al auditor asignado. Justificación: ${dictamen}`,
+          ? `El auditor asignado aprobó con ${puntaje}% el diseño de ${varias ? `tus ${planesEjecutor.length} acciones` : 'tu acción'}: ${listado}. Ya puedes iniciar su ejecución desde "Ejecutar acción". Guarda el avance y las evidencias; al llegar al 100%, cada acción pasará al revisor y después al auditor para su cierre individual. Dictamen: ${dictamen || 'Sin observaciones adicionales.'}`
+          : `La evaluación inicial de ${varias ? `tus ${planesEjecutor.length} acciones` : 'tu acción'} obtuvo ${puntaje}%: ${listado}. La ejecución sigue bloqueada. Usa "Corregir matriz", guarda las correcciones y reenvía el diseño al auditor asignado. Justificación: ${dictamen}`,
         enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(informe.id)}`,
-        destinatarios: plan.correoResponsable,
+        destinatarios,
         adjuntosCorreo: soporte ? [soporte] : [],
       }, correoPreparado);
       if (!enviado) todosEnviados = false;
@@ -1929,6 +1941,11 @@ if (existingActivities.length > 0) {
           JSON.stringify(planOriginal[campo] ?? null) === JSON.stringify(cambiosFinales[campo] ?? null)
         ));
         if (sinCambios && !(progreso === 100 && planOriginal.estadoWorkflow === 'En Ejecución')) {
+          if (planOriginal.estadoWorkflow === 'En Ejecución') {
+            // Ejecución en curso: el ejecutor sigue en la acción.
+            showNotification('No hay cambios nuevos en el avance de esta acción.', 'info');
+            return;
+          }
           volverAlHistorialTrasGuardarAccion('Esta acción ya estaba guardada. Puedes retomar las demás desde este historial.', idInformeReal);
           return;
         }
@@ -1946,6 +1963,23 @@ if (existingActivities.length > 0) {
         : safePlanes.map(plan => String(plan.id) === String(planGuardado.id) ? planGuardado : plan);
       setPlanes(planesActualizados);
       setGuardandoAccionKey(null);
+      // Avance parcial en ejecución: se guarda sin notificar y el ejecutor sigue editando hasta el 100%.
+      if (!esNueva && !requiereNotificacion && planGuardado.estadoWorkflow === 'En Ejecución' && Number(planGuardado.progreso) < 100) {
+        setMatrixState(prev => {
+          const nodo = prev[hallazgoId];
+          if (!nodo?.actividades?.[index]) return prev;
+          const actividades = nodo.actividades.map((act, idx) => idx === index ? {
+            ...act,
+            progreso: planGuardado.progreso,
+            evidenciaUrl: planGuardado.evidenciaUrl ?? act.evidenciaUrl,
+            estadoWorkflow: planGuardado.estadoWorkflow,
+          } : act);
+          return { ...prev, [hallazgoId]: { ...nodo, actividades } };
+        });
+        setMatrixDirty(false);
+        showNotification(`Avance guardado (${planGuardado.progreso}%). Sigue avanzando; al guardar el 100% se notificará al revisor.`, 'success');
+        return;
+      }
       volverAlHistorialTrasGuardarAccion(
         requiereNotificacion
           ? 'La acción quedó registrada. Las demás siguen pendientes para retomarlas desde el historial.'
@@ -4261,15 +4295,35 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 {envioEvaluacionPendiente.puntaje >= 80 ? 'Diseño aprobado' : 'Diseño no aprobado'} con {envioEvaluacionPendiente.puntaje}%.
               </p>
             </div>
-            <div className="space-y-3 p-5 text-xs text-slate-700">
-              <p>Ahora autoriza tu cuenta de Gmail para notificar el resultado, con el soporte adjunto, a:</p>
-              <ul className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                {[...new Set(envioEvaluacionPendiente.planes.map(plan => plan.correoResponsable).filter(Boolean))].map(correo => (
-                  <li key={correo} className="font-semibold text-slate-900 break-all">{correo}</li>
-                ))}
-              </ul>
-              <p className="text-[11px] text-slate-500">Se abrirá la ventana de Google; elige la misma cuenta con la que iniciaste sesión.</p>
-            </div>
+            {despachandoEvaluacion ? (
+              // Espera del envío: autorización de Google, preparación del adjunto y despacho pueden tardar.
+              <div role="status" aria-live="polite" className="flex flex-col items-center gap-4 px-6 py-8 text-center">
+                <div className="relative h-14 w-14" aria-hidden="true">
+                  <div className="absolute inset-0 rounded-full border-4 border-emerald-100"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#0A3B32] border-r-emerald-500 animate-spin motion-reduce:animate-none"></div>
+                  <span className="absolute inset-0 flex items-center justify-center text-lg">📧</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-black text-slate-900">Enviando la notificación…</p>
+                  <p className="text-xs text-slate-600">
+                    Autorizando Gmail y adjuntando el soporte. Puede tardar unos segundos; por favor espera y no cierres esta ventana.
+                  </p>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Si se abrió la ventana de Google, complétala para continuar.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 p-5 text-xs text-slate-700">
+                <p>Ahora autoriza tu cuenta de Gmail para notificar el resultado, con el soporte adjunto, a:</p>
+                <ul className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  {[...new Set(envioEvaluacionPendiente.planes.map(plan => plan.correoResponsable).filter(Boolean))].map(correo => (
+                    <li key={correo} className="font-semibold text-slate-900 break-all">{correo}</li>
+                  ))}
+                </ul>
+                <p className="text-[11px] text-slate-500">Se abrirá la ventana de Google; elige la misma cuenta con la que iniciaste sesión.</p>
+              </div>
+            )}
             <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
               <button
                 type="button"
@@ -4284,9 +4338,15 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 autoFocus
                 disabled={despachandoEvaluacion}
                 onClick={() => despacharNotificacionEvaluacion(true)}
-                className="rounded-xl bg-[#0A3B32] px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#062620] disabled:opacity-60"
+                aria-busy={despachandoEvaluacion}
+                className="flex items-center gap-2 rounded-xl bg-[#0A3B32] px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#062620] disabled:cursor-wait disabled:opacity-80"
               >
-                {despachandoEvaluacion ? 'Enviando…' : '📧 Autorizar Gmail y enviar'}
+                {despachandoEvaluacion ? (
+                  <>
+                    <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin motion-reduce:animate-none"></span>
+                    Enviando…
+                  </>
+                ) : '📧 Autorizar Gmail y enviar'}
               </button>
             </div>
           </div>

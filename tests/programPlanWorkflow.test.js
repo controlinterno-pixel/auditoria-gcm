@@ -778,3 +778,24 @@ test('eficacia rechazada: ejecutor -> revisor -> nueva evaluación del aprobador
   assert.equal(h.data().planes[0].estadoWorkflow, 'Cerrado');
   assert.equal(h.data().planes[0].historialEficacia.length, 2, 'conserva la evaluación rechazada y la nueva');
 });
+
+test('evaluación inicial: un solo correo por ejecutor con todas sus acciones', async () => {
+  const text = read('../src/components/Planes.jsx');
+  const fn = text.slice(text.indexOf('  const notificarResultadoEvaluacionInicial ='), text.indexOf('  const notificarEjecucionCompleta ='));
+  const payloads = [];
+  const notificar = new Function('enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarResultadoEvaluacionInicial;`)(
+    async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
+  );
+  const planes = [
+    plan({ id: 1001, accion: 'Uno' }), plan({ id: 1002, accion: 'Dos' }),
+    plan({ id: 1003, accion: 'Tres', correoResponsable: 'otro.ejecutor@example.test' }),
+  ];
+  assert.equal(await notificar({ id: 'i1' }, planes, 90, '', true, soporte), true);
+  assert.equal(payloads.length, 2, 'uno por ejecutor, no uno por acción');
+  assert.equal(payloads[0].destinatarios, 'ejecutor@example.test');
+  assert.equal(payloads[0].ref_consecutivo, 'PLA-1001, PLA-1002');
+  assert.match(payloads[0].proceso_auditado, /tus 2 acciones/);
+  assert.match(payloads[0].proceso_auditado, /"Uno".*"Dos"/);
+  assert.deepEqual(payloads[0].adjuntosCorreo, [soporte]);
+  assert.equal(payloads[1].destinatarios, 'otro.ejecutor@example.test');
+});
