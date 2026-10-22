@@ -1,3 +1,4 @@
+import { riesgoEnPorcentaje } from './nivelRiesgo.js';
 const COLORES = {
   tinta: 'FF173B35',
   verde: 'FF176B5B',
@@ -116,8 +117,8 @@ const escribirFormula = (celda, formula, resultado, formato = '0') => {
 export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   const { default: ExcelJS } = await import('exceljs');
   const riesgosExportados = riesgos.map(riesgo => {
-    const zonaInherente = calculos.getSeverityZone(riesgo.probabilidadInherente, riesgo.impactoInherente);
-    const zonaResidual = calculos.getSeverityZone(riesgo.probabilidadResidual, riesgo.impactoResidual);
+    const zonaInherente = calculos.getSeverityZone(riesgo.probabilidadInherente, riesgo.impactoInherente, riesgoEnPorcentaje(riesgo));
+    const zonaResidual = calculos.getSeverityZone(riesgo.probabilidadResidual, riesgo.impactoResidual, riesgoEnPorcentaje(riesgo));
     const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.filter(Boolean) : [];
     const controlLegado = controles.length === 0 ? String(riesgo.descripcionControl || '').trim() : '';
     const eficaciaPromedio = controles.length > 0

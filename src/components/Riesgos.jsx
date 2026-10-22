@@ -11,6 +11,7 @@ import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import { analizarRiesgoConIA } from '../services/aiEngine';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
+import { nivelEscala, riesgoEnPorcentaje, zonaSeveridad } from '../utils/nivelRiesgo.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
   .normalize('NFD')
@@ -558,27 +559,10 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     Bajo: 'border-l-emerald-500',
   };
 
-  const getSeverityZone = (prob, imp) => {
-    let p = Number(prob) || 1;
-    let i = Number(imp) || 1;
-    
-    if (p > 5) p = Math.ceil(p / 20);
-    if (i > 5) i = Math.ceil(i / 20);
-    
-    if (p >= 4 && i >= 4) {
-      return { label: 'Extremo', color: 'bg-red-600 text-white' };
-    } 
-    if ((p >= 3 && i >= 4) || (p >= 4 && i >= 3)) {
-      return { label: 'Alto', color: 'bg-orange-500 text-white' };
-    } 
-    if ((p >= 2 && i >= 3) || (p >= 3 && i >= 2) || (p >= 2 && i >= 2)) {
-      return { label: 'Moderado', color: 'bg-amber-400 text-slate-900' };
-    }
-    
-    return { label: 'Bajo', color: 'bg-emerald-500 text-white' };
-  };
+  // `porcentaje`: escala del riesgo (riesgoEnPorcentaje). Sin él, cada valor se interpreta por sí solo.
+  const getSeverityZone = (prob, imp, porcentaje) => zonaSeveridad(prob, imp, porcentaje);
 
-  const extraerNivelMatriz = (valor, eje) => {
+  const extraerNivelMatriz = (valor, eje, porcentaje) => {
     const texto = String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     const etiquetas = eje === 'probabilidad'
       ? { rara: 1, 'rara vez': 1, improbable: 2, posible: 3, media: 3, probable: 4, alta: 4, 'casi seguro': 5, frecuente: 5 }
@@ -586,9 +570,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     if (etiquetas[texto]) return etiquetas[texto];
 
     const numero = typeof valor === 'number' ? valor : Number.parseFloat(texto.replace(',', '.'));
-    if (!Number.isFinite(numero) || numero <= 0) return 1;
-    if (numero <= 5) return Math.max(1, Math.round(numero));
-    return Math.min(5, Math.max(1, Math.ceil(numero / 20)));
+    return nivelEscala(numero, porcentaje);
   };
 
   const handleDeleteRiesgo = async (id) => {
@@ -799,8 +781,8 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
 
       // 1. CÁLCULOS MATEMÁTICOS REALES DE LA MATRIZ GLOBAL (MÓDULO 2)
       const totalRiesgos = safeRiesgos.length;
-      const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
-      const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
+      const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r)).label === 'Extremo').length;
+      const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r)).label === 'Alto').length;
       const altosYCriticos = extremos + altos;
 
       // Se removieron acumuladores conteoProcesos y conteoCategorias por no ser leídos posteriormente
@@ -1153,7 +1135,7 @@ const handleRiesgoSubmit = async (e) => {
         : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || []
     ))])].sort((a, b) => a.localeCompare(b, 'es'));
     const clasificacionesUnicas = [...new Set(riesgosNormalizados.map(r => r.clasificacionRiesgo || r.categoria || 'Sin clasificación'))].sort((a, b) => a.localeCompare(b, 'es'));
-    const scoreRiesgo = riesgo => extraerNivelMatriz(riesgo.probabilidadResidual, 'probabilidad') * extraerNivelMatriz(riesgo.impactoResidual, 'impacto');
+    const scoreRiesgo = riesgo => extraerNivelMatriz(riesgo.probabilidadResidual, 'probabilidad', riesgoEnPorcentaje(riesgo)) * extraerNivelMatriz(riesgo.impactoResidual, 'impacto', riesgoEnPorcentaje(riesgo));
     const nivelRiesgo = riesgo => {
       const score = scoreRiesgo(riesgo);
       return score >= 16 ? 'Extremo' : score >= 10 ? 'Alto' : score >= 5 ? 'Moderado' : 'Bajo';
@@ -1218,6 +1200,7 @@ const handleRiesgoSubmit = async (e) => {
         ? (matrizDashboardTipo === 'residual' ? riesgo.probabilidadResidual : riesgo.probabilidadInherente)
         : (matrizDashboardTipo === 'residual' ? riesgo.impactoResidual : riesgo.impactoInherente),
       eje,
+      riesgoEnPorcentaje(riesgo),
     );
     const riesgosEnCuadrante = cuadranteDashboard
       ? riesgosDashboard.filter(riesgo => obtenerCoordenada(riesgo, 'probabilidad') === cuadranteDashboard.probabilidad
@@ -1519,7 +1502,7 @@ const renderMatriz = () => {
     // 📊 Métricas calculadas para la barra superior
     const totalRiesgosCount = safeRiesgos.length;
     const riesgosAltosCriticosCount = safeRiesgos.filter(r => {
-      const z = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+      const z = getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
       return z.label === 'Alto' || z.label === 'Extremo';
     }).length;
     const totalControlesCount = safeRiesgos.reduce((acc, r) => {
@@ -1565,8 +1548,8 @@ const renderMatriz = () => {
       // filtroNivel: 'Todos', 'inh:<nivel>' (inherente) o 'res:<nivel>' (residual).
       const [tipoNivel, etiquetaNivel] = filtroNivel.includes(':') ? filtroNivel.split(':') : ['res', filtroNivel];
       const zonaFiltro = tipoNivel === 'inh'
-        ? getSeverityZone(r.probabilidadInherente, r.impactoInherente)
-        : getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+        ? getSeverityZone(r.probabilidadInherente, r.impactoInherente, riesgoEnPorcentaje(r))
+        : getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
       const matchNivel = filtroNivel === 'Todos' || zonaFiltro.label === etiquetaNivel;
       return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel;
     });
@@ -1739,8 +1722,8 @@ const renderMatriz = () => {
               riesgosFiltrados.map((r, index) => {
                 const isExpanded = expandedRiesgoId === r.id;
                 const panelId = `expediente-riesgo-${encodeURIComponent(String(r.id))}`;
-                const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
-                const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+                const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente, riesgoEnPorcentaje(r));
+                const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
                 const listaControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
                 const totalControles = listaControles.length || (r.descripcionControl ? 1 : 0);
 
