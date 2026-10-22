@@ -1135,18 +1135,28 @@ const handleRiesgoSubmit = async (e) => {
         : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || []
     ))])].sort((a, b) => a.localeCompare(b, 'es'));
     const clasificacionesUnicas = [...new Set(riesgosNormalizados.map(r => r.clasificacionRiesgo || r.categoria || 'Sin clasificación'))].sort((a, b) => a.localeCompare(b, 'es'));
-    const scoreRiesgo = riesgo => extraerNivelMatriz(riesgo.probabilidadResidual, 'probabilidad', riesgoEnPorcentaje(riesgo)) * extraerNivelMatriz(riesgo.impactoResidual, 'impacto', riesgoEnPorcentaje(riesgo));
+    // Todo el panorama (tarjetas, mapa, filtro y listas) usa el momento elegido: inherente o residual.
+    const esResidual = matrizDashboardTipo === 'residual';
+    const nivelActivo = esResidual ? 'Residual' : 'Inherente';
+    const obtenerCoordenada = (riesgo, eje) => extraerNivelMatriz(
+      eje === 'probabilidad'
+        ? (esResidual ? riesgo.probabilidadResidual : riesgo.probabilidadInherente)
+        : (esResidual ? riesgo.impactoResidual : riesgo.impactoInherente),
+      eje,
+      riesgoEnPorcentaje(riesgo),
+    );
+    const scoreRiesgo = riesgo => obtenerCoordenada(riesgo, 'probabilidad') * obtenerCoordenada(riesgo, 'impacto');
+    const nivelPorPuntaje = score => (score >= 16 ? 'Extremo' : score >= 10 ? 'Alto' : score >= 5 ? 'Moderado' : 'Bajo');
     const nivelRiesgo = riesgo => {
       const score = scoreRiesgo(riesgo);
       return score >= 16 ? 'Extremo' : score >= 10 ? 'Alto' : score >= 5 ? 'Moderado' : 'Bajo';
     };
-    const riesgosDashboard = riesgosNormalizados.filter(riesgo => {
+    const riesgosBaseDashboard = riesgosNormalizados.filter(riesgo => {
       const macroprocesos = riesgo.macroprocesos.length > 0 ? riesgo.macroprocesos : ['Sin proceso'];
       const subprocesos = filtroProceso === 'Todos'
         ? riesgo.subprocesos
         : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || [];
       const clasificacion = riesgo.clasificacionRiesgo || riesgo.categoria || 'Sin clasificación';
-      const nivel = nivelRiesgo(riesgo);
       const textoBusqueda = `${riesgo.id} ${riesgo.descripcion || riesgo.escenarioFinal || ''} ${macroprocesos.join(' ')} ${subprocesos.join(' ')} ${clasificacion}`.toLowerCase();
       return (filtroProceso === 'Todos' || macroprocesos.some(macroproceso => (
         normalizarTextoProceso(macroproceso) === normalizarTextoProceso(macroprocesoSeleccionado)
@@ -1155,14 +1165,17 @@ const handleRiesgoSubmit = async (e) => {
           normalizarTextoProceso(subproceso) === normalizarTextoProceso(filtroSubproceso)
         )))
         && (filtroClasificacion === 'Todas' || clasificacion === filtroClasificacion)
-        && (filtroNivelDashboard === 'Todos' || nivel === filtroNivelDashboard)
         && (!searchTerm || textoBusqueda.includes(searchTerm.toLowerCase()));
     });
+    const riesgosDashboard = filtroNivelDashboard === 'Todos'
+      ? riesgosBaseDashboard
+      : riesgosBaseDashboard.filter(riesgo => nivelRiesgo(riesgo) === filtroNivelDashboard);
 
     const totalRiesgos = riesgosDashboard.length;
+    // Las tarjetas cuentan sobre la base: al elegir un nivel, las demás conservan su número.
     const conteoNiveles = Object.fromEntries(niveles.map(nivel => [
       nivel,
-      riesgosDashboard.filter(r => nivelRiesgo(r) === nivel).length,
+      riesgosBaseDashboard.filter(r => nivelRiesgo(r) === nivel).length,
     ]));
     const extremos = conteoNiveles.Extremo;
     const altos = conteoNiveles.Alto;
@@ -1194,13 +1207,33 @@ const handleRiesgoSubmit = async (e) => {
     }, {});
     const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const maxProceso = Math.max(...topProcesos.map(([, cantidad]) => cantidad), 1);
-    const nivelActivo = matrizDashboardTipo === 'residual' ? 'Residual' : 'Inherente';
-    const obtenerCoordenada = (riesgo, eje) => extraerNivelMatriz(
-      eje === 'probabilidad'
-        ? (matrizDashboardTipo === 'residual' ? riesgo.probabilidadResidual : riesgo.probabilidadInherente)
-        : (matrizDashboardTipo === 'residual' ? riesgo.impactoResidual : riesgo.impactoInherente),
-      eje,
-      riesgoEnPorcentaje(riesgo),
+    const cambiarMomentoDashboard = momento => {
+      setMatrizDashboardTipo(momento);
+      // Las coordenadas cambian entre inherente y residual: la celda elegida ya no aplica.
+      setCuadranteDashboard(null);
+    };
+    const elegirNivelDashboard = nivel => {
+      setFiltroNivelDashboard(actual => (actual === nivel && nivel !== 'Todos' ? 'Todos' : nivel));
+      setCuadranteDashboard(null);
+    };
+    const selectorMomento = (oscuro = false) => (
+      <div role="group" aria-label="Momento de evaluación" className={`inline-flex w-fit rounded-lg border p-1 ${oscuro ? 'border-slate-700 bg-slate-900' : 'border-slate-300 bg-slate-100'}`}>
+        {[
+          { id: 'inherente', texto: 'Inherente', ayuda: 'Antes de controles' },
+          { id: 'residual', texto: 'Residual', ayuda: 'Después de controles' },
+        ].map(opcion => (
+          <button
+            type="button"
+            key={opcion.id}
+            title={opcion.ayuda}
+            aria-pressed={matrizDashboardTipo === opcion.id}
+            onClick={() => cambiarMomentoDashboard(opcion.id)}
+            className={`min-h-8 rounded-md px-3 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${matrizDashboardTipo === opcion.id ? 'bg-emerald-600 text-white shadow-sm' : oscuro ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-white'}`}
+          >
+            {opcion.texto}
+          </button>
+        ))}
+      </div>
     );
     const riesgosEnCuadrante = cuadranteDashboard
       ? riesgosDashboard.filter(riesgo => obtenerCoordenada(riesgo, 'probabilidad') === cuadranteDashboard.probabilidad
@@ -1289,7 +1322,7 @@ const handleRiesgoSubmit = async (e) => {
               </select>
             </label>
             <label className="grid gap-1 text-[10px] font-bold text-slate-500">
-              Nivel residual
+              Nivel {nivelActivo.toLowerCase()}
               <select value={filtroNivelDashboard} onChange={event => { setFiltroNivelDashboard(event.target.value); setCuadranteDashboard(null); }} className="min-h-10 min-w-36 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
                 <option value="Todos">Todos</option>
                 {niveles.map(nivel => <option key={nivel} value={nivel}>{nivel}</option>)}
@@ -1305,9 +1338,16 @@ const handleRiesgoSubmit = async (e) => {
           </div>
         )}
 
-        <section aria-label="Indicadores de riesgo" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold text-slate-600">
+            Viendo el nivel <strong className="text-slate-900">{nivelActivo.toLowerCase()}</strong> ({esResidual ? 'después de controles' : 'antes de controles'}). Tarjetas, mapa y listas cambian juntos.
+          </p>
+          {selectorMomento(false)}
+        </div>
+
+        <section aria-label={`Indicadores de riesgo ${nivelActivo.toLowerCase()}`} className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           {[
-            { nivel: 'Todos', titulo: 'Riesgos visibles', valor: totalRiesgos, color: 'border-slate-300 text-slate-900', detalle: 'Limpiar nivel' },
+            { nivel: 'Todos', titulo: filtroNivelDashboard === 'Todos' ? 'Riesgos visibles' : 'Ver todos', valor: riesgosBaseDashboard.length, color: 'border-slate-300 text-slate-900', detalle: filtroNivelDashboard === 'Todos' ? 'Todos los niveles' : `Mostrando ${totalRiesgos} · quitar nivel` },
             { nivel: 'Extremo', titulo: 'Extremos', valor: extremos, color: 'border-rose-300 text-rose-700', detalle: 'Atención inmediata' },
             { nivel: 'Alto', titulo: 'Altos', valor: altos, color: 'border-orange-300 text-orange-700', detalle: 'Requieren tratamiento' },
             { nivel: 'Moderado', titulo: 'Moderados', valor: moderados, color: 'border-amber-300 text-amber-700', detalle: 'Monitorear' },
@@ -1317,10 +1357,10 @@ const handleRiesgoSubmit = async (e) => {
               type="button"
               key={indicador.nivel}
               aria-pressed={filtroNivelDashboard === indicador.nivel}
-              onClick={() => { setFiltroNivelDashboard(indicador.nivel); setCuadranteDashboard(null); }}
-              className={`min-h-28 rounded-xl border-l-4 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${indicador.color} ${filtroNivelDashboard === indicador.nivel ? 'ring-2 ring-emerald-700/70' : ''}`}
+              onClick={() => elegirNivelDashboard(indicador.nivel)}
+              className={`min-h-28 rounded-xl border-l-4 bg-white px-4 py-3 text-left shadow-sm transition-all hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${indicador.color} ${filtroNivelDashboard === indicador.nivel ? 'ring-2 ring-emerald-700/70 shadow-md' : filtroNivelDashboard !== 'Todos' && indicador.nivel !== 'Todos' ? 'opacity-60 hover:opacity-100' : ''}`}
             >
-              <span className="block text-[11px] font-bold text-slate-500">{indicador.titulo}</span>
+              <span className="block text-[11px] font-bold text-slate-500">{indicador.titulo}{indicador.nivel !== 'Todos' && <span className="font-semibold text-slate-400"> · {nivelActivo.toLowerCase()}</span>}</span>
               <span className="mt-1 block text-3xl font-black tabular-nums">{indicador.valor}</span>
               <span className="mt-1 block text-[10px] text-slate-500">{indicador.detalle}</span>
             </button>
@@ -1331,19 +1371,10 @@ const handleRiesgoSubmit = async (e) => {
           <div className="overflow-hidden rounded-xl border border-slate-800 bg-[#0B1730] p-4 text-white shadow-lg sm:p-5">
             <div className="mb-4 flex flex-col gap-3 border-b border-slate-700 pb-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="text-sm font-black text-white">Mapa de riesgos 5×5</h3>
+                <h3 className="text-sm font-black text-white">Mapa de riesgos 5×5 · {nivelActivo.toLowerCase()}</h3>
                 <p className="mt-1 text-[11px] text-slate-400">Selecciona una celda para abrir los riesgos de esa coordenada.</p>
               </div>
-              <div role="group" aria-label="Momento de evaluación" className="inline-flex w-fit rounded-lg border border-slate-700 bg-slate-900 p-1">
-                {[
-                  { id: 'inherente', texto: 'Inherente' },
-                  { id: 'residual', texto: 'Residual' },
-                ].map(opcion => (
-                  <button type="button" key={opcion.id} aria-pressed={matrizDashboardTipo === opcion.id} onClick={() => setMatrizDashboardTipo(opcion.id)} className={`min-h-8 rounded-md px-3 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 ${matrizDashboardTipo === opcion.id ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>
-                    {opcion.texto}
-                  </button>
-                ))}
-              </div>
+              {selectorMomento(true)}
             </div>
 
             <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-semibold text-slate-300" aria-label="Leyenda de severidad">
@@ -1368,6 +1399,7 @@ const handleRiesgoSubmit = async (e) => {
                         const conteo = riesgosDashboard.filter(riesgo => obtenerCoordenada(riesgo, 'probabilidad') === probabilidad.nivel
                           && obtenerCoordenada(riesgo, 'impacto') === impacto.nivel).length;
                         const seleccionado = cuadranteDashboard?.probabilidad === probabilidad.nivel && cuadranteDashboard?.impacto === impacto.nivel;
+                        const fueraDelNivel = filtroNivelDashboard !== 'Todos' && nivelPorPuntaje(puntaje) !== filtroNivelDashboard;
                         return (
                           <button
                             type="button"
@@ -1375,7 +1407,7 @@ const handleRiesgoSubmit = async (e) => {
                             aria-pressed={seleccionado}
                             aria-label={`${conteo} riesgos; probabilidad ${probabilidad.etiqueta}; impacto ${impacto.etiqueta}; puntaje ${puntaje}`}
                             onClick={() => setCuadranteDashboard(seleccionado ? null : { probabilidad: probabilidad.nivel, impacto: impacto.nivel })}
-                            className={`relative flex h-14 flex-col items-center justify-center rounded-md border text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-16 ${colorCelda(puntaje)} ${seleccionado ? 'z-10 ring-2 ring-white ring-offset-2 ring-offset-[#0B1730]' : ''}`}
+                            className={`relative flex h-14 flex-col items-center justify-center rounded-md border text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-16 ${colorCelda(puntaje)} ${seleccionado ? 'z-10 ring-2 ring-white ring-offset-2 ring-offset-[#0B1730]' : ''} ${fueraDelNivel ? 'opacity-30' : ''}`}
                           >
                             <span className="text-xl font-black tabular-nums leading-none">{conteo}</span>
                             <span className="mt-1 text-[8px] font-semibold opacity-80">P×I {puntaje}</span>
@@ -1398,7 +1430,7 @@ const handleRiesgoSubmit = async (e) => {
                   <p className="mt-1 text-[11px] text-slate-500">
                     {cuadranteDashboard
                       ? `${nivelActivo}: P${cuadranteDashboard.probabilidad} × I${cuadranteDashboard.impacto} · puntaje ${cuadranteDashboard.probabilidad * cuadranteDashboard.impacto}`
-                      : 'Mayor puntaje residual dentro de los filtros actuales'}
+                      : `Mayor puntaje ${nivelActivo.toLowerCase()} dentro de los filtros actuales`}
                   </p>
                 </div>
                 {cuadranteDashboard && <button type="button" onClick={() => setCuadranteDashboard(null)} className="min-h-8 rounded-md px-2 text-[10px] font-bold text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">Limpiar celda</button>}
@@ -1475,7 +1507,7 @@ const handleRiesgoSubmit = async (e) => {
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 border-b border-slate-200 pb-3">
               <h3 className="text-sm font-black text-slate-900">Riesgos de mayor exposición</h3>
-              <p className="mt-1 text-[10px] text-slate-500">Ordenados por puntaje residual; selecciona para abrir el registro.</p>
+              <p className="mt-1 text-[10px] text-slate-500">Ordenados por puntaje {nivelActivo.toLowerCase()}; selecciona para abrir el registro.</p>
             </div>
             <div className="space-y-1">
               {riesgosPrioritarios.slice(0, 5).map((riesgo, indice) => {
