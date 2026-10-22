@@ -1,5 +1,3 @@
-import CintaPaisajes from './CintaPaisajes';
-
 // Logo Vectorial Corporativo (Extraído fuera del renderizado para evitar recreación dinámica)
 const LogoTermales = () => (
   <svg viewBox="0 0 100 100" className="w-[75px] h-[75px] drop-shadow-sm shrink-0">
@@ -32,9 +30,6 @@ export default function WelcomeScreen({ isAdmin, onEnter, onLogout }) {
       >
         <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#f8fbfa] to-transparent z-10"></div>
       </div>
-
-      {/* Cinta 3D de paisajes en el espacio libre de la derecha (pantallas amplias) */}
-      <CintaPaisajes className="absolute right-0 top-0 z-10 hidden h-full w-[34%] lg:block" />
 
       {/* Geometría HUD */}
       <svg className="absolute top-0 right-0 w-[400px] h-[400px] z-10 pointer-events-none" viewBox="0 0 400 400">

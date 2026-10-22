@@ -64,16 +64,6 @@
 	animation: notification-bell-ring 1.6s ease-in-out 3;
 }
 
-/* Cinta de paisajes de la bienvenida: aparece suavemente cuando sus imágenes están listas. */
-.cinta-paisajes {
-	opacity: 0;
-	transition: opacity 900ms ease;
-}
-
-.cinta-paisajes[data-listo="true"] {
-	opacity: 1;
-}
-
 /* Fila del menú con tareas pendientes: toda la fila se ilumina con el color de la alerta. */
 @keyframes menu-alerta-brillo {
 	0%,
