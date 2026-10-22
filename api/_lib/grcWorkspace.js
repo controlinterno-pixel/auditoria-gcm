@@ -329,6 +329,10 @@ export async function limpiarRiesgosLegados({ ejecutar = false, faltantesConfirm
 }
 
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
+// Con revisión del semáforo, los datos de esa revisión no cambian mientras siga vigente (cada escritura
+// la incrementa y limpia esta caché): varios usuarios que recargan tras un cambio comparten una sola lectura.
+const WORKSPACE_READ_CACHE_TTL_REVISION_MS = 10 * 60_000;
+const WORKSPACE_READ_CACHE_MAX = 30;
 const workspaceReadCache = new Map();
 const workspaceReadInFlight = new Map();
 let workspaceCacheGeneration = 0;
@@ -483,11 +487,12 @@ export async function leerWorkspaceGrc(transaction = null, { usarCache = false, 
   const lectura = leerWorkspaceGrcDesdeFirestore(null, procesosAsignados, origen)
     .then(valor => {
       if (generation !== workspaceCacheGeneration) return valor;
-      if (workspaceReadCache.size >= 100 && !workspaceReadCache.has(cacheKey)) {
+      if (workspaceReadCache.size >= WORKSPACE_READ_CACHE_MAX && !workspaceReadCache.has(cacheKey)) {
         const cacheMasAntigua = workspaceReadCache.keys().next().value;
         if (cacheMasAntigua) workspaceReadCache.delete(cacheMasAntigua);
       }
-      workspaceReadCache.set(cacheKey, { valor, expiraEn: Date.now() + WORKSPACE_READ_CACHE_TTL_MS });
+      const ttl = revision ? WORKSPACE_READ_CACHE_TTL_REVISION_MS : WORKSPACE_READ_CACHE_TTL_MS;
+      workspaceReadCache.set(cacheKey, { valor, expiraEn: Date.now() + ttl });
       return valor;
     })
     .finally(() => {

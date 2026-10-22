@@ -53,6 +53,7 @@ function harness(getGrcData) {
     onSnapshot: (_ref, next) => { listeners.push(next); return () => {}; },
     getDocFromServer: async () => ({}),
     apiService: { getGrcData },
+    suscribirRevisionPropia: () => () => {},
     console: { warn() {}, error() {} },
   };
   for (const name of effectSource.matchAll(/\b(set[A-Z]\w*)\(/g)) bindings[name[1]] = () => {};

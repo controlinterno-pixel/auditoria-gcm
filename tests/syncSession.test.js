@@ -13,6 +13,8 @@ const cache = new Function('leerWorkspaceGrcDesdeFirestore', `
   const workspaceReadInFlight = new Map();
   let workspaceCacheGeneration = 0;
   const WORKSPACE_READ_CACHE_TTL_MS = 30000;
+  const WORKSPACE_READ_CACHE_TTL_REVISION_MS = 600000;
+  const WORKSPACE_READ_CACHE_MAX = 30;
   ${cacheSource}
   return { leerWorkspaceGrc, invalidarCacheWorkspaceGrc };
 `)(() => {
@@ -129,6 +131,7 @@ function createSyncHarness() {
       return () => { listener.stopped = true; };
     },
     getDocFromServer: async () => { serverReads++; return snapshot(currentRevision); },
+    suscribirRevisionPropia: () => () => {},
     apiService: { getGrcData: async options => {
       calls.push(options);
       if (fail) throw new Error('Simulated network failure');

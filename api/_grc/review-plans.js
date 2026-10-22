@@ -111,7 +111,7 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
     'not-pending': ['Las acciones ya no están pendientes de evaluación inicial. Actualiza la vista.', 409],
   };
   if (resultado.error) return sendError(res, ...errores[resultado.error]);
-  await notificarSemaforo();
+  await notificarSemaforo(res);
   logger.info('Evaluación inicial de acciones', { idInforme, puntaje, usuario: user.email });
   return sendSuccess(res, resultado);
 }
@@ -254,7 +254,7 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
     return sendError(res, mensaje, estado);
   }
 
-  await notificarSemaforo();
+  await notificarSemaforo(res);
   logger.info('Decisión del auditor sobre plan', { idPlan, decision, usuario: user.email });
   return sendSuccess(res, resultado);
 }
@@ -370,7 +370,7 @@ export default async function handler(req, res) {
       return sendError(res, mensaje, estado);
     }
 
-    await notificarSemaforo();
+    await notificarSemaforo(res);
     logger.info('Revisión de planes completada', { idInforme, decision, cantidad: resultado.planes.length, usuario: user.email });
     return sendSuccess(res, { planes: resultado.planes });
   } catch (error) {

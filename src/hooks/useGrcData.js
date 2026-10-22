@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, onIdTokenChanged, signOut } from 'firebase/auth';
 import { doc, getDocFromServer, onSnapshot } from 'firebase/firestore';
-import { apiService } from '../services/apiService';
+import { apiService, suscribirRevisionPropia } from '../services/apiService';
 import { auth, db } from '../services/firebase';
 import {
   consumeSignOutReason, installAuthDiagnostics, markSignOutReason,
@@ -157,6 +157,8 @@ export function useGrcData() {
     let datosCargados = false;
     let semaforoTimer = null;
     const ESPERA_RAFAGA_MS = 1500; // agrupa varios guardados seguidos en una sola descarga
+    // Pestaña en segundo plano: los cambios se anotan y se descargan una sola vez al volver.
+    let cambiosPendientesOculta = false;
     let unsubscribeSemaforo = () => {};
     const semaforoRef = doc(db, 'sistema', 'semaforo');
     const fetchSecureData = async (forceFresh = false) => {
@@ -223,6 +225,11 @@ export function useGrcData() {
       // La descarga en curso o ya terminada corresponde a esta misma revisión: no se repite.
       if (revision === revisionCargada && !syncFailed) return;
       window.clearTimeout(semaforoTimer);
+      // Nadie está mirando esta pestaña: no se descarga todo por cada cambio, solo al volver a ella.
+      if (datosCargados && !syncFailed && document.visibilityState === 'hidden') {
+        cambiosPendientesOculta = true;
+        return;
+      }
       if (inmediato || !datosCargados || isFetching) {
         void fetchSecureData(true);
         return;
@@ -256,11 +263,28 @@ export function useGrcData() {
         recoveryInFlight = false;
       }
     };
+    const alVolverAPestana = () => {
+      if (!isMounted || document.visibilityState !== 'visible' || !cambiosPendientesOculta) return;
+      cambiosPendientesOculta = false;
+      if (lastRevision !== revisionCargada || syncFailed) void fetchSecureData(true);
+    };
+    // La escritura propia ya aplicada en pantalla no necesita descargar todo, salvo que otra persona haya
+    // escrito entre medio (la revisión anterior al cambio no coincide con la que tenemos cargada).
+    const aplicarRevisionPropia = ({ anterior, nueva }) => {
+      if (!isMounted || syncFailed || isFetching || revisionCargada === null || revisionCargada !== anterior) return;
+      revisionCargada = nueva;
+      if (lastRevision === anterior || lastRevision === nueva) {
+        lastRevision = nueva;
+        window.clearTimeout(semaforoTimer);
+      }
+    };
+    const cancelarRevisionPropia = suscribirRevisionPropia(aplicarRevisionPropia);
     conectarSemaforo();
     const initialLoadTimer = window.setTimeout(() => {
       if (lastRevision === null) void fetchSecureData();
     }, 1500);
     window.addEventListener('online', recuperarConexion);
+    document.addEventListener('visibilitychange', alVolverAPestana);
     document.addEventListener('visibilitychange', recuperarConexion);
 
     return () => {
@@ -270,7 +294,9 @@ export function useGrcData() {
       window.clearTimeout(retryTimer);
       window.clearTimeout(semaforoTimer);
       window.removeEventListener('online', recuperarConexion);
+      document.removeEventListener('visibilitychange', alVolverAPestana);
       document.removeEventListener('visibilitychange', recuperarConexion);
+      cancelarRevisionPropia();
       unsubscribeSemaforo();
     };
   }, [userId]);

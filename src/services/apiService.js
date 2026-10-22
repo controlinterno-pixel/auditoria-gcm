@@ -58,16 +58,34 @@ const renovarCookieSesion = async () => {
   return renovacionSesionEnCurso;
 };
 
+// 📉 Ahorro de lecturas: cuando una escritura ya devolvió y aplicó en pantalla todo lo que cambió, el
+// servidor informa la revisión anterior y la nueva para que useGrcData no vuelva a descargar el workspace.
+const oyentesRevisionPropia = new Set();
+const suscribirRevisionPropia = oyente => {
+  oyentesRevisionPropia.add(oyente);
+  return () => oyentesRevisionPropia.delete(oyente);
+};
+const avisarRevisionPropia = response => {
+  const anterior = response.headers?.get?.('X-GRC-Revision-Anterior');
+  const nueva = response.headers?.get?.('X-GRC-Revision');
+  if (!anterior || !nueva) return;
+  oyentesRevisionPropia.forEach(oyente => {
+    try { oyente({ anterior, nueva }); } catch { /* un oyente no debe romper la respuesta */ }
+  });
+};
+
 async function request(endpoint, options = {}, reintentosMaximos = 3, sesionRenovada = false) {
   const defaultHeaders = {
     'Content-Type': 'application/json',
   };
+  // Solo las llamadas cuyo resultado se aplica completo en pantalla pueden omitir la recarga.
+  const { aplicadoLocalmente = false, ...opcionesFetch } = options;
 
   // Preparamos la configuración base (sin la señal de aborto, porque esa cambia en cada intento)
   const configBase = {
     method: 'GET',
     credentials: 'include', // 🔒 OBLIGATORIO: Transmite cookies HttpOnly (grc_session)
-    ...options,
+    ...opcionesFetch,
     headers: {
       ...defaultHeaders,
       ...options.headers,
@@ -144,6 +162,7 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
       }
 
       // La propagación de cambios la hace el servidor actualizando sistema/semaforo (no hay endpoint SSE).
+      if (aplicadoLocalmente) avisarRevisionPropia(response);
       return data; // ✅ Éxito total. Entregamos los datos y salimos.
 
     } catch (error) {
@@ -387,22 +406,26 @@ export const apiService = {
 
   decidirRevisionPlanes: (idInforme, decision, motivo = '', idsPlanes) => request('/api/grc/review-plans', {
     method: 'POST',
-    body: { idInforme, decision, motivo, ...(Array.isArray(idsPlanes) ? { idsPlanes } : {}) }
+    body: { idInforme, decision, motivo, ...(Array.isArray(idsPlanes) ? { idsPlanes } : {}) },
+    aplicadoLocalmente: true,
   }),
 
   evaluarDisenoPlanes: (idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion) => request('/api/grc/review-plans', {
     method: 'POST',
     body: { decision: 'evaluar-diseno', idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion },
+    aplicadoLocalmente: true,
   }),
 
   decidirPlanComoAuditor: (idPlan, decision, motivo = '', evaluacionEficacia = null) => request('/api/grc/review-plans', {
     method: 'POST',
-    body: { idPlan, decision, motivo, evaluacionEficacia }
+    body: { idPlan, decision, motivo, evaluacionEficacia },
+    aplicadoLocalmente: true,
   }),
 
   decidirPlanesComoAuditor: (idInforme, idsPlanes, decision, motivo, evaluacionEficacia) => request('/api/grc/review-plans', {
     method: 'POST',
     body: { idInforme, idsPlanes, alcance: 'todas', decision, motivo, evaluacionEficacia },
+    aplicadoLocalmente: true,
   }),
 
   registrarCorreoInforme: (id, destinatarios, fechaCorreoEnviado) => request('/api/grc/register-email', {
@@ -569,3 +592,5 @@ xhr.onload = () => {
     }
   }
 };
+
+export { suscribirRevisionPropia };
