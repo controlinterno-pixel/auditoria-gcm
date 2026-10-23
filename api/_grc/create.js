@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { applyCors } from '../_lib/cors.js';
-import { esInformePrograma, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica } from '../../src/utils/programPlanWorkflow.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
@@ -246,17 +246,19 @@ export default async function handler(req, res) {
             return { error: 'hallazgo-forbidden' };
           }
           if (!normalizar(item.accion)) return { error: 'invalid-action' };
+          // Revisor "No aplica": no se piden sus correos, pero sí el motivo (queda en el plan).
+          const sinRevisor = revisorNoAplica(item);
+          if (sinRevisor && !motivoRevisorNoAplicaValido(item)) return { error: 'reviewer-reason-required' };
           const correoResponsable = String(item.correoResponsable || '').trim();
           const correoConfirmacion = String(item.correoConfirmacion || '').trim();
-          const correoRevisor = String(item.correoRevisor || '').trim();
+          const correoRevisor = sinRevisor ? '' : String(item.correoRevisor || '').trim();
           const correoRevisorConfirmacion = String(item.correoRevisorConfirmacion || '').trim();
           const correoAuditor = String(item.correoAuditor || correoAuditorInforme).trim();
           if (esInformePrograma(informe, data.fuentesMejora) && !esCorreoValido(correoAuditor)) return { error: 'invalid-auditor-email' };
           if (
             !esCorreoValido(correoResponsable) ||
-            !esCorreoValido(correoRevisor) ||
             normalizar(correoResponsable) !== normalizar(correoConfirmacion) ||
-            normalizar(correoRevisor) !== normalizar(correoRevisorConfirmacion)
+            (!sinRevisor && (!esCorreoValido(correoRevisor) || normalizar(correoRevisor) !== normalizar(correoRevisorConfirmacion)))
           ) return { error: 'invalid-email-confirmation' };
           if (hayRolesDuplicados({
             correoResponsable,
@@ -267,6 +269,9 @@ export default async function handler(req, res) {
           const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
           items.push({
             ...datosPlan,
+            revisorNoAplica: sinRevisor,
+            motivoRevisorNoAplica: sinRevisor ? String(item.motivoRevisorNoAplica).trim() : '',
+            ...(sinRevisor ? { revisor: 'No aplica', correoRevisor: '' } : {}),
             id: idsNuevos[indiceNuevo++],
             idInforme: informe.id,
             idHallazgo: hallazgo.id,
@@ -276,7 +281,7 @@ export default async function handler(req, res) {
               evaluacionHolistica: null, historialEvaluaciones: [],
               aprobadoPorCorreo: '', aprobadoEn: '', validadoPorRevisorCorreo: '', validadoPorRevisorEn: '',
             } : {}),
-            estadoWorkflow: esInformePrograma(informe, data.fuentesMejora) ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
+            estadoWorkflow: estadoInicialPlan(esInformePrograma(informe, data.fuentesMejora), { revisorNoAplica: sinRevisor }),
             estado: 'En Proceso',
             creadoPor: user.email,
             historialCambios: [{

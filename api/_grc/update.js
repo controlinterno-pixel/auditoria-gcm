@@ -1,5 +1,5 @@
 import { applyCors } from '../_lib/cors.js';
-import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, ESTADO_AJUSTES_INICIALES, estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica } from '../../src/utils/programPlanWorkflow.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
@@ -158,8 +158,13 @@ export default async function handler(req, res) {
             ['correoRevisor', anterior.correoRevisor],
             ['correoRevisorConfirmacion', anterior.correoRevisor],
             ['correoAuditor', anterior.correoAuditor || correoAuditorInforme],
+            ['revisorNoAplica', revisorNoAplica(anterior)],
           ].some(([campo, previo]) => Object.hasOwn(peticion, campo) && normalizar(peticion[campo]) !== normalizar(previo))) {
             return { error: 'assignment-forbidden' };
+          }
+          const sinRevisorActualizado = Object.hasOwn(peticion, 'revisorNoAplica') ? peticion.revisorNoAplica === true : revisorNoAplica(anterior);
+          if (sinRevisorActualizado && !motivoRevisorNoAplicaValido({ revisorNoAplica: true, motivoRevisorNoAplica: peticion.motivoRevisorNoAplica ?? anterior.motivoRevisorNoAplica })) {
+            return { error: 'reviewer-reason-required' };
           }
           if (actualizaCorreoResponsable) {
             const correoResponsable = String(peticion.correoResponsable ?? anterior.correoResponsable ?? '').trim();
@@ -168,7 +173,7 @@ export default async function handler(req, res) {
               return { error: 'invalid-executor-email' };
             }
           }
-          if (actualizaCorreoRevisor) {
+          if (actualizaCorreoRevisor && !sinRevisorActualizado) {
             const correoRevisor = String(peticion.correoRevisor ?? anterior.correoRevisor ?? '').trim();
             const correoRevisorConfirmacion = String(peticion.correoRevisorConfirmacion || '').trim();
             if (!Object.hasOwn(peticion, 'correoRevisor') || !Object.hasOwn(peticion, 'correoRevisorConfirmacion') || !correoValido(correoRevisor) || normalizar(correoRevisor) !== normalizar(correoRevisorConfirmacion)) {
@@ -183,7 +188,7 @@ export default async function handler(req, res) {
           }
           const correoAuditorAnterior = anterior.correoAuditor || correoAuditorInforme;
           const correoResponsableActualizado = peticion.correoResponsable ?? anterior.correoResponsable;
-          const correoRevisorActualizado = peticion.correoRevisor ?? anterior.correoRevisor;
+          const correoRevisorActualizado = sinRevisorActualizado ? '' : peticion.correoRevisor ?? anterior.correoRevisor;
           const correoAuditorActualizado = peticion.correoAuditor ?? correoAuditorAnterior;
           const cambianRoles = [
             [correoResponsableActualizado, anterior.correoResponsable],
@@ -234,11 +239,11 @@ export default async function handler(req, res) {
           let estadoWorkflow = anterior.estadoWorkflow;
           const alCien = Number(cambios.progreso ?? anterior.progreso) === 100;
           if (admin && (cambioProgreso || atascadoAlCien)) {
-            if (alCien && anterior.estadoWorkflow === 'En Ejecución') estadoWorkflow = 'Pendiente Validación Revisor';
+            if (alCien && anterior.estadoWorkflow === 'En Ejecución') estadoWorkflow = estadoAlCien({ revisorNoAplica: sinRevisorActualizado });
             else if (!alCien && ['Pendiente Validación Revisor', 'En Revisión (100%)'].includes(anterior.estadoWorkflow)) estadoWorkflow = 'En Ejecución';
           }
           if (!admin && !reenviaRevision && (cambioProgreso || atascadoAlCien)) {
-            if (alCien) estadoWorkflow = 'Pendiente Validación Revisor';
+            if (alCien) estadoWorkflow = estadoAlCien({ revisorNoAplica: sinRevisorActualizado });
             else if (anterior.estadoWorkflow === 'En Revisión (100%)') estadoWorkflow = 'En Ejecución';
           }
           const cambiaEstadoEjecucion = (
@@ -255,7 +260,7 @@ export default async function handler(req, res) {
             idInforme: idInformeAnterior,
             ...(cambiaEstadoEjecucion ? { estadoWorkflow, estado: 'En Proceso' } : {}),
             ...(reenviaRevision ? {
-              estadoWorkflow: esPrograma ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
+              estadoWorkflow: estadoInicialPlan(esPrograma, { revisorNoAplica: sinRevisorActualizado }),
               estado: 'En Proceso',
               ...(esPrograma ? { evaluacionHolistica: null, aprobadoPorCorreo: '', aprobadoEn: '', validadoPorRevisorCorreo: '', validadoPorRevisorEn: '' } : {}),
             } : {}),
@@ -269,6 +274,8 @@ export default async function handler(req, res) {
                   : cambiaEstadoEjecucion
                     ? estadoWorkflow === 'Pendiente Validación Revisor'
                       ? 'Ejecución al 100% enviada a validación del revisor'
+                      : estadoWorkflow === 'En Revisión (100%)' && sinRevisorActualizado
+                        ? 'Ejecución al 100% enviada al auditor aprobador (sin revisor)'
                       : 'Avance de ejecución actualizado por su responsable'
                     : 'Acción de plan actualizada',
                 detalleCambios: camposCambiados.map(campo => ({
@@ -303,16 +310,18 @@ export default async function handler(req, res) {
           );
           if (!admin && !esCreadorHallazgo && !perteneceProcesoAsignado) return { error: 'hallazgo-forbidden' };
 
+          // Revisor "No aplica": no se piden sus correos, pero sí el motivo (queda en el plan).
+          const sinRevisor = revisorNoAplica(item);
+          if (sinRevisor && !motivoRevisorNoAplicaValido(item)) return { error: 'reviewer-reason-required' };
           const correoResponsable = String(item.correoResponsable || '').trim();
-          const correoRevisor = String(item.correoRevisor || '').trim();
+          const correoRevisor = sinRevisor ? '' : String(item.correoRevisor || '').trim();
           const correoAuditor = String(item.correoAuditor || correoAuditorInforme).trim();
           if (esPrograma && !correoValido(correoAuditor)) return { error: 'invalid-auditor-email' };
           if (
             !normalizar(item.accion) ||
             !correoValido(correoResponsable) ||
-            !correoValido(correoRevisor) ||
             normalizar(correoResponsable) !== normalizar(item.correoConfirmacion) ||
-            normalizar(correoRevisor) !== normalizar(item.correoRevisorConfirmacion)
+            (!sinRevisor && (!correoValido(correoRevisor) || normalizar(correoRevisor) !== normalizar(item.correoRevisorConfirmacion)))
           ) return { error: 'invalid-email-confirmation' };
           if (hayRolesDuplicados({
             correoResponsable,
@@ -323,6 +332,9 @@ export default async function handler(req, res) {
           const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
           planesNuevos.push({
             ...datosPlan,
+            revisorNoAplica: sinRevisor,
+            motivoRevisorNoAplica: sinRevisor ? String(item.motivoRevisorNoAplica).trim() : '',
+            ...(sinRevisor ? { revisor: 'No aplica', correoRevisor: '' } : {}),
             id: idsNuevos[indiceNuevo++],
             idInforme,
             idHallazgo: hallazgo.id,
@@ -332,7 +344,7 @@ export default async function handler(req, res) {
               evaluacionHolistica: null, historialEvaluaciones: [],
               aprobadoPorCorreo: '', aprobadoEn: '', validadoPorRevisorCorreo: '', validadoPorRevisorEn: '',
             } : {}),
-            estadoWorkflow: esPrograma ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
+            estadoWorkflow: estadoInicialPlan(esPrograma, { revisorNoAplica: sinRevisor }),
             estado: 'En Proceso',
             creadoPor: user.email,
             historialCambios: [{
@@ -363,6 +375,7 @@ export default async function handler(req, res) {
         'invalid-reviewer-email': ['El correo del revisor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-auditor-email': ['El correo del auditor debe ser válido.', 400],
         'duplicate-plan-roles': ['Ejecutor, revisor y auditor deben ser personas distintas. Revisa los correos asignados.', 400],
+        'reviewer-reason-required': ['Si el revisor no aplica, explica por qué (mínimo 10 caracteres).', 400],
         'hallazgo-not-found': ['El informe tiene un hallazgo que no está disponible.', 404],
         'hallazgo-forbidden': ['No tiene permiso para crear planes para este hallazgo.', 403],
         'invalid-email-confirmation': ['Los correos del ejecutor y revisor deben ser válidos y coincidir con sus confirmaciones.', 400],

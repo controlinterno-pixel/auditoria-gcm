@@ -2,6 +2,19 @@ export const ESTADO_EVALUACION_INICIAL = 'Pendiente Evaluación Auditor';
 export const ESTADO_AJUSTES_INICIALES = 'Requiere Ajustes Auditor';
 export const TIPO_EVALUACION_INICIAL = 'evaluacion-inicial-diseno';
 
+// 👤 Revisor "No aplica": procesos de una sola persona. La acción registrada pasa directo a ejecución y, al 100 %,
+// directo al auditor aprobador (sin los dos pasos del revisor). Exige explicar por qué.
+export const MOTIVO_MINIMO_REVISOR_NO_APLICA = 10;
+export const revisorNoAplica = plan => plan?.revisorNoAplica === true;
+export const motivoRevisorNoAplicaValido = plan => !revisorNoAplica(plan) ||
+  String(plan?.motivoRevisorNoAplica || '').trim().length >= MOTIVO_MINIMO_REVISOR_NO_APLICA;
+/** Estado de una acción recién registrada. Los Programas de Auditoría siempre pasan por la evaluación del auditor. */
+export const estadoInicialPlan = (esPrograma, plan) => (esPrograma
+  ? ESTADO_EVALUACION_INICIAL
+  : revisorNoAplica(plan) ? 'En Ejecución' : 'Pendiente Revisión Jefatura');
+/** Estado al reportar el 100 %: validación del revisor o, sin revisor, aprobación del auditor. */
+export const estadoAlCien = plan => (revisorNoAplica(plan) ? 'En Revisión (100%)' : 'Pendiente Validación Revisor');
+
 const normalizar = valor => String(valor || '').trim().toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 

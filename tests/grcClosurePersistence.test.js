@@ -405,6 +405,59 @@ test('matriz de planes: edita y crea acciones leyendo solo lo necesario, con ID 
   sinListados(fixture);
 });
 
+test('revisor "No aplica": la acción pasa directo a ejecución y al 100 % directo al auditor', async () => {
+  const T = 1794000000000;
+  const fixture = storeFixture({ fragmented: true });
+  comoAdmin(fixture);
+  // Informe que no es Programa de Auditoría (en los programas el auditor siempre evalúa el diseño primero).
+  fixture.documents.set(`${ROOT}/informes/i1`, { ...fixture.documents.get(`${ROOT}/informes/i1`), tipoFuente: 'Auditoría interna' });
+  const sinRevisor = { correoResponsable: 'unico@example.test', correoConfirmacion: 'unico@example.test', revisorNoAplica: true };
+
+  const sinMotivo = await conHoraFija(T, () => fixture.update({
+    coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [], nuevas: [{ idHallazgo: 'h1', accion: 'Sin motivo', ...sinRevisor }] },
+  }));
+  assert.equal(sinMotivo.code, 400);
+  assert.match(sinMotivo.error, /explica por qué/);
+
+  const creada = await conHoraFija(T, () => fixture.update({
+    coleccion: 'planes',
+    registro: { idInforme: 'i1', actualizaciones: [], nuevas: [{ idHallazgo: 'h1', accion: 'Proceso de una persona', ...sinRevisor, motivoRevisorNoAplica: 'Única persona del proceso' }] },
+  }));
+  assert.equal(creada.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(creada));
+  const id = creada.body.planesNuevos[0].id;
+  const guardada = fixture.documents.get(`${ROOT}/planes_accion/${id}`);
+  assert.equal(guardada.estadoWorkflow, 'En Ejecución', 'sin revisor no hay revisión del diseño');
+  assert.equal(guardada.revisorNoAplica, true);
+  assert.equal(guardada.correoRevisor, '');
+  assert.equal(guardada.motivoRevisorNoAplica, 'Única persona del proceso');
+
+  // El ejecutor (única persona del proceso) reporta el 100 %.
+  fixture.sesion.usuario = { uid: 'u5', email: 'unico@example.test', rol: 'lider' };
+  fixture.documents.set('usuarios/u5', { rol: 'lider', permisos: ['planes', 'sub_seguimiento_planes'], procesosAsignados: ['Operaciones'] });
+  const alCien = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id, progreso: 100 }], nuevas: [] } });
+  assert.equal(alCien.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(alCien));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/${id}`).estadoWorkflow, 'En Revisión (100%)', 'directo al auditor aprobador');
+});
+
+test('crear planes desde create.js también admite revisor "No aplica"; en Programas el auditor evalúa primero', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  comoAdmin(fixture);
+  const enPrograma = await fixture.create({
+    coleccion: 'planes',
+    registro: { idInforme: 'i1', items: [{ idHallazgo: 'h1', accion: 'En programa', correoResponsable: 'unico@example.test', correoConfirmacion: 'unico@example.test', revisorNoAplica: true, motivoRevisorNoAplica: 'Proceso de una sola persona' }] },
+  });
+  assert.equal(enPrograma.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(enPrograma));
+  assert.equal(enPrograma.body.registros[0].estadoWorkflow, 'Pendiente Evaluación Auditor');
+  fixture.documents.set(`${ROOT}/informes/i1`, { ...fixture.documents.get(`${ROOT}/informes/i1`), tipoFuente: 'Auditoría interna' });
+  const response = await fixture.create({
+    coleccion: 'planes',
+    registro: { idInforme: 'i1', items: [{ idHallazgo: 'h1', accion: 'Única persona', correoResponsable: 'unico@example.test', correoConfirmacion: 'unico@example.test', revisorNoAplica: true, motivoRevisorNoAplica: 'Proceso de una sola persona' }] },
+  });
+  assert.equal(response.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(response));
+  assert.equal(response.body.registros[0].estadoWorkflow, 'En Ejecución');
+  assert.equal(response.body.registros[0].revisor, 'No aplica');
+});
+
 test('matriz de planes rechaza editar una acción de otro informe', async () => {
   const fixture = storeFixture({ fragmented: true });
   comoAdmin(fixture);

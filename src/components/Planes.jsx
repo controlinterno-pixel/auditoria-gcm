@@ -8,7 +8,8 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+import {
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -411,6 +412,15 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   const notificarRegistroPlan = async (plan, correoPreparado) => {
     const programa = esPlanProgramaAuditoria(plan);
     const enlace = `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`;
+    if (!programa && revisorNoAplica(plan)) {
+      return enviarNotificacionPlanConReintento({
+        ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        titulo_informe: 'Acción creada: lista para ejecutar',
+        proceso_auditado: `La acción "${plan.accion}" quedó registrada sin revisor (${plan.motivoRevisorNoAplica || 'no aplica'}). Ya puedes ejecutarla; al llegar al 100% pasará al auditor aprobador.`,
+        enlace_pdf: enlace,
+        destinatarios: plan.correoResponsable,
+      }, correoPreparado);
+    }
     const resultados = await Promise.all([
       enviarNotificacionPlanConReintento({
         ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
@@ -466,14 +476,24 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     return todosEnviados;
   };
 
-  const notificarEjecucionCompleta = (plan, correoPreparado) => enviarNotificacionPlanConReintento({
+  const notificarEjecucionCompleta = (plan, correoPreparado) => (revisorNoAplica(plan) ? enviarNotificacionPlanConReintento({
+    ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+    asunto: 'Acción al 100%: aprobación del auditor requerida',
+    titulo_informe: 'Aprobar acción: ejecución al 100% (sin revisor)',
+    proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Esta acción no tiene revisor; ingrese a Planes de Acción para evaluar las evidencias y cerrarla.`,
+    enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
+    destinatarios: plan.correoAuditor,
+  }, correoPreparado) : enviarNotificacionPlanConReintento({
     ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
     asunto: 'Acción al 100%: revisión de evidencias requerida',
     titulo_informe: 'Revisar matriz: ejecución al 100%',
     proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Ingrese a Planes de Acción y pulse "Revisar matriz" para validar las evidencias. Si aprueba, la acción pasará al auditor asignado para su dictamen final. El 100% no cierra la acción.`,
     enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
     destinatarios: plan.correoRevisor,
-  }, correoPreparado);
+  }, correoPreparado));
+  // ¿El plan acaba de llegar al 100 % y espera a quien valida (revisor o, sin revisor, el auditor)?
+  const enviadoAValidacion = plan => plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR ||
+    (revisorNoAplica(plan) && plan.estadoWorkflow === 'En Revisión (100%)');
 
   // Un plan al 100% sigue pendiente del auditor aunque su fase guardada sea antigua.
   const enRevisionAuditor = plan => (
@@ -837,6 +857,7 @@ const handleNotificarPlan = async (planId) => {
 
     let errorCorreosEjecutor = false;
     let errorCorreosRevisor = false;
+    let errorMotivoRevisor = false;
     let errorCorreoAuditor = false;
     let errorRolesDuplicados = false;
     const normalizarCorreo = valor => String(valor || '').trim().toLowerCase();
@@ -852,12 +873,14 @@ const handleNotificarPlan = async (planId) => {
             const validaCorreosCompletos = isAdmin || actividadNueva;
             const informeBase = informesAuditoria.find(informe => String(informe.id) === String(formInformeId));
             const correoAuditorOriginal = planOriginal?.correoAuditor || informeBase?.correoAuditor || informeBase?.correoAuditorResponsable || '';
+            const sinRevisor = revisorNoAplica(act);
+            if (sinRevisor && !motivoRevisorNoAplicaValido(act)) errorMotivoRevisor = true;
             const conflictoRoles = obtenerConflictoRolesPlan({
               correoResponsable: act.correoResponsable,
-              correoRevisor: act.correoRevisor,
+              correoRevisor: sinRevisor ? '' : act.correoRevisor,
               correoAuditor: act.correoAuditor || correoAuditorOriginal,
             });
-            const cambiaAsignacionRoles = actividadNueva ||
+            const cambiaAsignacionRoles = actividadNueva || revisorNoAplica(act) !== revisorNoAplica(planOriginal) ||
               normalizarCorreo(act.correoResponsable) !== normalizarCorreo(planOriginal?.correoResponsable) ||
               normalizarCorreo(act.correoRevisor) !== normalizarCorreo(planOriginal?.correoRevisor) ||
               normalizarCorreo(act.correoAuditor || correoAuditorOriginal) !== normalizarCorreo(correoAuditorOriginal);
@@ -882,7 +905,7 @@ const handleNotificarPlan = async (planId) => {
             // Validar el correo del revisor cuando se crea o modifica.
             const corrRev1 = normalizarCorreo(act.correoRevisor);
             const corrRev2 = normalizarCorreo(act.correoRevisorConfirmacion);
-            if ((validaCorreosCompletos || cambioCorreoRevisor) && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrRev1) || !corrRev2 || corrRev1 !== corrRev2)) errorCorreosRevisor = true;
+            if (!sinRevisor && (validaCorreosCompletos || cambioCorreoRevisor) && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrRev1) || !corrRev2 || corrRev1 !== corrRev2)) errorCorreosRevisor = true;
 
             const corrAuditor1 = normalizarCorreo(act.correoAuditor);
             if (cambioCorreoAuditor && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrAuditor1)) errorCorreoAuditor = true;
@@ -906,6 +929,11 @@ const handleNotificarPlan = async (planId) => {
       return;
     }
 
+    if (errorMotivoRevisor) {
+      alert("❌ ALERTA: Marcaste el revisor como \"No aplica\". Explica por qué (mínimo 10 caracteres) antes de guardar.");
+      return;
+    }
+
     if (errorRolesDuplicados) {
       showNotification('No se puede guardar: el mismo correo está asignado como ejecutor, revisor y/o auditor. Asigna personas distintas; el auditor se hereda del informe.', 'error');
       return;
@@ -923,9 +951,11 @@ const handleNotificarPlan = async (planId) => {
               responsable: act.responsable || 'Sin Asignar',
               correoResponsable: (act.correoResponsable || '').trim(),
               correoConfirmacion: (act.correoConfirmacion || '').trim(),
-              revisor: act.revisor || 'Sin Asignar',
-              correoRevisor: (act.correoRevisor || '').trim(),
-              correoRevisorConfirmacion: (act.correoRevisorConfirmacion || '').trim(),
+              revisor: revisorNoAplica(act) ? 'No aplica' : act.revisor || 'Sin Asignar',
+              correoRevisor: revisorNoAplica(act) ? '' : (act.correoRevisor || '').trim(),
+              correoRevisorConfirmacion: revisorNoAplica(act) ? '' : (act.correoRevisorConfirmacion || '').trim(),
+              revisorNoAplica: revisorNoAplica(act),
+              motivoRevisorNoAplica: revisorNoAplica(act) ? String(act.motivoRevisorNoAplica || '').trim() : '',
               auditorAsignado: act.auditorAsignado || '',
               correoAuditor: (act.correoAuditor || '').trim(),
               fechaInicio: act.fechaInicio || null,
@@ -1037,13 +1067,13 @@ const handleNotificarPlan = async (planId) => {
         handleInformeChange(formInformeId, planesFinales, safeHallazgos);
         const enlaceRevision = `${window.location.origin}/?reviewReportId=${encodeURIComponent(formInformeId)}`;
         const hayReenvioDiseno = planesActualizados.some(plan => ['Pendiente Revisión Jefatura', ESTADO_EVALUACION_INICIAL].includes(plan.estadoWorkflow));
-        const hayAvanceAlCien = planesActualizados.some(plan => plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR);
+        const hayAvanceAlCien = planesActualizados.some(enviadoAValidacion);
         const mensajeGuardado = actividadesNuevas.length > 0
           ? `${planesCreados.length} plan(es) guardado(s) correctamente.`
           : hayReenvioDiseno
             ? 'Diseño guardado y enviado a la persona encargada de aprobarlo.'
             : hayAvanceAlCien
-              ? 'Avance guardado y enviado a validación del revisor.'
+              ? 'Avance guardado y enviado a validación (revisor o, si no aplica, auditor).'
               : 'Avance guardado correctamente.';
         setEditPlan(null);
         setFormInformeId('');
@@ -1085,9 +1115,9 @@ const handleNotificarPlan = async (planId) => {
             if (!correoRevisorEnviado) todasNotificacionesEnviadas = false;
           }
 
-          const planesAlCien = planesActualizados.filter(plan => plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR);
+          const planesAlCien = planesActualizados.filter(enviadoAValidacion);
           for (const plan of planesAlCien) {
-            if (!plan.correoRevisor) {
+            if (!(revisorNoAplica(plan) ? plan.correoAuditor : plan.correoRevisor)) {
               todasNotificacionesEnviadas = false;
               continue;
             }
@@ -1157,11 +1187,12 @@ const handleNotificarPlan = async (planId) => {
 
         // LÓGICA DE MÁQUINA DE ESTADOS 3 NIVELES
         if (isNew) {
-          workflowCalculado = esProgramaInforme ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura';
+          workflowCalculado = estadoInicialPlan(esProgramaInforme, act);
         } else if (cambiaDisenoPrograma) {
           workflowCalculado = ESTADO_EVALUACION_INICIAL;
         } else if (progresoEntero === 100 && workflowCalculado === 'En Ejecución') {
-          workflowCalculado = ESTADO_PENDIENTE_VALIDACION_REVISOR;
+          // Sin revisor, el 100 % pasa directo al auditor aprobador.
+          workflowCalculado = estadoAlCien(act);
         } else if (progresoEntero < 100 && [ESTADO_PENDIENTE_VALIDACION_REVISOR, 'En Revisión (100%)'].includes(workflowCalculado)) {
           workflowCalculado = 'En Ejecución';
         }
@@ -1177,8 +1208,10 @@ const handleNotificarPlan = async (planId) => {
           sede: act.sede || 'No especificada', 
           responsable: act.responsable || 'Sin Asignar',
           correoResponsable: (act.correoResponsable || '').trim(),
-          revisor: act.revisor || 'Sin Asignar',
-          correoRevisor: (act.correoRevisor || '').trim(),
+          revisor: revisorNoAplica(act) ? 'No aplica' : act.revisor || 'Sin Asignar',
+          correoRevisor: revisorNoAplica(act) ? '' : (act.correoRevisor || '').trim(),
+          revisorNoAplica: revisorNoAplica(act),
+          motivoRevisorNoAplica: revisorNoAplica(act) ? String(act.motivoRevisorNoAplica || '').trim() : '',
           auditorAsignado: act.auditorAsignado || 'Sin Asignar',
           correoAuditor: (act.correoAuditor || '').trim(),
           progreso: isNew && esProgramaInforme ? 0 : progresoEntero,
@@ -1719,7 +1752,7 @@ if (existingActivities.length > 0) {
   const handleUpdateActivityField = (hallazgoId, index, field, value) => {
     const actividad = matrixState[hallazgoId]?.actividades?.[index];
     const planOriginal = safePlanes.find(plan => String(plan.id) === String(actividad?.id));
-    if (['responsable', 'revisor', 'correoResponsable', 'correoConfirmacion', 'correoRevisor', 'correoRevisorConfirmacion', 'correoAuditor'].includes(field) &&
+    if (['responsable', 'revisor', 'correoResponsable', 'correoConfirmacion', 'correoRevisor', 'correoRevisorConfirmacion', 'correoAuditor', 'revisorNoAplica', 'motivoRevisorNoAplica'].includes(field) &&
         !puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin)) {
       showNotification('Los cargos y correos de esta acción están bloqueados para el ejecutor. Solicita el ajuste a un administrador distinto del ejecutor.', 'error');
       return;
@@ -1729,6 +1762,11 @@ if (existingActivities.length > 0) {
       const currentActividades = prev[hallazgoId].actividades.map((act, idx) => {
         if (idx !== index) return act;
         const actualizado = { ...act, [field]: value };
+        if (field === 'revisorNoAplica') {
+          return value
+            ? { ...actualizado, revisor: 'No aplica', correoRevisor: '', correoRevisorConfirmacion: '' }
+            : { ...actualizado, revisor: '', motivoRevisorNoAplica: '' };
+        }
         if (field !== 'responsable' && field !== 'revisor') return actualizado;
 
         const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
@@ -1802,12 +1840,19 @@ if (existingActivities.length > 0) {
 
     const correoNormalizado = value => String(value || '').trim().toLowerCase();
     const correoResponsable = String(actividad.correoResponsable || '').trim();
-    const correoRevisor = String(actividad.correoRevisor || '').trim();
+    const sinRevisor = revisorNoAplica(actividad);
+    const correoRevisor = sinRevisor ? '' : String(actividad.correoRevisor || '').trim();
+    if (esNueva && sinRevisor && !motivoRevisorNoAplicaValido(actividad)) {
+      showNotification('Marcaste el revisor como "No aplica": explica por qué (mínimo 10 caracteres).', 'error');
+      return;
+    }
     if (esNueva && (
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoResponsable) ||
       correoNormalizado(correoResponsable) !== correoNormalizado(actividad.correoConfirmacion) ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoRevisor) ||
-      correoNormalizado(correoRevisor) !== correoNormalizado(actividad.correoRevisorConfirmacion)
+      (!sinRevisor && (
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoRevisor) ||
+        correoNormalizado(correoRevisor) !== correoNormalizado(actividad.correoRevisorConfirmacion)
+      ))
     )) {
       showNotification('Verifica que los correos del ejecutor y del revisor sean válidos y coincidan.', 'error');
       return;
@@ -1894,9 +1939,11 @@ if (existingActivities.length > 0) {
             responsable: actividad.responsable || 'Sin Asignar',
             correoResponsable,
             correoConfirmacion: actividad.correoConfirmacion,
-            revisor: actividad.revisor || 'Sin Asignar',
+            revisor: sinRevisor ? 'No aplica' : actividad.revisor || 'Sin Asignar',
             correoRevisor,
-            correoRevisorConfirmacion: actividad.correoRevisorConfirmacion,
+            correoRevisorConfirmacion: sinRevisor ? '' : actividad.correoRevisorConfirmacion,
+            revisorNoAplica: sinRevisor,
+            motivoRevisorNoAplica: sinRevisor ? String(actividad.motivoRevisorNoAplica || '').trim() : '',
             auditorAsignado: actividad.auditorAsignado || '',
             correoAuditor: actividad.correoAuditor || '',
             fechaInicio: cambios.fechaInicio,
@@ -1995,7 +2042,7 @@ if (existingActivities.length > 0) {
       try {
         if (esNueva && notificarNueva) {
           notificacionEnviada = await notificarRegistroPlan(planGuardado, correoPreparado);
-        } else if (planGuardado.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && llegaAlCien) {
+        } else if (enviadoAValidacion(planGuardado) && llegaAlCien) {
           notificacionEnviada = await notificarEjecucionCompleta(planGuardado, correoPreparado);
         } else if (cambioDiseno && ['Pendiente Revisión Jefatura', ESTADO_EVALUACION_INICIAL].includes(planGuardado.estadoWorkflow)) {
           notificacionEnviada = await enviarNotificacionPlanConReintento({
@@ -3429,6 +3476,21 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       />
                                     </div>
 
+                                    <div className="md:col-span-full rounded-lg border border-amber-200 bg-amber-50/60 p-2">
+                                      <label className={`flex items-start gap-2 font-bold text-amber-800 ${puedeEditarAsignacion ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+                                        <input type="checkbox" checked={revisorNoAplica(act)} disabled={!puedeEditarAsignacion} className="mt-0.5"
+                                          onChange={(e) => handleUpdateActivityField(h.id, index, 'revisorNoAplica', e.target.checked)} />
+                                        <span>Revisor: No aplica <span className="font-normal text-amber-700">(proceso de una sola persona). La acción pasa directo a ejecución y, al 100%, directo al auditor aprobador.</span></span>
+                                      </label>
+                                      {revisorNoAplica(act) && (
+                                        <textarea value={act.motivoRevisorNoAplica || ''} rows="2" disabled={!puedeEditarAsignacion}
+                                          onChange={(e) => handleUpdateActivityField(h.id, index, 'motivoRevisorNoAplica', e.target.value)}
+                                          placeholder="¿Por qué no aplica revisor? Ej: el coordinador es la única persona del proceso."
+                                          className={`mt-2 w-full rounded-lg border p-2 text-xs outline-none focus:ring-2 focus:ring-amber-400 ${motivoRevisorNoAplicaValido(act) ? 'border-amber-200 bg-white' : 'border-red-400 bg-red-50'}`}
+                                          required />
+                                      )}
+                                    </div>
+                                    {!revisorNoAplica(act) && (<>
                                     <div className="md:col-span-2">
                                       <label className="font-bold text-amber-600 block mb-0.5">👀 Quien REVISA la Acción (Cargo)</label>
                                       <select 
@@ -3469,6 +3531,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         required
                                       />
                                     </div>
+                                    </>)}
                                   </>
                                 );
                               })()}

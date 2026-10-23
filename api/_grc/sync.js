@@ -131,6 +131,8 @@ function usuarioPuedeEvaluarPlanes(partialData, user, data) {
       const hasta = planActualizado.estadoWorkflow;
       if (desde !== hasta && hasta !== ESTADO_EVALUACION_INICIAL &&
           !(desde === 'En Ejecución' && hasta === 'Pendiente Validación Revisor' && Number(planActualizado.progreso) === 100) &&
+          // Sin revisor, el 100 % pasa directo al auditor aprobador.
+          !(desde === 'En Ejecución' && hasta === 'En Revisión (100%)' && planActualizado.revisorNoAplica === true && Number(planActualizado.progreso) === 100) &&
           !(['Pendiente Validación Revisor', 'En Revisión (100%)'].includes(desde) && hasta === 'En Ejecución' && Number(planActualizado.progreso) < 100)) return false;
       continue;
     }

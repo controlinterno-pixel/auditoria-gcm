@@ -598,11 +598,16 @@ test('aviso al 100% lleva al revisor a la matriz, no a la evidencia ni al cierre
   const text = read('../src/components/Planes.jsx');
   const fn = text.slice(text.indexOf('  const notificarEjecucionCompleta ='), text.indexOf('  // Un plan al 100%'));
   const payloads = [];
-  const notify = new Function('enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarEjecucionCompleta;`)(
+  const notify = new Function('enviarNotificacionPlanConReintento', 'window', 'revisorNoAplica', 'ESTADO_PENDIENTE_VALIDACION_REVISOR', `${fn}\nreturn notificarEjecucionCompleta;`)(
     async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
+    item => item?.revisorNoAplica === true, 'Pendiente Validación Revisor',
   );
   await notify(plan({ evidenciaUrl: 'https://soportes.example.test/archivo.pdf', progreso: 100 }), true);
   assert.equal(payloads[0].destinatarios, 'revisor@example.test');
+  // Sin revisor, el aviso del 100 % va al auditor aprobador.
+  await notify(plan({ progreso: 100, revisorNoAplica: true, correoAuditor: 'auditor.final@example.test' }), true);
+  assert.equal(payloads[1].destinatarios, 'auditor.final@example.test');
+  assert.match(payloads[1].titulo_informe, /sin revisor/);
   assert.equal(payloads[0].enlace_pdf, 'https://example.test/?reviewReportId=i1');
   assert.match(payloads[0].proceso_auditado, /Revisar matriz/);
   assert.match(payloads[0].proceso_auditado, /100% no cierra/);
