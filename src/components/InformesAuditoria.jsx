@@ -2167,7 +2167,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
   className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
   disabled={modoVistaCompleta}
 />
-              <p className="text-[10px] text-blue-600 mt-2 font-medium">Al añadir cargos de socialización se agregan sus correos del catálogo. Puedes editar esta lista libremente.</p>
+              <p className="text-[10px] text-blue-600 mt-2 font-medium">Al añadir cargos de socialización se agregan sus correos del catálogo. Puedes editar esta lista libremente. Si deseas incluir otro correo, sepáralo de los demás con una coma (,).</p>
               <p className="text-[10px] text-blue-600 mt-2 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
             </div>
 
