@@ -70,6 +70,7 @@ import { defaultCronograma } from './constants/defaultData';
 import { restaurarCronogramaOficial } from './utils/cronogramaOficial';
 import { CatalogosProvider } from './context/CatalogosContext.jsx';
 import { vigentes } from './utils/anulacion.js';
+import { combinarPlanesVisibles, esPlanDelUsuario, permisosEfectivos, puedeVerSubmodulo } from './utils/permisosVista.js';
 
 
 // =====================================================================
@@ -352,16 +353,36 @@ export default function App() {
   const nombreVistaActual = typeof nombresVistas[activeTab] === 'string'
     ? nombresVistas[activeTab]
     : nombresVistas[activeTab]?.[contextoVista] || 'Módulo GRC';
-  const puedeVerDashboard = isAdmin || perfilUsuario?.permisos?.includes('sub_dashboard') === true;
-  const puedeVerFuentesMejora = isAdmin || perfilUsuario?.permisos?.includes('sub_fuentes_mejora') === true;
-  const puedeVerCronograma = isAdmin || perfilUsuario?.permisos?.includes('sub_cronograma') === true;
+  // 🔐 Casillas de Configuración: cada submódulo se ve solo con su casilla y la de su módulo (admin: todo).
+  // Un usuario sin permisos guardados recibe el paquete básico que Configuración le muestra.
+  const permisosUsuario = permisosEfectivos(perfilUsuario);
+  const verSubmodulo = submodulo => puedeVerSubmodulo(permisosUsuario, submodulo, isAdmin);
+  const puedeVerMiEspacio = verSubmodulo('sub_mi_espacio');
+  const puedeVerDashboard = verSubmodulo('sub_dashboard');
+  const puedeVerMatriz = verSubmodulo('sub_matriz_riesgos');
+  const puedeVerApetito = verSubmodulo('sub_apetito');
+  const puedeVerInformes = verSubmodulo('sub_informes');
+  const puedeVerHallazgos = verSubmodulo('sub_hallazgos');
+  const puedeVerFuentesMejora = verSubmodulo('sub_fuentes_mejora');
+  const puedeVerIncidentes = verSubmodulo('sub_incidentes');
+  const puedeVerTableroPlanes = verSubmodulo('sub_seguimiento_planes');
+  const puedeVerCronograma = verSubmodulo('sub_cronograma');
   // Auditorías y Gobernanza solo con permiso explícito (el servidor tampoco entrega esos datos sin él).
-  const puedeVerProgramas = isAdmin || perfilUsuario?.permisos?.includes('sub_programas') === true;
-  const puedeVerComites = isAdmin || perfilUsuario?.permisos?.includes('sub_comites') === true;
-  const puedeVerTrazabilidad = isAdmin || perfilUsuario?.permisos?.includes('sub_trazabilidad') === true;
-  const puedeCrearInformes = isAdmin || perfilUsuario?.permisos?.includes('sub_informes') === true;
-  const puedeCrearHallazgos = isAdmin || perfilUsuario?.permisos?.includes('sub_hallazgos') === true;
-  const puedeCrearPlanes = isAdmin || perfilUsuario?.permisos?.includes('sub_seguimiento_planes') === true;
+  const puedeVerProgramas = verSubmodulo('sub_programas');
+  const puedeVerComites = verSubmodulo('sub_comites');
+  const puedeVerTrazabilidad = verSubmodulo('sub_trazabilidad');
+  const puedeCrearInformes = puedeVerInformes;
+  const puedeCrearHallazgos = puedeVerHallazgos;
+  const puedeCrearPlanes = puedeVerTableroPlanes;
+
+  // Sin "Seguimiento de Planes": el módulo muestra solo los planes donde el usuario es ejecutor, revisor o auditor.
+  const esPlanPropio = plan => esPlanDelUsuario(plan, user?.email);
+  const soloMisTareas = !puedeVerTableroPlanes;
+  const planesDelModulo = soloMisTareas ? safePlanes.filter(esPlanPropio) : safePlanes;
+  // Al guardar desde la vista recortada se reemplazan solo los planes visibles; los demás se conservan.
+  const setPlanesDelModulo = soloMisTareas
+    ? valor => setPlanes(actuales => combinarPlanesVisibles(actuales, valor, esPlanPropio))
+    : setPlanes;
 
   // Riesgos anulados: se consultan en el módulo Riesgos, pero no cuentan en tableros, indicadores ni IA.
   const riesgosVigentes = useMemo(() => vigentes(safeRiesgos), [safeRiesgos]);
@@ -627,6 +648,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   });
   const misTareasEjecucion = misPlanesEjecucion.length;
 
+
   // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
   const misPlanesRevision = planesConOrigen.filter(p => {
     const correoRevisor = (p.correoRevisor || '').trim().toLowerCase();
@@ -763,7 +785,15 @@ return (
         onSelectRevisionTasks={() => seleccionarTareasPlanes('revision')}
         onSelectAprobacionTasks={() => seleccionarTareasPlanes('aprobacion')}
         isAdmin={isAdmin}
+        puedeVerMiEspacio={puedeVerMiEspacio}
         puedeVerDashboard={puedeVerDashboard}
+        puedeVerMatriz={puedeVerMatriz}
+        puedeVerApetito={puedeVerApetito}
+        puedeVerInformes={puedeVerInformes}
+        puedeVerHallazgos={puedeVerHallazgos}
+        puedeVerIncidentes={puedeVerIncidentes}
+        puedeVerTableroPlanes={puedeVerTableroPlanes}
+        tienePlanesPropios={planesDelModulo.length > 0}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
         puedeVerCronograma={puedeVerCronograma}
         puedeVerProgramas={puedeVerProgramas}
@@ -905,7 +935,7 @@ return (
             )}
           </nav>
           {/* 🏠 FASE 0: MI ESPACIO DE TRABAJO (Bandeja Ejecutiva + Expediente Único + Dashboard) */}
-            {activeTab === 'tablero' && (
+            {activeTab === 'tablero' && puedeVerMiEspacio && (
               <MiEspacio
                 user={user}
                 safeProgramas={safeProgramas}
@@ -976,7 +1006,7 @@ return (
         handleDeleteItem={handleDeleteItem}
       />
     )}
-    {subTabPlanificar === 'riesgos' && (
+    {subTabPlanificar === 'riesgos' && puedeVerMatriz && (
       <Riesgos 
         isAdmin={isAdmin} 
         user={user}
@@ -1004,7 +1034,7 @@ return (
       />
     )}
 
-    {subTabPlanificar === 'apetito' && (
+    {subTabPlanificar === 'apetito' && puedeVerApetito && (
       <Apetito 
         isAdmin={isAdmin} 
         editApetito={editApetito} 
@@ -1045,7 +1075,7 @@ return (
             {activeTab === 'resultados_tab' && (
               <div className="space-y-6">
                 
-                {subTabResultados === 'hallazgos' && (
+                {subTabResultados === 'hallazgos' && puedeVerHallazgos && (
                   <Hallazgos
                     exportToExcel={exportarExcel}
                     isAdmin={isAdmin}
@@ -1069,7 +1099,7 @@ return (
                     FilterInput={FilterInput}
                   />
                 )}
-             {subTabResultados === 'informes' && (
+             {subTabResultados === 'informes' && puedeVerInformes && (
                   <InformesAuditoria
                     exportToExcel={exportarExcel}
                     informesAuditoria={informesAuditoria}
@@ -1152,8 +1182,8 @@ return (
                     reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} encolarReintentoNotificacion={encolarReintentoNotificacion} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user} perfilUsuario={perfilUsuario}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
-                    FilterInput={FilterInput} pFiltrados={pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}
-                    safePlanes={safePlanes} setPlanes={setPlanes} saveToCloud={saveToCloud} formatSafeDate={formatSafeDate}
+                    FilterInput={FilterInput} pFiltrados={soloMisTareas ? pFiltrados.filter(esPlanPropio) : pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}
+                    safePlanes={planesDelModulo} setPlanes={setPlanesDelModulo} saveToCloud={saveToCloud} formatSafeDate={formatSafeDate}
                     searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
                     informesAuditoria={informesAuditoria} fuentesMejora={fuentesMejora} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios}
                     selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses}
@@ -1206,7 +1236,7 @@ return (
                     }}
                   />
                 )}
-                {subTabPlanes === 'reporte360' && (
+                {subTabPlanes === 'reporte360' && puedeVerTableroPlanes && (
                   <Reporte360
                     informesAuditoria={informesAuditoria}
                     safeHallazgos={safeHallazgos}
@@ -1217,7 +1247,7 @@ return (
                     showNotification={showNotification}
                   />
                 )}
-                {subTabPlanes === 'incidentes' && (
+                {subTabPlanes === 'incidentes' && puedeVerIncidentes && (
                   <Incidentes 
                     incFiltrados={incFiltrados} isAdmin={isAdmin} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                     columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} editIncidente={editIncidente}
@@ -1255,7 +1285,11 @@ return (
             )}
 
             {/* 🔒 Pantallas de Auditorías / Gobernanza sin el permiso correspondiente: aviso en vez de un área vacía. */}
-            {((activeTab === 'dashboard_riesgos' && !puedeVerDashboard) ||
+            {((activeTab === 'tablero' && !puedeVerMiEspacio) ||
+              (activeTab === 'dashboard_riesgos' && !puedeVerDashboard) ||
+              (activeTab === 'plan_anual_tab' && ((subTabPlanificar === 'riesgos' && !puedeVerMatriz) || (subTabPlanificar === 'apetito' && !puedeVerApetito))) ||
+              (activeTab === 'resultados_tab' && ((subTabResultados === 'informes' && !puedeVerInformes) || (subTabResultados === 'hallazgos' && !puedeVerHallazgos) || (subTabResultados === 'fuentes_mejora' && !puedeVerFuentesMejora))) ||
+              (activeTab === 'planes_tab' && ((subTabPlanes === 'reporte360' && !puedeVerTableroPlanes) || (subTabPlanes === 'incidentes' && !puedeVerIncidentes))) ||
               (activeTab === 'plan_anual_tab' && ((subTabPlanificar === 'plan_anual' && !puedeVerCronograma) || (subTabPlanificar === 'programas' && !puedeVerProgramas))) ||
               (activeTab === 'gobernanza_tab' && !((subTabGobernanza === 'comites' && puedeVerComites) || (subTabGobernanza === 'trazabilidad' && puedeVerTrazabilidad) || (subTabGobernanza === 'auditoria_auto' && isAdmin)))) && (
               <div role="status" className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">

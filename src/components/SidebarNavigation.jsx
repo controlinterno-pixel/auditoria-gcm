@@ -26,7 +26,15 @@ export default function SidebarNavigation({
   onSelectRevisionTasks = () => {},
   onSelectAprobacionTasks = () => {},
   isAdmin,
+  puedeVerMiEspacio = false,
   puedeVerDashboard = false,
+  puedeVerMatriz = false,
+  puedeVerApetito = false,
+  puedeVerInformes = false,
+  puedeVerHallazgos = false,
+  puedeVerIncidentes = false,
+  puedeVerTableroPlanes = false,
+  tienePlanesPropios = false,
   puedeVerFuentesMejora = false,
   puedeVerCronograma = false,
   puedeVerProgramas = false,
@@ -35,6 +43,9 @@ export default function SidebarNavigation({
   user,
   handleLogout
 }) {
+  // Primer submódulo visible de "Informes y Hallazgos" (Eventos de Pérdida vive en planes_tab).
+  const destinoResultados = puedeVerHallazgos && !isAdmin ? 'hallazgos'
+    : puedeVerInformes ? 'informes' : puedeVerHallazgos ? 'hallazgos' : puedeVerFuentesMejora ? 'fuentes_mejora' : null;
   const navigateTo = (tab, updateSubtab = () => {}, keepMenuOpen = false) => guardNavigation(() => {
     updateSubtab();
     setActiveTab(tab);
@@ -121,10 +132,11 @@ export default function SidebarNavigation({
      {/* MENÚ ACORDEÓN */}
       <nav id="primary-navigation" aria-label="Navegación principal" className={`min-h-0 flex-1 ${isCollapsed ? 'px-2 [&>div>button]:px-3' : 'px-4'} py-4 space-y-1 text-sm font-medium overflow-y-auto custom-scrollbar relative z-10`}>
 
-        {/* 1. INICIO */}
+        {/* 1. INICIO — solo con algún submódulo visible */}
+        {(puedeVerMiEspacio || puedeVerDashboard) && (
         <div className="flex flex-col">
           <button 
-            onClick={() => toggleMenuAndNavigate('inicio', 'tablero')}
+            onClick={() => toggleMenuAndNavigate('inicio', puedeVerMiEspacio ? 'tablero' : 'dashboard_riesgos')}
             type="button"
             aria-label="Inicio"
             aria-expanded={menuAbierto === 'inicio'}
@@ -139,11 +151,12 @@ export default function SidebarNavigation({
           </button>
           <div id="submenu-inicio" inert={menuAbierto !== 'inicio' || isCollapsed} aria-hidden={menuAbierto !== 'inicio' || isCollapsed} className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'inicio' && !isCollapsed ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => navigateTo('tablero')} aria-current={activeTab === 'tablero' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'tablero' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Mi Espacio GRC</button>
+              {puedeVerMiEspacio && <button onClick={() => navigateTo('tablero')} aria-current={activeTab === 'tablero' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'tablero' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Mi Espacio GRC</button>}
               {puedeVerDashboard && <button onClick={() => navigateTo('dashboard_riesgos')} aria-current={activeTab === 'dashboard_riesgos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'dashboard_riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>GRC Dashboard</button>}
             </div>
           </div>
         </div>
+        )}
 
         {/* 2. AUDITORÍAS — solo con algún permiso del módulo */}
         {(isAdmin || puedeVerCronograma || puedeVerProgramas) && (
@@ -172,10 +185,11 @@ export default function SidebarNavigation({
         </div>
         )}
 
-        {/* 3. RIESGOS */}
+        {/* 3. RIESGOS — solo con algún submódulo visible */}
+        {(puedeVerMatriz || puedeVerApetito) && (
         <div className="flex flex-col">
           <button 
-            onClick={() => toggleMenuAndNavigate('riesgos', 'plan_anual_tab', () => setSubTabPlanificar('riesgos'))}
+            onClick={() => toggleMenuAndNavigate('riesgos', 'plan_anual_tab', () => setSubTabPlanificar(puedeVerMatriz ? 'riesgos' : 'apetito'))}
             type="button"
             aria-label="Riesgos"
             aria-expanded={menuAbierto === 'riesgos'}
@@ -190,16 +204,20 @@ export default function SidebarNavigation({
           </button>
           <div id="submenu-riesgos" inert={menuAbierto !== 'riesgos' || isCollapsed} aria-hidden={menuAbierto !== 'riesgos' || isCollapsed} className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'riesgos' && !isCollapsed ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => navigateTo('plan_anual_tab', () => setSubTabPlanificar('riesgos'))} aria-current={activeTab === 'plan_anual_tab' && subTabPlanificar === 'riesgos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Matriz de Riesgos</button>
-              <button onClick={() => navigateTo('plan_anual_tab', () => setSubTabPlanificar('apetito'))} aria-current={activeTab === 'plan_anual_tab' && subTabPlanificar === 'apetito' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'apetito' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Apetito de Riesgo</button>
+              {puedeVerMatriz && <button onClick={() => navigateTo('plan_anual_tab', () => setSubTabPlanificar('riesgos'))} aria-current={activeTab === 'plan_anual_tab' && subTabPlanificar === 'riesgos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Matriz de Riesgos</button>}
+              {puedeVerApetito && <button onClick={() => navigateTo('plan_anual_tab', () => setSubTabPlanificar('apetito'))} aria-current={activeTab === 'plan_anual_tab' && subTabPlanificar === 'apetito' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'apetito' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Apetito de Riesgo</button>}
             </div>
           </div>
         </div>
+        )}
 
-        {/* 4. INFORMES Y HALLAZGOS */}
+        {/* 4. INFORMES Y HALLAZGOS — solo con algún submódulo visible */}
+        {(destinoResultados || puedeVerIncidentes) && (
         <div className="flex flex-col">
           <button 
-            onClick={() => toggleMenuAndNavigate('hallazgos', 'resultados_tab', () => setSubTabResultados(isAdmin ? 'informes' : 'hallazgos'))}
+            onClick={() => (destinoResultados
+              ? toggleMenuAndNavigate('hallazgos', 'resultados_tab', () => setSubTabResultados(destinoResultados))
+              : toggleMenuAndNavigate('hallazgos', 'planes_tab', () => setSubTabPlanes('incidentes')))}
             type="button"
             aria-label="Informes y Hallazgos"
             aria-expanded={menuAbierto === 'hallazgos'}
@@ -219,21 +237,23 @@ export default function SidebarNavigation({
               {(isAdmin || puedeVerFuentesMejora) && <button onClick={() => navigateTo('resultados_tab', () => setSubTabResultados('fuentes_mejora'))} aria-current={activeTab === 'resultados_tab' && subTabResultados === 'fuentes_mejora' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'fuentes_mejora' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Fuente de mejora</button>}
 
               {/* 2. Informes Emitidos */}
-              <button onClick={() => navigateTo('resultados_tab', () => setSubTabResultados('informes'))} aria-current={activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Informes Emitidos</button>
+              {puedeVerInformes && <button onClick={() => navigateTo('resultados_tab', () => setSubTabResultados('informes'))} aria-current={activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Informes Emitidos</button>}
               
               {/* 3. Hallazgos Registrados */}
-              <button onClick={() => navigateTo('resultados_tab', () => setSubTabResultados('hallazgos'))} aria-current={activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>
+              {puedeVerHallazgos && <button onClick={() => navigateTo('resultados_tab', () => setSubTabResultados('hallazgos'))} aria-current={activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>}
               
               {/* 4. Cargos y Procesos */}
               {isAdmin && <button onClick={() => navigateTo('resultados_tab', () => setSubTabResultados('cargos_procesos'))} aria-current={activeTab === 'resultados_tab' && subTabResultados === 'cargos_procesos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'cargos_procesos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Cargos y Procesos</button>}
               
               {/* 5. Eventos de Pérdida */}
-              <button onClick={() => navigateTo('planes_tab', () => setSubTabPlanes('incidentes'))} aria-current={activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>
+              {puedeVerIncidentes && <button onClick={() => navigateTo('planes_tab', () => setSubTabPlanes('incidentes'))} aria-current={activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>}
             </div>
           </div>
         </div>
+        )}
 
-        {/* 5. PLANES DE ACCIÓN */}
+        {/* 5. PLANES DE ACCIÓN — tablero con "Seguimiento de Planes"; sin ella, solo sus tareas asignadas */}
+        {(puedeVerTableroPlanes || tienePlanesPropios) && (
         <div className="flex flex-col">
           <button 
             onClick={() => toggleMenuAndNavigate('planes', 'planes_tab', () => setSubTabPlanes('planes'))}
@@ -278,16 +298,16 @@ export default function SidebarNavigation({
                 aria-current={activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'page' : undefined}
                 className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg flex flex-col justify-center ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}
               >
-                <span>Gestión de Planes</span>
+                <span>{puedeVerTableroPlanes ? 'Gestión de Planes' : 'Mis tareas'}</span>
               </button>
-              <button
+              {puedeVerTableroPlanes && <button
                 type="button"
                 onClick={() => navigateTo('planes_tab', () => setSubTabPlanes('reporte360'))}
                 aria-current={activeTab === 'planes_tab' && subTabPlanes === 'reporte360' ? 'page' : undefined}
                 className={`min-h-11 text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'reporte360' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}
               >
                 Reporte 360
-              </button>
+              </button>}
               {!isCollapsed && misTareasEjecucion > 0 && (
                 <button
                   type="button"
@@ -328,6 +348,7 @@ export default function SidebarNavigation({
             </div>
           </div>
         </div>
+        )}
 
         {/* 6. GOBERNANZA E INTELIGENCIA — solo con algún permiso del módulo */}
         {(isAdmin || puedeVerComites || puedeVerTrazabilidad) && (

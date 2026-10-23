@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
+import { permisosEfectivos } from '../utils/permisosVista.js';
 
 export default function Configuracion({
   forceUpdateCronograma,
@@ -445,7 +446,8 @@ export default function Configuracion({
                                 ]
                               }
                             ].map(modulo => {
-                              const userPermisos = u.permisos || ['inicio', 'sub_mi_espacio', 'hallazgos', 'sub_hallazgos', 'planes', 'sub_seguimiento_planes'];
+                              // Mismo criterio que aplica la app: sin permisos guardados rige el paquete básico.
+                              const userPermisos = permisosEfectivos(u);
                               const moduloActivo = userPermisos.includes(modulo.id);
 
                               return (
