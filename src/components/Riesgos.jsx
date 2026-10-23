@@ -1816,17 +1816,21 @@ const renderMatriz = () => {
                 const queReduce = tipoControl === 'Correctivo' ? 'el impacto' : 'la probabilidad';
                 return (
                   <div className="lg:border-l lg:border-slate-200 lg:pl-4" title={`Diseño: ${porcentajeDelMaximo}% del máximo posible para su tipo. Este control reduce ${queReduce} en ${valoracionControl.eficacia}%. Tiene ${valoracionControl.eficacia} de ${valoracionControl.maximoPosible} puntos posibles para un control ${tipoControl.toLowerCase()} (Tabla 6 del manual).`}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Diseño del control</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-2.5 w-full max-w-[6rem] overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200" aria-hidden="true">
-                        <div className={`h-full ${tonoEficacia.barra}`} style={{ width: `${porcentajeDelMaximo}%` }}></div>
-                      </div>
+                    <div className="flex items-end justify-between gap-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Diseño</p>
                       <span className={`whitespace-nowrap text-xl font-black tabular-nums leading-none ${tonoEficacia.texto}`}>{porcentajeDelMaximo}%</span>
                     </div>
-                    <p className="mt-1.5 text-[10px] leading-snug text-slate-600">
-                      Reduce <strong className={tonoEficacia.texto}>{valoracionControl.eficacia}%</strong> {queReduce}
+                    {/* Escala 0–100 %: 100 % = máximo de puntos para su tipo */}
+                    <div className="mt-1 h-3 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200" aria-hidden="true">
+                      <div className={`h-full ${tonoEficacia.barra}`} style={{ width: `${porcentajeDelMaximo}%` }}></div>
+                    </div>
+                    <div className="mt-0.5 flex justify-between text-[8px] font-semibold text-slate-400" aria-hidden="true">
+                      <span>0%</span><span>100%</span>
+                    </div>
+                    <p className="mt-1 text-[10px] leading-snug text-slate-700">
+                      <strong>{valoracionControl.eficacia} de {valoracionControl.maximoPosible}</strong> puntos = <strong className={tonoEficacia.texto}>{porcentajeDelMaximo}%</strong>
                     </p>
-                    <p className="text-[9px] leading-snug text-slate-500">{valoracionControl.eficacia} de {valoracionControl.maximoPosible} puntos posibles</p>
+                    <p className="text-[9px] leading-snug text-slate-500">Reduce {valoracionControl.eficacia}% {queReduce}</p>
                   </div>
                 );
               })()}
