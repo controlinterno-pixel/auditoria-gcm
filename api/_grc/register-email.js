@@ -4,7 +4,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { guardarInformesGrc, leerWorkspaceGrcLigero } from '../_lib/grcWorkspace.js';
+import { guardarInformesGrc, leerInformeTx, leerWorkspaceGrcLigero } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
 const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       let informe = informes.find(item => String(item.id) === String(id));
       const estaEnLegado = Boolean(informe);
       if (!informe) {
-        const informeSnapshot = await transaction.get(workspace.coleccionInformesRef.doc(String(id).trim()));
+        const informeSnapshot = await leerInformeTx(transaction, workspace, String(id).trim());
         if (informeSnapshot.exists) informe = { id: informeSnapshot.id, ...informeSnapshot.data() };
       }
       const procesosInforme = Array.isArray(informe?.macroprocesos) && informe.macroprocesos.length > 0

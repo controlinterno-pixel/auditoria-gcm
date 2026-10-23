@@ -8,7 +8,7 @@ import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import {
   guardarInformesGrc, guardarPlanesGrc, guardarWorkspaceParcial, leerWorkspaceGrc,
-  leerWorkspaceGrcLigero, listarHallazgosTx, obtenerHallazgosTx, reservarIdsPlanesTx,
+  leerWorkspaceGrcLigero, leerInformeTx, guardarRegistrosGrc, listarHallazgosTx, obtenerHallazgosTx, reservarIdsPlanesTx,
 } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 import { sanitizarUrls } from '../_lib/validation.js';
@@ -212,9 +212,7 @@ export default async function handler(req, res) {
         const hallazgosPorId = await obtenerHallazgosTx(transaction, workspace, registro.items.map(item => item.idHallazgo));
         let informe = informes.find(item => String(item.id) === String(registro.idInforme));
         if (!informe && registro.idInforme) {
-          const informeSnapshot = await transaction.get(
-            workspace.coleccionInformesRef.doc(String(registro.idInforme).trim())
-          );
+          const informeSnapshot = await leerInformeTx(transaction, workspace, String(registro.idInforme).trim());
           if (informeSnapshot.exists) informe = { id: informeSnapshot.id, ...informeSnapshot.data() };
         }
         if (!informe) return { error: 'informe-not-found' };
@@ -308,8 +306,7 @@ export default async function handler(req, res) {
         let informeOrigen = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
           .find(informe => String(informe.id) === String(registro.idInforme));
         if (!informeOrigen && registro.idInforme) {
-          const informeRef = workspace.coleccionInformesRef.doc(String(registro.idInforme));
-          const informeSnapshot = await transaction.get(informeRef);
+          const informeSnapshot = await leerInformeTx(transaction, workspace, String(registro.idInforme));
           if (informeSnapshot.exists) {
             informeOrigen = { id: informeSnapshot.id, ...informeSnapshot.data() };
           }
@@ -362,7 +359,7 @@ export default async function handler(req, res) {
       } else {
         if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
         if (coleccion === 'hallazgos') {
-          transaction.set(workspace.coleccionHallazgosRef.doc(String(nuevoRegistro.id)), nuevoRegistro);
+          guardarRegistrosGrc(transaction, workspace, 'hallazgos', [nuevoRegistro]);
         } else {
           transaction.set(workspaceRef, { [coleccion]: [nuevoRegistro, ...registrosActuales] }, { merge: true });
         }

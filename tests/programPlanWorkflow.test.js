@@ -70,6 +70,11 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
     guardarPlanesGrc: (transaction, workspace, planes) => {
       planes.forEach(plan => transaction.set(workspace.coleccionPlanesRef.doc(String(plan.id)), plan));
     },
+    leerInformeTx: (transaction, workspace, id) => transaction.get(workspace.coleccionInformesRef.doc(id)),
+    guardarRegistrosGrc: (transaction, workspace, coleccion, registros, { claveDe = registro => registro.id } = {}) => {
+      const referencia = { planes: 'coleccionPlanesRef', hallazgos: 'coleccionHallazgosRef', informes: 'coleccionInformesRef' }[coleccion];
+      registros.forEach(registro => transaction.set(workspace[referencia].doc(String(claveDe(registro))), registro));
+    },
     guardarWorkspaceParcial: async partial => { writes.push(partial); data = { ...data, ...partial }; },
     obtenerProcesosAsignados: () => ['operaciones'],
     obtenerSubprocesosAsignados: () => [],

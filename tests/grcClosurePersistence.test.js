@@ -104,7 +104,7 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
   const workspace = new Function('adminDb', 'FieldValue', 'Filter', 'logger', `${moduleBody('../api/_lib/coleccionesAgrupadas.js')}
 ${moduleBody('../api/_lib/grcWorkspace.js')}
     return {
-      leerWorkspaceGrc, guardarPlanesGrc, guardarInformesGrc, guardarWorkspaceParcial,
+      leerWorkspaceGrc, guardarPlanesGrc, guardarInformesGrc, guardarWorkspaceParcial, guardarRegistrosGrc, leerInformeTx,
       leerWorkspaceGrcLigero, obtenerHallazgoTx, obtenerPlanesDeInformeTx,
       obtenerPlanesTx, obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, reservarIdsPlanesTx, listarHallazgosTx,
       riesgosMigrados, leerRiesgosVigentes, guardarRiesgoFragmentado, eliminarRiesgoFragmentado,

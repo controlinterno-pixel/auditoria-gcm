@@ -5,7 +5,7 @@ import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import {
-  guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrcLigero,
+  guardarInformesGrc, guardarPlanesGrc, guardarRegistrosGrc, leerInformeTx, leerWorkspaceGrcLigero,
   obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, obtenerPlanesDeInformeTx, obtenerPlanesTx,
 } from '../_lib/grcWorkspace.js';
 import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
@@ -56,7 +56,7 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
     const { data } = workspace;
     let informe = (data.informesAuditoria || []).find(item => String(item.id) === String(idInforme));
     if (!informe) {
-      const snap = await transaction.get(workspace.coleccionInformesRef.doc(String(idInforme).trim()));
+      const snap = await leerInformeTx(transaction, workspace, String(idInforme).trim());
       if (snap.exists) informe = { id: idInforme, ...snap.data() };
     }
     if (!esInformePrograma(informe, data.fuentesMejora)) return { error: 'not-program' };
@@ -150,9 +150,7 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
     let informePlan = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
       .find(item => String(item.id) === String(idInformePlan));
     if (!informePlan && idInformePlan) {
-      const informeSnapshot = await transaction.get(
-        workspace.coleccionInformesRef.doc(String(idInformePlan).trim())
-      );
+      const informeSnapshot = await leerInformeTx(transaction, workspace, String(idInformePlan).trim());
       if (informeSnapshot.exists) informePlan = { id: idInformePlan, ...informeSnapshot.data() };
     }
     if (!informePlan) return { error: 'report-not-found' };
@@ -233,7 +231,7 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
     })) : [];
     if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
     guardarPlanesGrc(transaction, workspace, actualizados);
-    hallazgosCerrados.forEach(hallazgo => transaction.set(workspace.coleccionHallazgosRef.doc(String(hallazgo.id)), hallazgo));
+    guardarRegistrosGrc(transaction, workspace, 'hallazgos', hallazgosCerrados);
     return {
       planes: actualizados, hallazgos: hallazgosCerrados,
       ...(!conjunta ? { plan: actualizados[0], ...(hallazgosCerrados[0] ? { hallazgo: hallazgosCerrados[0] } : {}) } : {}),
@@ -295,9 +293,7 @@ export default async function handler(req, res) {
         .find(informe => String(informe.id) === String(idInforme));
       if (!informeActual) {
         // Los informes nuevos viven en una subcolección que la transacción no lista.
-        const informeSnapshot = await transaction.get(
-          workspace.coleccionInformesRef.doc(String(idInforme).trim())
-        );
+        const informeSnapshot = await leerInformeTx(transaction, workspace, String(idInforme).trim());
         if (informeSnapshot.exists) informeActual = { id: idInforme, ...informeSnapshot.data() };
       }
       if (!informeActual) return { error: 'report-not-found' };

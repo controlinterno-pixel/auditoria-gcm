@@ -6,7 +6,7 @@ import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import {
-  guardarInformesGrc, guardarPlanesGrc, leerWorkspaceGrcLigero,
+  guardarInformesGrc, guardarPlanesGrc, guardarRegistrosGrc, leerInformeTx, leerWorkspaceGrcLigero,
   obtenerHallazgoTx, obtenerHallazgosTx, obtenerPlanesDeInformeTx, obtenerPlanesTx, reservarIdsPlanesTx,
 } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
@@ -117,9 +117,7 @@ export default async function handler(req, res) {
           return idStr === idInformeStr || refStr === idInformeStr;
         });
         if (!informeActual && idInformeDocumento) {
-          const informeSnapshot = await transaction.get(
-            workspace.coleccionInformesRef.doc(idInformeDocumento)
-          );
+          const informeSnapshot = await leerInformeTx(transaction, workspace, idInformeDocumento);
           if (informeSnapshot.exists) informeActual = { id: informeSnapshot.id, ...informeSnapshot.data() };
         }
 
@@ -434,9 +432,7 @@ export default async function handler(req, res) {
           if (informeEncontrado) {
             informeDestino = informeEncontrado;
           } else {
-            const informeSnapshot = await transaction.get(
-              workspace.coleccionInformesRef.doc(idInformeSolicitado)
-            );
+            const informeSnapshot = await leerInformeTx(transaction, workspace, idInformeSolicitado);
             if (informeSnapshot.exists) {
               informeDestino = { id: informeSnapshot.id, ...informeSnapshot.data() };
             }
@@ -489,7 +485,7 @@ export default async function handler(req, res) {
             },
           ] : historial,
         };
-        transaction.set(workspace.coleccionHallazgosRef.doc(String(id)), actualizado);
+        guardarRegistrosGrc(transaction, workspace, 'hallazgos', [actualizado], { claveDe: () => id });
         return { registro: actualizado };
       });
 
@@ -536,7 +532,7 @@ export default async function handler(req, res) {
       let anterior = informes.find(informe => String(informe.id) === String(id));
       const estaEnLegado = Boolean(anterior);
       if (!anterior) {
-        const informeSnapshot = await transaction.get(workspace.coleccionInformesRef.doc(String(id).trim()));
+        const informeSnapshot = await leerInformeTx(transaction, workspace, String(id).trim());
         if (informeSnapshot.exists) anterior = { id: informeSnapshot.id, ...informeSnapshot.data() };
       }
       if (!anterior) return { error: 'not-found' };

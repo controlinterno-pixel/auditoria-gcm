@@ -500,24 +500,39 @@ export async function leerWorkspaceGrc(transaction = null, { usarCache = false, 
   return lectura;
 }
 
-// Etapa 1 de la agrupación: las escrituras sobre partes llegan en la etapa 3. Hasta entonces, escribir en
-// la subcolección de una colección agrupada dejaría el cambio invisible: se bloquea en vez de perderlo.
-const exigirSinAgrupar = (workspace, coleccion) => {
-  if (workspace?.grupos?.agrupada(coleccion)) {
-    throw new Error(`La colección ${coleccion} está agrupada y aún no admite escrituras.`);
+// 🧩 Escrituras de planes, hallazgos e informes: en su subcolección o, si la colección ya está agrupada,
+// en su parte (`workspace.grupos` sale de leerWorkspaceGrcLigero). Nunca en ambos sitios.
+const REFERENCIAS_COLECCION = { planes: 'coleccionPlanesRef', hallazgos: 'coleccionHallazgosRef', informes: 'coleccionInformesRef' };
+
+/**
+ * Guarda registros completos (`merge: true` fusiona campos, como set con merge).
+ * `claveDe` da el ID del documento (por defecto, el campo id del registro).
+ */
+export function guardarRegistrosGrc(escritor, workspace, coleccion, registros, { merge = false, claveDe = registro => registro.id } = {}) {
+  const lista = (registros || []).filter(registro => registro && ![undefined, null, ''].includes(claveDe(registro)));
+  if (workspace.grupos?.agrupada(coleccion)) {
+    workspace.grupos.guardar(escritor, coleccion, lista.map(registro => [claveDe(registro), registro]), { merge });
+    return;
   }
-};
+  lista.forEach(registro => {
+    const referencia = workspace[REFERENCIAS_COLECCION[coleccion]].doc(String(claveDe(registro)));
+    if (merge) escritor.set(referencia, registro, { merge: true });
+    else escritor.set(referencia, registro);
+  });
+}
+
+/** Informe por ID con la forma de un snapshot ({ exists, id, data() }), desde la subcolección o su parte. */
+export async function leerInformeTx(transaction, workspace, id) {
+  if (!workspace.grupos?.agrupada('informes')) return transaction.get(workspace.coleccionInformesRef.doc(id));
+  const inicio = Date.now();
+  const lector = crearLectorTx(transaction, workspace);
+  const snapshot = await workspace.grupos.snapshotPorId('informes', id);
+  registrarLecturas(`${workspace.origen}:informe`, lector.documentos, inicio, true);
+  return snapshot;
+}
 
 export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
-  exigirSinAgrupar(workspace, 'informes');
-  if (Array.isArray(informesAuditoria)) {
-    informesAuditoria.forEach(informe => {
-      if (informe && informe.id) {
-        const docRef = workspace.coleccionInformesRef.doc(String(informe.id));
-        transaction.set(docRef, informe, { merge: true });
-      }
-    });
-  }
+  if (Array.isArray(informesAuditoria)) guardarRegistrosGrc(transaction, workspace, 'informes', informesAuditoria, { merge: true });
 
   transaction.set(workspace.informesRef, { informesAuditoria: FieldValue.delete() }, { merge: true });
   if (workspace.tieneInformesLegados) {
@@ -526,10 +541,7 @@ export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
 }
 
 export function guardarPlanesGrc(transaction, workspace, planes) {
-  exigirSinAgrupar(workspace, 'planes');
-  planes.forEach(plan => {
-    transaction.set(workspace.coleccionPlanesRef.doc(String(plan.id)), plan);
-  });
+  guardarRegistrosGrc(transaction, workspace, 'planes', planes);
 }
 
 // =============================================================================
@@ -801,10 +813,6 @@ export async function guardarWorkspaceParcial(partialData) {
   if (Object.hasOwn(partialData, 'coleccionesAgrupadas')) {
     throw new Error('El índice de colecciones agrupadas solo lo administra la migración.');
   }
-  const workspaceAgrupado = { grupos: crearLectorGrupos(datosWorkspace) };
-  if (Object.hasOwn(partialData, 'informesAuditoria') || Object.hasOwn(partialData, 'informesEliminados')) exigirSinAgrupar(workspaceAgrupado, 'informes');
-  if (['planes', 'planesAccion', 'planesEliminados'].some(campo => Object.hasOwn(partialData, campo))) exigirSinAgrupar(workspaceAgrupado, 'planes');
-  if (Object.hasOwn(partialData, 'hallazgos')) exigirSinAgrupar(workspaceAgrupado, 'hallazgos');
   // Fase 4: con riesgos migrados, la lista se guarda en sus partes (nunca en el campo original, que ya
   // no se lee). Se hace primero para que, si falla, no se guarde el resto a medias.
   const riesgosEnPartes = indiceRiesgosValido(datosWorkspace.riesgosFragmentados);
@@ -826,11 +834,18 @@ export async function guardarWorkspaceParcial(partialData) {
   const planesEliminados = [...new Set((Array.isArray(partialData.planesEliminados) ? partialData.planesEliminados : []).map(id => String(id || '').trim()).filter(Boolean))];
 
   const incluyeHallazgos = Object.hasOwn(partialData, 'hallazgos') && Array.isArray(partialData.hallazgos);
-  const snapshotHallazgos = incluyeHallazgos ? await refColeccionHallazgos.get() : null;
-  const snapshotPlanes = incluyePlanes ? await refColeccionPlanes.get() : null;
-  registrarLecturas('sync-post-guardar', 2 + (snapshotHallazgos?.size || 0) + (snapshotPlanes?.size || 0), inicio);
-  const planesGuardados = new Map((snapshotPlanes?.docs || []).map(documento => [documento.id, documento.data()]));
-  const hallazgosGuardados = new Map((snapshotHallazgos?.docs || []).map(documento => [documento.id, documento.data()]));
+  // Registros guardados (clave → datos) desde la subcolección o, si está agrupada, desde sus partes.
+  const grupos = crearLectorGrupos(datosWorkspace);
+  let documentosSubcolecciones = 0;
+  const leerGuardados = async (coleccion, referencia) => {
+    if (grupos.agrupada(coleccion)) return grupos.mapa(coleccion);
+    const snapshot = await referencia.get();
+    documentosSubcolecciones += snapshot.size;
+    return new Map(snapshot.docs.map(documento => [documento.id, documento.data()]));
+  };
+  const hallazgosGuardados = incluyeHallazgos ? await leerGuardados('hallazgos', refColeccionHallazgos) : new Map();
+  const planesGuardados = incluyePlanes ? await leerGuardados('planes', refColeccionPlanes) : new Map();
+  registrarLecturas('sync-post-guardar', 2 + documentosSubcolecciones + grupos.documentos, inicio);
   let escriturasOmitidas = 0;
   const hallazgosActualizados = incluyeHallazgos ? partialData.hallazgos : null;
     
@@ -853,10 +868,10 @@ export async function guardarWorkspaceParcial(partialData) {
     const idsEliminados = new Set(informesEliminados);
     listaInformes.forEach(informe => {
       if (informe && informe.id && !idsEliminados.has(String(informe.id))) {
-        operaciones.push({ tipo: 'guardar', referencia: refColeccionInformes.doc(String(informe.id)), data: informe });
+        operaciones.push({ tipo: 'guardar', coleccion: 'informes', id: String(informe.id), referencia: refColeccionInformes.doc(String(informe.id)), data: informe });
       }
     });
-    informesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', referencia: refColeccionInformes.doc(id) }));
+    informesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', coleccion: 'informes', id, referencia: refColeccionInformes.doc(id) }));
   }
 
   // Encolar operaciones de planes de acción
@@ -869,15 +884,15 @@ export async function guardarWorkspaceParcial(partialData) {
           escriturasOmitidas += 1;
           return;
         }
-        operaciones.push({ tipo: 'guardar', referencia: refColeccionPlanes.doc(String(plan.id)), data: plan });
+        operaciones.push({ tipo: 'guardar', coleccion: 'planes', id: String(plan.id), referencia: refColeccionPlanes.doc(String(plan.id)), data: plan });
       }
     });
-    planesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', referencia: refColeccionPlanes.doc(id) }));
+    planesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', coleccion: 'planes', id, referencia: refColeccionPlanes.doc(id) }));
     if (incluyePlanes) {
       const idsConservados = new Set(listaPlanes.map(plan => String(plan.id)));
-      snapshotPlanes.docs.forEach(documento => {
-        if (!idsConservados.has(documento.id) && !idsEliminados.has(documento.id)) {
-          operaciones.push({ tipo: 'eliminar', referencia: documento.ref });
+      planesGuardados.forEach((_datos, id) => {
+        if (!idsConservados.has(id) && !idsEliminados.has(id)) {
+          operaciones.push({ tipo: 'eliminar', coleccion: 'planes', id, referencia: refColeccionPlanes.doc(id) });
         }
       });
     }
@@ -893,11 +908,11 @@ export async function guardarWorkspaceParcial(partialData) {
         escriturasOmitidas += 1;
         return;
       }
-      operaciones.push({ tipo: 'guardar', referencia: refColeccionHallazgos.doc(id), data: hallazgo });
+      operaciones.push({ tipo: 'guardar', coleccion: 'hallazgos', id, referencia: refColeccionHallazgos.doc(id), data: hallazgo });
     });
-    snapshotHallazgos.docs.forEach(documento => {
-      if (!idsHallazgos.has(documento.id)) {
-        operaciones.push({ tipo: 'eliminar', referencia: documento.ref });
+    hallazgosGuardados.forEach((_datos, id) => {
+      if (!idsHallazgos.has(id)) {
+        operaciones.push({ tipo: 'eliminar', coleccion: 'hallazgos', id, referencia: refColeccionHallazgos.doc(id) });
       }
     });
   }
@@ -911,12 +926,23 @@ export async function guardarWorkspaceParcial(partialData) {
       const chunk = operaciones.slice(i, i + chunkSize);
       const batch = adminDb.batch();
       
+      // En una colección agrupada, los cambios del lote se juntan en una escritura por parte.
+      const agrupadas = new Map();
       chunk.forEach(operacion => {
-        if (operacion.tipo === 'guardar') {
+        if (grupos.agrupada(operacion.coleccion)) {
+          if (!agrupadas.has(operacion.coleccion)) agrupadas.set(operacion.coleccion, { guardar: [], eliminar: [] });
+          const pendientes = agrupadas.get(operacion.coleccion);
+          if (operacion.tipo === 'guardar') pendientes.guardar.push([operacion.id, operacion.data]);
+          else pendientes.eliminar.push(operacion.id);
+        } else if (operacion.tipo === 'guardar') {
           batch.set(operacion.referencia, operacion.data, { merge: true });
         } else {
           batch.delete(operacion.referencia);
         }
+      });
+      agrupadas.forEach(({ guardar, eliminar }, coleccion) => {
+        if (guardar.length) grupos.guardar(batch, coleccion, guardar, { merge: true });
+        if (eliminar.length) grupos.eliminar(batch, coleccion, eliminar);
       });
 
       // Limpiar datos legados en el documento monolítico
