@@ -9,7 +9,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -3036,10 +3036,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           <div className="flex justify-between items-start gap-2">
                             <span className="font-mono text-[9px] font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>
                             <span className={`text-[9px] font-black ${esVencido || esEjecucion ? 'text-rose-700' : esRevision ? 'text-amber-700' : esAprobacion ? 'text-emerald-700' : 'text-orange-700'}`}>
-                              {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : esEjecucion || esRevision || esAprobacion ? plan.estadoWorkflow : `Vence ${plan.fecha || 'sin fecha'}`}
+                              {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : esEjecucion && planDevueltoAlEjecutor(plan) ? '✎ Devuelta para corregir' : esEjecucion || esRevision || esAprobacion ? plan.estadoWorkflow : `Vence ${plan.fecha || 'sin fecha'}`}
                             </span>
                           </div>
                           <h4 className="text-xs font-black text-slate-800 mt-1.5 break-words">{plan.accion || 'Acción sin descripción'}</h4>
+                          {esEjecucion && planDevueltoAlEjecutor(plan) && motivoDevolucion(plan) && (
+                            <p className="mt-1.5 rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] text-orange-900 break-words"><span className="font-black">Motivo: </span>{motivoDevolucion(plan)}</p>
+                          )}
                           <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 mt-2 text-[10px] text-slate-600">
                             <dt className="font-bold">Proceso</dt><dd className="break-words">{plan.proceso || 'General'}{plan.sede ? ` · ${plan.sede}` : ''}</dd>
                             <dt className="font-bold">Ejecutor</dt><dd className="break-words">{plan.responsable || 'No asignado'}</dd>

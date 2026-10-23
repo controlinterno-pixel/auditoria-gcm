@@ -20,6 +20,7 @@ export default function SidebarNavigation({
   subTabGobernanza,
   setSubTabGobernanza,
   misTareasEjecucion = 0,
+  misTareasCorreccion = 0,
   misTareasRevision = 0,
   misTareasAprobacion = 0,
  onSelectExecutionTasks = () => {},
@@ -64,13 +65,14 @@ export default function SidebarNavigation({
 
   
   // 🔔 CÁLCULO DE ALERTAS INTELIGENTES PARA EL MENÚ
-  const totalMisTareas = misTareasEjecucion + misTareasRevision + misTareasAprobacion;
+  const totalMisTareas = misTareasEjecucion + misTareasCorreccion + misTareasRevision + misTareasAprobacion;
   const tieneAlertas = totalMisTareas > 0;
+  const alertaEjecutor = misTareasEjecucion + misTareasCorreccion > 0;
   
-  const colorAlerta = misTareasEjecucion > 0 ? 'bg-rose-500' : 'bg-amber-500';
+  const colorAlerta = alertaEjecutor ? 'bg-rose-500' : 'bg-amber-500';
   // Toda la fila "Planes de Acción" brilla con el color de la alerta mientras haya tareas pendientes.
   const claseFilaAlerta = tieneAlertas
-    ? `menu-alerta ${misTareasEjecucion > 0 ? 'menu-alerta-ejecucion' : 'menu-alerta-revision'}`
+    ? `menu-alerta ${alertaEjecutor ? 'menu-alerta-ejecucion' : 'menu-alerta-revision'}`
     : '';
   return (
     <>
@@ -318,6 +320,18 @@ export default function SidebarNavigation({
                   <span aria-hidden="true" className="absolute -inset-1 -z-10 rounded-xl bg-rose-400/15 blur-md animate-pulse" />
                   <span className="flex items-center gap-2"><span aria-hidden="true" className="text-sm transition-transform duration-300 group-hover:scale-110">▶</span>Ejecutar</span>
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm">{misTareasEjecucion}</span>
+                </button>
+              )}
+              {!isCollapsed && misTareasCorreccion > 0 && (
+                <button
+                  type="button"
+                  onClick={() => navigateTo('planes_tab', () => { setSubTabPlanes('planes'); onSelectExecutionTasks(); })}
+                  className="group relative isolate ml-4 flex items-center justify-between gap-2 rounded-lg border border-orange-300/50 bg-orange-500/15 px-3 py-1.5 text-[10px] font-extrabold text-orange-100 shadow-[0_0_12px_rgba(249,115,22,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-500/25 hover:text-white hover:shadow-[0_0_18px_rgba(249,115,22,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-300"
+                  aria-label={`Mostrar ${misTareasCorreccion} acciones devueltas para corregir`}
+                >
+                  <span aria-hidden="true" className="absolute -inset-1 -z-10 rounded-xl bg-orange-400/20 blur-md animate-pulse" />
+                  <span className="flex items-center gap-2"><span aria-hidden="true" className="text-sm transition-transform duration-300 group-hover:scale-110">✎</span>Corregir</span>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[10px] font-black text-white shadow-sm">{misTareasCorreccion}</span>
                 </button>
               )}
               {!isCollapsed && (misTareasRevision > 0 || misTareasAprobacion > 0) && (

@@ -9,7 +9,7 @@ import {
 } from './services/appUpdate';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
-import { esInformePrograma, pendienteEvaluacionInicial, ESTADO_AJUSTES_INICIALES } from './utils/programPlanWorkflow.js';
+import { esInformePrograma, pendienteEvaluacionInicial, planDevueltoAlEjecutor, ESTADO_AJUSTES_INICIALES } from './utils/programPlanWorkflow.js';
 
 import Configuracion from './components/Configuracion';
 import Hallazgos from './components/Hallazgos';
@@ -648,9 +648,12 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   // 1. Tareas que el usuario debe EJECUTAR (Subir evidencias y avance)
   const misPlanesEjecucion = planesConOrigen.filter(p => {
     const correoEjecutor = (p.correoResponsable || '').trim().toLowerCase();
-    return correoEjecutor === userEmailLower.trim() && ['En Ejecución', ESTADO_AJUSTES_INICIALES].includes(p.estadoWorkflow);
+    return correoEjecutor === userEmailLower.trim() &&
+      (['En Ejecución', ESTADO_AJUSTES_INICIALES].includes(p.estadoWorkflow) || planDevueltoAlEjecutor(p));
   });
-  const misTareasEjecucion = misPlanesEjecucion.length;
+  // Las devueltas por el revisor o el auditor (diseño o evidencias) tienen su propia alerta "Corregir".
+  const misTareasCorreccion = misPlanesEjecucion.filter(planDevueltoAlEjecutor).length;
+  const misTareasEjecucion = misPlanesEjecucion.length - misTareasCorreccion;
 
 
   // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
@@ -783,6 +786,7 @@ return (
         subTabGobernanza={subTabGobernanza}
         setSubTabGobernanza={setSubTabGobernanza}
         misTareasEjecucion={misTareasEjecucion} 
+        misTareasCorreccion={misTareasCorreccion}
         misTareasRevision={misTareasRevision}   
         misTareasAprobacion={misTareasAprobacion} 
         onSelectExecutionTasks={() => seleccionarTareasPlanes('ejecucion')}
@@ -819,7 +823,7 @@ return (
           setIsPresentationMode={setIsPresentationMode}
           onToggleNavigation={() => setMobileNavOpen(true)}
           mobileNavOpen={mobileNavOpen}
-          misTareasEjecucion={misTareasEjecucion}
+          misTareasEjecucion={misPlanesEjecucion.length}
           misTareasRevision={misTareasRevision}
           misTareasAprobacion={misTareasAprobacion}
           onSelectTasks={tipo => guardNavigation(() => {

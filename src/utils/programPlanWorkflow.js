@@ -75,6 +75,21 @@ export function pendienteEvaluacionInicial(plan) {
   ].includes(plan?.estadoWorkflow);
 }
 
+// 🔁 Acción devuelta al ejecutor (diseño o evidencias rechazados): queda así hasta que el ejecutor la modifique.
+const EVENTO_DEVOLUCION = /rechazad|devuelt|correcci[oó]n solicitada/i;
+const ultimoEvento = plan => {
+  const historial = Array.isArray(plan?.historialCambios) ? plan.historialCambios : [];
+  return historial[historial.length - 1];
+};
+export function planDevueltoAlEjecutor(plan) {
+  const estado = plan?.estadoWorkflow;
+  const ultimoEsDevolucion = EVENTO_DEVOLUCION.test(String(ultimoEvento(plan)?.accion || ''));
+  if (estado === ESTADO_AJUSTES_INICIALES) return true;
+  if (estado === 'Borrador') return ultimoEsDevolucion || Boolean(String(plan?.motivoRechazo || '').trim());
+  return estado === 'En Ejecución' && ultimoEsDevolucion;
+}
+export const motivoDevolucion = plan => String(ultimoEvento(plan)?.motivo || plan?.motivoRechazo || '').trim();
+
 export function disenoInicialBloqueado(plan) {
   return pendienteEvaluacionInicial(plan) || plan?.estadoWorkflow === ESTADO_AJUSTES_INICIALES;
 }
