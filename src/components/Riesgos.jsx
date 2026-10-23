@@ -1674,9 +1674,9 @@ const renderMatriz = () => {
                      {/* GESTIÓN: Todos pueden editar ✏️, pero solo Administradores pueden borrar 🗑️ */}
 <div className="col-span-1 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
   {puedeModificarRiesgo(r) && (
-    <button onClick={() => handleEditRiesgo(r)} className="flex flex-col items-center gap-0.5 p-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar riesgo y controles">
+    <button onClick={() => handleEditRiesgo(r)} className="flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar riesgo y controles">
       <span aria-hidden="true">✏️</span>
-      <span className="text-[9px] font-black uppercase tracking-wide leading-none">Editar</span>
+      <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Editar</span>
     </button>
   )}
   {isAdmin && puedeModificarRiesgo(r) && (
