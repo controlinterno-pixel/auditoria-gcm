@@ -15,8 +15,8 @@ function cargarSemaforo(valorInicial) {
       set: (_ref, datos) => { estado.valor = datos.ultimaModificacion; },
     }),
   };
-  const modulo = new Function('adminDb', 'invalidarCacheWorkspaceGrc', `${sinImports(read('../api/_lib/semaforo.js'))}\nreturn { notificarSemaforo };`)(
-    adminDb, () => { estado.invalidaciones += 1; },
+  const modulo = new Function('adminDb', 'invalidarCacheWorkspaceGrc', 'logger', `${sinImports(read('../api/_lib/semaforo.js'))}\nreturn { notificarSemaforo };`)(
+    adminDb, () => { estado.invalidaciones += 1; }, { info() {} },
   );
   return { ...modulo, estado };
 }

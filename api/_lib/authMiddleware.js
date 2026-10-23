@@ -34,11 +34,14 @@ export const requireAuth = async (req, res) => {
 
     const cached = authCache.get(uid);
     if (cached && now - cached.timestamp < AUTH_CACHE_TTL_MS) {
+      // 📊 Misma etiqueta que grcWorkspace: permite sumar en Vercel todas las lecturas por origen.
+      logger.info('[FS-READS]', { origen: 'auth-perfil', documentos: 0, cache: true, endpoint });
       return cached.data;
     }
     if (cached) authCache.delete(uid);
 
     const userDoc = await adminDb.collection('usuarios').doc(uid).get();
+    logger.info('[FS-READS]', { origen: 'auth-perfil', documentos: 1, cache: false, endpoint });
     if (!userDoc.exists) {
       logger.warn('Autenticación rechazada: perfil no encontrado', { endpoint, status: 403 });
       res.status(403).json({ error: 'El perfil de acceso no existe.' });

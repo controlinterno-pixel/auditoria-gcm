@@ -1,9 +1,11 @@
 import { adminDb } from './firebaseAdmin.js';
 import { invalidarCacheWorkspaceGrc } from './grcWorkspace.js';
+import { logger } from './logger.js';
 
 // Revisión vigente (1 lectura). Mismo formato que calcula el cliente desde su listener del semáforo.
 export async function leerRevisionSemaforo() {
   const snapshot = await adminDb.collection('sistema').doc('semaforo').get();
+  logger.info('[FS-READS]', { origen: 'semaforo-leer', documentos: 1 });
   return snapshot.exists ? String(snapshot.data()?.ultimaModificacion || '0') : '0';
 }
 
@@ -22,6 +24,7 @@ export async function notificarSemaforo(res = null) {
       transaction.set(referencia, { ultimaModificacion: siguiente }, { merge: true });
       return { anterior: String(previa), nueva: String(siguiente) };
     });
+    logger.info('[FS-READS]', { origen: 'semaforo-notificar', documentos: 1, transaccion: true });
     if (res && typeof res.setHeader === 'function' && !res.headersSent) {
       res.setHeader('X-GRC-Revision-Anterior', anterior);
       res.setHeader('X-GRC-Revision', nueva);
