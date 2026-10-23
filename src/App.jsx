@@ -1223,7 +1223,7 @@ return (
                     columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} editIncidente={editIncidente}
                     setEditIncidente={setEditIncidente} handleIncidenteSubmit={handleIncidenteSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
-                    applyFilters={applyFilters} FilterInput={FilterInput} safeRiesgos={safeRiesgos}
+                    applyFilters={applyFilters} FilterInput={FilterInput} safeRiesgos={riesgosVigentes}
                   />
                 )}
               </div>
