@@ -8,6 +8,7 @@ import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
 import { randomUUID } from 'node:crypto';
 import { calcularResiduales } from '../src/utils/explicacionControles.js';
 import { zonaSeveridad } from '../src/utils/nivelRiesgo.js';
+import { revisarControlesEliminados } from '../src/utils/anulacion.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const moduleBody = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default ', '').replaceAll('export ', '');
@@ -117,7 +118,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const errors = [];
   const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
-    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad,
+    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados,
     applyCors: () => false,
     requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
@@ -614,6 +615,30 @@ test('tras migrar: un líder no puede editar ni eliminar riesgos de otro proceso
   assert.equal(response.code, 403, 'el riesgo guardado pertenece a Operaciones');
   assert.equal((await fixture.riesgos('DELETE', null, { id: '1' })).code, 403);
   assert.deepEqual(await idsMatriz(fixture), [1, 539, 2]);
+});
+
+test('tras migrar: el dueño anula controles (queda el historial) pero no puede borrarlos; el administrador sí', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  const preventivo = { descripcion: 'Conciliación', tipo: 'Preventivo', implementacion: 'Manual' };
+  const base = { ...riesgo(1), proceso: 'Operaciones', probabilidadInherente: 60, impactoInherente: 60 };
+  assert.equal((await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo, preventivo] })).code, 200);
+
+  fixture.sesion.usuario = { uid: 'u4', email: 'duenio@example.test', rol: 'lider', procesosAsignados: ['Operaciones'] };
+  const borrar = await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo] });
+  assert.equal(borrar.code, 409);
+  assert.match(borrar.error, /anúlalos/);
+
+  const anulado = { ...preventivo, estado: 'Anulado', anulacion: { usuario: 'duenio@example.test', tipoMotivo: 'Ya no aplica', motivo: 'Se eliminó la actividad' } };
+  const anular = await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo, anulado] });
+  assert.equal(anular.code, 200, JSON.stringify(anular));
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  const guardado = data.riesgos.find(item => item.id === 1);
+  assert.equal(guardado.controlesDetallados.length, 2, 'el control anulado se conserva');
+  assert.equal(guardado.probabilidadResidual, 36, 'solo el control vigente reduce: 60 % × (1 − 40 %)');
+
+  fixture.sesion.usuario = { uid: 'u1', email: 'auditor@example.test', rol: 'admin' };
+  assert.equal((await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo] })).code, 200, 'el administrador puede borrar');
 });
 
 test('sin migrar: el módulo Riesgos mantiene su comportamiento actual', async () => {

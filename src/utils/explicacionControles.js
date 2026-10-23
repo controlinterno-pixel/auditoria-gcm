@@ -6,6 +6,7 @@
 // Documentación, Frecuencia y Evidencia son ATRIBUTOS INFORMATIVOS: no suman (peso "--" en el manual).
 // Ejemplo del manual (Tabla 7): preventivo manual = 40 %; detectivo manual = 30 %.
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaSeveridad } from './nivelRiesgo.js';
+import { vigentes } from './anulacion.js';
 
 export const codigoControl = indice => `CTL-2${indice + 1}`;
 
@@ -192,7 +193,8 @@ export function explicarCalculoResidual(exp, riesgo = {}) {
 export function calcularResiduales(probabilidadInherente, impactoInherente, controles = []) {
   let probabilidad = Number(probabilidadInherente) || 60;
   let impacto = Number(impactoInherente) || 60;
-  (Array.isArray(controles) ? controles : []).forEach(control => {
+  // Los controles anulados no mitigan.
+  vigentes(controles).forEach(control => {
     const eficacia = calcularEficaciaControl(control) / 100;
     if (esCorrectivo(control)) impacto -= impacto * eficacia;
     else probabilidad -= probabilidad * eficacia;

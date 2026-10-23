@@ -21,7 +21,8 @@ export function puntajesRiesgo(riesgo) {
 }
 
 export function controlesDeRiesgo(riesgo, calcularEficacia) {
-  return lista(riesgo?.controlesDetallados).map((control, indice) => ({
+  // Los controles anulados no se envían a la IA (conservan su código por posición).
+  return lista(riesgo?.controlesDetallados).map((control, indice) => ({ control, indice })).filter(({ control }) => control?.estado !== 'Anulado').map(({ control, indice }) => ({
     codigo: `CTL-2${indice + 1}`,
     descripcion: texto(control.descripcion, 300),
     tipo: control.tipo || 'Sin dato',

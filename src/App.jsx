@@ -69,6 +69,7 @@ import { apiService } from './services/apiService';
 import { defaultCronograma } from './constants/defaultData';
 import { restaurarCronogramaOficial } from './utils/cronogramaOficial';
 import { CatalogosProvider } from './context/CatalogosContext.jsx';
+import { vigentes } from './utils/anulacion.js';
 
 
 // =====================================================================
@@ -235,7 +236,7 @@ export default function App() {
     user, setUser, authReady, isAdmin, setIsAdmin,
     perfilUsuario,
     isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
-    riesgos, setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
+    setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
     setIncidentes, setEvaluaciones,
     cronograma, setCronograma, setMonitoreo,
     informesAuditoria, setInformesAuditoria, setComites,
@@ -362,6 +363,9 @@ export default function App() {
   const puedeCrearHallazgos = isAdmin || perfilUsuario?.permisos?.includes('sub_hallazgos') === true;
   const puedeCrearPlanes = isAdmin || perfilUsuario?.permisos?.includes('sub_seguimiento_planes') === true;
 
+  // Riesgos anulados: se consultan en el módulo Riesgos, pero no cuentan en tableros, indicadores ni IA.
+  const riesgosVigentes = useMemo(() => vigentes(safeRiesgos), [safeRiesgos]);
+
   const {
     defaultAnios, defaultMeses, selectedAnios, selectedMeses,
     setSelectedAnios, setSelectedMeses, handleColFilterChange,
@@ -369,7 +373,7 @@ export default function App() {
     pFiltrados, comitesFiltrados, cFiltrados
   } = useGrcPeriodFilters({
     activeTab, subTabPlanificar, subTabResultados, subTabPlanes, subTabGobernanza,
-    safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma, safeComites,
+    safeRiesgos: riesgosVigentes, safeHallazgos, safePlanes, safeIncidentes, safeCronograma, safeComites,
     setSearchTerm, setColumnFilters
   });
 
@@ -482,7 +486,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     if (e) e.preventDefault();
     await executeAuditorQuery({ 
       textoDirecto, auditorInput, setIsAuditorThinking, setAuditorRespuesta, 
-      setAiModal, safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, 
+      setAiModal, safeRiesgos: riesgosVigentes, safeHallazgos, safePlanes, safeIncidentes, 
       safeCronograma, safeEvaluaciones, safeMonitoreo, informesAuditoria 
     });
     setAuditorInput('');
@@ -909,7 +913,7 @@ return (
                 safeHallazgos={safeHallazgos}
                 safeComites={safeComites}
                 safeCronograma={safeCronograma}
-                safeRiesgos={safeRiesgos}
+                safeRiesgos={riesgosVigentes}
                 safeEvaluaciones={safeEvaluaciones}
                 informesAuditoria={informesAuditoria}
                 activeTab={activeTab}
@@ -925,7 +929,7 @@ return (
 {/* 📈 DASHBOARD INTELIGENTE — RECONECTADO AQUÍ */}
            {activeTab === 'dashboard_riesgos' && puedeVerDashboard && (
               <DashboardEjecutivo 
-                rFiltrados={rFiltrados} riesgos={riesgos}
+                rFiltrados={rFiltrados} riesgos={riesgosVigentes}
                 hFiltrados={hFiltrados} hallazgos={hallazgos}
                 pFiltrados={pFiltrados} planes={planes}
                 cFiltrados={cFiltrados} cronograma={cronograma}
@@ -1011,7 +1015,7 @@ return (
         setFormResetKey={setFormResetKey} 
         formResetKey={formResetKey}
         scrollToForm={scrollToForm} 
-        rFiltrados={safeRiesgos} 
+        rFiltrados={riesgosVigentes} 
         incFiltrados={safeIncidentes} 
         calcularMatriz5x5={calcularMatriz5x5}
         searchTerm={searchTerm} 
@@ -1030,7 +1034,7 @@ return (
               <Evaluaciones
     isAdmin={isAdmin} editEvaluacion={editEvaluacion} setEditEvaluacion={setEditEvaluacion}
     handleEvaluacionSubmit={handleEvaluacionSubmit}
-    safeRiesgos={safeRiesgos} user={user} analizarEvidenciaIA={analizarEvidenciaIA} safeEvaluaciones={safeEvaluaciones}
+    safeRiesgos={riesgosVigentes} user={user} analizarEvidenciaIA={analizarEvidenciaIA} safeEvaluaciones={safeEvaluaciones}
     formatSafeDate={formatSafeDate} searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters}
     handleColFilterChange={handleColFilterChange} FilterInput={FilterInput} applyFilters={applyFilters}
     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}

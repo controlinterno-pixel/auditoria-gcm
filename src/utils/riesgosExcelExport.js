@@ -119,7 +119,8 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   const riesgosExportados = riesgos.map(riesgo => {
     const zonaInherente = calculos.getSeverityZone(riesgo.probabilidadInherente, riesgo.impactoInherente, riesgoEnPorcentaje(riesgo));
     const zonaResidual = calculos.getSeverityZone(riesgo.probabilidadResidual, riesgo.impactoResidual, riesgoEnPorcentaje(riesgo));
-    const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.filter(Boolean) : [];
+    // Los controles anulados no se exportan como vigentes.
+    const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.filter(control => control && control.estado !== 'Anulado') : [];
     const controlLegado = controles.length === 0 ? String(riesgo.descripcionControl || '').trim() : '';
     const eficaciaPromedio = controles.length > 0
       ? Math.round(controles.reduce((total, control) => total + calculos.calcularEficaciaControl(control), 0) / controles.length)

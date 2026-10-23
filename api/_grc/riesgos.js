@@ -8,6 +8,7 @@ import { notificarSemaforo } from '../_lib/semaforo.js';
 import { sanitizarUrls } from '../_lib/validation.js';
 import { calcularResiduales } from '../../src/utils/explicacionControles.js';
 import { zonaSeveridad } from '../../src/utils/nivelRiesgo.js';
+import { revisarControlesEliminados } from '../../src/utils/anulacion.js';
 import {
   eliminarRiesgoFragmentado, guardarRiesgoFragmentado, leerRiesgosVigentes, riesgosMigrados,
 } from '../_lib/grcWorkspace.js';
@@ -129,10 +130,16 @@ export default async function handler(req, res) {
       if (await riesgosMigrados()) {
         const resultado = await guardarRiesgoFragmentado({ ...documentoRiesgo, id }, {
           autorizar: existente => esAdministrador || riesgoDentroDelAlcancePropietario(existente, procesosAsignados, subprocesosAsignados),
+          // Solo un administrador puede borrar controles guardados; los demás los anulan (queda el historial).
+          validar: existente => (esAdministrador ? '' : revisarControlesEliminados(existente, documentoRiesgo)),
         });
         if (!resultado.autorizado) {
           logger.warn('Intento de modificar riesgo de otro proceso', { id, usuario: user.email, proceso });
           return sendError(res, 'No tiene permisos para modificar riesgos de otro proceso.', 403);
+        }
+        if (resultado.rechazo) {
+          logger.warn('Guardado de riesgo rechazado', { id, usuario: user.email, motivo: resultado.rechazo });
+          return sendError(res, resultado.rechazo, 409);
         }
         await notificarSemaforo();
         logger.info('Riesgo corporativo guardado en servidor', { id, usuario: user.email, nivelResidual: calculos.nivelResidual });

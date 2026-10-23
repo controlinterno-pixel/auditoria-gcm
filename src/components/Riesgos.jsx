@@ -13,6 +13,7 @@ import { armarPanelIA, contextoMatriz, contextoRiesgo } from '../utils/contextoI
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles, zonaSeveridad } from '../utils/nivelRiesgo.js';
+import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, validarMotivo, vigentes } from '../utils/anulacion.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
@@ -237,6 +238,8 @@ export default function Riesgos({
   const confirmarEliminacion = useDeleteConfirmation();
    // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen
   const safeRiesgos = Array.isArray(rawRiesgos) ? rawRiesgos : [];
+  // Los riesgos anulados se consultan en la matriz (filtro Estado), pero no cuentan en indicadores, Excel ni IA.
+  const riesgosVigentes = vigentes(safeRiesgos);
   const { mapaProcesos: MAPA_PROCESOS, cargosEmpresa: CARGOS_EMPRESA, sedesEmpresa } = useCatalogos();
   const procesosAsignadosPerfil = Array.isArray(perfilUsuario?.procesosAsignados) && perfilUsuario.procesosAsignados.length > 0
     ? perfilUsuario.procesosAsignados
@@ -289,6 +292,7 @@ export default function Riesgos({
   const [filtroSubproceso, setFiltroSubproceso] = useState('Todos');
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas');
   const [filtroNivel, setFiltroNivel] = useState('Todos');
+  const [filtroEstadoRiesgo, setFiltroEstadoRiesgo] = useState('Activos');
   const [filtroNivelDashboard, setFiltroNivelDashboard] = useState('Todos');
   const [matrizDashboardTipo, setMatrizDashboardTipo] = useState('residual');
   const [cuadranteDashboard, setCuadranteDashboard] = useState(null);
@@ -443,7 +447,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     let curr_p = probInherente / 100;
     let curr_i = impInherente / 100;
 
-    controles.forEach(c => {
+    // Los controles anulados no mitigan.
+    vigentes(controles).forEach(c => {
       // Usamos exactamente el % de eficacia oficial de Tabla 6 (convertido a decimal)
       const weight = calcularEficaciaControl(c) / 100;
       const tipo = c.tipo || '';
@@ -472,7 +477,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     // Pasos de Probabilidad (Preventivos / Detectivos)
     let currP = probInh;
     const pasosP = [];
-    const prevs = lista.filter(c => !(c.tipo || '').includes('Correctivo'));
+    // Los controles anulados no mitigan (conservan su código CTL-2x por su posición en la lista).
+    const prevs = lista.filter(c => !estaAnulado(c) && !(c.tipo || '').includes('Correctivo'));
 
     prevs.forEach((c) => {
       const ef = calcularEficaciaControl(c);
@@ -490,7 +496,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     // Pasos de Impacto (Correctivos)
     let currI = impInh;
     const pasosI = [];
-    const corrects = lista.filter(c => (c.tipo || '').includes('Correctivo'));
+    const corrects = lista.filter(c => !estaAnulado(c) && (c.tipo || '').includes('Correctivo'));
 
     corrects.forEach((c) => {
       const ef = calcularEficaciaControl(c);
@@ -544,6 +550,57 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 
     const numero = typeof valor === 'number' ? valor : Number.parseFloat(texto.replace(',', '.'));
     return nivelEscala(numero, porcentaje);
+  };
+
+  // 🚫 ANULACIÓN / REACTIVACIÓN de riesgos y controles: no se borra nada; queda el motivo y el historial.
+  const [solicitudAnulacion, setSolicitudAnulacion] = useState(null); // { id, accion: 'anular' | 'reactivar', indiceControl }
+  const [formAnulacion, setFormAnulacion] = useState({ tipoMotivo: '', motivo: '' });
+  const [guardandoAnulacion, setGuardandoAnulacion] = useState(false);
+  const abrirAnulacion = (riesgo, accion, indiceControl = null) => {
+    setSolicitudAnulacion({ id: riesgo.id, accion, indiceControl });
+    setFormAnulacion({ tipoMotivo: '', motivo: '' });
+  };
+  const confirmarAnulacion = async () => {
+    const { id, accion, indiceControl } = solicitudAnulacion;
+    const riesgo = safeRiesgos.find(item => String(item.id) === String(id));
+    if (!riesgo || !puedeModificarRiesgo(riesgo)) {
+      showNotification('Solo puedes anular riesgos y controles de los macroprocesos que tienes asignados.', 'error');
+      return;
+    }
+    const error = validarMotivo(formAnulacion, { exigirTipo: accion === 'anular' });
+    if (error) { showNotification(error, 'error'); return; }
+    const usuario = user?.email || 'Usuario';
+    const ahora = new Date();
+    const datos = { usuario, tipoMotivo: formAnulacion.tipoMotivo, motivo: formAnulacion.motivo, ahora };
+    let actualizado;
+    let accionHistorial;
+    if (indiceControl === null) {
+      actualizado = accion === 'anular' ? anular(riesgo, datos) : reactivar(riesgo);
+      accionHistorial = accion === 'anular' ? 'Riesgo anulado' : 'Riesgo reactivado';
+    } else {
+      const controlesActualizados = [...(riesgo.controlesDetallados || [])];
+      controlesActualizados[indiceControl] = accion === 'anular'
+        ? anular(controlesActualizados[indiceControl], datos)
+        : reactivar(controlesActualizados[indiceControl]);
+      actualizado = { ...riesgo, controlesDetallados: controlesActualizados };
+      accionHistorial = `Control ${codigoControl(indiceControl)} ${accion === 'anular' ? 'anulado' : 'reactivado'}`;
+    }
+    const motivoHistorial = accion === 'anular' ? `${formAnulacion.tipoMotivo}: ${formAnulacion.motivo.trim()}` : formAnulacion.motivo;
+    actualizado.historialCambios = [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []),
+      entradaHistorial({ usuario, accion: accionHistorial, motivo: motivoHistorial, ahora })];
+    setGuardandoAnulacion(true);
+    try {
+      // El servidor recalcula el residual sin los controles anulados.
+      const response = await apiService.saveRiesgo(actualizado);
+      const guardado = response?.riesgo || actualizado;
+      setRiesgos(safeRiesgos.map(item => (String(item.id) === String(id) ? guardado : item)));
+      showNotification(`${accionHistorial}. Quedó registrado en el historial del riesgo.`, 'success');
+      setSolicitudAnulacion(null);
+    } catch (errorGuardado) {
+      showNotification(errorGuardado?.message || 'No se pudo guardar la anulación.', 'error');
+    } finally {
+      setGuardandoAnulacion(false);
+    }
   };
 
   const handleDeleteRiesgo = async (id) => {
@@ -653,7 +710,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 
     try {
       const { crearLibroMatrizRiesgosExcel } = await import('../utils/riesgosExcelExport.js');
-      const libro = await crearLibroMatrizRiesgosExcel(safeRiesgos, {
+      const libro = await crearLibroMatrizRiesgosExcel(riesgosVigentes, {
         getSeverityZone,
         calcularMitigacionRiesgo,
         calcularEficaciaControl,
@@ -693,7 +750,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         return;
       }
       // Datos reales de toda la matriz: sin valores de relleno ni reemplazos sobre el texto de la IA.
-      const datos = contextoMatriz(safeRiesgos, {
+      const datos = contextoMatriz(riesgosVigentes, {
         calcularEficacia: calcularEficaciaControl,
         calcularMitigacion: calcularMitigacionRiesgo,
         hallazgos,
@@ -926,7 +983,7 @@ const handleRiesgoSubmit = async (e) => {
     const probabilidades = ESCALA_PROBABILIDAD.map((etiqueta, indice) => ({ nivel: indice + 1, etiqueta }));
     const impactos = ESCALA_IMPACTO.map((etiqueta, indice) => ({ nivel: indice + 1, etiqueta })).reverse();
     const mapaProcesosDashboard = Object.keys(MAPA_PROCESOS).length > 0 ? MAPA_PROCESOS : MAPA_PROCESOS_PREDETERMINADO;
-    const riesgosNormalizados = safeRiesgos.map(riesgo => normalizarUbicacionRiesgo(riesgo, mapaProcesosDashboard));
+    const riesgosNormalizados = riesgosVigentes.map(riesgo => normalizarUbicacionRiesgo(riesgo, mapaProcesosDashboard));
     const procesosUnicos = [...new Set([...Object.keys(mapaProcesosDashboard), ...riesgosNormalizados.flatMap(riesgo => riesgo.macroprocesos)])]
       .sort((a, b) => a.localeCompare(b, 'es'));
     const macroprocesoSeleccionado = filtroProceso === 'Todos'
@@ -1353,24 +1410,24 @@ const handleRiesgoSubmit = async (e) => {
 
 const renderMatriz = () => {
     // 📊 Métricas calculadas para la barra superior
-    const totalRiesgosCount = safeRiesgos.length;
-    const riesgosAltosCriticosCount = safeRiesgos.filter(r => {
+    const totalRiesgosCount = riesgosVigentes.length;
+    const riesgosAltosCriticosCount = riesgosVigentes.filter(r => {
       const z = getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
       return z.label === 'Alto' || z.label === 'Extremo';
     }).length;
-    const totalControlesCount = safeRiesgos.reduce((acc, r) => {
+    const totalControlesCount = riesgosVigentes.reduce((acc, r) => {
       const lista = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
-      return acc + (lista.length || (r.descripcionControl ? 1 : 0));
+      return acc + (vigentes(lista).length || (lista.length === 0 && r.descripcionControl ? 1 : 0));
     }, 0);
 
     // 🧮 CALCULADORAS DINÁMICAS PARA LA BARRA DE KPIs
-    const todosLosControles = safeRiesgos.flatMap(r => Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []);
+    const todosLosControles = riesgosVigentes.flatMap(r => vigentes(r.controlesDetallados));
     const eficaciaPromedioGlobal = todosLosControles.length > 0
       ? Math.round(todosLosControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / todosLosControles.length)
       : 80;
 
     const avgResidualScore = totalRiesgosCount > 0
-  ? safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgosCount
+  ? riesgosVigentes.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgosCount
   : 0;
     let nivelPromedioText = 'BAJO';
     let nivelPromedioColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -1404,7 +1461,8 @@ const renderMatriz = () => {
         ? getSeverityZone(r.probabilidadInherente, r.impactoInherente, riesgoEnPorcentaje(r))
         : getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
       const matchNivel = filtroNivel === 'Todos' || zonaFiltro.label === etiquetaNivel;
-      return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel;
+      const matchEstado = filtroEstadoRiesgo === 'Todos' || (filtroEstadoRiesgo === 'Anulados' ? estaAnulado(r) : !estaAnulado(r));
+      return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel && matchEstado;
     });
 
     const procesosUnicos = [...new Set([...Object.keys(MAPA_PROCESOS), ...riesgosNormalizados.flatMap(r => r.macroprocesos)])]
@@ -1537,9 +1595,16 @@ const renderMatriz = () => {
               </optgroup>
             </select>
 
-            <span className="text-xs bg-emerald-50 text-emerald-800 font-extrabold px-3 py-2 rounded-xl border border-emerald-200 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Estado: Activos
-            </span>
+            <select
+              value={filtroEstadoRiesgo}
+              onChange={e => setFiltroEstadoRiesgo(e.target.value)}
+              aria-label="Filtrar por estado del riesgo"
+              className={`text-xs font-extrabold px-3 py-2 rounded-xl border ${filtroEstadoRiesgo === 'Activos' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+            >
+              <option value="Activos">● Estado: Activos</option>
+              <option value="Anulados">Estado: Anulados ({safeRiesgos.length - riesgosVigentes.length})</option>
+              <option value="Todos">Estado: Todos</option>
+            </select>
           </div>
         </div>
 
@@ -1578,12 +1643,15 @@ const renderMatriz = () => {
                 const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente, riesgoEnPorcentaje(r));
                 const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
                 const listaControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
-                const totalControles = listaControles.length || (r.descripcionControl ? 1 : 0);
+                // Los controles anulados se muestran en el expediente, pero no cuentan en totales ni promedios.
+                const controlesActivos = vigentes(listaControles);
+                const controlesAnulados = listaControles.length - controlesActivos.length;
+                const totalControles = controlesActivos.length || (listaControles.length === 0 && r.descripcionControl ? 1 : 0);
 
                 return (
                   <div
                     key={r.id || index}
-                    className={`overflow-hidden rounded-xl border border-l-[6px] bg-white transition-shadow duration-200 ${ACENTO_NIVEL_RESIDUAL[zoneRes.label] || 'border-l-slate-400'} ${
+                    className={`overflow-hidden rounded-xl border border-l-[6px] bg-white transition-shadow duration-200 ${estaAnulado(r) ? 'opacity-70 grayscale' : ''} ${ACENTO_NIVEL_RESIDUAL[zoneRes.label] || 'border-l-slate-400'} ${
                       isExpanded
                         ? 'border-purple-300 shadow-lg ring-2 ring-purple-200/70'
                         : 'border-slate-300 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-slate-400 hover:shadow-md'
@@ -1611,9 +1679,15 @@ const renderMatriz = () => {
                         <p className="text-[10px] font-bold text-slate-500 mt-0.5 line-clamp-1">
                           {r.macroprocesos.join(', ') || 'Gestión Operativa'}
                         </p>
-                        <span className="inline-block mt-1 text-[8px] font-black uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                          Activo
-                        </span>
+                        {estaAnulado(r) ? (
+                          <span className="inline-block mt-1 text-[8px] font-black uppercase text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300" title={r.anulacion ? `${r.anulacion.tipoMotivo}: ${r.anulacion.motivo} — ${r.anulacion.usuario}, ${r.anulacion.fecha}` : 'Anulado'}>
+                            Anulado
+                          </span>
+                        ) : (
+                          <span className="inline-block mt-1 text-[8px] font-black uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            Activo
+                          </span>
+                        )}
                       </div>
 
                       {/* RIESGO (DESCRIPCIÓN) */}
@@ -1673,7 +1747,18 @@ const renderMatriz = () => {
 
                      {/* GESTIÓN: Todos pueden editar ✏️, pero solo Administradores pueden borrar 🗑️ */}
 <div className="col-span-1 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
-  {puedeModificarRiesgo(r) && (
+  {puedeModificarRiesgo(r) && (estaAnulado(r) ? (
+    <button onClick={() => abrirAnulacion(r, 'reactivar')} className="flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs" title="Reactivar el riesgo (queda en el historial)">
+      <span aria-hidden="true">↩️</span>
+      <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Reactivar</span>
+    </button>
+  ) : (
+    <button onClick={() => abrirAnulacion(r, 'anular')} className="flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-slate-200 text-slate-700 rounded-lg text-xs" title="Anular el riesgo si ya no aplica o se reemplaza (queda en el historial)">
+      <span aria-hidden="true">🚫</span>
+      <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Anular</span>
+    </button>
+  ))}
+  {puedeModificarRiesgo(r) && !estaAnulado(r) && (
     <button onClick={() => handleEditRiesgo(r)} className="flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar riesgo y controles">
       <span aria-hidden="true">✏️</span>
       <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Editar</span>
@@ -1696,7 +1781,7 @@ const renderMatriz = () => {
       <div className="flex items-center justify-between mb-3 border-b pb-2">
         <h4 className="font-black text-[11px] uppercase tracking-wider text-slate-800 flex items-center gap-2">
           <span>🛡️ CONTROLES DEL RIESGO</span>
-          <span className="text-[10px] text-purple-600 font-bold">({totalControles} Registrados)</span>
+          <span className="text-[10px] text-purple-600 font-bold">({totalControles} vigentes{controlesAnulados > 0 ? ` · ${controlesAnulados} anulado${controlesAnulados === 1 ? '' : 's'}` : ''})</span>
         </h4>
         <span 
           onClick={() => toggleExpediente(r.id)} 
@@ -1714,38 +1799,38 @@ const renderMatriz = () => {
         <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
           <p className="text-[8px] font-black text-blue-600 uppercase">Preventivos</p>
           <p className="text-base font-black text-blue-800">
-            {listaControles.filter(c => c.tipo === 'Preventivo').length || 1}
+            {controlesActivos.filter(c => c.tipo === 'Preventivo').length || 1}
           </p>
         </div>
         <div className="bg-amber-50 p-2 rounded-lg border border-amber-100">
           <p className="text-[8px] font-black text-amber-600 uppercase">Detectivos</p>
           <p className="text-base font-black text-amber-800">
-            {listaControles.filter(c => c.tipo === 'Detectivo').length}
+            {controlesActivos.filter(c => c.tipo === 'Detectivo').length}
           </p>
         </div>
         <div className="bg-purple-50 p-2 rounded-lg border border-purple-100">
           <p className="text-[8px] font-black text-purple-600 uppercase">Correctivos</p>
           <p className="text-base font-black text-purple-800">
-            {listaControles.filter(c => c.tipo === 'Correctivo').length}
+            {controlesActivos.filter(c => c.tipo === 'Correctivo').length}
           </p>
         </div>
         <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-100">
           <p className="text-[8px] font-black text-emerald-600 uppercase">Automatizados</p>
           <p className="text-base font-black text-emerald-800">
-            {listaControles.filter(c => c.implementacion === 'Automático').length}
+            {controlesActivos.filter(c => c.implementacion === 'Automático').length}
           </p>
         </div>
         <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
           <p className="text-[8px] font-black text-slate-500 uppercase">Manuales</p>
           <p className="text-base font-black text-slate-700">
-            {listaControles.filter(c => c.implementacion === 'Manual').length || totalControles}
+            {controlesActivos.filter(c => c.implementacion === 'Manual').length || totalControles}
           </p>
         </div>
         <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-100">
           <p className="text-[8px] font-black text-indigo-600 uppercase">Eficacia Prom.</p>
 <p className="text-base font-black text-indigo-800">
-  {listaControles.length > 0 
-    ? `${Math.round(listaControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / listaControles.length)}%` 
+  {controlesActivos.length > 0 
+    ? `${Math.round(controlesActivos.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / controlesActivos.length)}%` 
     : '—'}
 </p>
         </div>
@@ -1756,6 +1841,31 @@ const renderMatriz = () => {
     <ul className="space-y-2.5" aria-label={`Controles del riesgo RSK-${r.id}`}>
       {listaControles.length > 0 ? (
         listaControles.map((c, cIdx) => {
+          // Control anulado: se conserva visible con su motivo, pero no cuenta en el residual ni en los promedios.
+          if (estaAnulado(c)) {
+            return (
+              <li key={cIdx} className="flex flex-col gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-md border border-slate-300 bg-white px-2 py-0.5 font-mono text-[11px] font-black text-slate-500 line-through">{codigoControl(cIdx)}</span>
+                    <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-black uppercase text-slate-600">Anulado</span>
+                    <p className="text-[12px] text-slate-500 line-through">{c.descripcion}</p>
+                  </div>
+                  {c.anulacion && (
+                    <p className="mt-1 text-[11px]">
+                      <strong>{c.anulacion.tipoMotivo}:</strong> {c.anulacion.motivo} <span className="text-slate-400">— {c.anulacion.usuario}, {c.anulacion.fecha}. No cuenta en el residual.</span>
+                    </p>
+                  )}
+                </div>
+                {puedeModificarRiesgo(r) && !estaAnulado(r) && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); abrirAnulacion(r, 'reactivar', cIdx); }}
+                    className="shrink-0 whitespace-nowrap rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50">
+                    ↩️ Reactivar
+                  </button>
+                )}
+              </li>
+            );
+          }
           const tipoControl = c.tipo || 'Preventivo';
           const estiloTipo = ESTILO_TIPO_CONTROL[tipoControl] || ESTILO_TIPO_CONTROL.Correctivo;
           // Color por % del máximo de su tipo: verde ≥ 80 %, ámbar 60–79 %, rojo < 60 %.
@@ -1875,6 +1985,15 @@ const renderMatriz = () => {
                   title="Auditar diseño del control con IA">
                   🤖 IA
                 </button>
+                {puedeModificarRiesgo(r) && !estaAnulado(r) && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); abrirAnulacion(r, 'anular', cIdx); }}
+                    className="whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-100"
+                    title="Anular este control si ya no aplica o se reemplaza (queda en el historial)">
+                    🚫 Anular
+                  </button>
+                )}
               </div>
 
               {/* 💬 Qué significa la eficacia de este control, según la Tabla 6 del manual y sus atributos */}
@@ -2015,6 +2134,58 @@ const renderMatriz = () => {
   };               
   return (
     <div className="space-y-6 animate-in fade-in duration-300 relative">
+
+      {/* 🚫 MODAL DE ANULACIÓN / REACTIVACIÓN (motivo obligatorio, queda en el historial) */}
+      {solicitudAnulacion && (() => {
+        const riesgoSolicitud = safeRiesgos.find(item => String(item.id) === String(solicitudAnulacion.id));
+        const esControl = solicitudAnulacion.indiceControl !== null;
+        const esAnular = solicitudAnulacion.accion === 'anular';
+        const objeto = esControl ? `el control ${codigoControl(solicitudAnulacion.indiceControl)} del riesgo RSK-${solicitudAnulacion.id}` : `el riesgo RSK-${solicitudAnulacion.id}`;
+        const errorMotivo = validarMotivo(formAnulacion, { exigirTipo: esAnular });
+        const descripcionControl = esControl ? riesgoSolicitud?.controlesDetallados?.[solicitudAnulacion.indiceControl]?.descripcion : '';
+        return (
+          <div className="fixed inset-0 z-[270] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-anulacion">
+            <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+              <div className={`p-5 text-white ${esAnular ? 'bg-slate-800' : 'bg-[#0A3B32]'}`}>
+                <h3 id="titulo-anulacion" className="text-sm font-black uppercase tracking-wider">{esAnular ? '🚫 Anular' : '↩️ Reactivar'} {esControl ? 'control' : 'riesgo'}</h3>
+                <p className="mt-1 text-[11px] text-white/80">{esAnular ? 'Vas a anular' : 'Vas a reactivar'} {objeto}. No se borra nada: queda registrado en el historial con tu usuario y la fecha.</p>
+              </div>
+              <div className="space-y-4 p-6 text-xs text-slate-700">
+                {descripcionControl && (
+                  <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-[11px] italic">{descripcionControl}</p>
+                )}
+                <p className="text-[11px] text-slate-600">
+                  {esAnular
+                    ? (esControl ? 'El control dejará de reducir el riesgo: el residual se recalcula sin él.' : 'El riesgo deja de contar en la matriz, los indicadores, el Excel y el análisis de IA. Se puede consultar con el filtro "Estado: Anulados".')
+                    : (esControl ? 'El control vuelve a reducir el riesgo y el residual se recalcula con él.' : 'El riesgo vuelve a contar en la matriz y en los indicadores.')}
+                </p>
+                {esAnular && (
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-black uppercase text-slate-500">Motivo</span>
+                    <select value={formAnulacion.tipoMotivo} onChange={e => setFormAnulacion(actual => ({ ...actual, tipoMotivo: e.target.value }))} className="w-full rounded-lg border border-slate-300 p-2 text-xs">
+                      <option value="">Selecciona…</option>
+                      {MOTIVOS_ANULACION.map(motivo => <option key={motivo} value={motivo}>{motivo}</option>)}
+                    </select>
+                  </label>
+                )}
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-black uppercase text-slate-500">{esAnular ? 'Explica por qué' : 'Motivo de la reactivación'}</span>
+                  <textarea value={formAnulacion.motivo} onChange={e => setFormAnulacion(actual => ({ ...actual, motivo: e.target.value }))} rows="3"
+                    placeholder={esAnular ? (esControl ? 'Ej: se reemplaza por el nuevo control de conciliación automática en Zeus.' : 'Ej: el proceso dejó de existir tras la reestructuración de 2026.') : 'Ej: el control se volvió a aplicar desde octubre.'}
+                    className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-[#0A3B32]"></textarea>
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 p-4">
+                <button type="button" onClick={() => setSolicitudAnulacion(null)} disabled={guardandoAnulacion} className="rounded-xl bg-slate-200 px-5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-300">Cancelar</button>
+                <button type="button" onClick={confirmarAnulacion} disabled={guardandoAnulacion || Boolean(errorMotivo)} title={errorMotivo || undefined}
+                  className={`rounded-xl px-5 py-2 text-xs font-bold text-white disabled:opacity-50 ${esAnular ? 'bg-slate-800 hover:bg-slate-900' : 'bg-[#0A3B32] hover:bg-[#062620]'}`}>
+                  {guardandoAnulacion ? 'Guardando…' : esAnular ? 'Anular' : 'Reactivar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 🛡️ MODAL EXPLICATIVO DE EFICACIA DEL CONTROL (TABLA 6 DEL MANUAL) */}
       {controlSeleccionadoIA && (
@@ -2511,7 +2682,17 @@ const renderMatriz = () => {
               <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">4. Evaluación de Solidez de Controles (5 Variables)</h3>
               <button type="button" onClick={() => setControles([...controles, { descripcion: '', tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro' }])} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-colors">➕ Agregar Control</button>
             </div>
-{controles.map((ctrl, idx) => (
+{controles.map((ctrl, idx) => estaAnulado(ctrl) ? (
+  // Control anulado: solo lectura en el formulario; se reactiva desde el expediente del riesgo.
+  <div key={idx} className="relative mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-100 p-4 text-slate-500">
+    <div className="absolute -top-3 left-4 rounded-md border border-slate-400 bg-slate-500 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
+      Control {codigoControl(idx)} · Anulado
+    </div>
+    <p className="text-xs line-through">{ctrl.descripcion}</p>
+    {ctrl.anulacion && <p className="mt-1 text-[11px]"><strong>{ctrl.anulacion.tipoMotivo}:</strong> {ctrl.anulacion.motivo} — {ctrl.anulacion.usuario}, {ctrl.anulacion.fecha}.</p>}
+    <p className="mt-1 text-[10px]">No cuenta en el residual. Para reactivarlo usa el botón ↩️ Reactivar en el expediente del riesgo.</p>
+  </div>
+) : (
   <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3 relative mt-6">
     
     {/* 🏷️ ETIQUETA VISUAL + BOTÓN DE CÁLCULO DE EFICACIA */}
@@ -2543,7 +2724,11 @@ const renderMatriz = () => {
                     />
                   </div>                  
                   <div className="md:col-span-1 flex justify-center">
+                    {isAdmin || idx >= (editRiesgo?.controlesDetallados?.length || 0) ? (
                     <button type="button" onClick={async () => { if (await confirmarEliminacion('Se eliminará este control del formulario del riesgo.')) setControles(actuales => actuales.filter((_, i) => i !== idx)); }} className="text-red-500 hover:text-red-700 text-xs font-black uppercase tracking-widest bg-red-50 border border-red-200 px-3 py-2 rounded-xl transition-colors">🗑️ Borrar</button>
+                    ) : (
+                      <span className="text-center text-[9px] font-bold leading-tight text-slate-500" title="Los controles guardados no se borran: se anulan con motivo para conservar el historial.">🚫 Anular desde el expediente</span>
+                    )}
                   </div>
                 </div>
                 
