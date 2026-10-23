@@ -116,6 +116,8 @@ const escribirFormula = (celda, formula, resultado, formato = '0') => {
 
 export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   const { default: ExcelJS } = await import('exceljs');
+  // Alcance descargado (toda la matriz o un macroproceso y sus subprocesos), visible en los títulos.
+  const alcance = calculos.alcance || 'Toda la matriz';
   const riesgosExportados = riesgos.map(riesgo => {
     const zonaInherente = calculos.getSeverityZone(riesgo.probabilidadInherente, riesgo.impactoInherente, riesgoEnPorcentaje(riesgo));
     const zonaResidual = calculos.getSeverityZone(riesgo.probabilidadResidual, riesgo.impactoResidual, riesgoEnPorcentaje(riesgo));
@@ -232,7 +234,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     libro,
     'Matriz Corporativa',
     'MATRIZ CORPORATIVA DE RIESGOS',
-    'Inventario, evaluación inherente y residual, tratamiento y seguimiento.',
+    `${alcance}  |  Inventario, evaluación inherente y residual, tratamiento y seguimiento.`,
     matrizRiesgos,
     encabezadosMatriz,
   );
@@ -240,7 +242,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     libro,
     'Controles por Riesgo',
     'CONTROLES Y EVIDENCIAS',
-    'Cada control se vincula con el riesgo de origen mediante su identificador.',
+    `${alcance}  |  Cada control se vincula con el riesgo de origen mediante su identificador.`,
     controlesPorRiesgo,
     encabezadosControles,
   );
@@ -284,7 +286,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     { width: 20 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 3 },
     { width: 20 }, { width: 15 }, { width: 15 }, { width: 15 },
   ];
-  configurarTitulo(dashboard, 9, 'RIESGOS | PANEL EJECUTIVO', `Termales de Santa Rosa de Cabal  |  Generado: ${new Date().toLocaleString('es-CO')}`);
+  configurarTitulo(dashboard, 9, 'RIESGOS | PANEL EJECUTIVO', `Termales de Santa Rosa de Cabal  |  ${alcance}  |  Generado: ${new Date().toLocaleString('es-CO')}`);
   dashboard.getRow(4).height = 28;
   dashboard.getCell('A4').value = 'PROCESO';
   dashboard.getCell('B4').value = 'Todos';

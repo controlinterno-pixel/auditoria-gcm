@@ -750,18 +750,19 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 // =========================================================================
   // 📥 FUNCIÓN PARA EXPORTAR LA MATRIZ COMPLETA A EXCEL
   // =========================================================================
-  const exportarAExcel = async () => {
-    if (safeRiesgos.length === 0) {
-      showNotification("No hay riesgos en la matriz para exportar.", "error");
-      return;
+  const exportarAExcel = async (lista = riesgosVigentes, alcance = 'Toda la matriz', sufijoArchivo = '') => {
+    if (lista.length === 0) {
+      showNotification('No hay riesgos vigentes en el alcance elegido para exportar.', 'error');
+      return false;
     }
 
     try {
       const { crearLibroMatrizRiesgosExcel } = await import('../utils/riesgosExcelExport.js');
-      const libro = await crearLibroMatrizRiesgosExcel(riesgosVigentes, {
+      const libro = await crearLibroMatrizRiesgosExcel(lista, {
         getSeverityZone,
         calcularMitigacionRiesgo,
         calcularEficaciaControl,
+        alcance,
       });
       const buffer = await libro.xlsx.writeBuffer({
         useStyles: true,
@@ -774,16 +775,75 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       const url = URL.createObjectURL(blob);
       const enlace = document.createElement('a');
       enlace.href = url;
-      enlace.download = `Matriz_Riesgos_Termales_${new Date().toISOString().split('T')[0]}.xlsx`;
+      enlace.download = `Matriz_Riesgos_Termales${sufijoArchivo}_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(enlace);
       enlace.click();
       enlace.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      showNotification("Matriz descargada en Excel exitosamente", "success");
+      showNotification(`Excel descargado: ${lista.length} riesgos (${alcance}).`, 'success');
+      return true;
     } catch (error) {
       console.error('Error al generar el libro Excel de riesgos:', error);
       showNotification("No fue posible generar el archivo Excel.", "error");
+      return false;
     }
+  };
+
+  // 📥 Alcance de la descarga: toda la matriz o un macroproceso (con uno, varios o todos sus subprocesos).
+  // Un líder solo ve sus macroprocesos asignados; un administrador, todos.
+  const [descargaExcel, setDescargaExcel] = useState(null); // { tipo: 'global' | 'proceso', macroproceso, subprocesos: [] }
+  const [generandoExcel, setGenerandoExcel] = useState(false);
+  // Se calcula solo con la ventana abierta (normaliza la ubicación de cada riesgo).
+  const ubicacionesVigentes = descargaExcel ? riesgosVigentes.map(riesgo => ({ riesgo, ubicacion: normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS) })) : [];
+  const macroprocesosDescarga = [...new Set([
+    ...Object.keys(MAPA_PROCESOS),
+    ...ubicacionesVigentes.flatMap(({ ubicacion }) => ubicacion.macroprocesos),
+  ])]
+    .filter(macroproceso => macroproceso !== 'Sin proceso')
+    .filter(macroproceso => isAdmin || procesosAsignadosUsuario.includes(normalizarTextoProceso(macroproceso)))
+    .sort((a, b) => a.localeCompare(b, 'es'));
+  const subprocesosDeMacroproceso = macroproceso => [...new Set([
+    ...(Array.isArray(MAPA_PROCESOS[macroproceso]) ? MAPA_PROCESOS[macroproceso] : []),
+    ...(ubicacionesVigentes.length > 0 ? ubicacionesVigentes.map(({ ubicacion }) => ubicacion) : riesgosVigentes.map(riesgo => normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS)))
+      .flatMap(ubicacion => ubicacion.subprocesosPorMacroproceso?.[macroproceso] || []),
+  ])].sort((a, b) => a.localeCompare(b, 'es'));
+  // Por defecto, los subprocesos asignados al usuario (si los tiene en ese macroproceso); si no, todos.
+  const subprocesosIniciales = macroproceso => {
+    const todos = subprocesosDeMacroproceso(macroproceso);
+    const asignados = todos.filter(subproceso => subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso)));
+    return asignados.length > 0 ? asignados : todos;
+  };
+  const abrirDescargaExcel = () => {
+    // Al abrir aún no hay ubicaciones calculadas: los macroprocesos asignados salen del catálogo y de los riesgos.
+    const disponibles = [...new Set([
+      ...Object.keys(MAPA_PROCESOS),
+      ...riesgosVigentes.flatMap(riesgo => normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS).macroprocesos),
+    ])].filter(nombre => nombre !== 'Sin proceso' && (isAdmin || procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre))))
+      .sort((a, b) => a.localeCompare(b, 'es'));
+    const macroproceso = disponibles[0] || '';
+    setDescargaExcel({ tipo: isAdmin || !macroproceso ? 'global' : 'proceso', macroproceso, subprocesos: macroproceso ? subprocesosIniciales(macroproceso) : [] });
+  };
+  const riesgosDeDescarga = descarga => {
+    if (!descarga || descarga.tipo === 'global') return riesgosVigentes;
+    const todos = subprocesosDeMacroproceso(descarga.macroproceso);
+    const todosLosSubprocesos = descarga.subprocesos.length === todos.length;
+    return ubicacionesVigentes
+      .filter(({ ubicacion }) => ubicacion.macroprocesos.includes(descarga.macroproceso))
+      .filter(({ ubicacion }) => todosLosSubprocesos || (ubicacion.subprocesosPorMacroproceso?.[descarga.macroproceso] || [])
+        .some(subproceso => descarga.subprocesos.includes(subproceso)))
+      .map(({ riesgo }) => riesgo);
+  };
+  const confirmarDescargaExcel = async () => {
+    const lista = riesgosDeDescarga(descargaExcel);
+    const todos = descargaExcel.tipo === 'proceso' ? subprocesosDeMacroproceso(descargaExcel.macroproceso) : [];
+    const alcance = descargaExcel.tipo === 'global'
+      ? 'Toda la matriz'
+      : `${descargaExcel.macroproceso} · ${descargaExcel.subprocesos.length === todos.length ? 'todos los subprocesos' : `Subprocesos: ${descargaExcel.subprocesos.join(', ')}`}`;
+    const sufijo = descargaExcel.tipo === 'global' ? '' : `_${descargaExcel.macroproceso.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_')}`;
+    setGenerandoExcel(true);
+    const listo = await exportarAExcel(lista, alcance, sufijo);
+    setGenerandoExcel(false);
+    if (listo) setDescargaExcel(null);
   };
 // =========================================================================
   // 🤖 INFORME GLOBAL IA: MATRIZ DE RIESGOS (VERSIÓN DEFINITIVA BLINDADA)
@@ -2206,6 +2266,77 @@ const renderMatriz = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-300 relative">
 
+      {/* 📥 MODAL DE DESCARGA EXCEL: toda la matriz o un macroproceso y sus subprocesos */}
+      {descargaExcel && (() => {
+        const todosSubprocesos = descargaExcel.macroproceso ? subprocesosDeMacroproceso(descargaExcel.macroproceso) : [];
+        const cantidad = riesgosDeDescarga(descargaExcel).length;
+        const sinSubprocesos = descargaExcel.tipo === 'proceso' && descargaExcel.subprocesos.length === 0;
+        const alternarSubproceso = subproceso => setDescargaExcel(actual => ({
+          ...actual,
+          subprocesos: actual.subprocesos.includes(subproceso) ? actual.subprocesos.filter(item => item !== subproceso) : [...actual.subprocesos, subproceso],
+        }));
+        return (
+          <div className="fixed inset-0 z-[270] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-descarga-excel">
+            <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+              <div className="bg-emerald-600 p-5 text-white">
+                <h3 id="titulo-descarga-excel" className="text-sm font-black uppercase tracking-wider">📥 Descargar matriz en Excel</h3>
+                <p className="mt-1 text-[11px] text-white/85">Elige qué riesgos incluir. Los riesgos anulados no se exportan.</p>
+              </div>
+              <div className="space-y-3 overflow-y-auto p-6 text-xs text-slate-700">
+                <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${descargaExcel.tipo === 'global' ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                  <input type="radio" name="alcance-excel" checked={descargaExcel.tipo === 'global'} onChange={() => setDescargaExcel(actual => ({ ...actual, tipo: 'global' }))} className="mt-0.5" />
+                  <span><strong className="block text-slate-900">Toda la matriz</strong>{riesgosVigentes.length} riesgos de todos los procesos, con los datos globales.</span>
+                </label>
+                {macroprocesosDescarga.length > 0 && (
+                  <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${descargaExcel.tipo === 'proceso' ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                    <input type="radio" name="alcance-excel" checked={descargaExcel.tipo === 'proceso'} onChange={() => setDescargaExcel(actual => ({ ...actual, tipo: 'proceso' }))} className="mt-0.5" />
+                    <span><strong className="block text-slate-900">{isAdmin ? 'Por macroproceso' : macroprocesosDescarga.length === 1 ? 'Mi macroproceso' : 'Mis macroprocesos'}</strong>Solo los riesgos de un macroproceso y los subprocesos que elijas.</span>
+                  </label>
+                )}
+                {descargaExcel.tipo === 'proceso' && (
+                  <div className="space-y-3 rounded-xl border border-slate-200 p-3">
+                    <label className="block">
+                      <span className="mb-1 block text-[10px] font-black uppercase text-slate-500">Macroproceso</span>
+                      <select value={descargaExcel.macroproceso} onChange={e => setDescargaExcel(actual => ({ ...actual, macroproceso: e.target.value, subprocesos: subprocesosIniciales(e.target.value) }))}
+                        className="w-full rounded-lg border border-slate-300 p-2 text-xs">
+                        {macroprocesosDescarga.map(macroproceso => <option key={macroproceso} value={macroproceso}>{macroproceso}</option>)}
+                      </select>
+                    </label>
+                    <fieldset>
+                      <div className="mb-1 flex items-center justify-between">
+                        <legend className="text-[10px] font-black uppercase text-slate-500">Subprocesos</legend>
+                        <button type="button" onClick={() => setDescargaExcel(actual => ({ ...actual, subprocesos: actual.subprocesos.length === todosSubprocesos.length ? [] : todosSubprocesos }))}
+                          className="text-[10px] font-bold text-emerald-700 hover:underline">
+                          {descargaExcel.subprocesos.length === todosSubprocesos.length ? 'Quitar todos' : 'Seleccionar todos'}
+                        </button>
+                      </div>
+                      <div className="max-h-48 space-y-1 overflow-y-auto">
+                        {todosSubprocesos.map(subproceso => (
+                          <label key={subproceso} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 hover:bg-slate-50">
+                            <input type="checkbox" checked={descargaExcel.subprocesos.includes(subproceso)} onChange={() => alternarSubproceso(subproceso)} />
+                            <span>{subproceso}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  </div>
+                )}
+                <p className="rounded-lg bg-slate-50 p-2 text-[11px] font-semibold text-slate-600">
+                  {sinSubprocesos ? 'Selecciona al menos un subproceso.' : `Se descargarán ${cantidad} ${cantidad === 1 ? 'riesgo' : 'riesgos'}.`}
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 p-4">
+                <button type="button" onClick={() => setDescargaExcel(null)} disabled={generandoExcel} className="rounded-xl bg-slate-200 px-5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-300">Cancelar</button>
+                <button type="button" onClick={confirmarDescargaExcel} disabled={generandoExcel || sinSubprocesos || cantidad === 0}
+                  className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+                  {generandoExcel ? 'Generando…' : 'Descargar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 🚫 MODAL DE ANULACIÓN / REACTIVACIÓN (motivo obligatorio, queda en el historial) */}
       {solicitudAnulacion && (() => {
         const riesgoSolicitud = safeRiesgos.find(item => String(item.id) === String(solicitudAnulacion.id));
@@ -2463,8 +2594,8 @@ const renderMatriz = () => {
           <button type="button" aria-current={vistaActiva === 'dashboard' ? 'page' : undefined} onClick={() => cambiarVistaSeguraRiesgos('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Dashboard</button>
           <button type="button" aria-current={vistaActiva === 'matriz' ? 'page' : undefined} onClick={() => cambiarVistaSeguraRiesgos('matriz')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'matriz' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📋 Ver Matriz</button>
           
-          <button onClick={exportarAExcel} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-emerald-600/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-600/40 shadow-sm flex items-center backdrop-blur-sm">
-            <span className="mr-2">📥</span> Descargar Excel
+          <button type="button" onClick={abrirDescargaExcel} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-emerald-500 text-white border border-emerald-300 shadow-lg shadow-emerald-950/50 ring-2 ring-white/20 hover:bg-emerald-400 hover:-translate-y-0.5 flex items-center">
+            <span className="mr-2" aria-hidden="true">📥</span> Descargar Excel
           </button>
 
           <button onClick={solicitarAnalisisGlobalIA} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-purple-600/20 text-purple-400 border border-purple-500/50 hover:bg-purple-600/40 shadow-sm flex items-center backdrop-blur-sm">
