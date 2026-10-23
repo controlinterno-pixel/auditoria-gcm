@@ -1758,7 +1758,6 @@ const renderMatriz = () => {
         listaControles.map((c, cIdx) => {
           const tipoControl = c.tipo || 'Preventivo';
           const estiloTipo = ESTILO_TIPO_CONTROL[tipoControl] || ESTILO_TIPO_CONTROL.Correctivo;
-          const eficacia = calcularEficaciaControl(c);
           // Verde: máximo de su tipo (automático); ámbar: manual, puede subir; rojo: le faltan atributos informativos.
           const valoracionControl = explicarControl(c);
           const tonoEficacia = !valoracionControl.formal
@@ -1771,7 +1770,7 @@ const renderMatriz = () => {
           return (
             <li
               key={cIdx}
-              className={`grid grid-cols-1 gap-4 rounded-xl border border-l-[5px] border-slate-300 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.07)] transition-shadow hover:border-slate-400 hover:shadow-md lg:grid-cols-[minmax(0,1fr)_7.5rem_auto] lg:items-center ${estiloTipo.filo}`}
+              className={`grid grid-cols-1 gap-4 rounded-xl border border-l-[5px] border-slate-300 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.07)] transition-shadow hover:border-slate-400 hover:shadow-md lg:grid-cols-[minmax(0,1fr)_9rem_auto] lg:items-center ${estiloTipo.filo}`}
             >
               {/* Identificación y ficha del control */}
               <div className="min-w-0 space-y-3">
@@ -1811,14 +1810,24 @@ const renderMatriz = () => {
                 </dl>
               </div>
 
-              {/* Eficacia: cifra en una sola línea con su barra */}
-              <div className="lg:border-l lg:border-slate-200 lg:pl-4">
-                <p className="text-[10px] font-semibold text-slate-500">Eficacia <span className="font-normal">(máx. 50%)</span></p>
-                <p className={`whitespace-nowrap text-xl font-black tabular-nums leading-tight ${tonoEficacia.texto}`}>{eficacia}%</p>
-                <div className="mt-1 h-1.5 w-full max-w-[7rem] overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-                  <div className={`h-full rounded-full ${tonoEficacia.barra}`} style={{ width: `${Math.min(100, Math.max(0, (eficacia / 50) * 100))}%` }}></div>
-                </div>
-              </div>
+              {/* Eficacia: lo que el control reduce (valor del manual) y qué tan cerca está del máximo de su tipo */}
+              {(() => {
+                const porcentajeDelMaximo = Math.round((valoracionControl.eficacia / valoracionControl.maximoPosible) * 100);
+                const queReduce = tipoControl === 'Correctivo' ? 'el impacto' : 'la probabilidad';
+                return (
+                  <div className="lg:border-l lg:border-slate-200 lg:pl-4" title={`Este control reduce ${queReduce} en ${valoracionControl.eficacia}%. Tiene ${valoracionControl.eficacia} de ${valoracionControl.maximoPosible} puntos posibles para un control ${tipoControl.toLowerCase()} (Tabla 6 del manual).`}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Reduce</p>
+                    <p className={`whitespace-nowrap text-2xl font-black tabular-nums leading-none ${tonoEficacia.texto}`}>{valoracionControl.eficacia}%</p>
+                    <p className="text-[10px] font-semibold text-slate-600">{queReduce}</p>
+                    <div className="mt-2 flex h-2 w-full max-w-[8rem] overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200" aria-hidden="true">
+                      <div className={`h-full ${tonoEficacia.barra}`} style={{ width: `${porcentajeDelMaximo}%` }}></div>
+                    </div>
+                    <p className="mt-1 whitespace-nowrap text-[9px] text-slate-500">
+                      <strong className="text-slate-700">{valoracionControl.eficacia}</strong> de {valoracionControl.maximoPosible} posibles · {porcentajeDelMaximo}% del máximo
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* Acciones */}
               <div className="flex flex-wrap gap-1.5 lg:flex-col lg:items-stretch">

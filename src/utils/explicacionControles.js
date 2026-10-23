@@ -76,9 +76,10 @@ export function explicarControl(control) {
       ? `detecta la desviación durante el proceso y reduce en un ${total}% la probabilidad de que el riesgo ocurra, aunque puede generar reprocesos`
       : `actúa antes de la actividad que origina el riesgo y reduce en un ${total}% la probabilidad de que ocurra`;
   const calculo = `${total}% = ${tipo} ${PESO_TIPO[tipo]}% + ${implementacion} ${PESO_IMPLEMENTACION[implementacion]}% (Tabla 6 del manual).`;
+  const delMaximo = `Tiene ${total} de ${maximoPosible} puntos posibles para un control ${tipo.toLowerCase()} (${Math.round((total / maximoPosible) * 100)}% del máximo).`;
   const techo = implementacion === 'Automático'
-    ? `Tiene el máximo posible para un control ${tipo.toLowerCase()} (${maximoPosible}%).`
-    : `Al ser manual depende de una persona y tiene implícito el error humano; si se automatizara subiría a ${maximoPosible}%, el máximo para un control ${tipo.toLowerCase()}.`;
+    ? `${delMaximo} Ya tiene el mejor diseño posible para su tipo.`
+    : `${delMaximo} Al ser manual depende de una persona y tiene implícito el error humano; si se automatizara subiría a ${maximoPosible}%.`;
   const faltantes = informativos.filter(atributo => !atributo.cumple);
   const formalizacion = faltantes.length === 0
     ? 'Está documentado, se aplica de forma continua y deja registro: cumple los atributos informativos del manual.'

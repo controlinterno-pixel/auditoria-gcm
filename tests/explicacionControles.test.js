@@ -31,7 +31,7 @@ test('explicación de un control: cálculo, techo, formalización y mejoras', ()
   assert.equal(manual.formal, true);
   assert.match(manual.resumen, /reduce en un 40% la probabilidad/);
   assert.equal(manual.calculo, '40% = Preventivo 25% + Manual 15% (Tabla 6 del manual).');
-  assert.match(manual.techo, /si se automatizara subiría a 50%/);
+  assert.match(manual.techo, /^Tiene 40 de 50 puntos posibles para un control preventivo \(80% del máximo\)\..*si se automatizara subiría a 50%/);
   assert.deepEqual(manual.mejoras.map(mejora => mejora.efecto), ['subiría de 40% a 50%']);
 
   const informal = explicarControl(control({ documentacion: 'No documentado', evidencia: 'Sin registro' }));
