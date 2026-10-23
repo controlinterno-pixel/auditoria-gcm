@@ -651,6 +651,47 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     }
   };
 
+  // 🕑 Lista del historial de un riesgo (más reciente primero), con el detalle antes/después de cada cambio.
+  const renderHistorialRiesgo = (riesgo) => {
+    const historial = (Array.isArray(riesgo?.historialCambios) ? riesgo.historialCambios : []).filter(Boolean).slice().reverse();
+    return (
+      <>
+        {historial.length === 0 ? (
+          <p className="mt-3 text-[11px] text-slate-500">Este riesgo no tiene cambios registrados.</p>
+        ) : (
+          <ol className="mt-3 space-y-2">
+            {historial.map((entrada, indice) => (
+              <li key={`${entrada.timestamp || entrada.fecha}-${indice}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-[11px] text-slate-700">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className="text-slate-900">{entrada.accion}</strong>
+                  <span className="text-[10px] text-slate-500">{entrada.usuario || 'Sin usuario registrado'} · {entrada.fecha}</span>
+                </div>
+                {entrada.motivo && <p className="mt-1"><span className="text-slate-500">Motivo:</span> {entrada.motivo}</p>}
+                {Array.isArray(entrada.cambios) && entrada.cambios.length > 0 && (
+                  <table className="mt-2 w-full border-collapse text-left text-[10px]">
+                    <thead className="text-slate-500">
+                      <tr><th className="py-1 pr-2 font-bold">Campo</th><th className="py-1 pr-2 font-bold">Antes</th><th className="py-1 font-bold">Después</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {entrada.cambios.map((cambio, posicion) => (
+                        <tr key={`${cambio.campo}-${posicion}`} className="align-top">
+                          <td className="py-1 pr-2 font-semibold text-slate-800">{cambio.campo}</td>
+                          <td className="py-1 pr-2 text-red-700 line-through decoration-red-300">{cambio.antes || '—'}</td>
+                          <td className="py-1 text-emerald-800">{cambio.despues || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+      </>
+    );
+  };
+  const [historialAbierto, setHistorialAbierto] = useState(null); // id del riesgo cuyo historial está abierto
+
   const handleDeleteRiesgo = async (id) => {
     const riesgo = safeRiesgos.find(item => String(item.id) === String(id));
     if (!riesgo || !puedeModificarRiesgo(riesgo)) {
@@ -1880,6 +1921,13 @@ const renderMatriz = () => {
 
                      {/* GESTIÓN: Todos pueden editar ✏️, pero solo Administradores pueden borrar 🗑️ */}
 <div className="col-span-1 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
+  <button type="button" onClick={() => setHistorialAbierto(r.id)} className="relative flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-indigo-100 text-indigo-800 rounded-lg text-xs" title="Ver el historial de cambios del riesgo y sus controles">
+    <span aria-hidden="true">🕑</span>
+    <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Historial</span>
+    {Array.isArray(r.historialCambios) && r.historialCambios.length > 0 && (
+      <span className="absolute -right-0.5 -top-0.5 rounded-full bg-indigo-600 px-1 text-[8px] font-black leading-tight text-white">{r.historialCambios.filter(Boolean).length}</span>
+    )}
+  </button>
   {puedeModificarRiesgo(r) && (estaAnulado(r) ? (
     <button onClick={() => abrirAnulacion(r, 'reactivar')} className="flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs" title="Reactivar el riesgo (queda en el historial)">
       <span aria-hidden="true">↩️</span>
@@ -2255,47 +2303,12 @@ const renderMatriz = () => {
     })()}
 
     {/* 🕑 HISTORIAL DE CAMBIOS DEL RIESGO Y SUS CONTROLES (más reciente primero) */}
-    {(() => {
-      const historial = (Array.isArray(r.historialCambios) ? r.historialCambios : []).filter(Boolean).slice().reverse();
-      return (
-        <details className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <summary className="cursor-pointer text-xs font-black uppercase tracking-wider text-slate-700">
-            🕑 Historial de cambios <span className="text-purple-600">({historial.length})</span>
-          </summary>
-          {historial.length === 0 ? (
-            <p className="mt-3 text-[11px] text-slate-500">Este riesgo no tiene cambios registrados.</p>
-          ) : (
-            <ol className="mt-3 space-y-2">
-              {historial.map((entrada, indice) => (
-                <li key={`${entrada.timestamp || entrada.fecha}-${indice}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-[11px] text-slate-700">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="text-slate-900">{entrada.accion}</strong>
-                    <span className="text-[10px] text-slate-500">{entrada.usuario || 'Sin usuario registrado'} · {entrada.fecha}</span>
-                  </div>
-                  {entrada.motivo && <p className="mt-1"><span className="text-slate-500">Motivo:</span> {entrada.motivo}</p>}
-                  {Array.isArray(entrada.cambios) && entrada.cambios.length > 0 && (
-                    <table className="mt-2 w-full border-collapse text-left text-[10px]">
-                      <thead className="text-slate-500">
-                        <tr><th className="py-1 pr-2 font-bold">Campo</th><th className="py-1 pr-2 font-bold">Antes</th><th className="py-1 font-bold">Después</th></tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {entrada.cambios.map((cambio, posicion) => (
-                          <tr key={`${cambio.campo}-${posicion}`} className="align-top">
-                            <td className="py-1 pr-2 font-semibold text-slate-800">{cambio.campo}</td>
-                            <td className="py-1 pr-2 text-red-700 line-through decoration-red-300">{cambio.antes || '—'}</td>
-                            <td className="py-1 text-emerald-800">{cambio.despues || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </li>
-              ))}
-            </ol>
-          )}
-        </details>
-      );
-    })()}
+    <details className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <summary className="cursor-pointer text-xs font-black uppercase tracking-wider text-slate-700">
+        🕑 Historial de cambios <span className="text-purple-600">({(Array.isArray(r.historialCambios) ? r.historialCambios.filter(Boolean) : []).length})</span>
+      </summary>
+      {renderHistorialRiesgo(r)}
+    </details>
   </div>
 )}     
 </div>
@@ -2309,6 +2322,26 @@ const renderMatriz = () => {
   };               
   return (
     <div className="space-y-6 animate-in fade-in duration-300 relative">
+
+      {/* 🕑 MODAL DEL HISTORIAL DE CAMBIOS DE UN RIESGO */}
+      {historialAbierto !== null && (() => {
+        const riesgoHistorial = safeRiesgos.find(item => String(item.id) === String(historialAbierto));
+        return (
+          <div className="fixed inset-0 z-[270] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-historial"
+            onClick={() => setHistorialAbierto(null)} onKeyDown={(e) => { if (e.key === 'Escape') setHistorialAbierto(null); }}>
+            <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-3 bg-indigo-700 p-5 text-white">
+                <div className="min-w-0">
+                  <h3 id="titulo-historial" className="text-sm font-black uppercase tracking-wider">🕑 Historial de cambios · RSK-{historialAbierto}</h3>
+                  {riesgoHistorial?.descripcion && <p className="mt-1 line-clamp-2 text-[11px] text-white/80">{riesgoHistorial.descripcion}</p>}
+                </div>
+                <button type="button" onClick={() => setHistorialAbierto(null)} aria-label="Cerrar" autoFocus className="rounded-full bg-white/10 px-2 py-0.5 text-white/80 hover:bg-white/20 hover:text-white">✕</button>
+              </div>
+              <div className="overflow-y-auto p-5">{renderHistorialRiesgo(riesgoHistorial)}</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 📥 MODAL DE DESCARGA EXCEL: toda la matriz o un macroproceso y sus subprocesos */}
       {descargaExcel && (() => {
