@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react';
+import { Ban, History, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { ThinkingOrb } from 'thinking-orbs';
 import { 
@@ -1909,10 +1910,10 @@ const renderMatriz = () => {
                       </div>
 
                       {/* ANÁLISIS IA */}
-                      <div className="col-span-1 text-center">
+                      <div className="col-span-1 min-w-0 text-center">
                         <button 
                           onClick={(e) => { e.stopPropagation(); solicitarAnalisisFilaIA(r); }}
-                          className="bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded-lg text-[9px] transition-all flex items-center justify-center gap-1 mx-auto shadow-sm"
+                          className="bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded-lg text-[9px] transition-colors flex max-w-full items-center justify-center gap-1 mx-auto shadow-sm whitespace-nowrap"
                         >
                           ✨ Dictamen IA
                         </button>
@@ -1920,34 +1921,41 @@ const renderMatriz = () => {
                       </div>
 
                      {/* GESTIÓN: Todos pueden editar ✏️, pero solo Administradores pueden borrar 🗑️ */}
-<div className="col-span-1 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
-  <button type="button" onClick={() => setHistorialAbierto(r.id)} className="relative flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-indigo-100 text-indigo-800 rounded-lg text-xs" title="Ver el historial de cambios del riesgo y sus controles">
-    <span aria-hidden="true">🕑</span>
-    <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Historial</span>
-    {Array.isArray(r.historialCambios) && r.historialCambios.length > 0 && (
-      <span className="absolute -right-0.5 -top-0.5 rounded-full bg-indigo-600 px-1 text-[8px] font-black leading-tight text-white">{r.historialCambios.filter(Boolean).length}</span>
+<div className="col-span-1 flex min-w-0 justify-end" onClick={(e) => e.stopPropagation()}>
+  {/* Acciones de la fila: botones de 32 px, neutros en reposo y con el color de su acción al pasar el mouse. */}
+  {/* 2 × 2 desde 1360 px de pantalla; por debajo, una sola columna para no invadir "Análisis IA". */}
+  <div className="grid w-8 shrink-0 grid-cols-1 gap-1 min-[1360px]:w-[4.25rem] min-[1360px]:grid-cols-2">
+    <button type="button" onClick={() => setHistorialAbierto(r.id)} aria-label={`Historial de cambios de RSK-${r.id}`} title="Historial de cambios"
+      className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+      <History size={16} strokeWidth={2} aria-hidden="true" />
+      {Array.isArray(r.historialCambios) && r.historialCambios.filter(Boolean).length > 0 && (
+        <span className="absolute -right-1 -top-1 min-w-[1rem] rounded-full bg-indigo-600 px-1 text-center text-[9px] font-bold leading-4 text-white ring-2 ring-white">{r.historialCambios.filter(Boolean).length}</span>
+      )}
+    </button>
+    {puedeModificarRiesgo(r) && !estaAnulado(r) && (
+      <button type="button" onClick={() => handleEditRiesgo(r)} aria-label={`Editar RSK-${r.id}`} title="Editar riesgo y controles"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+        <Pencil size={16} strokeWidth={2} aria-hidden="true" />
+      </button>
     )}
-  </button>
-  {puedeModificarRiesgo(r) && (estaAnulado(r) ? (
-    <button onClick={() => abrirAnulacion(r, 'reactivar')} className="flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs" title="Reactivar el riesgo (queda en el historial)">
-      <span aria-hidden="true">↩️</span>
-      <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Reactivar</span>
-    </button>
-  ) : (
-    <button onClick={() => abrirAnulacion(r, 'anular')} className="flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-slate-200 text-slate-700 rounded-lg text-xs" title="Anular el riesgo si ya no aplica o se reemplaza (queda en el historial)">
-      <span aria-hidden="true">🚫</span>
-      <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Anular</span>
-    </button>
-  ))}
-  {puedeModificarRiesgo(r) && !estaAnulado(r) && (
-    <button onClick={() => handleEditRiesgo(r)} className="flex shrink-0 flex-col items-center gap-0.5 px-1 py-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar riesgo y controles">
-      <span aria-hidden="true">✏️</span>
-      <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none">Editar</span>
-    </button>
-  )}
-  {isAdmin && puedeModificarRiesgo(r) && (
-    <button onClick={() => handleDeleteRiesgo(r.id)} className="p-1.5 hover:bg-red-100 text-red-600 rounded-lg text-xs" title="Eliminar">🗑️</button>
-  )}
+    {puedeModificarRiesgo(r) && (estaAnulado(r) ? (
+      <button type="button" onClick={() => abrirAnulacion(r, 'reactivar')} aria-label={`Reactivar RSK-${r.id}`} title="Reactivar el riesgo (queda en el historial)"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+        <RotateCcw size={16} strokeWidth={2} aria-hidden="true" />
+      </button>
+    ) : (
+      <button type="button" onClick={() => abrirAnulacion(r, 'anular')} aria-label={`Anular RSK-${r.id}`} title="Anular el riesgo si ya no aplica o se reemplaza (queda en el historial)"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-400 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">
+        <Ban size={16} strokeWidth={2} aria-hidden="true" />
+      </button>
+    ))}
+    {isAdmin && puedeModificarRiesgo(r) && (
+      <button type="button" onClick={() => handleDeleteRiesgo(r.id)} aria-label={`Eliminar RSK-${r.id}`} title="Eliminar (solo administradores)"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
+        <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+      </button>
+    )}
+  </div>
 </div>
 </div>
 
