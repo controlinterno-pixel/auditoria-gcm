@@ -1480,9 +1480,9 @@ const handleRiesgoSubmit = async (e) => {
                 const nivel = nivelRiesgo(riesgo);
                 const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : 0;
                 const puedeEditar = puedeModificarRiesgo(riesgo);
-                const ElementoRiesgo = puedeEditar ? 'button' : 'article';
+                // Quien puede editar abre la ficha de edición; los demás la abren en modo consulta.
                 return (
-                  <ElementoRiesgo {...(puedeEditar ? { type: 'button', onClick: () => handleEditRiesgo(riesgo) } : {})} key={riesgo.id} className={`block w-full rounded-lg border border-slate-200 p-3 text-left ${puedeEditar ? 'transition-colors hover:border-emerald-500 hover:bg-emerald-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700' : ''}`}>
+                  <button type="button" onClick={() => (puedeEditar ? handleEditRiesgo(riesgo) : verDetalleRiesgo(riesgo))} aria-label={`${puedeEditar ? 'Editar' : 'Consultar'} riesgo RSK-${riesgo.id}`} key={riesgo.id} className="group block w-full rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-emerald-500 hover:bg-emerald-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
                     <span className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[10px] font-black text-emerald-800">RSK-{riesgo.id}</span>
                       <span className={`rounded px-2 py-0.5 text-[9px] font-black ${nivel === 'Extremo' ? 'bg-rose-100 text-rose-800' : nivel === 'Alto' ? 'bg-orange-100 text-orange-800' : nivel === 'Moderado' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'}`}>{nivel}</span>
@@ -1494,11 +1494,12 @@ const handleRiesgoSubmit = async (e) => {
                       <span>Mitigación {calcularMitigacionRiesgo(riesgo)}%</span>
                       {riesgo.fechaSeguimiento && <span>Seguimiento {riesgo.fechaSeguimiento}</span>}
                     </span>
-                  </ElementoRiesgo>
+                    <span className="mt-2 inline-flex text-[10px] font-bold text-emerald-800 group-hover:underline">{puedeEditar ? '✏️ Editar' : '👁 Ver detalle'}</span>
+                  </button>
                 );
               })}
             </div>
-            <div className="border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500">Selecciona un registro para abrir su ficha de edición.</div>
+            <div className="border-t border-slate-200 px-4 py-2 text-[10px] text-slate-500">Selecciona un registro para abrir su ficha: editable si es de tu proceso, en consulta si no.</div>
           </aside>
         </section>
 
