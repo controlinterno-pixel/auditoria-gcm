@@ -397,6 +397,73 @@ export async function recalcularResidualesMatriz({ ejecutar = false, usuario = '
   });
 }
 
+/**
+ * Corrige riesgos con la escala mezclada: el riesgo está en porcentaje pero su probabilidad o impacto INHERENTE
+ * quedó como nivel 1–5 (p. ej. 1 en vez de 20 %). Según las Tablas 2 y 3 del manual, el nivel N vale N × 20 %.
+ * - Solo convierte enteros 1–5; otros valores menores a 20 % se reportan como dudosos y no se tocan.
+ * - Con controles estructurados recalcula el residual; sin ellos convierte también el residual si es un nivel 1–5.
+ * - Deja una entrada en el historial de cada riesgo. `ejecutar: false` (por defecto) solo simula. Idempotente.
+ */
+export async function corregirEscalaInherente({ ejecutar = false, usuario = '' } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const matriz = await leerMatrizRiesgosTx(transaction);
+    if (!matriz) throw new Error('Los riesgos no están migrados.');
+    const ahora = new Date();
+    const esNivel = valor => Number.isInteger(Number(valor)) && Number(valor) >= 1 && Number(valor) <= 5;
+    const valores = riesgo => ({
+      probabilidadInherente: riesgo.probabilidadInherente, impactoInherente: riesgo.impactoInherente,
+      probabilidadResidual: riesgo.probabilidadResidual, impactoResidual: riesgo.impactoResidual,
+      zonaResidual: zonaSeveridad(riesgo.probabilidadResidual, riesgo.impactoResidual, true).label,
+    });
+    const correcciones = [];
+    const dudosos = [];
+    const resultado = matriz.riesgos.map(riesgo => {
+      if (!riesgoEnPorcentaje(riesgo)) return riesgo;
+      const cambios = {};
+      ['probabilidadInherente', 'impactoInherente'].forEach(campo => {
+        const valor = Number(riesgo[campo]);
+        if (esNivel(valor)) cambios[campo] = valor * 20;
+        else if (Number.isFinite(valor) && valor > 0 && valor < 20) dudosos.push({ id: String(riesgo.id), campo, valor });
+      });
+      if (Object.keys(cambios).length === 0) return riesgo;
+      const corregido = { ...riesgo, ...cambios };
+      const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
+      if (controles.length > 0) {
+        Object.assign(corregido, calcularResiduales(corregido.probabilidadInherente, corregido.impactoInherente, controles));
+      } else {
+        ['probabilidadResidual', 'impactoResidual'].forEach(campo => { if (esNivel(riesgo[campo])) corregido[campo] = Number(riesgo[campo]) * 20; });
+      }
+      const antes = valores(riesgo);
+      const despues = valores(corregido);
+      correcciones.push({ id: String(riesgo.id), proceso: riesgo.macroproceso || riesgo.proceso || '', antes, despues });
+      return {
+        ...corregido,
+        nivelInherente: zonaSeveridad(corregido.probabilidadInherente, corregido.impactoInherente, true).label,
+        nivelResidual: despues.zonaResidual,
+        historialCambios: [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []), {
+          fecha: ahora.toLocaleString('es-CO'),
+          timestamp: ahora.toISOString(),
+          usuario,
+          accion: 'Corrección de escala: valor inherente registrado como nivel 1–5 convertido a porcentaje (Tablas 2 y 3 del Manual de Riesgos)',
+          antes,
+          despues,
+        }],
+      };
+    });
+
+    const reporte = {
+      estado: ejecutar ? 'corregido' : 'simulacion',
+      riesgosCorregidos: correcciones.length,
+      cambianDeZona: correcciones.filter(item => item.antes.zonaResidual !== item.despues.zonaResidual).length,
+      correcciones,
+      dudosos,
+    };
+    if (ejecutar && correcciones.length > 0) escribirRiesgosTx(transaction, resultado, matriz.indice);
+    if (ejecutar && correcciones.length === 0) reporte.estado = 'sin-cambios';
+    return reporte;
+  });
+}
+
 const WORKSPACE_READ_CACHE_TTL_MS = 30_000;
 // Con revisión del semáforo, los datos de esa revisión no cambian mientras siga vigente (cada escritura
 // la incrementa y limpia esta caché): varios usuarios que recargan tras un cambio comparten una sola lectura.

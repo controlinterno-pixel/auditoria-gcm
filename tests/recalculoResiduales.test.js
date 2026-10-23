@@ -34,7 +34,7 @@ function crearDb(documentos) {
 }
 
 const cargar = db => new Function('adminDb', 'FieldValue', 'Filter', 'logger', 'calcularResiduales', 'riesgoEnPorcentaje', 'zonaSeveridad',
-  `${fuente('../api/_lib/coleccionesAgrupadas.js')}\n${fuente('../api/_lib/grcWorkspace.js')}\nreturn { recalcularResidualesMatriz };`)(
+  `${fuente('../api/_lib/coleccionesAgrupadas.js')}\n${fuente('../api/_lib/grcWorkspace.js')}\nreturn { recalcularResidualesMatriz, corregirEscalaInherente };`)(
   db, { delete: () => BORRAR }, {}, { info() {}, warn() {}, error() {} }, calcularResiduales, riesgoEnPorcentaje, zonaSeveridad,
 );
 
@@ -86,4 +86,36 @@ test('ejecución: actualiza solo los riesgos que cambian y deja trazabilidad; es
 
   const repetido = await cargar(db).recalcularResidualesMatriz({ ejecutar: true, usuario: 'admin@x' });
   assert.equal(repetido.estado, 'sin-cambios');
+});
+
+test('corrección de escala: un inherente 1–5 en un riesgo en porcentaje pasa a N × 20 % y se recalcula', async () => {
+  const riesgos = [
+    // Como RSK-2: probabilidad inherente 1 (nivel Muy baja) con impacto en porcentaje.
+    { id: 2, probabilidadInherente: 1, impactoInherente: 60, probabilidadResidual: 0, impactoResidual: 45, controlesDetallados: [control(), control({ tipo: 'Correctivo' })] },
+    // Como RSK-206: impacto inherente 1, sin controles correctivos.
+    { id: 206, probabilidadInherente: 60, impactoInherente: 1, probabilidadResidual: 24, impactoResidual: 1, controlesDetallados: [control(), control()] },
+    // Sin controles estructurados: el residual también estaba en nivel.
+    { id: 7, probabilidadInherente: 80, impactoInherente: 3, probabilidadResidual: 80, impactoResidual: 3, controlesDetallados: [] },
+    { id: 8, probabilidadInherente: 10, impactoInherente: 40, probabilidadResidual: 10, impactoResidual: 40, controlesDetallados: [] },
+    { id: 9, probabilidadInherente: 4, impactoInherente: 3, probabilidadResidual: 2, impactoResidual: 3, controlesDetallados: [] },
+  ];
+  const db = crearDb({
+    'workspace_compartido/base_de_datos_grc': { riesgosFragmentados: { version: 1, partes: 1, orden: riesgos.map(riesgo => String(riesgo.id)) } },
+    'workspace_compartido/base_de_datos_grc_riesgos_0': { riesgos },
+  });
+  const simulacion = await cargar(db).corregirEscalaInherente({ ejecutar: false });
+  assert.equal(simulacion.riesgosCorregidos, 3);
+  assert.deepEqual(simulacion.dudosos, [{ id: '8', campo: 'probabilidadInherente', valor: 10 }], '10 % no es un nivel: solo se reporta');
+  assert.equal(riesgosGuardados(db)[0].probabilidadInherente, 1, 'simular no escribe');
+
+  const reporte = await cargar(db).corregirEscalaInherente({ ejecutar: true, usuario: 'admin@x' });
+  assert.equal(reporte.estado, 'corregido');
+  const [dos, dosCientos, siete, ocho, nueve] = riesgosGuardados(db);
+  assert.deepEqual([dos.probabilidadInherente, dos.probabilidadResidual, dos.impactoResidual], [20, 12, 45]);
+  assert.deepEqual([dosCientos.impactoInherente, dosCientos.impactoResidual, dosCientos.nivelResidual], [20, 20, 'Bajo']);
+  assert.deepEqual([siete.impactoInherente, siete.impactoResidual], [60, 60]);
+  assert.equal(ocho.probabilidadInherente, 10);
+  assert.equal(nueve.probabilidadInherente, 4, 'un riesgo importado en escala 1–5 completo no se toca');
+  assert.match(dos.historialCambios.at(-1).accion, /Corrección de escala/);
+  assert.equal((await cargar(db).corregirEscalaInherente({ ejecutar: true })).estado, 'sin-cambios');
 });
