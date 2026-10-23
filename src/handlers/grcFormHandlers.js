@@ -1015,7 +1015,8 @@ const handleInformeAuditoriaSubmit = async (e) => {
         }
       }
       e.target.reset();
-      return true;
+      // Devuelve el informe guardado para que la pantalla lo ubique y lo resalte en el historial.
+      return updated.find(informe => String(informe.id) === String(idInformeGuardado)) || true;
     } catch (err) {
       console.error(err);
       showNotification(err.message || "Error al procesar el informe.", "error");

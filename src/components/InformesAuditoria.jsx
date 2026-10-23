@@ -133,6 +133,8 @@ export default function InformesAuditoria({
   // ✨ NUEVO ESTADO: Controla el modal de vista de detalle único (Imagen 2)
   const [informeDetalleModal, setInformeDetalleModal] = useState(null);
   const [informeExpandidoId, setInformeExpandidoId] = useState(null);
+  // Informe recién guardado: se abre en el historial, se centra en pantalla y se resalta.
+  const [informeDestacado, setInformeDestacado] = useState(null);
 
   // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
   const handleCrearNuevoInforme = () => {
@@ -249,6 +251,14 @@ if (histFiltroFuente !== 'Todas' && resolverCategoriaFuente(inf.tipoFuente, fuen
     setPaginaActual(1);
     setInformeExpandidoId(null);
   };
+  useEffect(() => {
+    if (!informeDestacado || vistaActiva !== 'historial') return undefined;
+    const ubicar = window.setTimeout(() => {
+      document.getElementById(`informe-historial-${informeDestacado.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+    const apagar = window.setTimeout(() => setInformeDestacado(null), 12000);
+    return () => { window.clearTimeout(ubicar); window.clearTimeout(apagar); };
+  }, [informeDestacado, vistaActiva]);
   const repararConsecutivosDuplicados = async () => {
     if (!isAdmin || !setInformesAuditoria || reparandoConsecutivos || informesConReferenciaDuplicada === 0) return;
     if (!window.confirm(`Se renumerarán ${informesConReferenciaDuplicada} informe(s) con referencias repetidas. ¿Continuar?`)) return;
@@ -696,6 +706,7 @@ const handleFileUpload = async (e, type) => {
 
  // 🛡️ LÓGICA DE NAVEGACIÓN SEGURA UNIFICADA
   const cambiarVistaSegura = (nuevaVista) => {
+    setInformeDestacado(null);
     if (nuevaVista === vistaActiva) {
       // Si el usuario hace clic en el mismo botón donde ya está, pero es "Nuevo Informe"
       // preguntamos si quiere resetear el formulario. Si no, lo ignoramos.
@@ -1698,12 +1709,23 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                 window.alert('Selecciona al menos un subproceso para el informe.');
                 return;
               }
+              const estabaEditando = Boolean(editInformeAuditoria);
               const guardado = await handleInformeAuditoriaSubmit(e);
               if (!guardado) return;
               
               setIsDirty(false);
               handleResetForm();
-              setVistaActiva('dashboard'); 
+              const registro = typeof guardado === 'object' && guardado.id ? guardado : null;
+              if (!registro) { setVistaActiva('dashboard'); return; }
+              // Sin filtros, el historial ordena por referencia: se calcula la página donde queda el informe.
+              const ordenados = [registro, ...informesEnriquecidos.filter(inf => String(inf.id) !== String(registro.id))]
+                .sort((a, b) => String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', { numeric: true, sensitivity: 'base' }));
+              const posicion = Math.max(0, ordenados.findIndex(inf => String(inf.id) === String(registro.id)));
+              limpiarFiltrosHistorial();
+              setPaginaActual(Math.floor(posicion / 10) + 1);
+              setInformeExpandidoId(String(registro.id));
+              setInformeDestacado({ id: String(registro.id), ref: registro.ref || '', editado: estabaEditando });
+              setVistaActiva('historial'); 
             }} 
             className="space-y-8 text-xs"
           >
@@ -2530,6 +2552,15 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
       {/* 🚀 VISTA 3: TABLA DE HISTORIAL */}
       {vistaActiva === 'historial' && (
         <div className="space-y-6 animate-in slide-in-from-left-8 duration-500">
+          {informeDestacado && (
+            <div role="status" aria-live="polite" className="success-notice-glow flex items-center justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950 shadow-sm">
+              <div className="min-w-0">
+                <p className="text-sm font-bold">Guardado exitoso</p>
+                <p className="text-xs text-emerald-800">{informeDestacado.editado ? 'Los cambios del informe' : 'El informe nuevo'}{informeDestacado.ref ? ` ${informeDestacado.ref}` : ''} {informeDestacado.editado ? 'quedaron registrados' : 'quedó registrado'}. Lo dejamos abierto abajo.</p>
+              </div>
+              <button type="button" onClick={() => setInformeDestacado(null)} aria-label="Cerrar confirmación de guardado" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-emerald-700 hover:bg-emerald-100">×</button>
+            </div>
+          )}
           <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
               <label className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
@@ -2658,12 +2689,15 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                     ].filter((url, index, urls) => url && url !== '#' && urls.indexOf(url) === index);
                     return (
                       <Fragment key={idInforme}>
-                      <tr aria-expanded={expandido} aria-controls={panelDetalleId} className={`group cursor-pointer border-b-2 transition-colors ${expandido ? 'border-b-0 bg-blue-50/50' : `${idx % 2 === 0 ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50'} hover:bg-blue-50/70`}`} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)}>
+                      <tr id={`informe-historial-${idInforme}`} aria-expanded={expandido} aria-controls={panelDetalleId} className={`group cursor-pointer border-b-2 transition-colors duration-700 ${informeDestacado?.id === idInforme ? 'outline outline-2 -outline-offset-2 outline-emerald-400 ' : ''}${expandido ? 'border-b-0 bg-blue-50/50' : `${idx % 2 === 0 ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50'} hover:bg-blue-50/70`}`} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)}>
                         <td className="whitespace-nowrap border-l-4 border-l-slate-200 p-4 font-mono text-sm font-black text-slate-800 transition-colors group-hover:border-l-blue-500">
                           <div className="flex items-center gap-2">
                             <button type="button" aria-expanded={expandido} aria-controls={panelDetalleId} aria-label={expandido ? 'Ocultar detalle del informe' : 'Ver detalle del informe'} onClick={() => setInformeExpandidoId(expandido ? null : idInforme)} className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-[10px] text-slate-500 hover:border-blue-300 hover:text-blue-700">{expandido ? '▾' : '›'}</button>
                             <span>{inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}</span>
                           </div>
+                          {informeDestacado?.id === idInforme && (
+                            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 font-sans text-[8px] font-black uppercase tracking-wider text-white animate-pulse">✓ Recién guardado</span>
+                          )}
                         </td>
                         <td className="p-4">
                           <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-100 font-black rounded uppercase text-[9px] tracking-wider mb-1 inline-block">
