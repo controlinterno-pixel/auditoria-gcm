@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  calcularEficaciaControl, calcularResiduales, desglosarEficaciaControl, explicarCalculoResidual, explicarControl,
+  calcularEficaciaControl, calcularResiduales, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno,
 } from '../src/utils/explicacionControles.js';
 
 const control = extra => ({ tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro', ...extra });
@@ -68,4 +68,12 @@ test('el aviso indica cuando el residual guardado se calculó con la regla anter
   const exp = { probInh: 60, impInh: 60, probFinal: 13, impFinal: 45, pasosP: [], pasosI: [] };
   const lectura = explicarCalculoResidual(exp, { probabilidadInherente: 60, impactoInherente: 60, probabilidadResidual: 0, impactoResidual: 24 });
   assert.match(lectura.aviso, /guardado en la matriz \(0% \/ 24%\) se calculó con la regla anterior; según el manual es 13% \/ 45%/);
+});
+
+test('color del diseño: verde ≥ 80 %, ámbar 60–79 %, rojo < 60 %', () => {
+  assert.deepEqual([100, 80, 79, 60, 59].map(tonoDiseno), ['verde', 'verde', 'ambar', 'ambar', 'rojo']);
+  assert.equal(explicarControl(control()).porcentajeDelMaximo, 80, 'preventivo manual: 40 de 50');
+  assert.equal(explicarControl(control({ tipo: 'Detectivo' })).porcentajeDelMaximo, 75, 'detectivo manual: 30 de 40');
+  assert.equal(explicarControl(control({ tipo: 'Correctivo' })).porcentajeDelMaximo, 71, 'correctivo manual: 25 de 35');
+  assert.deepEqual(explicarControl(control({ frecuencia: 'Aleatoria', evidencia: 'Sin registro' })).faltantes, ['Frecuencia aleatoria', 'Sin registro']);
 });

@@ -63,6 +63,9 @@ const ACCION_INFORMATIVA = {
   Evidencia: 'dejar registro de cada ejecución (acta, formato, sistema)',
 };
 
+/** Color del diseño del control según el % del máximo de su tipo: verde ≥ 80 %, ámbar 60–79 %, rojo < 60 %. */
+export const tonoDiseno = porcentajeDelMaximo => (porcentajeDelMaximo >= 80 ? 'verde' : porcentajeDelMaximo >= 60 ? 'ambar' : 'rojo');
+
 /**
  * Explicación personalizada de la eficacia de un control.
  * `estado`: 'maximo' (ya tiene el máximo de su tipo), 'mejorable' (manual) y `formal` indica si cumple los
@@ -95,6 +98,10 @@ export function explicarControl(control) {
     maximoPosible,
     estado: implementacion === 'Automático' ? 'maximo' : 'mejorable',
     formal: faltantes.length === 0,
+    // Atributos informativos que no cumple, en pocas palabras (p. ej. "Frecuencia aleatoria").
+    faltantes: faltantes.map(atributo => (atributo.atributo === 'Frecuencia' ? 'Frecuencia aleatoria' : atributo.valor)),
+    // % del máximo posible para su tipo (40 de 50 = 80 %).
+    porcentajeDelMaximo: Math.round((total / maximoPosible) * 100),
     resumen: `Este control ${efecto}.`,
     calculo,
     techo,

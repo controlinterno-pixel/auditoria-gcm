@@ -13,7 +13,7 @@ import { armarPanelIA, contextoMatriz, contextoRiesgo } from '../utils/contextoI
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles, zonaSeveridad } from '../utils/nivelRiesgo.js';
-import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl } from '../utils/explicacionControles.js';
+import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
   .normalize('NFD')
@@ -1758,13 +1758,13 @@ const renderMatriz = () => {
         listaControles.map((c, cIdx) => {
           const tipoControl = c.tipo || 'Preventivo';
           const estiloTipo = ESTILO_TIPO_CONTROL[tipoControl] || ESTILO_TIPO_CONTROL.Correctivo;
-          // Verde: máximo de su tipo (automático); ámbar: manual, puede subir; rojo: le faltan atributos informativos.
+          // Color por % del máximo de su tipo: verde ≥ 80 %, ámbar 60–79 %, rojo < 60 %.
           const valoracionControl = explicarControl(c);
-          const tonoEficacia = !valoracionControl.formal
-            ? { texto: 'text-red-700', barra: 'bg-red-500' }
-            : valoracionControl.estado === 'maximo'
-              ? { texto: 'text-emerald-700', barra: 'bg-emerald-500' }
-              : { texto: 'text-amber-700', barra: 'bg-amber-400' };
+          const tonoEficacia = {
+            verde: { texto: 'text-emerald-700', barra: 'bg-emerald-500', caja: 'border-emerald-200 bg-emerald-50/60 text-emerald-900' },
+            ambar: { texto: 'text-amber-700', barra: 'bg-amber-400', caja: 'border-amber-200 bg-amber-50/60 text-amber-900' },
+            rojo: { texto: 'text-red-700', barra: 'bg-red-500', caja: 'border-red-200 bg-red-50/60 text-red-900' },
+          }[tonoDiseno(valoracionControl.porcentajeDelMaximo)];
           const documentado = c.documentacion === 'Documentado';
           const automatizado = c.implementacion === 'Automático';
           return (
@@ -1812,7 +1812,7 @@ const renderMatriz = () => {
 
               {/* Eficacia: lo que el control reduce (valor del manual) y qué tan cerca está del máximo de su tipo */}
               {(() => {
-                const porcentajeDelMaximo = Math.round((valoracionControl.eficacia / valoracionControl.maximoPosible) * 100);
+                const { porcentajeDelMaximo } = valoracionControl;
                 const queReduce = tipoControl === 'Correctivo' ? 'el impacto' : 'la probabilidad';
                 return (
                   <div className="lg:border-l lg:border-slate-200 lg:pl-4" title={`Diseño: ${porcentajeDelMaximo}% del máximo posible para su tipo. Este control reduce ${queReduce} en ${valoracionControl.eficacia}%. Tiene ${valoracionControl.eficacia} de ${valoracionControl.maximoPosible} puntos posibles para un control ${tipoControl.toLowerCase()} (Tabla 6 del manual).`}>
@@ -1831,6 +1831,9 @@ const renderMatriz = () => {
                       <strong>{valoracionControl.eficacia} de {valoracionControl.maximoPosible}</strong> puntos = <strong className={tonoEficacia.texto}>{porcentajeDelMaximo}%</strong>
                     </p>
                     <p className="text-[9px] leading-snug text-slate-500">Reduce {valoracionControl.eficacia}% {queReduce}</p>
+                    {valoracionControl.faltantes.length > 0 && (
+                      <p className="mt-1 text-[9px] font-bold leading-snug text-red-700">⚠️ {valoracionControl.faltantes.join(' · ')}</p>
+                    )}
                   </div>
                 );
               })()}
@@ -1877,11 +1880,7 @@ const renderMatriz = () => {
               {/* 💬 Qué significa la eficacia de este control, según la Tabla 6 del manual y sus atributos */}
               {(() => {
                 const explicacion = explicarControl(c);
-                const tono = !explicacion.formal
-                  ? 'border-red-200 bg-red-50/60 text-red-900'
-                  : explicacion.estado === 'maximo'
-                    ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900'
-                    : 'border-amber-200 bg-amber-50/60 text-amber-900';
+                const tono = tonoEficacia.caja;
                 return (
                   <div className={`rounded-lg border p-3 text-[11px] leading-relaxed lg:col-span-3 ${tono}`}>
                     <p><strong>💬 ¿Qué significa {explicacion.eficacia}%?</strong> {explicacion.resumen}</p>
