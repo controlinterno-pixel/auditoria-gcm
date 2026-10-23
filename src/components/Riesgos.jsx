@@ -576,12 +576,40 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   const [solicitudAnulacion, setSolicitudAnulacion] = useState(null); // { id, accion: 'anular' | 'reactivar', indiceControl }
   const [formAnulacion, setFormAnulacion] = useState({ tipoMotivo: '', motivo: '' });
   const [guardandoAnulacion, setGuardandoAnulacion] = useState(false);
+  // Anulaciones hechas dentro del formulario: se guardan (con su entrada de historial) al actualizar la matriz.
+  const [historialPendienteFormulario, setHistorialPendienteFormulario] = useState([]);
+  const abrirAnulacionFormulario = (accion, indiceControl) => {
+    setSolicitudAnulacion({ id: editRiesgo?.id, accion, indiceControl, enFormulario: true });
+    setFormAnulacion({ tipoMotivo: '', motivo: '' });
+  };
   const abrirAnulacion = (riesgo, accion, indiceControl = null) => {
     setSolicitudAnulacion({ id: riesgo.id, accion, indiceControl });
     setFormAnulacion({ tipoMotivo: '', motivo: '' });
   };
   const confirmarAnulacion = async () => {
-    const { id, accion, indiceControl } = solicitudAnulacion;
+    const { id, accion, indiceControl, enFormulario } = solicitudAnulacion;
+    if (enFormulario) {
+      const errorFormulario = validarMotivo(formAnulacion, { exigirTipo: accion === 'anular' });
+      if (errorFormulario) { showNotification(errorFormulario, 'error'); return; }
+      const usuarioFormulario = user?.email || 'Usuario';
+      const ahoraFormulario = new Date();
+      setControles(actuales => actuales.map((control, indice) => {
+        if (indice !== indiceControl) return control;
+        return accion === 'anular'
+          ? anular(control, { usuario: usuarioFormulario, tipoMotivo: formAnulacion.tipoMotivo, motivo: formAnulacion.motivo, ahora: ahoraFormulario })
+          : reactivar(control);
+      }));
+      const accionFormulario = `Control ${codigoControl(indiceControl)} ${accion === 'anular' ? 'anulado' : 'reactivado'}`;
+      setHistorialPendienteFormulario(actuales => [...actuales, entradaHistorial({
+        usuario: usuarioFormulario,
+        accion: accionFormulario,
+        motivo: accion === 'anular' ? `${formAnulacion.tipoMotivo}: ${formAnulacion.motivo.trim()}` : formAnulacion.motivo,
+        ahora: ahoraFormulario,
+      })]);
+      showNotification(`${accionFormulario}. Se guarda en el historial al actualizar la matriz.`, 'success');
+      setSolicitudAnulacion(null);
+      return;
+    }
     const riesgo = safeRiesgos.find(item => String(item.id) === String(id));
     if (!riesgo || !puedeModificarRiesgo(riesgo)) {
       showNotification('Solo puedes anular riesgos y controles de los macroprocesos que tienes asignados.', 'error');
@@ -821,6 +849,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 
   const cargarRiesgoEnFormulario = (riesgo, consulta) => {
     setEditRiesgo(riesgo);
+    setHistorialPendienteFormulario([]);
     setCustomId(riesgo.id); // 🔥 RECUPERAMOS EL ID PARA EL FORMULARIO
    const ubicacion = normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS);
       
@@ -960,7 +989,7 @@ const handleRiesgoSubmit = async (e) => {
         anio: new Date().getFullYear(),
         mes: new Date().toLocaleString('es-ES', { month: 'long' }),
         historialCambios: editRiesgo 
-          ? [...(editRiesgo.historialCambios || []), { fecha: ts, accion: 'Modificación con variables completas del manual' }]
+          ? [...(editRiesgo.historialCambios || []), ...historialPendienteFormulario, { fecha: ts, accion: 'Modificación con variables completas del manual' }]
           : [{ fecha: ts, accion: 'Creación manual con matriz completa' }]
       };
 
@@ -984,7 +1013,7 @@ const handleRiesgoSubmit = async (e) => {
       setVistaActiva('dashboard');
       setEditRiesgo(null);
       
-      setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setEscenarioFinal(''); setControles([]);
+      setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setEscenarioFinal(''); setControles([]); setHistorialPendienteFormulario([]);
       setPlanAccionRiesgo(''); setFechaSeguimiento(''); setSeguimientoBitacora('');
 
     } catch (error) {
@@ -2184,13 +2213,15 @@ const renderMatriz = () => {
         const esAnular = solicitudAnulacion.accion === 'anular';
         const objeto = esControl ? `el control ${codigoControl(solicitudAnulacion.indiceControl)} del riesgo RSK-${solicitudAnulacion.id}` : `el riesgo RSK-${solicitudAnulacion.id}`;
         const errorMotivo = validarMotivo(formAnulacion, { exigirTipo: esAnular });
-        const descripcionControl = esControl ? riesgoSolicitud?.controlesDetallados?.[solicitudAnulacion.indiceControl]?.descripcion : '';
+        const descripcionControl = !esControl ? ''
+          : solicitudAnulacion.enFormulario ? controles[solicitudAnulacion.indiceControl]?.descripcion
+            : riesgoSolicitud?.controlesDetallados?.[solicitudAnulacion.indiceControl]?.descripcion;
         return (
           <div className="fixed inset-0 z-[270] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-anulacion">
             <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
               <div className={`p-5 text-white ${esAnular ? 'bg-slate-800' : 'bg-[#0A3B32]'}`}>
                 <h3 id="titulo-anulacion" className="text-sm font-black uppercase tracking-wider">{esAnular ? '🚫 Anular' : '↩️ Reactivar'} {esControl ? 'control' : 'riesgo'}</h3>
-                <p className="mt-1 text-[11px] text-white/80">{esAnular ? 'Vas a anular' : 'Vas a reactivar'} {objeto}. No se borra nada: queda registrado en el historial con tu usuario y la fecha.</p>
+                <p className="mt-1 text-[11px] text-white/80">{esAnular ? 'Vas a anular' : 'Vas a reactivar'} {objeto}. No se borra nada: queda registrado en el historial con tu usuario y la fecha{solicitudAnulacion.enFormulario ? ' cuando actualices la matriz' : ''}.</p>
               </div>
               <div className="space-y-4 p-6 text-xs text-slate-700">
                 {descripcionControl && (
@@ -2732,7 +2763,11 @@ const renderMatriz = () => {
     </div>
     <p className="text-xs line-through">{ctrl.descripcion}</p>
     {ctrl.anulacion && <p className="mt-1 text-[11px]"><strong>{ctrl.anulacion.tipoMotivo}:</strong> {ctrl.anulacion.motivo} — {ctrl.anulacion.usuario}, {ctrl.anulacion.fecha}.</p>}
-    <p className="mt-1 text-[10px]">No cuenta en el residual. Para reactivarlo usa el botón ↩️ Reactivar en el expediente del riesgo.</p>
+    <div className="mt-2 flex items-center justify-between gap-2">
+      <p className="text-[10px]">No cuenta en el residual.</p>
+      <button type="button" onClick={() => abrirAnulacionFormulario('reactivar', idx)}
+        className="whitespace-nowrap rounded-lg border border-emerald-200 bg-white px-3 py-1 text-[10px] font-bold text-emerald-800 hover:bg-emerald-50">↩️ Reactivar</button>
+    </div>
   </div>
 ) : (
   <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3 relative mt-6">
@@ -2766,11 +2801,18 @@ const renderMatriz = () => {
                     />
                   </div>                  
                   <div className="md:col-span-1 flex justify-center">
-                    {isAdmin || idx >= (editRiesgo?.controlesDetallados?.length || 0) ? (
-                    <button type="button" onClick={async () => { if (await confirmarEliminacion('Se eliminará este control del formulario del riesgo.')) setControles(actuales => actuales.filter((_, i) => i !== idx)); }} className="text-red-500 hover:text-red-700 text-xs font-black uppercase tracking-widest bg-red-50 border border-red-200 px-3 py-2 rounded-xl transition-colors">🗑️ Borrar</button>
-                    ) : (
-                      <span className="text-center text-[9px] font-bold leading-tight text-slate-500" title="Los controles guardados no se borran: se anulan con motivo para conservar el historial.">🚫 Anular desde el expediente</span>
-                    )}
+                    <div className="flex flex-col items-center gap-1.5">
+                      {idx < (editRiesgo?.controlesDetallados?.length || 0) && (
+                        <button type="button" onClick={() => abrirAnulacionFormulario('anular', idx)}
+                          className="whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700 hover:bg-slate-100"
+                          title="Anular este control si ya no aplica o se reemplaza (queda en el historial)">
+                          🚫 Anular
+                        </button>
+                      )}
+                      {(isAdmin || idx >= (editRiesgo?.controlesDetallados?.length || 0)) && (
+                        <button type="button" onClick={async () => { if (await confirmarEliminacion('Se eliminará este control del formulario del riesgo.')) setControles(actuales => actuales.filter((_, i) => i !== idx)); }} className="text-red-500 hover:text-red-700 text-xs font-black uppercase tracking-widest bg-red-50 border border-red-200 px-3 py-2 rounded-xl transition-colors">🗑️ Borrar</button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
