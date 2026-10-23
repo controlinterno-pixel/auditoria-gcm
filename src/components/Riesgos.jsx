@@ -206,6 +206,25 @@ const calcularMitigacionRiesgo = (r) => {
   const mitigacion = Math.round(((expInh - expRes) / expInh) * 100);
   return Math.max(0, Math.min(100, mitigacion));
 };
+// Lectura del % de mitigación con los valores del riesgo: exposición = probabilidad × impacto, antes y después.
+const leerMitigacionRiesgo = (r) => {
+  const porcentaje = riesgoEnPorcentaje(r);
+  const pInh = r.probabilidadInherente ?? 60;
+  const iInh = r.impactoInherente ?? 60;
+  const pRes = r.probabilidadResidual ?? 15;
+  const iRes = r.impactoResidual ?? 30;
+  const numero = valor => Number(valor).toLocaleString('es-CO', { maximumFractionDigits: 2 });
+  const exposicion = (p, i) => (porcentaje ? `${numero(p)}% × ${numero(i)}% = ${numero((p * i) / 100)}%` : `${numero(p)} × ${numero(i)} = ${numero(p * i)} (de 25)`);
+  const mitigacion = calcularMitigacionRiesgo(r);
+  return {
+    mitigacion,
+    inherente: exposicion(pInh, iInh),
+    residual: exposicion(pRes, iRes),
+    lectura: mitigacion === 0
+      ? 'Los controles no reducen la exposición de este riesgo.'
+      : `Los controles eliminan el ${mitigacion}% de la exposición de este riesgo; queda el ${100 - mitigacion}%.`,
+  };
+};
 // 🏷️ COMPONENTE AUXILIAR EXTRACTO (Fuera del render para evitar recreación dinámica)
 const LabelConPalomita = ({ idCampo, dark, onAbrirAyuda }) => {
   const dataAyuda = EXPLICACIONES_CAMPOS[idCampo];
@@ -293,6 +312,7 @@ export default function Riesgos({
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas');
   const [filtroNivel, setFiltroNivel] = useState('Todos');
   const [filtroEstadoRiesgo, setFiltroEstadoRiesgo] = useState('Activos');
+  const [mitigacionAbierta, setMitigacionAbierta] = useState(null);
   const [filtroNivelDashboard, setFiltroNivelDashboard] = useState('Todos');
   const [matrizDashboardTipo, setMatrizDashboardTipo] = useState('residual');
   const [cuadranteDashboard, setCuadranteDashboard] = useState(null);
@@ -1651,7 +1671,7 @@ const renderMatriz = () => {
                 return (
                   <div
                     key={r.id || index}
-                    className={`overflow-hidden rounded-xl border border-l-[6px] bg-white transition-shadow duration-200 ${estaAnulado(r) ? 'opacity-70 grayscale' : ''} ${ACENTO_NIVEL_RESIDUAL[zoneRes.label] || 'border-l-slate-400'} ${
+                    className={`${String(mitigacionAbierta) === String(r.id) ? 'relative z-20 overflow-visible' : 'overflow-hidden'} rounded-xl border border-l-[6px] bg-white transition-shadow duration-200 ${estaAnulado(r) ? 'opacity-70 grayscale' : ''} ${ACENTO_NIVEL_RESIDUAL[zoneRes.label] || 'border-l-slate-400'} ${
                       isExpanded
                         ? 'border-purple-300 shadow-lg ring-2 ring-purple-200/70'
                         : 'border-slate-300 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:border-slate-400 hover:shadow-md'
@@ -1731,7 +1751,30 @@ const renderMatriz = () => {
                           <span className="text-xs font-black text-slate-900 block">{totalControles}</span>
                           <span className="text-[8px] text-slate-400 font-bold uppercase">Controles</span>
                         </div>
-<EficaciaGauge porcentaje={calcularMitigacionRiesgo(r)} />
+{(() => {
+  const abierta = String(mitigacionAbierta) === String(r.id);
+  const datosMitigacion = leerMitigacionRiesgo(r);
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') setMitigacionAbierta(null); }}>
+      <button type="button" onClick={() => setMitigacionAbierta(abierta ? null : r.id)} aria-expanded={abierta}
+        aria-label={`Mitigación ${datosMitigacion.mitigacion}%: ver qué significa`} title="Ver qué significa este porcentaje"
+        className="block cursor-pointer rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+        <EficaciaGauge porcentaje={datosMitigacion.mitigacion} />
+      </button>
+      {abierta && (
+        <div role="dialog" aria-label={`Mitigación de RSK-${r.id}`} className="absolute right-0 top-full z-30 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-3 text-left text-[11px] leading-snug text-slate-700 shadow-xl">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="font-black text-slate-900">Mitigación: {datosMitigacion.mitigacion}%</span>
+            <button type="button" onClick={() => setMitigacionAbierta(null)} aria-label="Cerrar" className="rounded px-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">✕</button>
+          </div>
+          <p><span className="text-slate-500">Exposición sin controles:</span> <strong>{datosMitigacion.inherente}</strong></p>
+          <p><span className="text-slate-500">Exposición con controles:</span> <strong>{datosMitigacion.residual}</strong></p>
+          <p className="mt-1.5 border-t border-slate-100 pt-1.5">{datosMitigacion.lectura}</p>
+        </div>
+      )}
+    </div>
+  );
+})()}
                       </div>
 
                       {/* ANÁLISIS IA */}
