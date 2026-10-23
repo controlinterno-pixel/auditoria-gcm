@@ -1049,7 +1049,8 @@ const handleRiesgoSubmit = async (e) => {
         anio: new Date().getFullYear(),
         mes: new Date().toLocaleString('es-ES', { month: 'long' }),
         historialCambios: editRiesgo 
-          ? [...(editRiesgo.historialCambios || []), ...historialPendienteFormulario, { fecha: ts, accion: 'Modificación con variables completas del manual' }]
+          // El servidor agrega la entrada con el detalle de cada campo modificado (antes y después).
+          ? [...(editRiesgo.historialCambios || []), ...historialPendienteFormulario]
           : [{ fecha: ts, accion: 'Creación manual con matriz completa' }]
       };
 
@@ -2250,6 +2251,49 @@ const renderMatriz = () => {
             {lectura.aviso && <p className="mt-1 text-amber-200">⚠️ {lectura.aviso}</p>}
           </div>
         </div>
+      );
+    })()}
+
+    {/* 🕑 HISTORIAL DE CAMBIOS DEL RIESGO Y SUS CONTROLES (más reciente primero) */}
+    {(() => {
+      const historial = (Array.isArray(r.historialCambios) ? r.historialCambios : []).filter(Boolean).slice().reverse();
+      return (
+        <details className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <summary className="cursor-pointer text-xs font-black uppercase tracking-wider text-slate-700">
+            🕑 Historial de cambios <span className="text-purple-600">({historial.length})</span>
+          </summary>
+          {historial.length === 0 ? (
+            <p className="mt-3 text-[11px] text-slate-500">Este riesgo no tiene cambios registrados.</p>
+          ) : (
+            <ol className="mt-3 space-y-2">
+              {historial.map((entrada, indice) => (
+                <li key={`${entrada.timestamp || entrada.fecha}-${indice}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-[11px] text-slate-700">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong className="text-slate-900">{entrada.accion}</strong>
+                    <span className="text-[10px] text-slate-500">{entrada.usuario || 'Sin usuario registrado'} · {entrada.fecha}</span>
+                  </div>
+                  {entrada.motivo && <p className="mt-1"><span className="text-slate-500">Motivo:</span> {entrada.motivo}</p>}
+                  {Array.isArray(entrada.cambios) && entrada.cambios.length > 0 && (
+                    <table className="mt-2 w-full border-collapse text-left text-[10px]">
+                      <thead className="text-slate-500">
+                        <tr><th className="py-1 pr-2 font-bold">Campo</th><th className="py-1 pr-2 font-bold">Antes</th><th className="py-1 font-bold">Después</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {entrada.cambios.map((cambio, posicion) => (
+                          <tr key={`${cambio.campo}-${posicion}`} className="align-top">
+                            <td className="py-1 pr-2 font-semibold text-slate-800">{cambio.campo}</td>
+                            <td className="py-1 pr-2 text-red-700 line-through decoration-red-300">{cambio.antes || '—'}</td>
+                            <td className="py-1 text-emerald-800">{cambio.despues || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </details>
       );
     })()}
   </div>

@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { calcularResiduales } from '../src/utils/explicacionControles.js';
 import { zonaSeveridad } from '../src/utils/nivelRiesgo.js';
 import { revisarControlesEliminados } from '../src/utils/anulacion.js';
+import { compararRiesgos, entradaDeCambios } from '../src/utils/historialRiesgo.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const moduleBody = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default ', '').replaceAll('export ', '');
@@ -118,7 +119,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const errors = [];
   const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
-    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados,
+    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios,
     applyCors: () => false,
     requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
@@ -639,6 +640,28 @@ test('tras migrar: el dueño anula controles (queda el historial) pero no puede 
 
   fixture.sesion.usuario = { uid: 'u1', email: 'auditor@example.test', rol: 'admin' };
   assert.equal((await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo] })).code, 200, 'el administrador puede borrar');
+});
+
+test('tras migrar: cada edición deja en el historial qué cambió, antes y después, con el usuario', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  const control = { descripcion: 'Conciliación', tipo: 'Preventivo', implementacion: 'Manual', frecuencia: 'Continua' };
+  const base = { ...riesgo(1), proceso: 'Operaciones', probabilidadInherente: 60, impactoInherente: 60, planAccionRiesgo: '' };
+  assert.equal((await fixture.riesgos('POST', { ...base, controlesDetallados: [control] })).code, 200);
+  const editar = await fixture.riesgos('POST', {
+    ...base, planAccionRiesgo: 'Conciliación mensual en Zeus', controlesDetallados: [{ ...control, frecuencia: 'Aleatoria' }, { descripcion: 'Revisión del jefe', tipo: 'Detectivo' }],
+  });
+  assert.equal(editar.code, 200, JSON.stringify(editar));
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  const ultima = data.riesgos.find(item => item.id === 1).historialCambios.at(-1);
+  assert.equal(ultima.usuario, 'controlinterno@example.test');
+  assert.deepEqual(ultima.cambios.map(cambio => cambio.campo), ['Probabilidad residual', 'Plan de acción', 'CTL-21 · Frecuencia', 'CTL-22 agregado']);
+  assert.deepEqual(ultima.cambios.find(cambio => cambio.campo === 'Probabilidad residual'), { campo: 'Probabilidad residual', antes: '36%', despues: '25%' });
+
+  const sinCambios = await fixture.riesgos('POST', { ...base, planAccionRiesgo: 'Conciliación mensual en Zeus', controlesDetallados: [{ ...control, frecuencia: 'Aleatoria' }, { descripcion: 'Revisión del jefe', tipo: 'Detectivo' }] });
+  assert.equal(sinCambios.code, 200);
+  const despues = (await fixture.workspace.leerWorkspaceGrc()).data.riesgos.find(item => item.id === 1).historialCambios;
+  assert.equal(despues.length, data.riesgos.find(item => item.id === 1).historialCambios.length, 'guardar sin cambios no agrega entradas');
 });
 
 test('sin migrar: el módulo Riesgos mantiene su comportamiento actual', async () => {

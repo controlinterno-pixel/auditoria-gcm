@@ -9,6 +9,7 @@ import { sanitizarUrls } from '../_lib/validation.js';
 import { calcularResiduales } from '../../src/utils/explicacionControles.js';
 import { zonaSeveridad } from '../../src/utils/nivelRiesgo.js';
 import { revisarControlesEliminados } from '../../src/utils/anulacion.js';
+import { compararRiesgos, entradaDeCambios } from '../../src/utils/historialRiesgo.js';
 import {
   eliminarRiesgoFragmentado, guardarRiesgoFragmentado, leerRiesgosVigentes, riesgosMigrados,
 } from '../_lib/grcWorkspace.js';
@@ -132,6 +133,14 @@ export default async function handler(req, res) {
           autorizar: existente => esAdministrador || riesgoDentroDelAlcancePropietario(existente, procesosAsignados, subprocesosAsignados),
           // Solo un administrador puede borrar controles guardados; los demás los anulan (queda el historial).
           validar: existente => (esAdministrador ? '' : revisarControlesEliminados(existente, documentoRiesgo)),
+          // Historial con el detalle de lo que cambió respecto a la versión guardada (quién, cuándo, antes y después).
+          completar: (actualizado, existente) => {
+            if (!existente) return actualizado;
+            const entrada = entradaDeCambios({ usuario: user.email, cambios: compararRiesgos(existente, actualizado) });
+            if (!entrada) return actualizado;
+            const historial = Array.isArray(actualizado.historialCambios) ? actualizado.historialCambios : [];
+            return { ...actualizado, historialCambios: [...historial, entrada] };
+          },
         });
         if (!resultado.autorizado) {
           logger.warn('Intento de modificar riesgo de otro proceso', { id, usuario: user.email, proceso });

@@ -186,7 +186,7 @@ export async function guardarListaRiesgosFragmentada(riesgosRecibidos, { reempla
  * Guarda un riesgo individual (módulo Riesgos). `autorizar(existente)` aplica los permisos sobre la
  * versión guardada. El nuevo contenido se fusiona sobre la existente (igual que set con merge).
  */
-export async function guardarRiesgoFragmentado(riesgo, { autorizar = () => true, validar = () => '' } = {}) {
+export async function guardarRiesgoFragmentado(riesgo, { autorizar = () => true, validar = () => '', completar = actualizado => actualizado } = {}) {
   return adminDb.runTransaction(async transaction => {
     const matriz = await leerMatrizRiesgosTx(transaction);
     if (!matriz) throw new Error('Los riesgos no están migrados.');
@@ -196,7 +196,8 @@ export async function guardarRiesgoFragmentado(riesgo, { autorizar = () => true,
     // Reglas de negocio sobre la versión guardada (p. ej. no borrar controles sin anularlos).
     const rechazo = existente ? validar(existente) : '';
     if (rechazo) return { autorizado: true, rechazo };
-    const actualizado = { ...(existente || {}), ...riesgo };
+    // `completar` recibe la versión guardada (p. ej. para registrar en el historial qué cambió).
+    const actualizado = completar({ ...(existente || {}), ...riesgo }, existente);
     const riesgos = [...matriz.riesgos];
     if (posicion === -1) riesgos.push(actualizado);
     else riesgos[posicion] = actualizado;
