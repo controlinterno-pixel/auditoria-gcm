@@ -1815,16 +1815,18 @@ const renderMatriz = () => {
                 const porcentajeDelMaximo = Math.round((valoracionControl.eficacia / valoracionControl.maximoPosible) * 100);
                 const queReduce = tipoControl === 'Correctivo' ? 'el impacto' : 'la probabilidad';
                 return (
-                  <div className="lg:border-l lg:border-slate-200 lg:pl-4" title={`Este control reduce ${queReduce} en ${valoracionControl.eficacia}%. Tiene ${valoracionControl.eficacia} de ${valoracionControl.maximoPosible} puntos posibles para un control ${tipoControl.toLowerCase()} (Tabla 6 del manual).`}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Reduce</p>
-                    <p className={`whitespace-nowrap text-2xl font-black tabular-nums leading-none ${tonoEficacia.texto}`}>{valoracionControl.eficacia}%</p>
-                    <p className="text-[10px] font-semibold text-slate-600">{queReduce}</p>
-                    <div className="mt-2 flex h-2 w-full max-w-[8rem] overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200" aria-hidden="true">
-                      <div className={`h-full ${tonoEficacia.barra}`} style={{ width: `${porcentajeDelMaximo}%` }}></div>
+                  <div className="lg:border-l lg:border-slate-200 lg:pl-4" title={`Diseño: ${porcentajeDelMaximo}% del máximo posible para su tipo. Este control reduce ${queReduce} en ${valoracionControl.eficacia}%. Tiene ${valoracionControl.eficacia} de ${valoracionControl.maximoPosible} puntos posibles para un control ${tipoControl.toLowerCase()} (Tabla 6 del manual).`}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Diseño del control</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-2.5 w-full max-w-[6rem] overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200" aria-hidden="true">
+                        <div className={`h-full ${tonoEficacia.barra}`} style={{ width: `${porcentajeDelMaximo}%` }}></div>
+                      </div>
+                      <span className={`whitespace-nowrap text-xl font-black tabular-nums leading-none ${tonoEficacia.texto}`}>{porcentajeDelMaximo}%</span>
                     </div>
-                    <p className="mt-1 whitespace-nowrap text-[9px] text-slate-500">
-                      <strong className="text-slate-700">{valoracionControl.eficacia}</strong> de {valoracionControl.maximoPosible} posibles · {porcentajeDelMaximo}% del máximo
+                    <p className="mt-1.5 text-[10px] leading-snug text-slate-600">
+                      Reduce <strong className={tonoEficacia.texto}>{valoracionControl.eficacia}%</strong> {queReduce}
                     </p>
+                    <p className="text-[9px] leading-snug text-slate-500">{valoracionControl.eficacia} de {valoracionControl.maximoPosible} puntos posibles</p>
                   </div>
                 );
               })()}
