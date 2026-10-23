@@ -16,7 +16,7 @@ import ModalIA from '../components/ModalIA';
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles, zonaSeveridad } from '../utils/nivelRiesgo.js';
 import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, validarMotivo, vigentes } from '../utils/anulacion.js';
 import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
-import { fechaEntradaHistorial } from '../utils/historialRiesgo.js';
+import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
@@ -1837,7 +1837,7 @@ const renderMatriz = () => {
                           {r.macroprocesos.join(', ') || 'Gestión Operativa'}
                         </p>
                         {estaAnulado(r) ? (
-                          <span className="inline-block mt-1 text-[8px] font-black uppercase text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300" title={r.anulacion ? `${r.anulacion.tipoMotivo}: ${r.anulacion.motivo} — ${r.anulacion.usuario}, ${r.anulacion.fecha}` : 'Anulado'}>
+                          <span className="inline-block mt-1 text-[8px] font-black uppercase text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300" title={r.anulacion ? `${r.anulacion.tipoMotivo}: ${r.anulacion.motivo} — ${r.anulacion.usuario}, ${fechaEntradaHistorial(r.anulacion)}` : 'Anulado'}>
                             Anulado
                           </span>
                         ) : (
@@ -2047,7 +2047,7 @@ const renderMatriz = () => {
                   </div>
                   {c.anulacion && (
                     <p className="mt-1 text-[11px]">
-                      <strong>{c.anulacion.tipoMotivo}:</strong> {c.anulacion.motivo} <span className="text-slate-400">— {c.anulacion.usuario}, {c.anulacion.fecha}. No cuenta en el residual.</span>
+                      <strong>{c.anulacion.tipoMotivo}:</strong> {c.anulacion.motivo} <span className="text-slate-400">— {c.anulacion.usuario}, {fechaEntradaHistorial(c.anulacion)}. No cuenta en el residual.</span>
                     </p>
                   )}
                 </div>
@@ -2983,7 +2983,7 @@ const renderMatriz = () => {
       Control {codigoControl(idx)} · Anulado
     </div>
     <p className="text-xs line-through">{ctrl.descripcion}</p>
-    {ctrl.anulacion && <p className="mt-1 text-[11px]"><strong>{ctrl.anulacion.tipoMotivo}:</strong> {ctrl.anulacion.motivo} — {ctrl.anulacion.usuario}, {ctrl.anulacion.fecha}.</p>}
+    {ctrl.anulacion && <p className="mt-1 text-[11px]"><strong>{ctrl.anulacion.tipoMotivo}:</strong> {ctrl.anulacion.motivo} — {ctrl.anulacion.usuario}, {fechaEntradaHistorial(ctrl.anulacion)}.</p>}
     <div className="mt-2 flex items-center justify-between gap-2">
       <p className="text-[10px]">No cuenta en el residual.</p>
       <button type="button" onClick={() => abrirAnulacionFormulario('reactivar', idx)}

@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect } from 'react';
+import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { renderHistorialSummary } from '../utils/historialCambios.js';
 import { useCatalogos } from '../context/useCatalogos';
@@ -2275,7 +2276,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                               <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-orange-400 rounded-l-xl" />
                               <div className="pl-3 space-y-1.5">
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">{log.fecha || 'Sin fecha'}</span>
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">{fechaEntradaHistorial(log)}</span>
                                   <span className="text-[9px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
                                     {typeof log.version !== 'undefined' ? `Versión ${log.version}` : `Cambio ${index + 1}`}
                                   </span>
@@ -2327,7 +2328,7 @@ const textoMostrar = `${nombreFuente}${textoNorma}`;
                                         <span className="font-black uppercase tracking-wider text-teal-700">Cambio:</span> {resumen}
                                       </div>
                                       <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Usuario:</span><span>{log.usuario || 'Sistema'}</span></div>
-                                      <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Fecha:</span><span>{log.fecha || 'Sin fecha'}</span></div>
+                                      <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Fecha:</span><span>{fechaEntradaHistorial(log)}</span></div>
                                       {typeof log.version !== 'undefined' && (
                                         <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Versión:</span><span>{log.version}</span></div>
                                       )}

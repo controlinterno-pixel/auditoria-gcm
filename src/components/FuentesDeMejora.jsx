@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import ModalNuevaFuente from './ModalNuevaFuente';
@@ -113,7 +114,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
     if (!Array.isArray(historial) || historial.length === 0) return false;
 
     const columnas = [
-      ['Fecha y hora', log => log.fecha || log.timestamp],
+      ['Fecha y hora', log => fechaEntradaHistorial(log)],
       ['Referencia de fuente', log => log.fuenteRef],
       ['Fuente', log => log.fuenteNombre],
       ['Tipo de fuente', log => log.fuenteTipo],
@@ -801,8 +802,8 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
                                   className={`cursor-pointer transition-colors ${isSelected ? 'bg-blue-50/30' : 'hover:bg-slate-50'}`}
                                 >
                                   <td className="p-4 align-top">
-                                    <span className="block font-bold text-slate-700">{log.fecha?.split(' ')[0] || 'N/A'}</span>
-                                    <span className="text-[10px] text-slate-400">{log.fecha?.split(' ')[1] || '---'}</span>
+                                    <span className="block font-bold text-slate-700">{fechaEntradaHistorial(log).split(', ')[0] || 'N/A'}</span>
+                                    <span className="text-[10px] text-slate-400">{fechaEntradaHistorial(log).split(', ')[1] || '---'}</span>
                                   </td>
                                   <td className="p-4 align-top">
                                     <div className="flex items-center gap-2">

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 export default function Trazabilidad({ safeRiesgos, safeEvaluaciones, safeHallazgos, safePlanes, safeIncidentes }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroModulo, setFiltroModulo] = useState('Todos');
@@ -14,12 +15,12 @@ export default function Trazabilidad({ safeRiesgos, safeEvaluaciones, safeHallaz
             modulo,
             icono,
             registro: `${prefijo}-${item.id}`,
-            fecha: log.fecha,
+            fecha: fechaEntradaHistorial(log),
             // Si el log no tiene usuario (porque es antiguo), muestra un texto por defecto
             usuario: log.usuario || 'Sistema / Versión Previa',
             accion: log.accion,
             // Parseo básico para ordenar (DD/MM/YYYY, HH:MM:SS)
-            timestamp: new Date(log.fecha.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$3-$2-$1')).getTime() || 0
+            timestamp: Date.parse(log.timestamp || '') || new Date(String(log.fecha || '').replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$3-$2-$1')).getTime() || 0
           });
         });
       }

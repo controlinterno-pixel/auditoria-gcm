@@ -87,9 +87,3 @@ export function entradaDeCambios({ usuario, cambios, ahora = new Date() }) {
     cambios,
   };
 }
-
-/** Fecha y hora de una entrada del historial en la hora del equipo; usa el registro exacto (timestamp) si existe. */
-export function fechaEntradaHistorial(entrada) {
-  const tiempo = Date.parse(entrada?.timestamp || '');
-  return Number.isFinite(tiempo) ? new Date(tiempo).toLocaleString('es-CO') : (entrada?.fecha || 'Sin fecha');
-}

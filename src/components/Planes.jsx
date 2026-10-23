@@ -1,4 +1,5 @@
 import { Fragment, useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { createPortal } from 'react-dom';
 import { BadgeCheck, CheckCircle2, ClipboardCheck, Play, Search, X } from 'lucide-react';
@@ -4874,7 +4875,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               {ev.puntaje}% ({ev.aprobado ? 'APROBADO' : 'RECHAZADO'})
                             </span>
                             <div className="truncate">
-                              <p className="font-bold text-slate-800 text-[11px]">{ev.fecha}</p>
+                              <p className="font-bold text-slate-800 text-[11px]">{fechaEntradaHistorial(ev)}</p>
                               {ev.justificacion && (
                                 <p className="text-[10px] text-slate-500 italic mt-0.5 truncate max-w-md">
                                   "{ev.justificacion}"
@@ -5397,7 +5398,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             <p className="text-[10px] text-slate-500 font-bold mt-1.5 flex items-center gap-1">
                               <span>👤 {log.usuario || 'Auditor GCM'}</span>
                               <span>•</span>
-                              <span>📅 {log.fecha}</span>
+                              <span>📅 {fechaEntradaHistorial(log)}</span>
                             </p>
                           </div>
                         </div>
