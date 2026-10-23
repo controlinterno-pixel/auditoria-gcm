@@ -12,7 +12,8 @@ import { consultarPanelIA } from '../services/aiEngine';
 import { armarPanelIA, contextoMatriz, contextoRiesgo } from '../utils/contextoIARiesgos.js';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
-import { nivelEscala, riesgoEnPorcentaje, zonaSeveridad } from '../utils/nivelRiesgo.js';
+import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles, zonaSeveridad } from '../utils/nivelRiesgo.js';
+import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl } from '../utils/explicacionControles.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
   .normalize('NFD')
@@ -193,38 +194,7 @@ const EficaciaGauge = ({ porcentaje = 75 }) => {
     </div>
   );
 };
-// 🧮 CALCULADORA METODOLÓGICA DE EFICACIA SEGÚN TABLA 6 DEL MANUAL DE RIESGOS (Termales de Santa Rosa de Cabal.)
-const calcularEficaciaControl = (c) => {
-  if (!c) return 75;
-  let score = 0;
-
-  // 1. Tipo (Preventivo: 25%, Detectivo: 15%, Correctivo: 10%)
-  const tipo = c.tipo || '';
-  if (tipo.includes('Detectivo')) score += 15;
-  else if (tipo.includes('Correctivo')) score += 10;
-  else score += 25; // Preventivo por defecto
-
-  // 2. Ejecución (Automático: 25%, Manual: 15%)
-  const ejecucion = c.implementacion || c.ejecucion || '';
-  if (ejecucion.includes('Automático')) score += 25;
-  else score += 15; // Manual por defecto
-
-  // 3. Documentación (Documentado: 15%, No documentado: 0%)
-  const doc = c.documentacion || '';
-  if (doc.includes('Documentado') && !doc.includes('No documentado')) score += 15;
-
-  // 4. Frecuencia (Continua: 10%, Aleatoria: 5%)
-  const freq = c.frecuencia || '';
-  if (freq.includes('Aleatoria') || freq.includes('Periódica')) score += 5;
-  else score += 10; // Continua / Permanente por defecto
-
-  // 5. Evidencia (Con registro: 10%, Sin registro: 0%)
-  const evi = c.evidencia || '';
-  if (evi.includes('Con') && !evi.includes('Sin')) score += 10;
-  else if (evi.includes('registro') || evi.includes('Trazable')) score += 10;
-
-  return Math.min(score, 100);
-};
+// 🧮 La eficacia de cada control (Tabla 6 del manual) se calcula en utils/explicacionControles.js.
 // 🧮 CALCULADORA DE PORCENTAJE GLOBAL DE MITIGACIÓN DEL RIESGO (DONUT GAUGE)
 const calcularMitigacionRiesgo = (r) => {
   // Reemplazamos || por ?? para que el 0 se respete matemáticamente
@@ -508,7 +478,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       const ef = calcularEficaciaControl(c);
       const despues = currP - (currP * (ef / 100));
       pasosP.push({
-        etiqueta: `C${lista.indexOf(c) + 1} (${c.tipo || 'Preventivo'})`,
+        codigo: codigoControl(lista.indexOf(c)),
+        etiqueta: `${codigoControl(lista.indexOf(c))} (${c.tipo || 'Preventivo'})`,
         eficacia: ef,
         antes: Math.round(currP * 100) / 100,
         despues: Math.round(despues * 100) / 100
@@ -525,7 +496,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       const ef = calcularEficaciaControl(c);
       const despues = currI - (currI * (ef / 100));
       pasosI.push({
-        etiqueta: `C${lista.indexOf(c) + 1} (Correctivo)`,
+        codigo: codigoControl(lista.indexOf(c)),
+        etiqueta: `${codigoControl(lista.indexOf(c))} (Correctivo)`,
         eficacia: ef,
         antes: Math.round(currI * 100) / 100,
         despues: Math.round(despues * 100) / 100
@@ -566,7 +538,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   const extraerNivelMatriz = (valor, eje, porcentaje) => {
     const texto = String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     const etiquetas = eje === 'probabilidad'
-      ? { rara: 1, 'rara vez': 1, improbable: 2, posible: 3, media: 3, probable: 4, alta: 4, 'casi seguro': 5, frecuente: 5 }
+      ? { 'muy baja': 1, rara: 1, 'rara vez': 1, baja: 2, improbable: 2, posible: 3, media: 3, probable: 4, alta: 4, 'muy alta': 5, 'casi seguro': 5, frecuente: 5 }
       : { insignificante: 1, leve: 1, menor: 2, moderado: 3, medio: 3, mayor: 4, alto: 4, catastrofico: 5, critico: 5 };
     if (etiquetas[texto]) return etiquetas[texto];
 
@@ -950,20 +922,9 @@ const handleRiesgoSubmit = async (e) => {
 
   const renderDashboard = () => {
     const niveles = ['Extremo', 'Alto', 'Moderado', 'Bajo'];
-    const probabilidades = [
-      { nivel: 1, etiqueta: 'Rara vez' },
-      { nivel: 2, etiqueta: 'Improbable' },
-      { nivel: 3, etiqueta: 'Posible' },
-      { nivel: 4, etiqueta: 'Probable' },
-      { nivel: 5, etiqueta: 'Casi seguro' },
-    ];
-    const impactos = [
-      { nivel: 5, etiqueta: 'Catastrófico' },
-      { nivel: 4, etiqueta: 'Mayor' },
-      { nivel: 3, etiqueta: 'Moderado' },
-      { nivel: 2, etiqueta: 'Menor' },
-      { nivel: 1, etiqueta: 'Insignificante' },
-    ];
+    // Escalas de las Tablas 2 y 3 del manual.
+    const probabilidades = ESCALA_PROBABILIDAD.map((etiqueta, indice) => ({ nivel: indice + 1, etiqueta }));
+    const impactos = ESCALA_IMPACTO.map((etiqueta, indice) => ({ nivel: indice + 1, etiqueta })).reverse();
     const mapaProcesosDashboard = Object.keys(MAPA_PROCESOS).length > 0 ? MAPA_PROCESOS : MAPA_PROCESOS_PREDETERMINADO;
     const riesgosNormalizados = safeRiesgos.map(riesgo => normalizarUbicacionRiesgo(riesgo, mapaProcesosDashboard));
     const procesosUnicos = [...new Set([...Object.keys(mapaProcesosDashboard), ...riesgosNormalizados.flatMap(riesgo => riesgo.macroprocesos)])]
@@ -991,11 +952,8 @@ const handleRiesgoSubmit = async (e) => {
       riesgoEnPorcentaje(riesgo),
     );
     const scoreRiesgo = riesgo => obtenerCoordenada(riesgo, 'probabilidad') * obtenerCoordenada(riesgo, 'impacto');
-    const nivelPorPuntaje = score => (score >= 16 ? 'Extremo' : score >= 10 ? 'Alto' : score >= 5 ? 'Moderado' : 'Bajo');
-    const nivelRiesgo = riesgo => {
-      const score = scoreRiesgo(riesgo);
-      return score >= 16 ? 'Extremo' : score >= 10 ? 'Alto' : score >= 5 ? 'Moderado' : 'Bajo';
-    };
+    // Zona según la matriz de calor del manual (Tabla 4), no por el producto P×I.
+    const nivelRiesgo = riesgo => zonaPorNiveles(obtenerCoordenada(riesgo, 'probabilidad'), obtenerCoordenada(riesgo, 'impacto'));
     const riesgosBaseDashboard = riesgosNormalizados.filter(riesgo => {
       const macroprocesos = riesgo.macroprocesos.length > 0 ? riesgo.macroprocesos : ['Sin proceso'];
       const subprocesos = filtroProceso === 'Todos'
@@ -1088,12 +1046,11 @@ const handleRiesgoSubmit = async (e) => {
       && new Date(`${riesgo.fechaSeguimiento}T23:59:59`) < new Date()
       && riesgo.estado !== 'Cerrado').length;
 
-    const colorCelda = puntaje => {
-      if (puntaje >= 16) return 'border-rose-400/45 bg-rose-950/75 text-rose-200 hover:bg-rose-900/80';
-      if (puntaje >= 10) return 'border-orange-400/40 bg-orange-950/65 text-orange-200 hover:bg-orange-900/75';
-      if (puntaje >= 5) return 'border-amber-400/40 bg-amber-950/55 text-amber-200 hover:bg-amber-900/70';
-      return 'border-emerald-400/35 bg-emerald-950/65 text-emerald-200 hover:bg-emerald-900/80';
-    };
+    const colorCelda = zona => ({
+      Extremo: 'border-rose-400/45 bg-rose-950/75 text-rose-200 hover:bg-rose-900/80',
+      Alto: 'border-orange-400/40 bg-orange-950/65 text-orange-200 hover:bg-orange-900/75',
+      Moderado: 'border-amber-400/40 bg-amber-950/55 text-amber-200 hover:bg-amber-900/70',
+    }[zona] || 'border-emerald-400/35 bg-emerald-950/65 text-emerald-200 hover:bg-emerald-900/80');
 
     const limpiarFiltrosDashboard = () => {
       setSearchTerm('');
@@ -1259,22 +1216,22 @@ const handleRiesgoSubmit = async (e) => {
                     <Fragment key={impacto.nivel}>
                       <div className="flex items-center justify-end pr-2 text-right text-[10px] font-semibold text-slate-300">{impacto.nivel} · {impacto.etiqueta}</div>
                       {probabilidades.map(probabilidad => {
-                        const puntaje = probabilidad.nivel * impacto.nivel;
                         const conteo = riesgosDashboard.filter(riesgo => obtenerCoordenada(riesgo, 'probabilidad') === probabilidad.nivel
                           && obtenerCoordenada(riesgo, 'impacto') === impacto.nivel).length;
                         const seleccionado = cuadranteDashboard?.probabilidad === probabilidad.nivel && cuadranteDashboard?.impacto === impacto.nivel;
-                        const fueraDelNivel = filtroNivelDashboard !== 'Todos' && nivelPorPuntaje(puntaje) !== filtroNivelDashboard;
+                        const zonaCelda = zonaPorNiveles(probabilidad.nivel, impacto.nivel);
+                        const fueraDelNivel = filtroNivelDashboard !== 'Todos' && zonaCelda !== filtroNivelDashboard;
                         return (
                           <button
                             type="button"
                             key={`${probabilidad.nivel}-${impacto.nivel}`}
                             aria-pressed={seleccionado}
-                            aria-label={`${conteo} riesgos; probabilidad ${probabilidad.etiqueta}; impacto ${impacto.etiqueta}; puntaje ${puntaje}`}
+                            aria-label={`${conteo} riesgos; probabilidad ${probabilidad.etiqueta}; impacto ${impacto.etiqueta}; zona ${zonaCelda}`}
                             onClick={() => setCuadranteDashboard(seleccionado ? null : { probabilidad: probabilidad.nivel, impacto: impacto.nivel })}
-                            className={`relative flex h-14 flex-col items-center justify-center rounded-md border text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-16 ${colorCelda(puntaje)} ${seleccionado ? 'z-10 ring-2 ring-white ring-offset-2 ring-offset-[#0B1730]' : ''} ${fueraDelNivel ? 'opacity-30' : ''}`}
+                            className={`relative flex h-14 flex-col items-center justify-center rounded-md border text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-16 ${colorCelda(zonaCelda)} ${seleccionado ? 'z-10 ring-2 ring-white ring-offset-2 ring-offset-[#0B1730]' : ''} ${fueraDelNivel ? 'opacity-30' : ''}`}
                           >
                             <span className="text-xl font-black tabular-nums leading-none">{conteo}</span>
-                            <span className="mt-1 text-[8px] font-semibold opacity-80">P×I {puntaje}</span>
+                            <span className="mt-1 text-[8px] font-semibold opacity-80">{zonaCelda}</span>
                           </button>
                         );
                       })}
@@ -1789,7 +1746,7 @@ const renderMatriz = () => {
 <p className="text-base font-black text-indigo-800">
   {listaControles.length > 0 
     ? `${Math.round(listaControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / listaControles.length)}%` 
-    : '80%'}
+    : '—'}
 </p>
         </div>
       </div>
@@ -1802,11 +1759,13 @@ const renderMatriz = () => {
           const tipoControl = c.tipo || 'Preventivo';
           const estiloTipo = ESTILO_TIPO_CONTROL[tipoControl] || ESTILO_TIPO_CONTROL.Correctivo;
           const eficacia = calcularEficaciaControl(c);
-          const tonoEficacia = eficacia >= 70
-            ? { texto: 'text-emerald-700', barra: 'bg-emerald-500' }
-            : eficacia >= 50
-              ? { texto: 'text-amber-700', barra: 'bg-amber-400' }
-              : { texto: 'text-red-700', barra: 'bg-red-500' };
+          // Verde: máximo de su tipo (automático); ámbar: manual, puede subir; rojo: le faltan atributos informativos.
+          const valoracionControl = explicarControl(c);
+          const tonoEficacia = !valoracionControl.formal
+            ? { texto: 'text-red-700', barra: 'bg-red-500' }
+            : valoracionControl.estado === 'maximo'
+              ? { texto: 'text-emerald-700', barra: 'bg-emerald-500' }
+              : { texto: 'text-amber-700', barra: 'bg-amber-400' };
           const documentado = c.documentacion === 'Documentado';
           const automatizado = c.implementacion === 'Automático';
           return (
@@ -1818,7 +1777,7 @@ const renderMatriz = () => {
               <div className="min-w-0 space-y-3">
                 <div className="flex items-start gap-3">
                   <span className="shrink-0 whitespace-nowrap rounded-md border border-emerald-900/20 bg-emerald-50 px-2 py-1 font-mono text-[11px] font-black text-[#0A3B32]">
-                    CTL-2{cIdx + 1}
+                    {codigoControl(cIdx)}
                   </span>
                   <p className="pt-0.5 text-[13px] font-semibold leading-snug text-slate-800">{c.descripcion}</p>
                 </div>
@@ -1854,10 +1813,10 @@ const renderMatriz = () => {
 
               {/* Eficacia: cifra en una sola línea con su barra */}
               <div className="lg:border-l lg:border-slate-200 lg:pl-4">
-                <p className="text-[10px] font-semibold text-slate-500">Eficacia</p>
+                <p className="text-[10px] font-semibold text-slate-500">Eficacia <span className="font-normal">(máx. 50%)</span></p>
                 <p className={`whitespace-nowrap text-xl font-black tabular-nums leading-tight ${tonoEficacia.texto}`}>{eficacia}%</p>
                 <div className="mt-1 h-1.5 w-full max-w-[7rem] overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-                  <div className={`h-full rounded-full ${tonoEficacia.barra}`} style={{ width: `${Math.min(100, Math.max(0, eficacia))}%` }}></div>
+                  <div className={`h-full rounded-full ${tonoEficacia.barra}`} style={{ width: `${Math.min(100, Math.max(0, (eficacia / 50) * 100))}%` }}></div>
                 </div>
               </div>
 
@@ -1899,6 +1858,31 @@ const renderMatriz = () => {
                   🤖 IA
                 </button>
               </div>
+
+              {/* 💬 Qué significa la eficacia de este control, según la Tabla 6 del manual y sus atributos */}
+              {(() => {
+                const explicacion = explicarControl(c);
+                const tono = !explicacion.formal
+                  ? 'border-red-200 bg-red-50/60 text-red-900'
+                  : explicacion.estado === 'maximo'
+                    ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900'
+                    : 'border-amber-200 bg-amber-50/60 text-amber-900';
+                return (
+                  <div className={`rounded-lg border p-3 text-[11px] leading-relaxed lg:col-span-3 ${tono}`}>
+                    <p><strong>💬 ¿Qué significa {explicacion.eficacia}%?</strong> {explicacion.resumen}</p>
+                    <p className="mt-1"><strong>Cómo se calcula:</strong> {explicacion.calculo} {explicacion.techo}</p>
+                    <p className="mt-1">{explicacion.formalizacion}</p>
+                    {explicacion.mejoras.length > 0 && (
+                      <div className="mt-1.5">
+                        <p className="font-bold">Para mejorarlo:</p>
+                        <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
+                          {explicacion.mejoras.map(mejora => <li key={mejora.texto}>{mejora.texto}: {mejora.efecto}.</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </li>
           );
         })
@@ -1913,6 +1897,7 @@ const renderMatriz = () => {
     </ul>
 {(() => {
       const exp = obtenerExplicacionCalculo(r);
+      const lectura = explicarCalculoResidual(exp, r);
       return (
         <div className="bg-[#0A3B32] text-white p-5 rounded-2xl border border-emerald-900 shadow-md space-y-4 mt-4">
           <div className="flex justify-between items-center border-b border-emerald-800/80 pb-3">
@@ -1955,9 +1940,8 @@ const renderMatriz = () => {
               )}
 
               <div className="bg-emerald-950/40 border border-emerald-800/50 p-2.5 rounded-lg text-[10px] text-emerald-200/90 leading-relaxed font-sans">
-                💡 <strong>¿Qué significa?</strong> {exp.probFinal === 0 
-                  ? `Con ${exp.totalPrevs} barrera(s) preventiva(s) simultáneas sobre un evento de baja frecuencia, la probabilidad real de ocurrencia es prácticamente nula.` 
-                  : `Las barreras preventivas lograron reducir la probabilidad de ocurrencia del ${exp.probInh}% inicial a un ${exp.probFinal}% actual.`}
+                <p className="font-bold text-emerald-300">💡 ¿Qué significa para este riesgo?</p>
+                {lectura.probabilidad.map(frase => <p key={frase} className="mt-1">{frase}</p>)}
               </div>
             </div>
 
@@ -1990,12 +1974,16 @@ const renderMatriz = () => {
               )}
 
               <div className="bg-emerald-950/40 border border-emerald-800/50 p-2.5 rounded-lg text-[10px] text-emerald-200/90 leading-relaxed font-sans">
-                💡 <strong>¿Qué significa?</strong> {exp.totalCorrects > 0 
-                  ? `Si las barreras preventivas fallan y el riesgo se materializa, la acción correctiva reduce la severidad del daño del ${exp.impInh}% al ${exp.impFinal}%.` 
-                  : `Si el riesgo llega a ocurrir, el impacto financiero/operativo será del ${exp.impInh}% (máximo inherente) al no tener controles de respuesta.`}
+                <p className="font-bold text-emerald-300">💡 ¿Qué significa para este riesgo?</p>
+                {lectura.impacto.map(frase => <p key={frase} className="mt-1">{frase}</p>)}
               </div>
             </div>
 
+          </div>
+
+          <div className="rounded-xl border border-emerald-700/60 bg-emerald-900/40 p-3 text-[11px] leading-relaxed text-emerald-100">
+            <p><strong className="text-emerald-300">📌 En resumen:</strong> {lectura.conclusion}</p>
+            {lectura.aviso && <p className="mt-1 text-amber-200">⚠️ {lectura.aviso}</p>}
           </div>
         </div>
       );
@@ -2046,7 +2034,7 @@ const renderMatriz = () => {
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
                 <div>
                   <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 block">Eficacia Total Calculada</span>
-                  <p className="text-[10px] text-emerald-700 font-medium mt-0.5">Ponderación según atributos del control</p>
+                  <p className="text-[10px] text-emerald-700 font-medium mt-0.5">Tipo + implementación (Tabla 6 del manual)</p>
                 </div>
                 <div className="text-right">
                   <span className="text-3xl font-black font-mono text-emerald-800">
@@ -2070,45 +2058,25 @@ const renderMatriz = () => {
                       </tr>
                     </thead>
 <tbody className="divide-y divide-slate-100 font-medium">
-                      <tr>
-                        <td className="p-2.5 font-bold text-slate-800">1. Tipo</td>
-                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.tipo || 'Preventivo'}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{(controlSeleccionadoIA.tipo || '').includes('Detectivo') ? '15%' : (controlSeleccionadoIA.tipo || '').includes('Correctivo') ? '10%' : '25%'}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="p-2.5 font-bold text-slate-800">2. Ejecución</td>
-                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.implementacion || 'Manual'}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{(controlSeleccionadoIA.implementacion || '').includes('Automático') ? '25%' : '15%'}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="p-2.5 font-bold text-slate-800">3. Documentación</td>
-                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.documentacion || 'Documentado'}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{(controlSeleccionadoIA.documentacion || '').includes('Documentado') && !(controlSeleccionadoIA.documentacion || '').includes('No documentado') ? '15%' : '0%'}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="p-2.5 font-bold text-slate-800">4. Frecuencia</td>
-                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.frecuencia || 'Continua'}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{(controlSeleccionadoIA.frecuencia || '').includes('Aleatoria') || (controlSeleccionadoIA.frecuencia || '').includes('Periódica') ? '5%' : '10%'}
-                        </td>
-                      </tr>
-                   <tr>
-                        <td className="p-2.5 font-bold text-slate-800">5. Evidencia</td>
-                        <td className="p-2.5 text-slate-600">
-                          {(controlSeleccionadoIA.evidencia || '').includes('Con') && !(controlSeleccionadoIA.evidencia || '').includes('Sin') 
-                            ? 'Con registro' 
-                            : (controlSeleccionadoIA.evidencia || 'Con registro')}
-                        </td>
-                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{((controlSeleccionadoIA.evidencia || '').includes('Con') && !(controlSeleccionadoIA.evidencia || '').includes('Sin')) || (controlSeleccionadoIA.evidencia || '').includes('Trazable') ? '10%' : '0%'}
-                        </td>
-                      </tr>
+                      {(() => {
+                        const desglose = desglosarEficaciaControl(controlSeleccionadoIA);
+                        return [
+                          ...desglose.factores.map((factor, indice) => (
+                            <tr key={factor.atributo}>
+                              <td className="p-2.5 font-bold text-slate-800">{indice + 1}. {factor.atributo}</td>
+                              <td className="p-2.5 text-slate-600">{factor.valor}</td>
+                              <td className="p-2.5 text-right font-mono font-bold text-emerald-700">+{factor.puntos}%</td>
+                            </tr>
+                          )),
+                          ...desglose.informativos.map((atributo, indice) => (
+                            <tr key={atributo.atributo}>
+                              <td className="p-2.5 font-bold text-slate-800">{indice + 3}. {atributo.atributo}</td>
+                              <td className={`p-2.5 ${atributo.cumple ? 'text-slate-600' : 'font-bold text-red-700'}`}>{atributo.valor}</td>
+                              <td className="p-2.5 text-right text-[10px] text-slate-500">Informativo (sin peso)</td>
+                            </tr>
+                          )),
+                        ];
+                      })()}
                     </tbody>                    
                   </table>
                 </div>
@@ -2117,7 +2085,7 @@ const renderMatriz = () => {
               {/* Nota metodológica */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[10px] text-slate-600 leading-relaxed">
                 <p className="font-bold text-slate-800 mb-1">📖 Regla del Manual de Riesgos (Termales de Santa Rosa de Cabal.):</p>
-                "Los controles Preventivos y Automáticos otorgan la ponderación más alta (+30% y +25%) debido a que atacan directamente la causa raíz del riesgo antes de que ocurra el evento."
+                Solo los atributos de eficiencia tienen peso: tipo (Preventivo 25%, Detectivo 15%, Correctivo 10%) e implementación (Automático 25%, Manual 15%). Documentación, frecuencia y evidencia son atributos informativos: no suman porcentaje, pero muestran si el control está formalizado y se puede verificar. Ejemplo del manual (Tabla 7): un control preventivo manual vale 40%.
               </div>
 
             </div>

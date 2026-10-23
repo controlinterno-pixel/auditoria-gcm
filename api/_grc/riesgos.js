@@ -6,6 +6,8 @@ import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { sanitizarUrls } from '../_lib/validation.js';
+import { calcularResiduales } from '../../src/utils/explicacionControles.js';
+import { zonaSeveridad } from '../../src/utils/nivelRiesgo.js';
 import {
   eliminarRiesgoFragmentado, guardarRiesgoFragmentado, leerRiesgosVigentes, riesgosMigrados,
 } from '../_lib/grcWorkspace.js';
@@ -53,75 +55,16 @@ const riesgoDentroDelAlcancePropietario = (riesgo, procesosAsignados, subproceso
   ));
 };
 
-// 📊 Tabla 4 del Manual: Matriz de Calor Oficial
-const MATRIZ_CALOR_MANUAL = {
-  100: { 20: 'Alto',     40: 'Alto',     60: 'Alto',     80: 'Alto',  100: 'Extremo' },
-  80:  { 20: 'Moderado', 40: 'Moderado', 60: 'Alto',     80: 'Alto',  100: 'Extremo' },
-  60:  { 20: 'Moderado', 40: 'Moderado', 60: 'Moderado', 80: 'Alto',  100: 'Extremo' },
-  40:  { 20: 'Bajo',     40: 'Moderado', 60: 'Moderado', 80: 'Alto',  100: 'Extremo' },
-  20:  { 20: 'Bajo',     40: 'Bajo',     60: 'Moderado', 80: 'Alto',  100: 'Extremo' }
-};
-
-/**
- * Calcula la eficacia del control según los atributos de la Tabla 6 del Manual
- */
-function calcularEficaciaControl(c) {
-  if (!c) return 75;
-  let score = 0;
-
-  // 1. Tipo
-  const tipo = c.tipo || 'Preventivo';
-  if (tipo.includes('Detectivo')) score += 15;
-  else if (tipo.includes('Correctivo')) score += 10;
-  else score += 25; // Preventivo
-
-  // 2. Ejecución
-  const ejecucion = c.implementacion || c.ejecucion || 'Manual';
-  if (ejecucion.includes('Automático')) score += 25;
-  else score += 15; // Manual
-
-  // 3. Documentación
-  const doc = c.documentacion || '';
-  if (doc.includes('Documentado') && !doc.includes('No documentado') && !doc.includes('Sin')) score += 15;
-
-  // 4. Frecuencia
-  const freq = c.frecuencia || '';
-  if (freq.includes('Aleatoria') || freq.includes('Periódica')) score += 5;
-  else score += 10; // Continua / Permanente
-
-  // 5. Evidencia
-  const evi = c.evidencia || '';
-  if ((evi.includes('Con') && !evi.includes('Sin')) || evi.includes('registro') || evi.includes('Trazable')) score += 10;
-
-  return Math.min(score, 100);
-}
-
-/**
- * Calcula la mitigación acumulativa (Tabla 8 del Manual)
- */
+// Eficacia (Tabla 6) y mitigación acumulativa (Tabla 8): la misma regla que usa la matriz en el navegador.
 function calcularResidualesServidor(probInh, impInh, controles = []) {
-  let currP = Number(probInh) || 60;
-  let currI = Number(impInh) || 60;
-
-  controles.forEach(c => {
-    const eficaciaPct = calcularEficaciaControl(c) / 100;
-    const tipo = c.tipo || 'Preventivo';
-
-    if (tipo.includes('Correctivo')) {
-      currI = currI - (currI * eficaciaPct);
-    } else {
-      currP = currP - (currP * eficaciaPct);
-    }
-  });
-
-  const probResidual = Math.max(Math.round(currP), 0);
-  const impResidual = Math.max(Math.round(currI), 0);
+  const { probabilidadResidual: probResidual, impactoResidual: impResidual } = calcularResiduales(probInh, impInh, controles);
 
   return {
     probabilidadResidual: probResidual,
     impactoResidual: impResidual,
-    nivelInherente: MATRIZ_CALOR_MANUAL[probInh]?.[impInh] || 'Moderado',
-    nivelResidual: MATRIZ_CALOR_MANUAL[probResidual]?.[impResidual] || 'Bajo'
+    // Tabla 4 del manual con rangos: un residual de 25 % es probabilidad Baja (antes no encontraba fila y quedaba "Bajo").
+    nivelInherente: zonaSeveridad(probInh, impInh, true).label,
+    nivelResidual: zonaSeveridad(probResidual, impResidual, true).label,
   };
 }
 

@@ -6,6 +6,8 @@ import * as alcance from '../api/_lib/assignmentScope.js';
 import * as validacion from '../api/_lib/validation.js';
 import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
 import { randomUUID } from 'node:crypto';
+import { calcularResiduales } from '../src/utils/explicacionControles.js';
+import { zonaSeveridad } from '../src/utils/nivelRiesgo.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const moduleBody = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default ', '').replaceAll('export ', '');
@@ -115,7 +117,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const errors = [];
   const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
-    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb,
+    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad,
     applyCors: () => false,
     requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),

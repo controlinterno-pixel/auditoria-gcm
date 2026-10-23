@@ -6,32 +6,7 @@ import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
 import { useDataFetching } from '../hooks/useDataFetching';
 import { apiService } from '../services/apiService';
-
-// 🧮 CALCULADORA METODOLÓGICA DE EFICACIA DEL CONTROL (TABLA 6 MANUAL GRC)
-const calcularEficaciaControl = (c) => {
-  if (!c) return 75;
-  let score = 0;
-  const tipo = c.tipo || '';
-  if (tipo.includes('Detectivo')) score += 15;
-  else if (tipo.includes('Correctivo')) score += 10;
-  else score += 25;
-
-  const ejecucion = c.implementacion || c.ejecucion || '';
-  if (ejecucion.includes('Automático')) score += 25;
-  else score += 15;
-
-  const doc = c.documentacion || '';
-  if (doc.includes('Documentado') && !doc.includes('No documentado')) score += 15;
-
-  const freq = c.frecuencia || '';
-  if (freq.includes('Aleatoria') || freq.includes('Periódica')) score += 5;
-  else score += 10;
-
-  const evi = c.evidencia || '';
-  if ((evi.includes('Con') && !evi.includes('Sin')) || evi.includes('Trazable')) score += 10;
-
-  return Math.min(score, 100);
-};
+import { calcularEficaciaControl } from '../utils/explicacionControles.js';
 
 export default function Evaluaciones({
   isAdmin = false,

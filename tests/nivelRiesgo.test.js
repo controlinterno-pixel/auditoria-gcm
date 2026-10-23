@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { nivelEscala, riesgoEnPorcentaje, zonaSeveridad, zonasRiesgo } from '../src/utils/nivelRiesgo.js';
+import { nivelEscala, riesgoEnPorcentaje, zonaPorNiveles, zonaSeveridad, zonasRiesgo } from '../src/utils/nivelRiesgo.js';
 
 test('riesgo en porcentaje: un residual pequeño es nivel 1, no nivel 4', () => {
   const riesgo = { probabilidadInherente: 20, impactoInherente: 60, probabilidadResidual: 4, impactoResidual: 60 };
   assert.equal(riesgoEnPorcentaje(riesgo), true);
-  assert.equal(zonasRiesgo(riesgo).residual.label, 'Bajo');
+  // Probabilidad Muy baja (4 %) con impacto Moderado (60 %): Tabla 4 del manual = Moderado.
+  assert.equal(zonasRiesgo(riesgo).residual.label, 'Moderado');
   // Antes se leía P=4 como nivel 4 e I=60 como nivel 3: "Alto".
   assert.equal(zonaSeveridad(4, 60).label, 'Alto');
 });
@@ -24,4 +25,20 @@ test('niveles por porcentaje y casos límite', () => {
   assert.equal(zonasRiesgo({ probabilidadInherente: 80, impactoInherente: 100, probabilidadResidual: 24, impactoResidual: 60 }).inherente.label, 'Extremo');
   assert.equal(zonasRiesgo({ probabilidadInherente: 80, impactoInherente: 100, probabilidadResidual: 24, impactoResidual: 60 }).residual.label, 'Moderado');
   assert.equal(zonasRiesgo({}).residual.label, 'Bajo');
+});
+
+test('Tabla 4 del manual: las 25 celdas de la matriz de calor', () => {
+  // Filas: probabilidad Muy alta → Muy baja. Columnas: impacto Leve → Catastrófico.
+  const manual = {
+    5: ['Alto', 'Alto', 'Alto', 'Alto', 'Extremo'],
+    4: ['Moderado', 'Moderado', 'Alto', 'Alto', 'Extremo'],
+    3: ['Moderado', 'Moderado', 'Moderado', 'Alto', 'Extremo'],
+    2: ['Bajo', 'Moderado', 'Moderado', 'Alto', 'Extremo'],
+    1: ['Bajo', 'Bajo', 'Moderado', 'Alto', 'Extremo'],
+  };
+  for (const [p, fila] of Object.entries(manual)) {
+    fila.forEach((zona, columna) => assert.equal(zonaPorNiveles(Number(p), columna + 1), zona, `P${p} I${columna + 1}`));
+  }
+  // Ejemplo de la Tabla 8 / Figura 10: residual 25,2 % (Baja) con impacto 80 % (Mayor) = Alto.
+  assert.equal(zonaSeveridad(25.2, 80, true).label, 'Alto');
 });

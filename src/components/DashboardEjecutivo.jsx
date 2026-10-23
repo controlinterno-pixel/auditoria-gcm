@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { formatSafeDate } from '../utils/helpers';
+import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles } from '../utils/nivelRiesgo.js';
 import { generarDictamenEjecutivo } from '../services/aiEngine';
 import { toPng } from 'html-to-image';
 import { generarPDFEjecutivo } from '../services/pdfEngine';
@@ -116,6 +117,25 @@ const extraerNumeroPuro = (valor) => {
   return 1;
 };
 
+// Nivel 1–5 del residual de un riesgo. Un porcentaje se lee por rangos (≤20 % = 1, 21–40 % = 2…), no por su
+// primer dígito; los textos de escala ("Media", "Mayor"…) se siguen reconociendo.
+const nivelDe = (valor, porcentaje) => {
+  const numero = Number(String(valor ?? '').replace('%', '').replace(',', '.').trim());
+  return String(valor ?? '').trim() !== '' && Number.isFinite(numero) ? nivelEscala(numero, porcentaje) : (extraerNumeroPuro(valor) || 1);
+};
+const nivelesResiduales = riesgo => {
+  const porcentaje = riesgoEnPorcentaje(riesgo);
+  const p = nivelDe(riesgo.probabilidadResidual, porcentaje);
+  const i = nivelDe(riesgo.impactoResidual, porcentaje);
+  return { p, i, zona: zonaPorNiveles(p, i) };
+};
+const COLOR_ZONA_CELDA = {
+  Extremo: 'bg-red-500/30 text-red-400 border-red-500/50',
+  Alto: 'bg-orange-500/30 text-orange-400 border-orange-500/40',
+  Moderado: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  Bajo: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+};
+
 export default function DashboardEjecutivo({
   riesgos, hFiltrados, hallazgos, planes,
   cFiltrados, cronograma, informesAuditoria, safeIncidentes,
@@ -176,12 +196,12 @@ export default function DashboardEjecutivo({
 
     let rExtremos = 0, rAltos = 0, rModerados = 0, rBajos = 0;
     rBase.forEach(r => {
-      const p = extraerNumeroPuro(r.probabilidadResidual);
-      const i = extraerNumeroPuro(r.impactoResidual);
-      if (p >= 4 && i >= 4) { rExtremos++; } 
-      else if ((p >= 3 && i >= 4) || (p >= 4 && i >= 3)) { rAltos++; } 
-      else if ((p >= 2 && i >= 3) || (p >= 3 && i >= 2) || (p >= 2 && i >= 2)) { rModerados++; } 
-      else { rBajos++; }
+      // Zona residual según la matriz de calor del manual (Tabla 4).
+      const { zona } = nivelesResiduales(r);
+      if (zona === 'Extremo') rExtremos++;
+      else if (zona === 'Alto') rAltos++;
+      else if (zona === 'Moderado') rModerados++;
+      else rBajos++;
     });
 
     const totEval = eBase.length;
@@ -200,11 +220,11 @@ export default function DashboardEjecutivo({
   // Extraemos las variables para no romper tu diseño visual
   const { infoFinancieraLimpia, rBase: riesgosBase, hBase: hallazgosBase, pBase: planesBase, totPlanes: totalPlanes, planActivos: planesActivos, planVencidos: planesVencidos, avanceGlobal: avancePlanesGlobal, hAbiertos: hallazgosAbiertos, hCriticosCount: hallazgosCriticosCount, totRiesgos: totalRiesgos, rExtremos: riesgosExtremos, rAltos: riesgosAltos, rModerados: riesgosModerados, rBajos: riesgosBajos, efectGlobal: efectividadControlesGlobal } = metricas;
     const contarRiesgosEnCelda = (p, i) => {
-    return riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === p && extraerNumeroPuro(r.impactoResidual) === i).length;
+    return riesgosBase.filter(r => nivelesResiduales(r).p === p && nivelesResiduales(r).i === i).length;
   };
 
   const riesgosFiltradosPorMatriz = matrizFiltro 
-    ? riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === matrizFiltro.p && extraerNumeroPuro(r.impactoResidual) === matrizFiltro.i)
+    ? riesgosBase.filter(r => nivelesResiduales(r).p === matrizFiltro.p && nivelesResiduales(r).i === matrizFiltro.i)
     : riesgosBase.slice(0, 5);
 
   const planesVencidosList = planesBase
@@ -339,8 +359,9 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
 
   const trendData = ultimos6Meses.map(mInfo => {
      const riesgosMes = riesgosBase.filter(r => r.mes === mInfo.nombreLargo);
-     const crit = riesgosMes.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
-     const med = riesgosMes.filter(r => { const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual); return score >= 6 && score < 16; }).length;
+     // Críticos = Extremo o Alto (requieren plan de acción, numeral 9); medios = Moderado.
+     const crit = riesgosMes.filter(r => ['Extremo', 'Alto'].includes(nivelesResiduales(r).zona)).length;
+     const med = riesgosMes.filter(r => nivelesResiduales(r).zona === 'Moderado').length;
      const baj = riesgosMes.length - crit - med;
      return { mes: mInfo.nombre, crit, med, baj };
   });
@@ -573,17 +594,13 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
           <div tabIndex={0} role="region" aria-label="Matriz de riesgos: desplaza horizontalmente para ver todas las celdas" className="min-w-0 overflow-x-auto">
             <div className="min-w-[480px] flex flex-col space-y-1">
               {[5, 4, 3, 2, 1].map((impactoLvl) => {
-                const etiquetasY = ["", "Insignificante", "Menor", "Moderado", "Mayor", "Catastrófico"];
+                const etiquetasY = ['', ...ESCALA_IMPACTO];
                 return (
                   <div key={`row-${impactoLvl}`} className="flex items-center space-x-1 h-12">
                     <span className="w-24 shrink-0 text-[10px] font-bold text-slate-400 text-right pr-2 truncate">{impactoLvl} {etiquetasY[impactoLvl]}</span>
                     {[1, 2, 3, 4, 5].map((probLvl) => {
                       const cant = contarRiesgosEnCelda(probLvl, impactoLvl);
-                      let colorCelda = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"; 
-                      const score = probLvl * impactoLvl;
-                      if (score >= 5 && score <= 9) colorCelda = "bg-amber-500/20 text-amber-400 border-amber-500/30";
-                      else if (score >= 10 && score <= 15) colorCelda = "bg-orange-500/30 text-orange-400 border-orange-500/40";
-                      else if (score >= 16) colorCelda = "bg-red-500/30 text-red-400 border-red-500/50";
+                      const colorCelda = COLOR_ZONA_CELDA[zonaPorNiveles(probLvl, impactoLvl)];
 return (
 <button 
     type="button"
@@ -599,7 +616,7 @@ return (
                 );
               })}
               <div className="flex items-center space-x-1 pt-1 pl-24 text-center">
-                {["1 Rara vez", "2 Improbable", "3 Posible", "4 Probable", "5 Casi seguro"].map((probText, idx) => (
+                {ESCALA_PROBABILIDAD.map((etiqueta, idx) => `${idx + 1} ${etiqueta}`).map((probText, idx) => (
                   <span key={`prob-lbl-${idx}`} className="flex-1 text-[9px] font-bold text-slate-500 truncate">{probText}</span>
                 ))}
               </div>
@@ -1011,9 +1028,7 @@ return (
             <p className="text-xs font-medium text-slate-500 py-4 text-center">No se registran riesgos mapeados en esta coordenada exacta.</p>
           ) : (
             riesgosFiltradosPorMatriz.map((r, idx) => {
-              const pRes = extraerNumeroPuro(r.probabilidadResidual) || 1;
-              const iRes = extraerNumeroPuro(r.impactoResidual) || 1;
-              const score = pRes * iRes;
+              const { zona } = nivelesResiduales(r);
               return (
                 <div key={`risk-row-${idx}`} className="bg-[#060b16] border border-slate-800/80 p-3 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-slate-700 transition-all">
                   <div className="flex items-start space-x-3">
@@ -1032,7 +1047,7 @@ return (
                   </div>
                   <div className="flex items-center space-x-4 text-right self-end sm:self-auto">
                     <div className="text-[10px] font-bold text-slate-400">P: <span className="text-slate-200">{r.probabilidadResidual || 1}</span> / I: <span className="text-slate-200">{r.impactoResidual || 1}</span></div>
-                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase ${score >= 16 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : score >= 10 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} font-mono`}>SCORE {score}</span>
+                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase ${COLOR_ZONA_CELDA[zona]} border font-mono`}>{zona}</span>
                   </div>
                 </div>
               );

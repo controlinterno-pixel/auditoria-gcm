@@ -2,6 +2,8 @@ import { FieldValue, Filter } from 'firebase-admin/firestore';
 import { adminDb } from './firebaseAdmin.js';
 import { logger } from './logger.js';
 import { crearLectorGrupos, informeEnProcesos, informesLegadosEliminados, nombreAgrupable } from './coleccionesAgrupadas.js';
+import { calcularResiduales } from '../../src/utils/explicacionControles.js';
+import { riesgoEnPorcentaje, zonaSeveridad } from '../../src/utils/nivelRiesgo.js';
 
 // 📊 Cada documento devuelto por Firestore cuenta como una lectura facturable (incluye Admin SDK).
 const registrarLecturas = (origen, documentos, inicio, transaccion = false) => {
@@ -332,6 +334,66 @@ export async function limpiarRiesgosLegados({ ejecutar = false, faltantesConfirm
     }
     snapshotRaiz.docs.forEach(documento => transaction.delete(documento.ref));
     return { ...reporte, estado: 'limpiado' };
+  });
+}
+
+/**
+ * Recalcula el residual de toda la matriz con la regla del manual (Tabla 6: solo tipo e implementación;
+ * Tabla 8: mitigación acumulativa; Tabla 4: zona). Solo cambia probabilidad/impacto residual y las zonas.
+ * - Solo riesgos en porcentaje con controles estructurados; los demás se reportan y no se tocan.
+ * - Cada riesgo modificado deja una entrada en su historialCambios con los valores anteriores.
+ * - `ejecutar: false` (por defecto) solo simula. Idempotente: si ya coincide, no lo modifica.
+ */
+export async function recalcularResidualesMatriz({ ejecutar = false, usuario = '' } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const matriz = await leerMatrizRiesgosTx(transaction);
+    if (!matriz) throw new Error('Los riesgos no están migrados.');
+    const ahora = new Date();
+    const cambios = [];
+    const omitidos = { sinControlesEstructurados: 0, escalaEnNiveles: 0 };
+    const zonas = riesgo => ({
+      inherente: zonaSeveridad(riesgo.probabilidadInherente, riesgo.impactoInherente, true).label,
+      residual: zonaSeveridad(riesgo.probabilidadResidual, riesgo.impactoResidual, true).label,
+    });
+    const resultado = matriz.riesgos.map(riesgo => {
+      if (!riesgoEnPorcentaje(riesgo)) { omitidos.escalaEnNiveles += 1; return riesgo; }
+      const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
+      if (controles.length === 0) { omitidos.sinControlesEstructurados += 1; return riesgo; }
+      const nuevos = calcularResiduales(riesgo.probabilidadInherente, riesgo.impactoInherente, controles);
+      if (Number(riesgo.probabilidadResidual) === nuevos.probabilidadResidual && Number(riesgo.impactoResidual) === nuevos.impactoResidual) return riesgo;
+      const antes = { probabilidad: riesgo.probabilidadResidual, impacto: riesgo.impactoResidual, zona: zonas(riesgo).residual };
+      const actualizado = { ...riesgo, ...nuevos };
+      const despues = { probabilidad: nuevos.probabilidadResidual, impacto: nuevos.impactoResidual, zona: zonas(actualizado).residual };
+      cambios.push({ id: String(riesgo.id), proceso: riesgo.macroproceso || riesgo.proceso || '', antes, despues });
+      return {
+        ...actualizado,
+        nivelInherente: zonas(actualizado).inherente,
+        nivelResidual: despues.zona,
+        historialCambios: [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []), {
+          fecha: ahora.toLocaleString('es-CO'),
+          timestamp: ahora.toISOString(),
+          usuario,
+          accion: 'Recálculo del residual según el Manual de Riesgos E-GE-MAN-001 (Tabla 6: solo tipo e implementación pesan; Tabla 4: matriz de calor)',
+          antes,
+          despues,
+        }],
+      };
+    });
+
+    const contar = lista => lista.reduce((conteo, zona) => ({ ...conteo, [zona]: (conteo[zona] || 0) + 1 }), {});
+    const reporte = {
+      estado: ejecutar ? 'recalculado' : 'simulacion',
+      riesgosTotales: matriz.riesgos.length,
+      riesgosConCambio: cambios.length,
+      cambianDeZona: cambios.filter(cambio => cambio.antes.zona !== cambio.despues.zona).length,
+      omitidos,
+      zonaResidualAntes: contar(matriz.riesgos.map(riesgo => zonas(riesgo).residual)),
+      zonaResidualDespues: contar(resultado.map(riesgo => zonas(riesgo).residual)),
+      cambios,
+    };
+    if (ejecutar && cambios.length > 0) escribirRiesgosTx(transaction, resultado, matriz.indice);
+    if (ejecutar && cambios.length === 0) reporte.estado = 'sin-cambios';
+    return reporte;
   });
 }
 

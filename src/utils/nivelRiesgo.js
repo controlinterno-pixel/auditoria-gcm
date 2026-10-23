@@ -20,13 +20,30 @@ export function nivelEscala(valor, porcentaje) {
   return Math.min(5, Math.max(1, nivel));
 }
 
+// Manual de Riesgos (E-GE-MAN-001), Tablas 2 y 3: nombres de cada nivel 1–5 (20 %, 40 %, 60 %, 80 %, 100 %).
+// Un porcentaje intermedio (p. ej. un residual de 25,2 %) cae en el rango del nivel: ≤20 % = 1, 21–40 % = 2…
+export const ESCALA_PROBABILIDAD = ['Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta'];
+export const ESCALA_IMPACTO = ['Leve', 'Menor', 'Moderado', 'Mayor', 'Catastrófico'];
+
+// Manual de Riesgos, Tabla 4 (matriz de calor): con impacto Catastrófico el riesgo es Extremo y con impacto
+// Mayor es Alto en cualquier probabilidad; con probabilidad Muy alta es Alto; el resto según la tabla.
+export function zonaPorNiveles(p, i) {
+  if (i >= 5) return 'Extremo';
+  if (i === 4 || p >= 5 || (p === 4 && i === 3)) return 'Alto';
+  if ((p <= 1 && i <= 2) || (p === 2 && i <= 1)) return 'Bajo';
+  return 'Moderado';
+}
+
+const COLOR_ZONA = {
+  Extremo: 'bg-red-600 text-white',
+  Alto: 'bg-orange-500 text-white',
+  Moderado: 'bg-amber-400 text-slate-900',
+  Bajo: 'bg-emerald-500 text-white',
+};
+
 export function zonaSeveridad(prob, imp, porcentaje) {
-  const p = nivelEscala(prob, porcentaje);
-  const i = nivelEscala(imp, porcentaje);
-  if (p >= 4 && i >= 4) return { label: 'Extremo', color: 'bg-red-600 text-white' };
-  if ((p >= 3 && i >= 4) || (p >= 4 && i >= 3)) return { label: 'Alto', color: 'bg-orange-500 text-white' };
-  if (p >= 2 && i >= 2) return { label: 'Moderado', color: 'bg-amber-400 text-slate-900' };
-  return { label: 'Bajo', color: 'bg-emerald-500 text-white' };
+  const label = zonaPorNiveles(nivelEscala(prob, porcentaje), nivelEscala(imp, porcentaje));
+  return { label, color: COLOR_ZONA[label] };
 }
 
 export function zonasRiesgo(riesgo) {
