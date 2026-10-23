@@ -27,6 +27,9 @@ export function indiceAgrupado(datosWorkspace, coleccion) {
     indice.partes >= 1 && indice.partes <= MAX_PARTES_GRUPO ? indice : null;
 }
 
+/** Tras la limpieza (etapa 4) el documento `base_de_datos_grc_informes` ya no existe ni se lee. */
+export const informesLegadosEliminados = datosWorkspace => Boolean(indiceAgrupado(datosWorkspace, 'informes')?.legadoEliminadoEn);
+
 // Asignación estable de cada registro a una parte según su ID (misma fórmula que los riesgos).
 export const parteDeRegistro = (id, partes) => {
   let hash = 0;
@@ -285,6 +288,86 @@ export async function agruparColecciones({ ejecutar = false, usuario = '', colec
       indice[coleccion] = { version: 1, partes: plan.partes, registros, migradoEn, migradoPor: usuario };
     });
     transaction.set(raizRef(), { coleccionesAgrupadas: indice }, { merge: true });
+    return reporte;
+  });
+}
+
+// =============================================================================
+// 🧹 ETAPA 4: LIMPIEZA DE LAS COPIAS ANTIGUAS
+// Borra las subcolecciones (respaldo congelado desde la copia), los campos legados del documento
+// principal y, con informes, el documento `base_de_datos_grc_informes`.
+// - Solo actúa sobre colecciones agrupadas con todas sus partes presentes.
+// - Cada registro antiguo debe existir en las partes. Si falta alguno (p. ej. se eliminó después de la
+//   copia), no se borra nada de esa colección salvo que esos IDs se confirmen explícitamente.
+// - `ejecutar: false` (por defecto) solo simula. Idempotente. Todo en una transacción.
+// =============================================================================
+const LEGADOS_PRINCIPAL = { planes: ['planes', 'planesAccion'], hallazgos: ['hallazgos'], informes: ['informesAuditoria'] };
+const MAX_ESCRITURAS_LIMPIEZA = 450;
+
+export async function limpiarColeccionesLegadas({ ejecutar = false, colecciones = COLECCIONES_AGRUPABLES, faltantesConfirmados = {}, usuario = '' } = {}) {
+  const solicitadas = COLECCIONES_AGRUPABLES.filter(coleccion => colecciones.includes(coleccion));
+  if (solicitadas.length === 0) throw new Error('No se indicó ninguna colección válida (planes, hallazgos, informes).');
+
+  return adminDb.runTransaction(async transaction => {
+    const snapshotRaiz = await transaction.get(raizRef());
+    const datosRaiz = snapshotRaiz.exists ? snapshotRaiz.data() || {} : {};
+    const refInformesLegados = adminDb.collection('workspace_compartido').doc('base_de_datos_grc_informes');
+    const snapshotInformesLegados = solicitadas.includes('informes') && !informesLegadosEliminados(datosRaiz)
+      ? await transaction.get(refInformesLegados) : null;
+    const grupos = crearLectorGrupos(datosRaiz, transaction);
+
+    const reporte = { estado: ejecutar ? 'limpiado' : 'simulacion', colecciones: {} };
+    const limpiezas = [];
+    for (const coleccion of solicitadas) {
+      const indice = indiceAgrupado(datosRaiz, coleccion);
+      if (!indice) {
+        reporte.colecciones[coleccion] = { estado: 'no-agrupada', mensaje: 'Primero hay que agrupar la colección.' };
+        continue;
+      }
+      if (indice.legadoEliminadoEn) {
+        reporte.colecciones[coleccion] = { estado: 'ya-limpia', legadoEliminadoEn: indice.legadoEliminadoEn };
+        continue;
+      }
+      const vigentes = await grupos.mapa(coleccion); // falla si falta una parte: no se borra nada
+      const snapshot = await transaction.get(raizRef().collection(SUBCOLECCION_DE[coleccion]));
+      const campos = LEGADOS_PRINCIPAL[coleccion].filter(campo => Array.isArray(datosRaiz[campo]));
+      const legados = campos.flatMap(campo => datosRaiz[campo]);
+      if (coleccion === 'informes' && Array.isArray(snapshotInformesLegados?.get('informesAuditoria'))) {
+        legados.push(...snapshotInformesLegados.get('informesAuditoria'));
+      }
+      const faltantes = [...new Set([
+        ...snapshot.docs.map(documento => documento.id),
+        ...legados.map(registro => (tieneClave(registro) ? String(registro.id) : '(sin id)')),
+      ])].filter(id => !vigentes.has(id));
+      const confirmados = new Set((Array.isArray(faltantesConfirmados?.[coleccion]) ? faltantesConfirmados[coleccion] : []).map(String));
+      const sinConfirmar = faltantes.filter(id => !confirmados.has(id));
+      reporte.colecciones[coleccion] = {
+        estado: sinConfirmar.length ? 'bloqueada' : (ejecutar ? 'limpia' : 'simulacion'),
+        registrosVigentes: vigentes.size,
+        documentosSubcoleccion: snapshot.size,
+        camposLegados: campos,
+        registrosLegados: legados.length,
+        // Registros antiguos que ya no están en las partes (eliminados después de la copia, o un problema).
+        faltantesEnPartes: faltantes,
+        ...(sinConfirmar.length ? { mensaje: 'Hay registros antiguos que no están en las partes; revísalos y confírmalos para borrar.' } : {}),
+      };
+      if (!sinConfirmar.length) limpiezas.push({ coleccion, indice, snapshot, campos });
+    }
+
+    if (!ejecutar) return reporte;
+    if (limpiezas.length === 0) return { ...reporte, estado: 'sin-cambios' };
+    const escrituras = limpiezas.reduce((total, { snapshot }) => total + snapshot.size, 0) + limpiezas.length + 2;
+    if (escrituras > MAX_ESCRITURAS_LIMPIEZA) throw new Error(`Son ${escrituras} escrituras: limpia una colección a la vez.`);
+
+    const ahora = new Date().toISOString();
+    const cambiosRaiz = { coleccionesAgrupadas: {} };
+    limpiezas.forEach(({ coleccion, indice, snapshot, campos }) => {
+      snapshot.docs.forEach(documento => transaction.delete(documento.ref));
+      campos.forEach(campo => { cambiosRaiz[campo] = FieldValue.delete(); });
+      if (coleccion === 'informes' && snapshotInformesLegados?.exists) transaction.delete(refInformesLegados);
+      cambiosRaiz.coleccionesAgrupadas[coleccion] = { ...indice, legadoEliminadoEn: ahora, legadoEliminadoPor: usuario };
+    });
+    transaction.set(raizRef(), cambiosRaiz, { merge: true });
     return reporte;
   });
 }

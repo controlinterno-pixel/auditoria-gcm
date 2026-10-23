@@ -79,6 +79,10 @@ export default async function handler(req, res) {
       const module = await import('./_grc/agrupar-colecciones.js');
       return await module.default(req, res);
     }
+    if (path === '/api/grc/limpiar-colecciones') {
+      const module = await import('./_grc/limpiar-colecciones.js');
+      return await module.default(req, res);
+    }
     if (path === '/api/grc/migrar-riesgos') {
       const module = await import('./_grc/migrar-riesgos.js');
       return await module.default(req, res);

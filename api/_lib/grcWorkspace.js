@@ -1,7 +1,7 @@
 import { FieldValue, Filter } from 'firebase-admin/firestore';
 import { adminDb } from './firebaseAdmin.js';
 import { logger } from './logger.js';
-import { crearLectorGrupos, informeEnProcesos, nombreAgrupable } from './coleccionesAgrupadas.js';
+import { crearLectorGrupos, informeEnProcesos, informesLegadosEliminados, nombreAgrupable } from './coleccionesAgrupadas.js';
 
 // 📊 Cada documento devuelto por Firestore cuenta como una lectura facturable (incluye Admin SDK).
 const registrarLecturas = (origen, documentos, inicio, transaccion = false) => {
@@ -25,6 +25,12 @@ export const escrituraSinCambios = (nuevo, existente) => Boolean(existente) &&
 
 const workspaceRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
 const informesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc_informes');
+// Tras la limpieza de la agrupación, el documento de informes legados ya no existe: no se lee ni se recrea.
+const SNAPSHOT_INEXISTENTE = { exists: false, get: () => undefined, data: () => undefined };
+const leerInformesLegadosDoc = (datosWorkspace, transaction = null) => {
+  if (informesLegadosEliminados(datosWorkspace)) return SNAPSHOT_INEXISTENTE;
+  return transaction ? transaction.get(informesRef()) : informesRef().get();
+};
 
 // SUBCOLECCIONES ESCALABLES
 const coleccionInformesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc').collection('informes');
@@ -377,10 +383,9 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
   const refColeccionPlanes = coleccionPlanesRef();
   const refColeccionHallazgos = coleccionHallazgosRef();
 
-  const [snapshotWorkspace, snapshotInformes] = transaction
-    ? [await transaction.get(refWorkspace), await transaction.get(refInformes)]
-    : await Promise.all([refWorkspace.get(), refInformes.get()]);
+  const snapshotWorkspace = transaction ? await transaction.get(refWorkspace) : await refWorkspace.get();
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+  if (informesLegadosEliminados(datosWorkspace)) documentosLeidos -= 1;
 
   // Lectura híbrida: Legacy + Subcolecciones, o las partes agrupadas si la colección ya tiene índice.
   const grupos = crearLectorGrupos(datosWorkspace, transaction);
@@ -401,7 +406,8 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
     const procesos = [...new Set(procesosAsignados.map(proceso => String(proceso || '').trim()).filter(Boolean))];
     return informes.filter(informe => informeEnProcesos(informe, procesos));
   };
-  const [informesIndependientes, planesIndependientes, hallazgosIndependientes] = await Promise.all([
+  const [snapshotInformes, informesIndependientes, planesIndependientes, hallazgosIndependientes] = await Promise.all([
+    leerInformesLegadosDoc(datosWorkspace, transaction),
     leerInformes(),
     grupos.agrupada('planes') ? grupos.todos('planes') : leerSubcoleccion(refColeccionPlanes),
     grupos.agrupada('hallazgos') ? grupos.todos('hallazgos') : leerSubcoleccion(refColeccionHallazgos),
@@ -534,7 +540,7 @@ export async function leerInformeTx(transaction, workspace, id) {
 export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
   if (Array.isArray(informesAuditoria)) guardarRegistrosGrc(transaction, workspace, 'informes', informesAuditoria, { merge: true });
 
-  transaction.set(workspace.informesRef, { informesAuditoria: FieldValue.delete() }, { merge: true });
+  if (!workspace.sinInformesLegados) transaction.set(workspace.informesRef, { informesAuditoria: FieldValue.delete() }, { merge: true });
   if (workspace.tieneInformesLegados) {
     transaction.set(workspace.workspaceRef, { informesAuditoria: FieldValue.delete() }, { merge: true });
   }
@@ -570,10 +576,10 @@ export async function leerWorkspaceGrcLigero(transaction, { origen = '' } = {}) 
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
   const snapshotWorkspace = await transaction.get(refWorkspace);
-  const snapshotInformes = await transaction.get(refInformes);
-  registrarLecturas(origen, 2, inicio, true);
-
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+  const sinInformesLegados = informesLegadosEliminados(datosWorkspace);
+  const snapshotInformes = await leerInformesLegadosDoc(datosWorkspace, transaction);
+  registrarLecturas(origen, sinInformesLegados ? 1 : 2, inicio, true);
   const informesSeparados = snapshotInformes.exists ? snapshotInformes.get('informesAuditoria') : null;
   const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : [];
   const planesLegados = new Map();
@@ -591,6 +597,7 @@ export async function leerWorkspaceGrcLigero(transaction, { origen = '' } = {}) 
     workspaceExists: snapshotWorkspace.exists || snapshotInformes.exists,
     tieneInformesLegados: Array.isArray(datosWorkspace.informesAuditoria),
     tienePlanesLegados: Array.isArray(datosWorkspace.planesAccion),
+    sinInformesLegados,
     origen,
     // Partes agrupadas leídas en esta transacción (cada parte se cobra una sola vez).
     grupos: crearLectorGrupos(datosWorkspace, transaction),
@@ -799,12 +806,10 @@ export async function guardarWorkspaceParcial(partialData) {
   const refColeccionPlanes = coleccionPlanesRef();
   const refColeccionHallazgos = coleccionHallazgosRef();
   
-  const [snapshotWorkspace, snapshotInformes] = await Promise.all([
-    refWorkspace.get(),
-    refInformes.get(),
-  ]);
-  
+  const snapshotWorkspace = await refWorkspace.get();
   const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
+  const sinInformesLegados = informesLegadosEliminados(datosWorkspace);
+  const snapshotInformes = await leerInformesLegadosDoc(datosWorkspace);
 
   // 🧩 Migración de riesgos: el índice solo lo administra el servidor.
   if (Object.hasOwn(partialData, 'riesgosFragmentados')) {
@@ -845,7 +850,7 @@ export async function guardarWorkspaceParcial(partialData) {
   };
   const hallazgosGuardados = incluyeHallazgos ? await leerGuardados('hallazgos', refColeccionHallazgos) : new Map();
   const planesGuardados = incluyePlanes ? await leerGuardados('planes', refColeccionPlanes) : new Map();
-  registrarLecturas('sync-post-guardar', 2 + documentosSubcolecciones + grupos.documentos, inicio);
+  registrarLecturas('sync-post-guardar', (sinInformesLegados ? 1 : 2) + documentosSubcolecciones + grupos.documentos, inicio);
   let escriturasOmitidas = 0;
   const hallazgosActualizados = incluyeHallazgos ? partialData.hallazgos : null;
     
@@ -947,7 +952,7 @@ export async function guardarWorkspaceParcial(partialData) {
 
       // Limpiar datos legados en el documento monolítico
       if (i + chunkSize >= operaciones.length) {
-        batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
+        if (!sinInformesLegados) batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
         if (Array.isArray(datosWorkspace.informesAuditoria)) datosRestantes.informesAuditoria = FieldValue.delete();
         if (incluyePlanes && Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
         if (incluyePlanes && Array.isArray(datosWorkspace.planes)) datosRestantes.planes = FieldValue.delete();
@@ -960,7 +965,7 @@ export async function guardarWorkspaceParcial(partialData) {
   } else {
     // Si no hay actualizaciones de listas, solo persistimos los metadatos y limpiamos la basura
     const batch = adminDb.batch();
-    batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
+    if (!sinInformesLegados) batch.set(refInformes, { informesAuditoria: FieldValue.delete() }, { merge: true });
     if (Array.isArray(datosWorkspace.informesAuditoria)) datosRestantes.informesAuditoria = FieldValue.delete();
     if (incluyePlanes && Array.isArray(datosWorkspace.planesAccion)) datosRestantes.planesAccion = FieldValue.delete();
     if (incluyePlanes && Array.isArray(datosWorkspace.planes)) datosRestantes.planes = FieldValue.delete();

@@ -2,6 +2,7 @@
 // Mide cuántos documentos y bytes tiene cada colección y cuántas lecturas costaría una carga completa
 // si se agruparan en pocos documentos (como ya se hizo con riesgos). No escribe nada.
 import { adminDb } from './firebaseAdmin.js';
+import { crearLectorGrupos, indiceAgrupado, informesLegadosEliminados } from './coleccionesAgrupadas.js';
 
 // Tamaño objetivo de cada parte: la mitad del límite de 1 MiB, para que pueda crecer al doble sin tocarse.
 export const BYTES_OBJETIVO_PARTE = 500_000;
@@ -24,13 +25,16 @@ export function resumirColeccion(documentos) {
   };
 }
 
-/** Lecturas de una carga completa hoy y con la agrupación propuesta. Puro. */
-export function proyectarLecturas({ colecciones, partesRiesgos = 0 }) {
-  const documentosFijos = 2; // documento principal + documento de informes legados
+/**
+ * Lecturas de una carga completa hoy y con la agrupación propuesta. Puro.
+ * Una colección ya agrupada (`partesActuales`) cuesta sus partes, no sus documentos.
+ */
+export function proyectarLecturas({ colecciones, partesRiesgos = 0, informesLegadosEliminados = false }) {
+  const documentosFijos = informesLegadosEliminados ? 1 : 2; // documento principal (+ documento de informes legados)
   const actuales = documentosFijos + partesRiesgos +
-    Object.values(colecciones).reduce((total, coleccion) => total + coleccion.documentos, 0);
+    Object.values(colecciones).reduce((total, coleccion) => total + (coleccion.partesActuales ?? coleccion.documentos), 0);
   const propuestas = documentosFijos + partesRiesgos +
-    Object.values(colecciones).reduce((total, coleccion) => total + coleccion.partesPropuestas, 0);
+    Object.values(colecciones).reduce((total, coleccion) => total + (coleccion.partesActuales ?? coleccion.partesPropuestas), 0);
   return {
     lecturasPorCargaActual: actuales,
     lecturasPorCargaPropuesta: propuestas,
@@ -42,26 +46,35 @@ export function proyectarLecturas({ colecciones, partesRiesgos = 0 }) {
 
 export async function diagnosticarLecturas() {
   const raiz = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
-  const [principal, informesLegados, planes, hallazgos, informes] = await Promise.all([
-    raiz.get(),
-    adminDb.collection('workspace_compartido').doc('base_de_datos_grc_informes').get(),
-    raiz.collection('planes_accion').get(),
-    raiz.collection('hallazgos').get(),
-    raiz.collection('informes').get(),
-  ]);
-  const aDocumentos = snapshot => snapshot.docs.map(documento => ({ id: documento.id, datos: documento.data() }));
+  const principal = await raiz.get();
   const datosPrincipal = principal.exists ? principal.data() || {} : {};
-  const partesRiesgos = Number.isInteger(datosPrincipal.riesgosFragmentados?.partes) ? datosPrincipal.riesgosFragmentados.partes : 0;
-  const colecciones = {
-    planes: resumirColeccion(aDocumentos(planes)),
-    hallazgos: resumirColeccion(aDocumentos(hallazgos)),
-    informes: resumirColeccion(aDocumentos(informes)),
+  const sinInformesLegados = informesLegadosEliminados(datosPrincipal);
+  const grupos = crearLectorGrupos(datosPrincipal);
+  let lecturas = 1;
+  // Colección agrupada: se miden sus partes vigentes. Si no, sus documentos (como antes de agrupar).
+  const resumir = async (coleccion, subcoleccion) => {
+    const agrupados = await grupos.mapa(coleccion);
+    if (agrupados) {
+      return { ...resumirColeccion([...agrupados].map(([id, datos]) => ({ id, datos }))), partesActuales: indiceAgrupado(datosPrincipal, coleccion).partes };
+    }
+    const snapshot = await raiz.collection(subcoleccion).get();
+    lecturas += snapshot.size;
+    return resumirColeccion(snapshot.docs.map(documento => ({ id: documento.id, datos: documento.data() })));
   };
+  const [informesLegados, planes, hallazgos, informes] = await Promise.all([
+    sinInformesLegados ? null : adminDb.collection('workspace_compartido').doc('base_de_datos_grc_informes').get(),
+    resumir('planes', 'planes_accion'),
+    resumir('hallazgos', 'hallazgos'),
+    resumir('informes', 'informes'),
+  ]);
+  if (!sinInformesLegados) lecturas += 1;
+  const partesRiesgos = Number.isInteger(datosPrincipal.riesgosFragmentados?.partes) ? datosPrincipal.riesgosFragmentados.partes : 0;
+  const colecciones = { planes, hallazgos, informes };
   const bytesPrincipal = tamanoBytes(datosPrincipal);
   return {
     generadoEn: new Date().toISOString(),
     soloLectura: true,
-    lecturasDeEsteDiagnostico: 2 + planes.size + hallazgos.size + informes.size,
+    lecturasDeEsteDiagnostico: lecturas + grupos.documentos,
     documentoPrincipal: {
       bytes: bytesPrincipal,
       porcentajeDelLimite: Math.round((bytesPrincipal / 1_048_576) * 100),
@@ -71,9 +84,9 @@ export async function diagnosticarLecturas() {
         informesAuditoria: Array.isArray(datosPrincipal.informesAuditoria) ? datosPrincipal.informesAuditoria.length : 0,
       },
     },
-    documentoInformesLegados: { existe: informesLegados.exists, bytes: informesLegados.exists ? tamanoBytes(informesLegados.data()) : 0 },
+    documentoInformesLegados: { existe: Boolean(informesLegados?.exists), bytes: informesLegados?.exists ? tamanoBytes(informesLegados.data()) : 0 },
     riesgos: { migrados: partesRiesgos > 0, partes: partesRiesgos },
     colecciones,
-    proyeccion: proyectarLecturas({ colecciones, partesRiesgos }),
+    proyeccion: proyectarLecturas({ colecciones, partesRiesgos, informesLegadosEliminados: sinInformesLegados }),
   };
 }

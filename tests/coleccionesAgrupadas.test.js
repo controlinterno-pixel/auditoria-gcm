@@ -10,7 +10,7 @@ const codigo = `${fuente('../api/_lib/coleccionesAgrupadas.js')}\n${fuente('../a
 return { leerWorkspaceGrc, leerWorkspaceGrcLigero, obtenerPlanesTx, obtenerHallazgosTx, obtenerPlanesDeInformeTx,
   obtenerHallazgoTx, obtenerPlanesDeHallazgosTx,
   listarHallazgosTx, reservarIdsPlanesTx, guardarPlanesGrc, guardarInformesGrc, guardarRegistrosGrc, leerInformeTx,
-  guardarWorkspaceParcial, parteDeRegistro, agruparColecciones, planificarPartes };`;
+  guardarWorkspaceParcial, parteDeRegistro, agruparColecciones, planificarPartes, limpiarColeccionesLegadas };`;
 
 const BORRAR = { __borrar: true };
 class FieldPath { constructor(...segmentos) { this.segmentos = segmentos; } }
@@ -399,4 +399,84 @@ test('punta a punta con colecciones agrupadas: correo de informe, edición y cre
   assert.equal(data.hallazgos.length, 3);
   assert.ok(data.hallazgos.some(hallazgo => hallazgo.titulo === 'Nuevo hallazgo' && /^HAL-\d{4}-001$/.test(hallazgo.ref)));
   assert.ok(db.escrituras.every(ruta => !ruta.includes('/hallazgos/') && !ruta.includes('/informes/')), 'nada se escribe en las subcolecciones');
+});
+
+// ---------------------------------------------------------------------------- Etapa 4: limpieza
+
+const LEGADO_INFORMES = 'workspace_compartido/base_de_datos_grc_informes';
+async function agrupadoYCopiado() {
+  const db = crearDb({ [RAIZ]: { catalogoCargos: [], hallazgos: [] }, [LEGADO_INFORMES]: {}, ...subcolecciones });
+  await cargar(db).agruparColecciones({ ejecutar: true, usuario: 'admin@x' });
+  db.escrituras.length = 0;
+  return db;
+}
+
+test('limpieza: simular no borra y reporta lo que se eliminaría', async () => {
+  const db = await agrupadoYCopiado();
+  const reporte = await cargar(db).limpiarColeccionesLegadas({ ejecutar: false });
+  assert.equal(reporte.estado, 'simulacion');
+  assert.equal(db.escrituras.length, 0);
+  assert.deepEqual(reporte.colecciones.planes, {
+    estado: 'simulacion', registrosVigentes: 2, documentosSubcoleccion: 2, camposLegados: [], registrosLegados: 0, faltantesEnPartes: [],
+  });
+  assert.deepEqual(reporte.colecciones.hallazgos.camposLegados, ['hallazgos']);
+});
+
+test('limpieza: un registro antiguo que ya no está en las partes bloquea esa colección hasta confirmarlo', async () => {
+  const db = await agrupadoYCopiado();
+  // Después de la copia se eliminó el plan 2 (solo en las partes; la subcolección conserva la copia vieja).
+  await cargar(db).guardarWorkspaceParcial({ planes: [plan(10, { idHallazgo: 'H1', idInforme: 'I1' })] });
+  db.escrituras.length = 0;
+
+  const bloqueada = await cargar(db).limpiarColeccionesLegadas({ ejecutar: true, colecciones: ['planes'] });
+  assert.equal(bloqueada.colecciones.planes.estado, 'bloqueada');
+  assert.deepEqual(bloqueada.colecciones.planes.faltantesEnPartes, ['2']);
+  assert.equal(bloqueada.estado, 'sin-cambios');
+  assert.equal(db.escrituras.length, 0, 'no se borra nada');
+
+  const confirmada = await cargar(db).limpiarColeccionesLegadas({ ejecutar: true, colecciones: ['planes'], faltantesConfirmados: { planes: ['2'] } });
+  assert.equal(confirmada.colecciones.planes.estado, 'limpia');
+  assert.equal(db.datos.has(`${RAIZ}/planes_accion/10`), false);
+  assert.equal(db.datos.has(`${RAIZ}/planes_accion/2`), false);
+  assert.ok(db.datos.get(`${RAIZ}/hallazgos/H1`), 'las demás colecciones no se tocan');
+});
+
+test('limpieza completa: borra copias antiguas y desde entonces cada carga lee un documento menos', async () => {
+  const db = await agrupadoYCopiado();
+  const antes = (await cargar(db).leerWorkspaceGrc(null, { origen: 'prueba' })).data;
+  const reporte = await cargar(db).limpiarColeccionesLegadas({ ejecutar: true, usuario: 'admin@x' });
+  assert.equal(reporte.estado, 'limpiado');
+  assert.equal([...db.datos.keys()].filter(ruta => ruta.startsWith(`${RAIZ}/`)).length, 0, 'sin subcolecciones');
+  assert.equal(db.datos.has(LEGADO_INFORMES), false, 'documento de informes legados eliminado');
+  const raiz = db.datos.get(RAIZ);
+  assert.equal(raiz.hallazgos, undefined, 'campo legado eliminado');
+  assert.ok(raiz.coleccionesAgrupadas.informes.legadoEliminadoEn);
+  assert.equal(raiz.coleccionesAgrupadas.planes.partes, 1, 'el índice conserva sus partes');
+
+  db.lecturas = 0;
+  const despues = (await cargar(db).leerWorkspaceGrc(null, { origen: 'prueba' })).data;
+  assert.equal(db.lecturas, 1 + 3, 'principal + una parte por colección');
+  for (const campo of ['planes', 'hallazgos', 'informesAuditoria']) assert.deepEqual(despues[campo], antes[campo]);
+
+  db.lecturas = 0;
+  db.escrituras.length = 0;
+  const modulo = cargar(db);
+  const { transaccion, workspace } = await abrirTx(db, modulo);
+  assert.equal(db.lecturas, 1);
+  modulo.guardarInformesGrc(transaccion, workspace, [{ id: 'I1', correoEnviadoA: 'x@y.co' }]);
+  await transaccion.commit();
+  assert.deepEqual(db.escrituras, [PARTE('informes')], 'ya no se recrea el documento de informes legados');
+  await modulo.guardarWorkspaceParcial({ catalogoCargos: ['A'] });
+  assert.equal(db.datos.has(LEGADO_INFORMES), false);
+
+  const repetida = await cargar(db).limpiarColeccionesLegadas({ ejecutar: true });
+  assert.equal(repetida.estado, 'sin-cambios');
+  assert.equal(repetida.colecciones.planes.estado, 'ya-limpia');
+});
+
+test('limpieza: una colección sin agrupar no se toca', async () => {
+  const db = crearDb({ [RAIZ]: {}, ...subcolecciones });
+  const reporte = await cargar(db).limpiarColeccionesLegadas({ ejecutar: true });
+  assert.equal(reporte.colecciones.planes.estado, 'no-agrupada');
+  assert.equal(db.escrituras.length, 0);
 });
