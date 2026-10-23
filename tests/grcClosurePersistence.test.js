@@ -101,7 +101,8 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
       return result;
     },
   };
-  const workspace = new Function('adminDb', 'FieldValue', 'Filter', 'logger', `${moduleBody('../api/_lib/grcWorkspace.js')}
+  const workspace = new Function('adminDb', 'FieldValue', 'Filter', 'logger', `${moduleBody('../api/_lib/coleccionesAgrupadas.js')}
+${moduleBody('../api/_lib/grcWorkspace.js')}
     return {
       leerWorkspaceGrc, guardarPlanesGrc, guardarInformesGrc, guardarWorkspaceParcial,
       leerWorkspaceGrcLigero, obtenerHallazgoTx, obtenerPlanesDeInformeTx,

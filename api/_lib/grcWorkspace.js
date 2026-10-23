@@ -1,6 +1,7 @@
 import { FieldValue, Filter } from 'firebase-admin/firestore';
 import { adminDb } from './firebaseAdmin.js';
 import { logger } from './logger.js';
+import { crearLectorGrupos, informeEnProcesos, nombreAgrupable } from './coleccionesAgrupadas.js';
 
 // 📊 Cada documento devuelto por Firestore cuenta como una lectura facturable (incluye Admin SDK).
 const registrarLecturas = (origen, documentos, inicio, transaccion = false) => {
@@ -367,12 +368,6 @@ const leerInformesFragmentados = async (refColeccion, procesosAsignados) => {
   };
 };
 
-// NUEVO: Función para leer planes desde la subcolección
-const leerPlanesFragmentados = async (refColeccion) => {
-  const snapshot = await refColeccion.get();
-  return { documentos: snapshot.size, planes: snapshot.docs.map(documento => ({ id: documento.id, ...documento.data() })) };
-};
-
 async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsignados = null, origen = '') {
   const inicio = Date.now();
   let documentosLeidos = 2;
@@ -382,42 +377,44 @@ async function leerWorkspaceGrcDesdeFirestore(transaction = null, procesosAsigna
   const refColeccionPlanes = coleccionPlanesRef();
   const refColeccionHallazgos = coleccionHallazgosRef();
 
-  const snapshotWorkspace = transaction
-    ? await transaction.get(refWorkspace)
-    : await refWorkspace.get();
+  const [snapshotWorkspace, snapshotInformes] = transaction
+    ? [await transaction.get(refWorkspace), await transaction.get(refInformes)]
+    : await Promise.all([refWorkspace.get(), refInformes.get()]);
+  const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
 
-  const snapshotInformes = transaction
-    ? await transaction.get(refInformes)
-    : await refInformes.get();
-
-  // Lectura híbrida: Legacy + Subcolecciones
-  let informesIndependientes = [];
-  let planesIndependientes;
-  let hallazgosIndependientes;
-  if (transaction) {
-    const snapshotPlanes = await transaction.get(refColeccionPlanes);
-    planesIndependientes = snapshotPlanes.docs.map(documento => ({ id: documento.id, ...documento.data() }));
-    const snapshotHallazgos = await transaction.get(refColeccionHallazgos);
-    hallazgosIndependientes = snapshotHallazgos.docs.map(documento => ({ id: documento.id, ...documento.data() }));
-    documentosLeidos += snapshotPlanes.size + snapshotHallazgos.size;
-  } else {
-    const lecturaInformes = await leerInformesFragmentados(refColeccionInformes, procesosAsignados);
-    informesIndependientes = lecturaInformes.informes;
-    const lecturaPlanes = await leerPlanesFragmentados(refColeccionPlanes);
-    planesIndependientes = lecturaPlanes.planes;
-    const snapshotHallazgos = await refColeccionHallazgos.get();
-    hallazgosIndependientes = snapshotHallazgos.docs.map(documento => ({ id: documento.id, ...documento.data() }));
-    documentosLeidos += lecturaInformes.documentos + lecturaPlanes.documentos + snapshotHallazgos.size;
-  }
+  // Lectura híbrida: Legacy + Subcolecciones, o las partes agrupadas si la colección ya tiene índice.
+  const grupos = crearLectorGrupos(datosWorkspace, transaction);
+  const leerSubcoleccion = async referencia => {
+    const snapshot = transaction ? await transaction.get(referencia) : await referencia.get();
+    documentosLeidos += snapshot.size;
+    return snapshot.docs.map(conId);
+  };
+  const leerInformes = async () => {
+    if (transaction) return [];
+    if (!grupos.agrupada('informes')) {
+      const lecturaInformes = await leerInformesFragmentados(refColeccionInformes, procesosAsignados);
+      documentosLeidos += lecturaInformes.documentos;
+      return lecturaInformes.informes;
+    }
+    const informes = await grupos.todos('informes');
+    if (!Array.isArray(procesosAsignados) || procesosAsignados.length === 0) return informes;
+    const procesos = [...new Set(procesosAsignados.map(proceso => String(proceso || '').trim()).filter(Boolean))];
+    return informes.filter(informe => informeEnProcesos(informe, procesos));
+  };
+  const [informesIndependientes, planesIndependientes, hallazgosIndependientes] = await Promise.all([
+    leerInformes(),
+    grupos.agrupada('planes') ? grupos.todos('planes') : leerSubcoleccion(refColeccionPlanes),
+    grupos.agrupada('hallazgos') ? grupos.todos('hallazgos') : leerSubcoleccion(refColeccionHallazgos),
+  ]);
+  documentosLeidos += grupos.documentos;
   registrarLecturas(origen, documentosLeidos, inicio, Boolean(transaction));
 
-  const datosWorkspace = snapshotWorkspace.exists ? snapshotWorkspace.data() || {} : {};
   // Fase 2 de la migración de riesgos: solo lee las partes si el índice existe (si no, 0 lecturas extra).
   const riesgosFragmentados = await leerRiesgosFragmentados(datosWorkspace, transaction);
   if (riesgosFragmentados) {
     registrarLecturas(`${origen || 'desconocido'}:riesgos`, riesgosFragmentados.documentos, inicio, Boolean(transaction));
   }
-  const { riesgosFragmentados: _indiceRiesgos, ...datosPublicos } = datosWorkspace;
+  const { riesgosFragmentados: _indiceRiesgos, coleccionesAgrupadas: _indiceGrupos, ...datosPublicos } = datosWorkspace;
   const informesSeparados = snapshotInformes.exists
     ? snapshotInformes.get('informesAuditoria')
     : null;
@@ -503,7 +500,16 @@ export async function leerWorkspaceGrc(transaction = null, { usarCache = false, 
   return lectura;
 }
 
+// Etapa 1 de la agrupación: las escrituras sobre partes llegan en la etapa 3. Hasta entonces, escribir en
+// la subcolección de una colección agrupada dejaría el cambio invisible: se bloquea en vez de perderlo.
+const exigirSinAgrupar = (workspace, coleccion) => {
+  if (workspace?.grupos?.agrupada(coleccion)) {
+    throw new Error(`La colección ${coleccion} está agrupada y aún no admite escrituras.`);
+  }
+};
+
 export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
+  exigirSinAgrupar(workspace, 'informes');
   if (Array.isArray(informesAuditoria)) {
     informesAuditoria.forEach(informe => {
       if (informe && informe.id) {
@@ -520,6 +526,7 @@ export function guardarInformesGrc(transaction, workspace, informesAuditoria) {
 }
 
 export function guardarPlanesGrc(transaction, workspace, planes) {
+  exigirSinAgrupar(workspace, 'planes');
   planes.forEach(plan => {
     transaction.set(workspace.coleccionPlanesRef.doc(String(plan.id)), plan);
   });
@@ -573,6 +580,8 @@ export async function leerWorkspaceGrcLigero(transaction, { origen = '' } = {}) 
     tieneInformesLegados: Array.isArray(datosWorkspace.informesAuditoria),
     tienePlanesLegados: Array.isArray(datosWorkspace.planesAccion),
     origen,
+    // Partes agrupadas leídas en esta transacción (cada parte se cobra una sola vez).
+    grupos: crearLectorGrupos(datosWorkspace, transaction),
     data: {
       ...datosWorkspace,
       informesAuditoria: Array.isArray(informesSeparados) ? informesSeparados : informesLegados,
@@ -586,16 +595,28 @@ export async function leerWorkspaceGrcLigero(transaction, { origen = '' } = {}) 
 // Lector con contador de documentos para registrar el costo real de cada transacción.
 const crearLectorTx = (transaction, workspace) => {
   let documentos = 0;
+  const grupos = workspace.grupos || null;
+  const documentosGruposAlInicio = grupos?.documentos || 0;
+  const agrupada = coleccionRef => {
+    const nombre = nombreAgrupable(coleccionRef);
+    return nombre && grupos?.agrupada(nombre) ? nombre : null;
+  };
+  // Documento por ID (subcolección o parte agrupada); null si no existe.
+  const leerPorId = async (coleccionRef, id) => {
+    const nombre = agrupada(coleccionRef);
+    if (nombre) return grupos.porId(nombre, id);
+    const clave = idDocumentoValido(id);
+    if (!clave) return undefined;
+    const snapshot = await transaction.get(coleccionRef.doc(clave));
+    documentos += 1;
+    return snapshot.exists ? conId(snapshot) : null;
+  };
   const lector = {
-    get documentos() { return documentos; },
+    get documentos() { return documentos + (grupos ? grupos.documentos - documentosGruposAlInicio : 0); },
     // Documento por ID; si no existe en la subcolección se usa la copia legada (misma precedencia).
     porId: async (coleccionRef, legados, id) => {
-      const clave = idDocumentoValido(id);
-      if (clave) {
-        const snapshot = await transaction.get(coleccionRef.doc(clave));
-        documentos += 1;
-        if (snapshot.exists) return conId(snapshot);
-      }
+      const actual = await leerPorId(coleccionRef, id);
+      if (actual) return actual;
       return (legados || []).find(registro => String(registro?.id) === String(id)) || null;
     },
     consultar: async consulta => {
@@ -603,30 +624,34 @@ const crearLectorTx = (transaction, workspace) => {
       documentos += snapshot.size ?? snapshot.docs.length;
       return snapshot.docs.map(conId);
     },
+    // Registros cuyo `campo` es igual a alguno de los valores (consultas `in` de hasta 30 valores).
+    filtrar: async (coleccionRef, campo, valores) => {
+      const nombre = agrupada(coleccionRef);
+      if (nombre) return (await grupos.todos(nombre)).filter(registro => valores.includes(registro[campo]));
+      const resultado = [];
+      for (let indice = 0; indice < valores.length; indice += 30) {
+        resultado.push(...await lector.consultar(coleccionRef.where(campo, 'in', valores.slice(indice, indice + 30))));
+      }
+      return resultado;
+    },
     // Un registro legado solo cuenta si no existe su versión en la subcolección.
     completarLegados: async (mapa, legados, coleccionRef, pertenece) => {
       for (const legado of legados || []) {
         const clave = String(legado?.id ?? '');
         if (!clave || mapa.has(clave) || !pertenece(legado)) continue;
-        const idDocumento = idDocumentoValido(clave);
-        const snapshot = idDocumento ? await transaction.get(coleccionRef.doc(idDocumento)) : null;
-        if (snapshot) documentos += 1;
-        if (snapshot?.exists) {
-          const actual = conId(snapshot);
+        const actual = await leerPorId(coleccionRef, clave);
+        if (actual) {
           if (pertenece(actual)) mapa.set(clave, actual);
         } else {
           mapa.set(clave, legado);
         }
       }
     },
-    // Planes cuyo idHallazgo está en la lista (consultas `in` de hasta 30 valores).
+    // Planes cuyo idHallazgo está en la lista.
     planesDeHallazgos: async (idsHallazgos, mapa = new Map()) => {
       const variantes = [...new Set([...idsHallazgos].map(String))].flatMap(variantesId);
-      for (let indice = 0; indice < variantes.length; indice += 30) {
-        (await lector.consultar(
-          workspace.coleccionPlanesRef.where('idHallazgo', 'in', variantes.slice(indice, indice + 30))
-        )).forEach(plan => mapa.set(String(plan.id), plan));
-      }
+      (await lector.filtrar(workspace.coleccionPlanesRef, 'idHallazgo', variantes))
+        .forEach(plan => mapa.set(String(plan.id), plan));
       return mapa;
     },
   };
@@ -689,11 +714,21 @@ export async function reservarIdsPlanesTx(transaction, workspace, cantidad) {
   const ids = [];
   let candidato = Math.max(Date.now(), maximoLegado + 1);
   let documentos = 0;
+  // Con planes agrupados, las partes ya traen todos los IDs: no hace falta consultar cada candidato.
+  const lecturasGrupos = workspace.grupos?.documentos || 0;
+  const agrupados = workspace.grupos?.agrupada('planes') ? await workspace.grupos.todos('planes') : null;
+  if (agrupados) {
+    agrupados.forEach(plan => legados.add(String(plan.id)));
+    documentos += workspace.grupos.documentos - lecturasGrupos;
+  }
   for (let intentos = 0; ids.length < cantidad; intentos += 1) {
     if (intentos > cantidad + 100) throw new Error('No se pudo reservar un ID libre para el plan de acción.');
-    const snapshot = await transaction.get(workspace.coleccionPlanesRef.doc(String(candidato)));
-    documentos += 1;
-    if (!snapshot.exists && !legados.has(String(candidato))) ids.push(candidato);
+    let existe = legados.has(String(candidato));
+    if (!agrupados && !existe) {
+      existe = (await transaction.get(workspace.coleccionPlanesRef.doc(String(candidato)))).exists;
+      documentos += 1;
+    }
+    if (!existe) ids.push(candidato);
     candidato += 1;
   }
   registrarLecturas(`${workspace.origen}:reservar-ids`, documentos, inicio, true);
@@ -703,11 +738,14 @@ export async function reservarIdsPlanesTx(transaction, workspace, cantidad) {
 /** Hallazgos legados + subcolección (sin planes): solo para calcular el consecutivo HAL-AAAA-NNN. */
 export async function listarHallazgosTx(transaction, workspace) {
   const inicio = Date.now();
-  const snapshot = await transaction.get(workspace.coleccionHallazgosRef);
-  registrarLecturas(`${workspace.origen}:hallazgos`, snapshot.size ?? snapshot.docs.length, inicio, true);
+  const lector = crearLectorTx(transaction, workspace);
+  const actuales = workspace.grupos?.agrupada('hallazgos')
+    ? await workspace.grupos.todos('hallazgos')
+    : await lector.consultar(workspace.coleccionHallazgosRef);
+  registrarLecturas(`${workspace.origen}:hallazgos`, lector.documentos, inicio, true);
   const mapa = new Map();
   (workspace.data.hallazgos || []).forEach(hallazgo => { if (hallazgo?.id) mapa.set(String(hallazgo.id), hallazgo); });
-  snapshot.docs.map(conId).forEach(hallazgo => mapa.set(String(hallazgo.id), hallazgo));
+  actuales.forEach(hallazgo => mapa.set(String(hallazgo.id), hallazgo));
   return [...(workspace.data.hallazgos || []).filter(hallazgo => !hallazgo?.id), ...mapa.values()];
 }
 
@@ -724,14 +762,14 @@ export async function obtenerPlanesDeInformeTx(transaction, workspace, idInforme
 
   const delInforme = registro => String(registro?.idInforme) === String(idInforme);
   const hallazgos = new Map();
-  (await lector.consultar(workspace.coleccionHallazgosRef.where('idInforme', 'in', variantesInforme)))
+  (await lector.filtrar(workspace.coleccionHallazgosRef, 'idInforme', variantesInforme))
     .forEach(hallazgo => hallazgos.set(String(hallazgo.id), hallazgo));
   await lector.completarLegados(hallazgos, workspace.data.hallazgos, workspace.coleccionHallazgosRef, delInforme);
   const hallazgosInforme = [...hallazgos.values()].filter(delInforme);
   const idsHallazgos = new Set(hallazgosInforme.map(hallazgo => String(hallazgo.id)));
 
   const planes = new Map();
-  (await lector.consultar(workspace.coleccionPlanesRef.where('idInforme', 'in', variantesInforme)))
+  (await lector.filtrar(workspace.coleccionPlanesRef, 'idInforme', variantesInforme))
     .forEach(plan => planes.set(String(plan.id), plan));
   await lector.planesDeHallazgos(idsHallazgos, planes);
   const delInformeOHallazgo = plan => delInforme(plan) || idsHallazgos.has(String(plan?.idHallazgo));
@@ -760,6 +798,13 @@ export async function guardarWorkspaceParcial(partialData) {
   if (Object.hasOwn(partialData, 'riesgosFragmentados')) {
     throw new Error('El índice de riesgos solo lo administra la migración.');
   }
+  if (Object.hasOwn(partialData, 'coleccionesAgrupadas')) {
+    throw new Error('El índice de colecciones agrupadas solo lo administra la migración.');
+  }
+  const workspaceAgrupado = { grupos: crearLectorGrupos(datosWorkspace) };
+  if (Object.hasOwn(partialData, 'informesAuditoria') || Object.hasOwn(partialData, 'informesEliminados')) exigirSinAgrupar(workspaceAgrupado, 'informes');
+  if (['planes', 'planesAccion', 'planesEliminados'].some(campo => Object.hasOwn(partialData, campo))) exigirSinAgrupar(workspaceAgrupado, 'planes');
+  if (Object.hasOwn(partialData, 'hallazgos')) exigirSinAgrupar(workspaceAgrupado, 'hallazgos');
   // Fase 4: con riesgos migrados, la lista se guarda en sus partes (nunca en el campo original, que ya
   // no se lee). Se hace primero para que, si falla, no se guarde el resto a medias.
   const riesgosEnPartes = indiceRiesgosValido(datosWorkspace.riesgosFragmentados);
