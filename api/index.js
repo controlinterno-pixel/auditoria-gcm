@@ -83,6 +83,10 @@ export default async function handler(req, res) {
       const module = await import('./_grc/limpiar-colecciones.js');
       return await module.default(req, res);
     }
+    if (path === '/api/grc/normalizar-clasificaciones') {
+      const module = await import('./_grc/normalizar-clasificaciones.js');
+      return await module.default(req, res);
+    }
     if (path === '/api/grc/corregir-escala-riesgos') {
       const module = await import('./_grc/corregir-escala-riesgos.js');
       return await module.default(req, res);

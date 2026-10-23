@@ -4,6 +4,8 @@ import { logger } from './logger.js';
 import { crearLectorGrupos, informeEnProcesos, informesLegadosEliminados, nombreAgrupable } from './coleccionesAgrupadas.js';
 import { calcularResiduales } from '../../src/utils/explicacionControles.js';
 import { riesgoEnPorcentaje, zonaSeveridad } from '../../src/utils/nivelRiesgo.js';
+import { normalizarClasificacion } from '../../src/utils/clasificacionRiesgo.js';
+import { CLASIFICACIONES_MANUAL } from '../../src/constants/diccionariosGRC.js';
 
 // 📊 Cada documento devuelto por Firestore cuenta como una lectura facturable (incluye Admin SDK).
 const registrarLecturas = (origen, documentos, inicio, transaccion = false) => {
@@ -464,6 +466,58 @@ export async function corregirEscalaInherente({ ejecutar = false, usuario = '' }
     };
     if (ejecutar && correcciones.length > 0) escribirRiesgosTx(transaction, resultado, matriz.indice);
     if (ejecutar && correcciones.length === 0) reporte.estado = 'sin-cambios';
+    return reporte;
+  });
+}
+
+/**
+ * Unifica la clasificación de cada riesgo a una de las 7 del manual (Tabla 5): "Fraude interno" → "Fraude Interno",
+ * "Daños a activos y eventos extremos" → "Daños a activos fijos/ eventos externos", etc.
+ * - Los textos que no se reconocen se reportan y no se tocan.
+ * - Deja una entrada en el historial de cada riesgo. `ejecutar: false` (por defecto) solo simula. Idempotente.
+ */
+export async function normalizarClasificacionesMatriz({ ejecutar = false, usuario = '' } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const matriz = await leerMatrizRiesgosTx(transaction);
+    if (!matriz) throw new Error('Los riesgos no están migrados.');
+    const ahora = new Date();
+    const cambios = [];
+    const noReconocidas = new Map();
+    const resultado = matriz.riesgos.map(riesgo => {
+      const actual = String(riesgo.clasificacionRiesgo || '').trim();
+      if (!actual) return riesgo;
+      const normalizada = normalizarClasificacion(actual);
+      if (!CLASIFICACIONES_MANUAL.includes(normalizada)) {
+        noReconocidas.set(actual, (noReconocidas.get(actual) || 0) + 1);
+        return riesgo;
+      }
+      if (normalizada === riesgo.clasificacionRiesgo) return riesgo;
+      cambios.push({ id: String(riesgo.id), antes: riesgo.clasificacionRiesgo, despues: normalizada });
+      return {
+        ...riesgo,
+        clasificacionRiesgo: normalizada,
+        historialCambios: [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []), {
+          fecha: ahora.toLocaleString('es-CO'),
+          timestamp: ahora.toISOString(),
+          usuario,
+          accion: 'Clasificación unificada según la Tabla 5 del Manual de Riesgos',
+          cambios: [{ campo: 'Clasificación', antes: riesgo.clasificacionRiesgo, despues: normalizada }],
+        }],
+      };
+    });
+    const porValor = cambios.reduce((conteo, cambio) => {
+      const clave = `${cambio.antes} → ${cambio.despues}`;
+      return { ...conteo, [clave]: (conteo[clave] || 0) + 1 };
+    }, {});
+    const reporte = {
+      estado: ejecutar ? 'normalizado' : 'simulacion',
+      riesgosCorregidos: cambios.length,
+      porValor,
+      noReconocidas: Object.fromEntries(noReconocidas),
+      cambios,
+    };
+    if (ejecutar && cambios.length > 0) escribirRiesgosTx(transaction, resultado, matriz.indice);
+    if (ejecutar && cambios.length === 0) reporte.estado = 'sin-cambios';
     return reporte;
   });
 }

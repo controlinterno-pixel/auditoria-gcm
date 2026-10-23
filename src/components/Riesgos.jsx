@@ -15,6 +15,7 @@ import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles, zonaSeveridad } from '../utils/nivelRiesgo.js';
 import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, validarMotivo, vigentes } from '../utils/anulacion.js';
+import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
@@ -975,7 +976,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     setSubprocesosPorMacroprocesoSeleccionados(relacionEditable);
 
     setCategoria(riesgo.categoria);
-    setClasificacionRiesgo(riesgo.clasificacionRiesgo || CLASIFICACIONES_MANUAL[0]);
+    // El selector solo tiene las 7 del manual: una variante guardada se muestra (y se guarda) como la del manual.
+    setClasificacionRiesgo(normalizarClasificacion(riesgo.clasificacionRiesgo) || CLASIFICACIONES_MANUAL[0]);
     setNormativa(riesgo.normativa);
     
     // 👥 Recuperar Múltiples Responsables
@@ -1149,7 +1151,8 @@ const handleRiesgoSubmit = async (e) => {
         ? riesgo.subprocesos
         : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || []
     ))])].sort((a, b) => a.localeCompare(b, 'es'));
-    const clasificacionesUnicas = [...new Set(riesgosNormalizados.map(r => r.clasificacionRiesgo || r.categoria || 'Sin clasificación'))].sort((a, b) => a.localeCompare(b, 'es'));
+    // Cada variante escrita (mayúsculas, tildes, errores) se agrupa en su clasificación del manual (Tabla 5).
+    const clasificacionesUnicas = [...new Set(riesgosNormalizados.map(clasificacionDeRiesgo))].sort((a, b) => a.localeCompare(b, 'es'));
     // Todo el panorama (tarjetas, mapa, filtro y listas) usa el momento elegido: inherente o residual.
     const esResidual = matrizDashboardTipo === 'residual';
     const nivelActivo = esResidual ? 'Residual' : 'Inherente';
@@ -1168,7 +1171,7 @@ const handleRiesgoSubmit = async (e) => {
       const subprocesos = filtroProceso === 'Todos'
         ? riesgo.subprocesos
         : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || [];
-      const clasificacion = riesgo.clasificacionRiesgo || riesgo.categoria || 'Sin clasificación';
+      const clasificacion = clasificacionDeRiesgo(riesgo);
       const textoBusqueda = `${riesgo.id} ${riesgo.descripcion || riesgo.escenarioFinal || ''} ${macroprocesos.join(' ')} ${subprocesos.join(' ')} ${clasificacion}`.toLowerCase();
       return (filtroProceso === 'Todos' || macroprocesos.some(macroproceso => (
         normalizarTextoProceso(macroproceso) === normalizarTextoProceso(macroprocesoSeleccionado)
@@ -1606,7 +1609,7 @@ const renderMatriz = () => {
         ? r.subprocesos
         : r.subprocesosPorMacroproceso[filtroProceso] || [];
       const matchSubproceso = filtroSubproceso === 'Todos' || subprocesosDelProceso.includes(filtroSubproceso);
-      const matchClasificacion = filtroClasificacion === 'Todas' || r.clasificacionRiesgo === filtroClasificacion;
+      const matchClasificacion = filtroClasificacion === 'Todas' || clasificacionDeRiesgo(r) === filtroClasificacion;
       // filtroNivel: 'Todos', 'inh:<nivel>' (inherente) o 'res:<nivel>' (residual).
       const [tipoNivel, etiquetaNivel] = filtroNivel.includes(':') ? filtroNivel.split(':') : ['res', filtroNivel];
       const zonaFiltro = tipoNivel === 'inh'
@@ -1859,7 +1862,7 @@ const renderMatriz = () => {
                         <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase mb-1 ${zoneInh.color}`}>
                           {zoneInh.label}
                         </span>
-                        <p className="text-[10px] text-slate-500 font-bold">{r.clasificacionRiesgo || 'Operativo'}</p>
+                        <p className="text-[10px] text-slate-500 font-bold">{clasificacionDeRiesgo(r)}</p>
                       </div>
 
                       {/* INHERENTE VS RESIDUAL (TARJETAS LADO A LADO) */}

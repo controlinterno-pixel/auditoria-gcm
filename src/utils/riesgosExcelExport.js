@@ -1,4 +1,5 @@
 import { riesgoEnPorcentaje } from './nivelRiesgo.js';
+import { normalizarClasificacion } from './clasificacionRiesgo.js';
 const COLORES = {
   tinta: 'FF173B35',
   verde: 'FF176B5B',
@@ -136,7 +137,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     Proceso: riesgo.proceso || riesgo.macroproceso || 'No definido',
     Subproceso: riesgo.subproceso || 'General',
     'Categoría ISO 31000': riesgo.categoria || 'N/A',
-    Clasificación: riesgo.clasificacionRiesgo || 'N/A',
+    Clasificación: normalizarClasificacion(riesgo.clasificacionRiesgo) || 'N/A',
     'Normativa Asociada': riesgo.normativa || 'N/A',
     'Sedes Afectadas': textoLista(riesgo.sede) || 'Sin sede',
     'Responsable(s)': textoLista(riesgo.responsable) || 'Sin asignar',
@@ -174,7 +175,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
       Proceso: riesgo.proceso || riesgo.macroproceso || 'No definido',
       Subproceso: riesgo.subproceso || 'General',
       Categoría: riesgo.categoria || 'N/A',
-      Clasificación: riesgo.clasificacionRiesgo || 'N/A',
+      Clasificación: normalizarClasificacion(riesgo.clasificacionRiesgo) || 'N/A',
       'Sedes Afectadas': textoLista(riesgo.sede) || 'Sin sede',
       'Responsable del Riesgo': textoLista(riesgo.responsable) || 'Sin asignar',
       'Causa Inmediata': riesgo.causaInmediata || 'N/A',

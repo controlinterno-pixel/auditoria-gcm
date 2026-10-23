@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { calcularResiduales } from '../src/utils/explicacionControles.js';
 import { riesgoEnPorcentaje, zonaSeveridad } from '../src/utils/nivelRiesgo.js';
+import { normalizarClasificacion } from '../src/utils/clasificacionRiesgo.js';
+import { CLASIFICACIONES_MANUAL } from '../src/constants/diccionariosGRC.js';
 
 const fuente = path => readFileSync(new URL(path, import.meta.url), 'utf8')
   .replace(/^import [^;]*;\r?\n/gm, '').replace(/^export /gm, '');
@@ -33,9 +35,10 @@ function crearDb(documentos) {
   };
 }
 
-const cargar = db => new Function('adminDb', 'FieldValue', 'Filter', 'logger', 'calcularResiduales', 'riesgoEnPorcentaje', 'zonaSeveridad',
-  `${fuente('../api/_lib/coleccionesAgrupadas.js')}\n${fuente('../api/_lib/grcWorkspace.js')}\nreturn { recalcularResidualesMatriz, corregirEscalaInherente };`)(
+const cargar = db => new Function('adminDb', 'FieldValue', 'Filter', 'logger', 'calcularResiduales', 'riesgoEnPorcentaje', 'zonaSeveridad', 'normalizarClasificacion', 'CLASIFICACIONES_MANUAL',
+  `${fuente('../api/_lib/coleccionesAgrupadas.js')}\n${fuente('../api/_lib/grcWorkspace.js')}\nreturn { recalcularResidualesMatriz, corregirEscalaInherente, normalizarClasificacionesMatriz };`)(
   db, { delete: () => BORRAR }, {}, { info() {}, warn() {}, error() {} }, calcularResiduales, riesgoEnPorcentaje, zonaSeveridad,
+  normalizarClasificacion, CLASIFICACIONES_MANUAL,
 );
 
 const control = extra => ({ tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro', ...extra });
@@ -118,4 +121,29 @@ test('corrección de escala: un inherente 1–5 en un riesgo en porcentaje pasa 
   assert.equal(nueve.probabilidadInherente, 4, 'un riesgo importado en escala 1–5 completo no se toca');
   assert.match(dos.historialCambios.at(-1).accion, /Corrección de escala/);
   assert.equal((await cargar(db).corregirEscalaInherente({ ejecutar: true })).estado, 'sin-cambios');
+});
+
+test('clasificaciones: las variantes se unifican a la Tabla 5; lo no reconocido solo se reporta', async () => {
+  const riesgos = [
+    { id: 1, clasificacionRiesgo: 'Fraude interno' },
+    { id: 2, clasificacionRiesgo: 'Daños a activos y eventos extremos' },
+    { id: 3, clasificacionRiesgo: 'Ejecución y administracion del proceso' },
+    { id: 4, clasificacionRiesgo: 'Fraude Externo' },
+    { id: 5, clasificacionRiesgo: 'Operativo' },
+  ];
+  const db = crearDb({
+    'workspace_compartido/base_de_datos_grc': { riesgosFragmentados: { version: 1, partes: 1, orden: riesgos.map(riesgo => String(riesgo.id)) } },
+    'workspace_compartido/base_de_datos_grc_riesgos_0': { riesgos },
+  });
+  const simulacion = await cargar(db).normalizarClasificacionesMatriz({ ejecutar: false });
+  assert.equal(simulacion.riesgosCorregidos, 3);
+  assert.deepEqual(simulacion.noReconocidas, { Operativo: 1 });
+  assert.equal(riesgosGuardados(db)[0].clasificacionRiesgo, 'Fraude interno', 'simular no escribe');
+
+  await cargar(db).normalizarClasificacionesMatriz({ ejecutar: true, usuario: 'admin@x' });
+  assert.deepEqual(riesgosGuardados(db).map(riesgo => riesgo.clasificacionRiesgo), [
+    'Fraude Interno', 'Daños a activos fijos/ eventos externos', 'Ejecución y administración de procesos', 'Fraude Externo', 'Operativo',
+  ]);
+  assert.equal(riesgosGuardados(db)[0].historialCambios.at(-1).cambios[0].antes, 'Fraude interno');
+  assert.equal((await cargar(db).normalizarClasificacionesMatriz({ ejecutar: true })).estado, 'sin-cambios');
 });

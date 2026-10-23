@@ -1,5 +1,6 @@
 // src/utils/excelImporter.js
 import { cargarXLSX } from './xlsxLoader';
+import { normalizarClasificacion } from './clasificacionRiesgo.js';
 
 export const processExcelRiesgos = ({
   event,
@@ -56,7 +57,8 @@ export const processExcelRiesgos = ({
               sede: r['Sede'] || riesgoExistente.sede || 'Administrativos',
               proceso: r['PROCESO/SUBPROCESO'] || r['Proceso'] || riesgoExistente.proceso || 'Proceso General',
               categoria: r['CATEGORÍA'] || r['Categoría'] || riesgoExistente.categoria || 'Operativo',
-              clasificacionRiesgo: r['CLASIFICACIÓN DEL RIESGO'] || r['Clasificación del riesgo'] || riesgoExistente.clasificacionRiesgo || 'Ejecución',
+              // Se guarda la clasificación del manual (Tabla 5), aunque el Excel la traiga escrita distinto.
+              clasificacionRiesgo: normalizarClasificacion(r['CLASIFICACIÓN DEL RIESGO'] || r['Clasificación del riesgo'] || riesgoExistente.clasificacionRiesgo) || 'Ejecución y administración de procesos',
               normativa: riesgoExistente.normativa || 'Interna',
               responsable: r['RESPONSABLE'] || r['Responsable'] || riesgoExistente.responsable || 'Sin Asignar',
               descripcion: r['DESCRIPCIÓN DEL RIESGO'] || r['Descripción'] || riesgoExistente.descripcion || '',

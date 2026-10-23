@@ -1,6 +1,7 @@
 // Datos reales que se envían a la IA en los análisis de Riesgos.
 // Todo número sale de los registros; si algo no existe se reporta como 0 o "sin datos", nunca con un valor de relleno.
 import { nivelEscala, riesgoEnPorcentaje, zonasRiesgo } from './nivelRiesgo.js';
+import { normalizarClasificacion } from './clasificacionRiesgo.js';
 
 const texto = (valor, max = 400) => {
   const limpio = String(valor ?? '').replace(/\s+/g, ' ').trim();
@@ -52,7 +53,7 @@ export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion })
       causaRaiz: texto(riesgo.causaRaiz) || 'Sin dato',
       procesos: procesosDe(riesgo),
       subprocesos: lista(riesgo.subprocesos),
-      clasificacion: riesgo.clasificacionRiesgo || riesgo.categoria || 'Sin dato',
+      clasificacion: normalizarClasificacion(riesgo.clasificacionRiesgo || riesgo.categoria) || 'Sin dato',
       responsable: Array.isArray(riesgo.responsable) ? riesgo.responsable.join(', ') : (riesgo.responsable || 'Sin dato'),
       ...puntajes,
       tratamiento: riesgo.tratamiento || 'Sin dato',
