@@ -16,6 +16,7 @@ import ModalIA from '../components/ModalIA';
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles, zonaSeveridad } from '../utils/nivelRiesgo.js';
 import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, validarMotivo, vigentes } from '../utils/anulacion.js';
 import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
+import { fechaEntradaHistorial } from '../utils/historialRiesgo.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
@@ -666,7 +667,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
               <li key={`${entrada.timestamp || entrada.fecha}-${indice}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-[11px] text-slate-700">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <strong className="text-slate-900">{entrada.accion}</strong>
-                  <span className="text-[10px] text-slate-500">{entrada.usuario || 'Sin usuario registrado'} · {entrada.fecha}</span>
+                  <span className="text-[10px] text-slate-500">{entrada.usuario || 'Sin usuario registrado'} · {fechaEntradaHistorial(entrada)}</span>
                 </div>
                 {entrada.motivo && <p className="mt-1"><span className="text-slate-500">Motivo:</span> {entrada.motivo}</p>}
                 {Array.isArray(entrada.cambios) && entrada.cambios.length > 0 && (

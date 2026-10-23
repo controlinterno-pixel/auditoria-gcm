@@ -101,7 +101,7 @@ async function repararConsecutivosInformes(user) {
         ...informe,
         ref: nuevaRef,
         historialCambios: [...historial, {
-          fecha: new Date().toLocaleString('es-CO'),
+          fecha: new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
           timestamp: new Date().toISOString(),
           usuario: user.email,
           accion: `Consecutivo corregido por duplicidad: ${informe.ref} → ${nuevaRef}`,
@@ -285,7 +285,7 @@ export default async function handler(req, res) {
             estado: 'En Proceso',
             creadoPor: user.email,
             historialCambios: [{
-              fecha: ahora.toLocaleString('es-CO'),
+              fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
               usuario: user.email,
               accion: 'Actividad registrada en matriz por el líder de proceso',
             }],
@@ -334,7 +334,7 @@ export default async function handler(req, res) {
           correoCreador: user.email,
           creadoPor: user.email,
           historialCambios: [{
-            fecha: ahora.toLocaleString('es-CO'),
+            fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
             usuario: user.email,
             accion: 'Desviación documentada',
           }],
@@ -350,7 +350,7 @@ export default async function handler(req, res) {
           id: codigo,
           codigo,
           historialCambios: [{
-            fecha: ahora.toLocaleString('es-CO'),
+            fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
             timestamp: fechaIso,
             usuario: user.email,
             accion: 'Creación',

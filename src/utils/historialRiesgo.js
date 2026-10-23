@@ -80,10 +80,16 @@ export function entradaDeCambios({ usuario, cambios, ahora = new Date() }) {
   if (!cambios.length) return null;
   const nombres = [...new Set(cambios.map(cambio => cambio.campo))];
   return {
-    fecha: ahora.toLocaleString('es-CO'),
+    fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
     timestamp: ahora.toISOString(),
     usuario,
     accion: `Modificó ${nombres.length <= 4 ? nombres.join(', ') : `${nombres.slice(0, 4).join(', ')} y ${nombres.length - 4} campos más`}`,
     cambios,
   };
+}
+
+/** Fecha y hora de una entrada del historial en la hora del equipo; usa el registro exacto (timestamp) si existe. */
+export function fechaEntradaHistorial(entrada) {
+  const tiempo = Date.parse(entrada?.timestamp || '');
+  return Number.isFinite(tiempo) ? new Date(tiempo).toLocaleString('es-CO') : (entrada?.fecha || 'Sin fecha');
 }

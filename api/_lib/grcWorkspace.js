@@ -376,7 +376,7 @@ export async function recalcularResidualesMatriz({ ejecutar = false, usuario = '
         nivelInherente: zonas(actualizado).inherente,
         nivelResidual: despues.zona,
         historialCambios: [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []), {
-          fecha: ahora.toLocaleString('es-CO'),
+          fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
           timestamp: ahora.toISOString(),
           usuario,
           accion: 'Recálculo del residual según el Manual de Riesgos E-GE-MAN-001 (Tabla 6: solo tipo e implementación pesan; Tabla 4: matriz de calor)',
@@ -447,7 +447,7 @@ export async function corregirEscalaInherente({ ejecutar = false, usuario = '' }
         nivelInherente: zonaSeveridad(corregido.probabilidadInherente, corregido.impactoInherente, true).label,
         nivelResidual: despues.zonaResidual,
         historialCambios: [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []), {
-          fecha: ahora.toLocaleString('es-CO'),
+          fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
           timestamp: ahora.toISOString(),
           usuario,
           accion: 'Corrección de escala: valor inherente registrado como nivel 1–5 convertido a porcentaje (Tablas 2 y 3 del Manual de Riesgos)',
@@ -497,7 +497,7 @@ export async function normalizarClasificacionesMatriz({ ejecutar = false, usuari
         ...riesgo,
         clasificacionRiesgo: normalizada,
         historialCambios: [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []), {
-          fecha: ahora.toLocaleString('es-CO'),
+          fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
           timestamp: ahora.toISOString(),
           usuario,
           accion: 'Clasificación unificada según la Tabla 5 del Manual de Riesgos',

@@ -272,7 +272,7 @@ export default async function handler(req, res) {
             historialCambios: (camposCambiados.length || atascadoAlCien) ? [
               ...historial,
               {
-                fecha: ahora.toLocaleString('es-CO'),
+                fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
                 usuario: user.email,
                 accion: reenviaRevision
                   ? 'Diseño corregido y reenviado a revisión por su responsable'
@@ -353,7 +353,7 @@ export default async function handler(req, res) {
             estado: 'En Proceso',
             creadoPor: user.email,
             historialCambios: [{
-              fecha: ahora.toLocaleString('es-CO'),
+              fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
               usuario: user.email,
               accion: 'Actividad registrada en matriz',
             }],
@@ -492,7 +492,7 @@ export default async function handler(req, res) {
           historialCambios: camposCambiados.length ? [
             ...historial,
             {
-              fecha: ahora.toLocaleString('es-CO'),
+              fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
               timestamp: ahora.toISOString(),
               usuario: user.email,
               accion: 'Hallazgo actualizado por su creador',
@@ -578,7 +578,7 @@ export default async function handler(req, res) {
         historialCambios: camposCambiados.length ? [
           ...historial,
           {
-            fecha: ahora.toLocaleString('es-CO'),
+            fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
             timestamp: ahora.toISOString(),
             usuario: user.email,
             accion: motivoSeguro ? `Actualización del informe — ${motivoSeguro}` : 'Actualización del informe',
@@ -625,7 +625,7 @@ export default async function handler(req, res) {
           historialCambios: [
             ...historialPlan,
             {
-              fecha: ahora.toLocaleString('es-CO'),
+              fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
               timestamp: ahora.toISOString(),
               usuario: user.email,
               accion: 'Auditor de seguimiento sincronizado desde el informe de auditoría',

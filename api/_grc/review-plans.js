@@ -79,7 +79,7 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
     const ahora = new Date();
     const aprobado = puntaje >= 80;
     const evaluacion = {
-      tipo: TIPO_EVALUACION_INICIAL, fecha: ahora.toLocaleString('es-CO'), timestamp: ahora.toISOString(),
+      tipo: TIPO_EVALUACION_INICIAL, fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }), timestamp: ahora.toISOString(),
       usuario: user.email, puntaje, aprobado, criterios, justificacion: motivo, adjuntoEvaluacion: soporte,
     };
     const actualizados = seleccionados.map(plan => ({
@@ -186,7 +186,7 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
 
     const ahora = new Date();
     const evaluacion = evaluacionEficacia && typeof evaluacionEficacia === 'object' ? {
-      fecha: ahora.toLocaleString('es-CO'),
+      fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
       timestamp: ahora.toISOString(),
       usuario: user.email,
       alcance: conjunta ? 'todas' : 'accion',
@@ -204,7 +204,7 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
       ...(evaluacion ? { evaluacionEficaciaCierre: evaluacion } : {}),
       ...(evaluacion ? { historialEficacia: [...(Array.isArray(plan.historialEficacia) ? plan.historialEficacia : plan.evaluacionEficaciaCierre ? [plan.evaluacionEficaciaCierre] : []), evaluacion] } : {}),
       historialCambios: [...(Array.isArray(plan.historialCambios) ? plan.historialCambios : []), {
-        fecha: ahora.toLocaleString('es-CO'),
+        fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
         timestamp: ahora.toISOString(),
         usuario: user.email,
         accion: cerrar
@@ -225,7 +225,7 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
     ).map(hallazgo => ({
       ...hallazgo, estado: 'Cerrado',
       historialCambios: [...(Array.isArray(hallazgo.historialCambios) ? hallazgo.historialCambios : []), {
-        fecha: ahora.toLocaleString('es-CO'), usuario: user.email, accion: 'Hallazgo cerrado: todas sus acciones fueron aprobadas por el auditor asignado.',
+        fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }), usuario: user.email, accion: 'Hallazgo cerrado: todas sus acciones fueron aprobadas por el auditor asignado.',
       }],
     })) : [];
     if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
@@ -319,7 +319,7 @@ export default async function handler(req, res) {
         const aprobado = decision === 'aprobar';
         const validaEjecucionCompleta = plan.estadoWorkflow === ESTADO_VALIDACION_REVISOR;
         const evento = {
-          fecha: ahora.toLocaleString('es-CO'),
+          fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
           timestamp: ahora.toISOString(),
           usuario: user.email,
           accion: validaEjecucionCompleta

@@ -8,7 +8,7 @@ export const LONGITUD_MINIMA_MOTIVO = 10;
 export const estaAnulado = registro => registro?.estado === 'Anulado';
 export const vigentes = lista => (Array.isArray(lista) ? lista : []).filter(registro => !estaAnulado(registro));
 
-const marcaTiempo = ahora => ({ fecha: ahora.toLocaleString('es-CO'), timestamp: ahora.toISOString() });
+const marcaTiempo = ahora => ({ fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }), timestamp: ahora.toISOString() });
 
 /** Valida el motivo de una anulación o reactivación. Devuelve el texto del error o ''. */
 export function validarMotivo({ tipoMotivo, motivo }, { exigirTipo = true } = {}) {
