@@ -473,6 +473,26 @@ test('rol auditor: gestiona como un líder (solo sus tareas), no como administra
   assert.match(nueva.error, /No tiene permiso para gestionar planes/);
 });
 
+test('diseño devuelto por el revisor: el ejecutor lo corrige y vuelve a revisión (sin poder avanzar aún)', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/informes/i1`, { ...fixture.documents.get(`${ROOT}/informes/i1`), tipoFuente: 'Auditoría interna' });
+  // Así queda una acción cuando el revisor pide corrección del diseño (review-plans → "Borrador").
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { estadoWorkflow: 'Borrador', progreso: 0, motivoRechazo: 'Falta la meta' }));
+  fixture.sesion.usuario = { uid: 'u9', email: 'ejecutor@example.test', rol: 'lider' };
+  fixture.documents.set('usuarios/u9', { rol: 'lider', permisos: ['planes', 'sub_seguimiento_planes'], procesosAsignados: ['Operaciones'] });
+
+  const avance = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 30 }], nuevas: [] } });
+  assert.equal(avance.code, 409);
+  assert.match(avance.error, /Primero corrige el diseño/);
+
+  const correccion = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 1, accion: 'Acción con meta medible' }], nuevas: [] } });
+  assert.equal(correccion.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(correccion));
+  const plan = fixture.documents.get(`${ROOT}/planes_accion/1`);
+  assert.equal(plan.accion, 'Acción con meta medible');
+  assert.equal(plan.estadoWorkflow, 'Pendiente Revisión Jefatura', 'vuelve al revisor');
+  assert.match(plan.historialCambios.at(-1).accion, /reenviado a revisión/);
+});
+
 test('sin "Seguimiento de Planes" el ejecutor igual avanza su propia tarea', async () => {
   const fixture = storeFixture({ fragmented: true });
   fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { correoResponsable: 'ejecutor@example.test', estadoWorkflow: 'En Ejecución', progreso: 20 }));

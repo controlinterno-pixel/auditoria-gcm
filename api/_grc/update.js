@@ -231,14 +231,16 @@ export default async function handler(req, res) {
           // Subir evidencia es ejecución, no una corrección del diseño aprobado.
           const cambioDiseno = camposCambiados.some(campo => !['progreso', 'evidenciaUrl'].includes(campo));
           const corrigeDisenoInicial = esPrograma && disenoInicialBloqueado(anterior);
-          if (corrigeDisenoInicial && Number(cambios.progreso ?? anterior.progreso) !== Number(anterior.progreso)) {
-            return { error: 'progress-forbidden' };
-          }
-          if (!admin && camposCambiados.length > 0 && anterior.estadoWorkflow !== 'En Ejecución' &&
+          // Diseño devuelto por el revisor ("Borrador"): el ejecutor lo corrige y vuelve a revisión. Aún no ejecuta.
+          const corrigeDisenoDevuelto = !esPrograma && anterior.estadoWorkflow === 'Borrador';
+          const cambiaAvance = Number(cambios.progreso ?? anterior.progreso) !== Number(anterior.progreso);
+          if (corrigeDisenoInicial && cambiaAvance) return { error: 'progress-forbidden' };
+          if (corrigeDisenoDevuelto && cambiaAvance) return { error: 'design-correction-progress' };
+          if (!admin && camposCambiados.length > 0 && anterior.estadoWorkflow !== 'En Ejecución' && !corrigeDisenoDevuelto &&
               !(corrigeDisenoInicial && anterior.estadoWorkflow === ESTADO_AJUSTES_INICIALES && !cambioProgreso)) {
             return { error: 'progress-forbidden' };
           }
-          const reenviaRevision = (cambioDiseno || (corrigeDisenoInicial && camposCambiados.length > 0)) && (!admin || esPrograma);
+          const reenviaRevision = (cambioDiseno || ((corrigeDisenoInicial || corrigeDisenoDevuelto) && camposCambiados.length > 0)) && (!admin || esPrograma);
           let estadoWorkflow = anterior.estadoWorkflow;
           const alCien = Number(cambios.progreso ?? anterior.progreso) === 100;
           if (admin && (cambioProgreso || atascadoAlCien)) {
@@ -371,6 +373,7 @@ export default async function handler(req, res) {
         'invalid-action': ['La descripción de la acción no puede quedar vacía.', 400],
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
         'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
+        'design-correction-progress': ['Primero corrige el diseño de la acción y guárdalo: vuelve al revisor. El avance se habilita cuando lo apruebe.', 409],
         'reviewer-read-only': ['Con el diseño aprobado, solo el ejecutor puede trabajar esta acción. El revisor y el auditor aprobador solo pueden consultarla.', 403],
         'executor-locked-review': ['Esta acción ya fue reportada al 100% y está pendiente por revisar; el ejecutor no puede modificarla.', 403],
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
