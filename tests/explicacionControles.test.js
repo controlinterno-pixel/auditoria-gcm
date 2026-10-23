@@ -24,50 +24,69 @@ test('Tabla 8: mitigación acumulativa del ejemplo del manual', () => {
   assert.deepEqual(calcularResiduales(60, 60, [control({ tipo: 'Correctivo' })]), { probabilidadResidual: 60, impactoResidual: 45 });
 });
 
-test('explicación de un control: cálculo, techo, formalización y mejoras', () => {
+test('lectura de un control: solo sus datos, sus fallas y cómo mejorarlo', () => {
   const manual = explicarControl(control());
-  assert.equal(manual.eficacia, 40);
-  assert.equal(manual.estado, 'mejorable');
-  assert.equal(manual.formal, true);
-  assert.match(manual.resumen, /reduce en un 40% la probabilidad/);
-  assert.equal(manual.calculo, '40% = Preventivo 25% + Manual 15% (Tabla 6 del manual).');
-  assert.match(manual.techo, /^Tiene 40 de 50 puntos posibles para un control preventivo \(80% del máximo\)\..*si se automatizara subiría a 50%/);
-  assert.deepEqual(manual.mejoras.map(mejora => mejora.efecto), ['subiría de 40% a 50%']);
+  assert.equal(manual.resumen, 'Reduce 40% la probabilidad.');
+  assert.equal(manual.calculo, 'Preventivo 25% + Manual 15% = 40% (40 de 50 puntos · 80% del máximo).');
+  assert.equal(manual.formalizacion, '', 'si cumple todo, no agrega texto');
+  assert.deepEqual(manual.mejoras, [{ texto: 'Automatizarlo', efecto: 'subiría de 40% a 50%' }]);
 
-  const informal = explicarControl(control({ documentacion: 'No documentado', evidencia: 'Sin registro' }));
-  assert.equal(informal.formal, false);
-  assert.match(informal.formalizacion, /no está documentado.*y no deja registro/);
-  assert.equal(informal.mejoras.length, 3);
+  const informal = explicarControl(control({ frecuencia: 'Aleatoria', evidencia: 'Sin registro' }));
+  assert.match(informal.formalizacion, /^Se aplica de forma aleatoria: las veces que no se aplica, el riesgo queda sin cubrir\. No deja registro/);
+  assert.deepEqual(informal.mejoras.map(mejora => mejora.texto), ['Automatizarlo', 'Aplicarlo cada vez que se realiza la actividad con riesgo.', 'Dejar registro de cada ejecución.']);
 
   const correctivo = explicarControl(control({ tipo: 'Correctivo', implementacion: 'Automático' }));
-  assert.equal(correctivo.estado, 'maximo');
-  assert.match(correctivo.resumen, /reduce en un 35% la gravedad del daño/);
+  assert.equal(correctivo.resumen, 'Reduce 35% el impacto.');
   assert.deepEqual(correctivo.mejoras, []);
 });
 
-test('desglose residual del ejemplo del manual: zona Alta y plan de acción', () => {
+const hoy = new Date('2026-10-23T12:00:00');
+const pasos = (lista) => lista.map(([codigo, eficacia, despues]) => ({ codigo, eficacia, despues }));
+
+test('lectura del residual: cuánto bajó, de qué control depende y qué falta (plan y seguimiento)', () => {
+  // Caso de la captura: 4 preventivos manuales y 1 correctivo; zona Moderado.
   const exp = {
-    probInh: 60, impInh: 80, probFinal: 25, impFinal: 80,
-    pasosP: [{ codigo: 'CTL-21', eficacia: 40, despues: 36 }, { codigo: 'CTL-22', eficacia: 30, despues: 25.2 }],
-    pasosI: [],
+    probInh: 60, impInh: 60, probFinal: 8, impFinal: 45,
+    pasosP: pasos([['CTL-21', 40, 36], ['CTL-22', 40, 21.6], ['CTL-23', 40, 12.96], ['CTL-24', 40, 7.78]]),
+    pasosI: pasos([['CTL-25', 25, 45]]),
   };
-  const lectura = explicarCalculoResidual(exp, { probabilidadInherente: 60, impactoInherente: 80, probabilidadResidual: 25, impactoResidual: 80 });
-  assert.match(lectura.probabilidad[0], /60% \(Media\): la actividad con riesgo se ejecuta de 24 a 500 veces al año/);
-  assert.match(lectura.probabilidad[1], /CTL-21 \(40%\) la deja en 36%; CTL-22 \(30%\) la deja en 25.2%/);
-  assert.equal(lectura.probabilidad[2], 'Probabilidad residual: 25% (Baja).');
-  assert.match(lectura.probabilidad[3], /Si CTL-21 dejara de aplicarse, la probabilidad subiría a 42%/);
-  assert.match(lectura.impacto[0], /80% \(Mayor\): entre 100 y 500 SMLMV/);
-  assert.match(lectura.impacto[1], /No tiene controles correctivos/);
-  assert.equal(lectura.zonaInherente, 'Alto');
-  assert.equal(lectura.zonaResidual, 'Alto', 'Figura 10: Baja × Mayor sigue en zona alta');
-  assert.match(lectura.conclusion, /sigue en zona Alto.*debe definir un plan de acción/);
-  assert.equal(lectura.aviso, '');
+  const controles = [control(), control({ frecuencia: 'Aleatoria' }), control(), control(), control({ tipo: 'Correctivo' })];
+  const lectura = explicarCalculoResidual(exp, { controlesDetallados: controles }, { hoy });
+  assert.deepEqual(lectura.probabilidad, [
+    'Baja de 60% a 8% (Muy baja) con 4 controles: CTL-21, CTL-22, CTL-23, CTL-24.',
+    'Si CTL-21 deja de aplicarse, la probabilidad sube a 13%.',
+  ]);
+  assert.deepEqual(lectura.impacto, [
+    'Baja de 60% a 45% (Moderado) con CTL-25.',
+    'Depende solo de CTL-25: si falla, el impacto vuelve a 60%.',
+  ]);
+  assert.equal(lectura.conclusion,
+    'Sigue en zona Moderado. No tiene fecha de seguimiento programada y en zona Moderado el manual exige seguimiento. Controles con fallas de formalización: CTL-22 (frecuencia aleatoria).');
 });
 
-test('el aviso indica cuando el residual guardado se calculó con la regla anterior', () => {
+test('zona Alta: exige plan de acción y avisa si el seguimiento venció', () => {
+  const exp = { probInh: 60, impInh: 80, probFinal: 25, impFinal: 80, pasosP: pasos([['CTL-21', 40, 36], ['CTL-22', 30, 25.2]]), pasosI: [] };
+  const sinPlan = explicarCalculoResidual(exp, { fechaSeguimiento: '2026-09-30' }, { hoy });
+  assert.equal(sinPlan.impacto[0], 'Ningún control correctivo: si el riesgo ocurre, el impacto sigue en 80% (Mayor).');
+  assert.equal(sinPlan.conclusion,
+    'Sigue en zona Alto. No tiene plan de acción registrado y en zona Alto es obligatorio (numeral 9 del manual). El seguimiento programado venció el 2026-09-30.');
+  assert.equal(sinPlan.requierePlan, true);
+  assert.equal(sinPlan.seguimientoVencido, true);
+
+  const conPlan = explicarCalculoResidual(exp, { planAccionRiesgo: 'Implementar lista de chequeo en Zeus', fechaSeguimiento: '2026-11-15' }, { hoy });
+  assert.match(conPlan.conclusion, /Plan de acción registrado: "Implementar lista de chequeo en Zeus"\. Próximo seguimiento: 2026-11-15\./);
+});
+
+test('sin controles: lo dice sin texto genérico', () => {
+  const lectura = explicarCalculoResidual({ probInh: 40, impInh: 40, probFinal: 40, impFinal: 40, pasosP: [], pasosI: [] }, { fechaSeguimiento: '2026-12-01' }, { hoy });
+  assert.deepEqual(lectura.probabilidad, ['Ningún control preventivo o detectivo: la probabilidad sigue en 40%.']);
+  assert.equal(lectura.conclusion, 'Sigue en zona Moderado. Próximo seguimiento: 2026-12-01.');
+});
+
+test('el aviso indica cuando el residual guardado no coincide con el cálculo', () => {
   const exp = { probInh: 60, impInh: 60, probFinal: 13, impFinal: 45, pasosP: [], pasosI: [] };
-  const lectura = explicarCalculoResidual(exp, { probabilidadInherente: 60, impactoInherente: 60, probabilidadResidual: 0, impactoResidual: 24 });
-  assert.match(lectura.aviso, /guardado en la matriz \(0% \/ 24%\) se calculó con la regla anterior; según el manual es 13% \/ 45%/);
+  const lectura = explicarCalculoResidual(exp, { probabilidadInherente: 60, impactoInherente: 60, probabilidadResidual: 0, impactoResidual: 24 }, { hoy });
+  assert.match(lectura.aviso, /guardado en la matriz \(0% \/ 24%\) no coincide con este cálculo \(13% \/ 45%\)/);
 });
 
 test('color del diseño: verde ≥ 80 %, ámbar 60–79 %, rojo < 60 %', () => {

@@ -2002,14 +2002,13 @@ const renderMatriz = () => {
                 const tono = tonoEficacia.caja;
                 return (
                   <div className={`rounded-lg border p-3 text-[11px] leading-relaxed lg:col-span-3 ${tono}`}>
-                    <p><strong>💬 ¿Qué significa {explicacion.eficacia}%?</strong> {explicacion.resumen}</p>
-                    <p className="mt-1"><strong>Cómo se calcula:</strong> {explicacion.calculo} {explicacion.techo}</p>
-                    <p className="mt-1">{explicacion.formalizacion}</p>
+                    <p><strong>💬 {explicacion.resumen}</strong> {explicacion.calculo}</p>
+                    {explicacion.formalizacion && <p className="mt-1 font-semibold">⚠️ {explicacion.formalizacion}</p>}
                     {explicacion.mejoras.length > 0 && (
                       <div className="mt-1.5">
                         <p className="font-bold">Para mejorarlo:</p>
                         <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
-                          {explicacion.mejoras.map(mejora => <li key={mejora.texto}>{mejora.texto}: {mejora.efecto}.</li>)}
+                          {explicacion.mejoras.map(mejora => <li key={mejora.texto}>{mejora.efecto ? `${mejora.texto}: ${mejora.efecto}.` : mejora.texto}</li>)}
                         </ul>
                       </div>
                     )}
@@ -2073,7 +2072,7 @@ const renderMatriz = () => {
               )}
 
               <div className="bg-emerald-950/40 border border-emerald-800/50 p-2.5 rounded-lg text-[10px] text-emerald-200/90 leading-relaxed font-sans">
-                <p className="font-bold text-emerald-300">💡 ¿Qué significa para este riesgo?</p>
+                <p className="font-bold text-emerald-300">💡 Lectura de este riesgo</p>
                 {lectura.probabilidad.map(frase => <p key={frase} className="mt-1">{frase}</p>)}
               </div>
             </div>
@@ -2107,7 +2106,7 @@ const renderMatriz = () => {
               )}
 
               <div className="bg-emerald-950/40 border border-emerald-800/50 p-2.5 rounded-lg text-[10px] text-emerald-200/90 leading-relaxed font-sans">
-                <p className="font-bold text-emerald-300">💡 ¿Qué significa para este riesgo?</p>
+                <p className="font-bold text-emerald-300">💡 Lectura de este riesgo</p>
                 {lectura.impacto.map(frase => <p key={frase} className="mt-1">{frase}</p>)}
               </div>
             </div>
@@ -2819,14 +2818,14 @@ const renderMatriz = () => {
             {/* 💡 Qué significan estos porcentajes para este riesgo: se actualiza mientras se editan los controles */}
             {(() => {
               const exp = obtenerExplicacionCalculo({ probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles });
-              const lectura = explicarCalculoResidual(exp);
+              const lectura = explicarCalculoResidual(exp, { controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento });
               const tonoZona = {
                 Extremo: 'bg-red-600 text-white', Alto: 'bg-orange-500 text-white', Moderado: 'bg-amber-400 text-slate-900', Bajo: 'bg-emerald-500 text-white',
               };
               return (
                 <div className="space-y-3 rounded-lg border border-emerald-800/60 bg-emerald-950/40 p-3 text-[11px] leading-relaxed text-emerald-100" aria-live="polite">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-emerald-300">💡 ¿Qué significan estos porcentajes?</span>
+                    <span className="font-bold text-emerald-300">💡 Lectura de este riesgo</span>
                     <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${tonoZona[lectura.zonaInherente]}`}>Inherente: {lectura.zonaInherente}</span>
                     <span aria-hidden="true" className="text-emerald-400">→</span>
                     <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${tonoZona[lectura.zonaResidual]}`}>Residual: {lectura.zonaResidual}</span>
