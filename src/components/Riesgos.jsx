@@ -2503,7 +2503,7 @@ const renderMatriz = () => {
     {/* 🏷️ ETIQUETA VISUAL + BOTÓN DE CÁLCULO DE EFICACIA */}
     <div className="flex justify-between items-center">
       <div className="absolute -top-3 left-4 bg-[#0A3B32] text-white font-black text-[10px] px-3 py-1 rounded-md shadow-sm uppercase tracking-widest border border-[#062620]">
-        Control C{idx + 1}
+        Control {codigoControl(idx)}
       </div>
 
       {/* 📊 BOTÓN CHULITO VERDE QUE ABRE EL DESGLOSE */}
@@ -2616,6 +2616,36 @@ const renderMatriz = () => {
                 <input type="text" value={`${residuales.impacto}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
             </div>
+
+            {/* 💡 Qué significan estos porcentajes para este riesgo: se actualiza mientras se editan los controles */}
+            {(() => {
+              const exp = obtenerExplicacionCalculo({ probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles });
+              const lectura = explicarCalculoResidual(exp);
+              const tonoZona = {
+                Extremo: 'bg-red-600 text-white', Alto: 'bg-orange-500 text-white', Moderado: 'bg-amber-400 text-slate-900', Bajo: 'bg-emerald-500 text-white',
+              };
+              return (
+                <div className="space-y-3 rounded-lg border border-emerald-800/60 bg-emerald-950/40 p-3 text-[11px] leading-relaxed text-emerald-100" aria-live="polite">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-emerald-300">💡 ¿Qué significan estos porcentajes?</span>
+                    <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${tonoZona[lectura.zonaInherente]}`}>Inherente: {lectura.zonaInherente}</span>
+                    <span aria-hidden="true" className="text-emerald-400">→</span>
+                    <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${tonoZona[lectura.zonaResidual]}`}>Residual: {lectura.zonaResidual}</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div>
+                      <p className="font-bold text-emerald-300">Probabilidad</p>
+                      {lectura.probabilidad.map(frase => <p key={frase} className="mt-1">{frase}</p>)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-emerald-300">Impacto</p>
+                      {lectura.impacto.map(frase => <p key={frase} className="mt-1">{frase}</p>)}
+                    </div>
+                  </div>
+                  <p className="border-t border-emerald-800/60 pt-2"><strong className="text-emerald-300">📌 En resumen:</strong> {lectura.conclusion}</p>
+                </div>
+              );
+            })()}
           </div>
 
           </fieldset>
