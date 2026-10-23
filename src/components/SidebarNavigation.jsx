@@ -26,6 +26,7 @@ export default function SidebarNavigation({
   onSelectRevisionTasks = () => {},
   onSelectAprobacionTasks = () => {},
   isAdmin,
+  puedeVerDashboard = false,
   puedeVerFuentesMejora = false,
   puedeVerCronograma = false,
   puedeVerProgramas = false,
@@ -139,7 +140,7 @@ export default function SidebarNavigation({
           <div id="submenu-inicio" inert={menuAbierto !== 'inicio' || isCollapsed} aria-hidden={menuAbierto !== 'inicio' || isCollapsed} className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'inicio' && !isCollapsed ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
               <button onClick={() => navigateTo('tablero')} aria-current={activeTab === 'tablero' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'tablero' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Mi Espacio GRC</button>
-              <button onClick={() => navigateTo('dashboard_riesgos')} aria-current={activeTab === 'dashboard_riesgos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'dashboard_riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>GRC Dashboard</button>
+              {puedeVerDashboard && <button onClick={() => navigateTo('dashboard_riesgos')} aria-current={activeTab === 'dashboard_riesgos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'dashboard_riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>GRC Dashboard</button>}
             </div>
           </div>
         </div>

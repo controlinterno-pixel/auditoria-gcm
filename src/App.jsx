@@ -351,6 +351,7 @@ export default function App() {
   const nombreVistaActual = typeof nombresVistas[activeTab] === 'string'
     ? nombresVistas[activeTab]
     : nombresVistas[activeTab]?.[contextoVista] || 'Módulo GRC';
+  const puedeVerDashboard = isAdmin || perfilUsuario?.permisos?.includes('sub_dashboard') === true;
   const puedeVerFuentesMejora = isAdmin || perfilUsuario?.permisos?.includes('sub_fuentes_mejora') === true;
   const puedeVerCronograma = isAdmin || perfilUsuario?.permisos?.includes('sub_cronograma') === true;
   // Auditorías y Gobernanza solo con permiso explícito (el servidor tampoco entrega esos datos sin él).
@@ -758,6 +759,7 @@ return (
         onSelectRevisionTasks={() => seleccionarTareasPlanes('revision')}
         onSelectAprobacionTasks={() => seleccionarTareasPlanes('aprobacion')}
         isAdmin={isAdmin}
+        puedeVerDashboard={puedeVerDashboard}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
         puedeVerCronograma={puedeVerCronograma}
         puedeVerProgramas={puedeVerProgramas}
@@ -921,7 +923,7 @@ return (
               />
             )}
 {/* 📈 DASHBOARD INTELIGENTE — RECONECTADO AQUÍ */}
-           {activeTab === 'dashboard_riesgos' && (
+           {activeTab === 'dashboard_riesgos' && puedeVerDashboard && (
               <DashboardEjecutivo 
                 rFiltrados={rFiltrados} riesgos={riesgos}
                 hFiltrados={hFiltrados} hallazgos={hallazgos}
@@ -1249,7 +1251,8 @@ return (
             )}
 
             {/* 🔒 Pantallas de Auditorías / Gobernanza sin el permiso correspondiente: aviso en vez de un área vacía. */}
-            {((activeTab === 'plan_anual_tab' && ((subTabPlanificar === 'plan_anual' && !puedeVerCronograma) || (subTabPlanificar === 'programas' && !puedeVerProgramas))) ||
+            {((activeTab === 'dashboard_riesgos' && !puedeVerDashboard) ||
+              (activeTab === 'plan_anual_tab' && ((subTabPlanificar === 'plan_anual' && !puedeVerCronograma) || (subTabPlanificar === 'programas' && !puedeVerProgramas))) ||
               (activeTab === 'gobernanza_tab' && !((subTabGobernanza === 'comites' && puedeVerComites) || (subTabGobernanza === 'trazabilidad' && puedeVerTrazabilidad) || (subTabGobernanza === 'auditoria_auto' && isAdmin)))) && (
               <div role="status" className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                 <p className="text-3xl" aria-hidden="true">🔒</p>
