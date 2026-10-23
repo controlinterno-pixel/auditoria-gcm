@@ -277,15 +277,18 @@ export const createFormHandlers = ({
         const respuesta = await crearRegistroGrc('hallazgos', nuevoHallazgo);
         if (!respuesta?.registro) return false;
         setHallazgos(prev => [respuesta.registro, ...(Array.isArray(prev) ? prev : [])]);
+        nuevoHallazgo = respuesta.registro;
       } catch (error) {
         showNotification(error.message || 'No se pudo crear el hallazgo.', 'error');
         return false;
       }
     }
 
+    // Devuelve el hallazgo guardado para que la pantalla lo ubique y lo resalte en el historial.
+    const hallazgoGuardado = editHallazgo ? hallazgoModificado : nuevoHallazgo;
     if (editHallazgo) setEditHallazgo(null);
     e.target.reset(); 
-    return true;
+    return hallazgoGuardado || true;
   };
   const handlePlanSubmit = async (e) => {
     e.preventDefault(); 

@@ -130,6 +130,8 @@ export default function Hallazgos({
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [formularioModificado, setFormularioModificado] = useState(false);
   const [confirmacionGuardado, setConfirmacionGuardado] = useState('');
+  // Hallazgo recién guardado: se abre su informe en el historial y se resalta la fila.
+  const [hallazgoDestacado, setHallazgoDestacado] = useState(null);
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [paginaGrupoDashboard, setPaginaGrupoDashboard] = useState(1);
   const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
@@ -140,6 +142,7 @@ export default function Hallazgos({
   // ✨ NUEVA FUNCIÓN DE UX: Previene salir por accidente si hay cambios
   const cambiarVistaSegura = (nuevaVista) => {
     if (nuevaVista === vistaActiva) return; // Si hace clic en la misma pestaña, ignoramos
+    setHallazgoDestacado(null);
 
     if (vistaActiva === 'nuevo' && !esSoloLectura) {
       guardNavigationHallazgos(() => {
@@ -181,12 +184,26 @@ export default function Hallazgos({
 
   useEffect(() => {
     if (!confirmacionGuardado) return undefined;
-    const mainArea = document.getElementById('main-scroll-area');
-    if (mainArea) mainArea.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (!hallazgoDestacado) {
+      const mainArea = document.getElementById('main-scroll-area');
+      if (mainArea) mainArea.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
     const temporizador = window.setTimeout(() => setConfirmacionGuardado(''), 7000);
     return () => window.clearTimeout(temporizador);
-  }, [confirmacionGuardado]);
+  }, [confirmacionGuardado, hallazgoDestacado]);
+
+  // Lleva la vista al hallazgo guardado (centrado en pantalla) y quita el resaltado pasados unos segundos.
+  useEffect(() => {
+    if (!hallazgoDestacado || vistaActiva !== 'historial') return undefined;
+    const ubicar = window.setTimeout(() => {
+      const destino = document.getElementById(`hallazgo-historial-${hallazgoDestacado.id}`)
+        || document.getElementById(`informe-historial-${hallazgoDestacado.idInforme}`);
+      destino?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+    const apagar = window.setTimeout(() => setHallazgoDestacado(null), 12000);
+    return () => { window.clearTimeout(ubicar); window.clearTimeout(apagar); };
+  }, [hallazgoDestacado, vistaActiva]);
 
   // 🌟 ESTADOS DERIVADOS DE MACRO Y SUBPROCESO
   const [macroprocesosFormState, setMacroprocesosFormState] = useState({});
@@ -1007,14 +1024,21 @@ export default function Hallazgos({
             const estabaEditando = Boolean(editHallazgo);
             const guardado = await handleHallazgoSubmit(e);
             if (guardado) {
-              setConfirmacionGuardado(estabaEditando ? 'Los cambios del hallazgo quedaron registrados.' : 'El hallazgo nuevo quedó registrado.');
+              const registro = typeof guardado === 'object' ? guardado : null;
+              const idInformeGuardado = String(registro?.idInforme || 'sin-informe');
+              const refInformeGuardado = informesAuditoria.find(inf => String(inf.id) === idInformeGuardado)?.ref;
+              const detalle = [registro?.ref, refInformeGuardado && `en el informe ${refInformeGuardado}`].filter(Boolean).join(' ');
+              setConfirmacionGuardado(estabaEditando
+                ? `Los cambios del hallazgo${detalle ? ` ${detalle}` : ''} quedaron registrados.`
+                : `El hallazgo nuevo${detalle ? ` ${detalle}` : ''} quedó registrado.`);
+              setHallazgoDestacado(registro?.id ? { id: String(registro.id), idInforme: idInformeGuardado } : null);
               setFiltroAnio('');
               setFiltroMes('');
               setFiltroTipoFuente('');
               setSearchTerm('');
               Object.keys(columnFilters).forEach(clave => handleColFilterChange(clave, ''));
               setPaginaHistorial(1);
-              setInformeHistorialExpandido(null);
+              setInformeHistorialExpandido(registro ? idInformeGuardado : null);
               setFormularioModificado(false);
               setVistaActiva('historial');
             }
@@ -1582,7 +1606,7 @@ export default function Hallazgos({
                   const isExpanded = informeHistorialExpandido === idInf;
 
                   return (
-                    <div key={`inf-card-${idInf}`} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-shadow hover:shadow-md">
+                    <div key={`inf-card-${idInf}`} id={`informe-historial-${idInf}`} className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md scroll-mt-24 ${hallazgoDestacado?.idInforme === String(idInf) ? 'border-emerald-300 ring-2 ring-emerald-200' : 'border-slate-200'}`}>
                       
                       {/* Fila Resumen del Informe (Línea de Trazabilidad Principal) */}
                       <div 
@@ -1631,9 +1655,12 @@ export default function Hallazgos({
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
                               {hzsDelInforme.map((h, hIdx) => (
-                                <tr key={`h-child-${h.id}-${hIdx}`} className="hover:bg-slate-50/60 transition-colors">
+                                <tr key={`h-child-${h.id}-${hIdx}`} id={`hallazgo-historial-${h.id}`} className={`transition-colors duration-700 ${hallazgoDestacado?.id === String(h.id) ? 'bg-emerald-50 outline outline-2 -outline-offset-2 outline-emerald-400' : 'hover:bg-slate-50/60'}`}>
                                   <td className="p-3 font-mono">
                                     <div className="font-black text-slate-800">{h.ref}</div>
+                                    {hallazgoDestacado?.id === String(h.id) && (
+                                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 font-sans text-[8px] font-black uppercase tracking-wider text-white animate-pulse">✓ Recién guardado</span>
+                                    )}
                                   </td>
                                   <td className="p-3">
                                     <div className="font-bold text-slate-700 truncate max-w-[150px]" title={h.macroprocesos?.join(', ') || h.proceso}>{h.macroprocesos?.join(', ') || h.proceso}</div>
