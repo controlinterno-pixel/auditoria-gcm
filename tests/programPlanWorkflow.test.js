@@ -4,6 +4,7 @@ import test from 'node:test';
 import * as workflow from '../src/utils/programPlanWorkflow.js';
 import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
 import { sanitizarUrls, validarDatosSync } from '../api/_lib/validation.js';
+import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const source = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default async function handler', 'async function handler');
@@ -29,6 +30,7 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
   const user = { uid: 'u1', email, rol, permisos: ['sub_seguimiento_planes'] };
   const profile = { ...user, procesosAsignados: ['Operaciones'] };
   const bindings = {
+    esAdministradorTotal, puedeVerTodo,
     ...workflow,
     validarAdjuntoEvaluacion, sanitizarUrls, validarDatosSync,
     applyCors: () => false, requireAuth: async () => user,
@@ -272,6 +274,7 @@ test('cada rol ve únicamente su siguiente tarea y el ejecutor ve el bloqueo ini
   ];
   const tasks = email => {
     const bindings = {
+    esAdministradorTotal, puedeVerTodo,
       planesEnriquecidos: planes, esPlanProgramaAuditoria: () => true,
       etapaAccionPrograma: workflow.etapaAccionPrograma,
       normalizarIdentidad: valor => String(valor || '').trim().toLowerCase(),
@@ -663,6 +666,7 @@ for (const decision of ['aprobar', 'corregir']) {
     const before = plan({ progreso: 100, estadoWorkflow: 'Pendiente Validación Revisor' });
     const after = { ...before, estadoWorkflow: decision === 'aprobar' ? 'En Revisión (100%)' : 'En Ejecución', progreso: decision === 'aprobar' ? 100 : 90 };
     const bindings = {
+    esAdministradorTotal, puedeVerTodo,
       revisionInformeId: 'i1', guardandoDecisionRevision: false, motivoCorreccion: 'Soporte incompleto',
       user: { email: 'revisor@example.test' }, planesEnriquecidos: [before],
       ESTADO_PENDIENTE_VALIDACION_REVISOR: 'Pendiente Validación Revisor', esPlanProgramaAuditoria: () => true,

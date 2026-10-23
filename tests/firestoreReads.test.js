@@ -1,6 +1,7 @@
 // tests/firestoreReads.test.js - Contratos de ahorro de lecturas/escrituras Firestore (sin Firestore real)
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -44,6 +45,7 @@ function harness(getGrcData) {
   const listeners = [];
   let timerId = 0;
   const bindings = {
+    esAdministradorTotal, puedeVerTodo,
     userId: 'test', db: {}, doc: () => ({}), localStorage: { removeItem() {} }, navigator: { onLine: true },
     window: {
       setTimeout: (callback, delay) => { const id = ++timerId; timers.set(id, { callback, delay }); return id; },
@@ -118,6 +120,7 @@ enCurso.cleanup();
   const congelado = JSON.stringify(workspaceCompartido);
   const ejecutarGet = async user => {
     const bindings = {
+    esAdministradorTotal, puedeVerTodo,
       ...workflowModule, ...alcanceModule,
       applyCors: () => false,
       requireAuth: async () => user,

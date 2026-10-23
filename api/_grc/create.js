@@ -4,6 +4,7 @@ import { esInformePrograma, estadoInicialPlan, motivoRevisorNoAplicaValido, revi
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { esAdministradorTotal } from '../_lib/roles.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import {
@@ -20,9 +21,8 @@ const COLECCIONES_PERMITIDAS = {
   planes: 'sub_seguimiento_planes',
 };
 
-const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
-  String(rol || '').toLowerCase().trim()
-);
+// El auditor crea como un líder (en sus macroprocesos); solo el administrador crea en cualquier proceso.
+const esAdministrador = rol => esAdministradorTotal(rol);
 
 const normalizar = (valor) => String(valor || '').trim().toLowerCase();
 const esCorreoValido = (valor) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim());

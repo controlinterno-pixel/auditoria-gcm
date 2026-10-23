@@ -189,7 +189,7 @@ export default async function handler(req, res) {
       const { id } = req.query;
       if (!id) return sendError(res, 'ID de riesgo requerido.', 400);
 
-      const puedeEliminarPorRol = esAdministrador || String(user.rol || '').trim().toLowerCase() === 'auditor';
+      const puedeEliminarPorRol = esAdministrador;
       if (!puedeEliminarPorRol) {
         return sendError(res, 'Solo los administradores o auditores pueden eliminar riesgos.', 403);
       }

@@ -45,3 +45,14 @@ test('solo sus tareas: ve los planes donde está asignado y al guardar no se pie
   assert.deepEqual(guardado.map(plan => [plan.id, plan.progreso]), [[3, undefined], [1, 50], [2, 50]], 'el plan 3 se conserva');
   assert.deepEqual(combinarPlanesVisibles(planes, [planes[0]], propio).map(plan => plan.id), [3, 1], 'borrar uno visible no toca los demás');
 });
+
+test('servidor: el auditor consulta todo, pero guardar la base completa e históricos es solo del administrador', () => {
+  const sync = readFileSync(new URL('../api/_grc/sync.js', import.meta.url), 'utf8');
+  assert.match(sync, /if \(!esAdministradorPleno\) \{\s*logger\.warn\('Intento de escritura RLS denegado'/);
+  const historico = readFileSync(new URL('../api/_grc/historico.js', import.meta.url), 'utf8');
+  assert.equal((historico.match(/if \(!esAdministradorPleno\)/g) || []).length, 2, 'cargar y eliminar');
+  for (const archivo of ['create', 'update', 'review-plans', 'register-email', 'catalogo-cargos']) {
+    const fuente = readFileSync(new URL(`../api/_grc/${archivo}.js`, import.meta.url), 'utf8');
+    assert.doesNotMatch(fuente, /\['admin', 'administrador', 'auditor'\]/, `${archivo}.js ya no trata al auditor como administrador`);
+  }
+});

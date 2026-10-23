@@ -4,6 +4,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { applyCors } from '../_lib/cors.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { esAdministradorTotal } from '../_lib/roles.js';
 
 const CHUNK_SIZE = 500;
 
@@ -24,7 +25,9 @@ export default async function handler(req, res) {
     if (!user) return;
 
     const { method } = req;
+    // Consultar: administrador o auditor. Cargar o eliminar: solo administrador.
     const isAdmin = esRolAdministrador(user.rol);
+    const esAdministradorPleno = esAdministradorTotal(user.rol);
 
     // =========================================================================
     // 📖 PETICIONES GET (LECTURA SEGURA Y PARALELIZADA)
@@ -115,7 +118,7 @@ export default async function handler(req, res) {
     // 💾 PETICIONES POST (ESCRITURA CON CONTROL DE ROLES)
     // =========================================================================
     if (method === 'POST') {
-      if (!isAdmin) {
+      if (!esAdministradorPleno) {
         logger.warn('Intento no autorizado de carga de histórico', { usuario: user.email });
         return sendError(res, 'Permisos insuficientes para cargar registros históricos.', 403);
       }
@@ -202,7 +205,7 @@ export default async function handler(req, res) {
     // 🗑️ PETICIONES DELETE (ELIMINACIÓN PROTEGIDA)
     // =========================================================================
     if (method === 'DELETE') {
-      if (!isAdmin) {
+      if (!esAdministradorPleno) {
         logger.warn('Intento no autorizado de eliminación de histórico', { usuario: user.email });
         return sendError(res, 'Permisos insuficientes para eliminar datos históricos.', 403);
       }

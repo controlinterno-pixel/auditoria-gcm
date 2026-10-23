@@ -2,14 +2,14 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { esAdministradorTotal } from '../_lib/roles.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerInformeTx, leerWorkspaceGrcLigero } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 
-const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
-  String(rol || '').toLowerCase().trim()
-);
+// El auditor registra envíos de informes de sus macroprocesos; solo el administrador, de cualquiera.
+const esAdministrador = rol => esAdministradorTotal(rol);
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;

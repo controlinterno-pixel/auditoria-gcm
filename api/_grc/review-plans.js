@@ -11,7 +11,6 @@ import {
 import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 import { validarAdjuntoEvaluacion } from '../../src/utils/evaluationAttachment.js';
 
-const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const ESTADO_VALIDACION_REVISOR = 'Pendiente Validación Revisor';
 const normalizar = valor => String(valor || '')
   .trim()
@@ -278,13 +277,8 @@ export default async function handler(req, res) {
       return sendError(res, 'Escribe el motivo de la corrección solicitada.', 400);
     }
 
-    const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
-    const perfil = perfilSnap.exists ? perfilSnap.data() : {};
-    const admin = ROLES_ADMIN.includes(normalizar(perfil.rol));
-    const permisos = Array.isArray(perfil.permisos) ? perfil.permisos : [];
-    if (!admin && !permisos.includes('sub_seguimiento_planes')) {
-      return sendError(res, 'No tiene permiso para revisar planes de acción.', 403);
-    }
+    // La decisión depende de estar asignado: la transacción solo toma las acciones donde el usuario es el
+    // revisor. Ni el rol ni la casilla "Seguimiento de Planes" dan permiso sobre acciones ajenas.
 
     const resultado = await adminDb.runTransaction(async transaction => {
       const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'review-plans-revision-tx' });

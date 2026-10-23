@@ -31,7 +31,8 @@ const CAMPOS_EDITABLES_PLAN = [
   'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
   'correoResponsable', 'correoRevisor', 'correoAuditor',
 ];
-const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
+// El auditor edita como un líder (su proceso y sus tareas asignadas); solo el administrador edita todo.
+const ROLES_ADMIN = ['admin', 'administrador'];
 const normalizar = valor => String(valor || '').trim().toLowerCase();
 const subprocesosDe = registro => (
   Array.isArray(registro?.subprocesos) ? registro.subprocesos : [registro?.subproceso]
@@ -82,13 +83,15 @@ export default async function handler(req, res) {
       const perfil = perfilSnap.exists ? perfilSnap.data() : {};
       const admin = ROLES_ADMIN.includes(normalizar(perfil.rol));
       const permisos = Array.isArray(perfil.permisos) ? perfil.permisos : [];
-      if (!admin && !permisos.includes('sub_seguimiento_planes')) {
-        return sendError(res, 'No tiene permiso para gestionar planes de acción.', 403);
-      }
 
       const idInforme = String(registro.idInforme || '');
       const actualizaciones = Array.isArray(registro.actualizaciones) ? registro.actualizaciones : [];
       const nuevas = Array.isArray(registro.nuevas) ? registro.nuevas : [];
+      // Crear acciones exige "Seguimiento de Planes"; sin esa casilla solo se avanzan las tareas propias
+      // (más abajo, cada actualización exige ser el ejecutor de la acción).
+      if (!admin && !permisos.includes('sub_seguimiento_planes') && nuevas.length > 0) {
+        return sendError(res, 'No tiene permiso para gestionar planes de acción.', 403);
+      }
       if (!idInforme || actualizaciones.length + nuevas.length === 0 || actualizaciones.length + nuevas.length > 100) {
         return sendError(res, 'La matriz debe incluir un informe y entre 1 y 100 cambios.', 400);
       }

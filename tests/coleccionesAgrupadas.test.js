@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
 
 const fuente = path => readFileSync(new URL(path, import.meta.url), 'utf8')
   .replace(/^import [^;]*;\r?\n/gm, '').replace(/^export /gm, '');
@@ -356,6 +357,7 @@ const { randomUUID } = await import('node:crypto');
 function endpoints(db) {
   const errores = [];
   const bindings = {
+    esAdministradorTotal, puedeVerTodo,
     ...workflow, ...alcance, ...validacion, ...cargar(db), validarAdjuntoEvaluacion, randomUUID, adminDb: db,
     applyCors: () => false,
     requireAuth: async () => ({ uid: 'admin', email: 'admin@termales.com.co', rol: 'admin' }),

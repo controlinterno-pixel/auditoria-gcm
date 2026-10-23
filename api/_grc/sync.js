@@ -3,6 +3,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { esAdministradorTotal } from '../_lib/roles.js';
 import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { sanitizarUrls, validarDatosSync } from '../_lib/validation.js';
@@ -230,7 +231,9 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
+    // Ver todo (GET) incluye al auditor; guardar la base completa (POST) es solo del administrador.
     const isAdmin = esRolAdministrador(user.rol);
+    const esAdministradorPleno = esAdministradorTotal(user.rol);
 
     // =========================================================================
     // 🛡️ LÓGICA GET: LECTURA CON ROW-LEVEL SECURITY (RLS) SERVER-SIDE
@@ -369,7 +372,7 @@ export default async function handler(req, res) {
     // 🛡️ LÓGICA POST: ESCRITURA ESTRICTA
     // =========================================================================
     if (req.method === 'POST') {
-      if (!isAdmin) {
+      if (!esAdministradorPleno) {
         logger.warn('Intento de escritura RLS denegado', { usuario: user.email, rol: user.rol });
         return sendError(res, 'Permisos insuficientes. Solo administradores pueden modificar la estructura GRC.', 403);
       }

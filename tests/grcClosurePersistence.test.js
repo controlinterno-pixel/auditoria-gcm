@@ -10,6 +10,7 @@ import { calcularResiduales } from '../src/utils/explicacionControles.js';
 import { zonaSeveridad } from '../src/utils/nivelRiesgo.js';
 import { revisarControlesEliminados } from '../src/utils/anulacion.js';
 import { compararRiesgos, entradaDeCambios } from '../src/utils/historialRiesgo.js';
+import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const moduleBody = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default ', '').replaceAll('export ', '');
@@ -119,7 +120,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const errors = [];
   const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
-    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios,
+    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios, esAdministradorTotal, puedeVerTodo,
     applyCors: () => false,
     requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
@@ -456,6 +457,45 @@ test('crear planes desde create.js también admite revisor "No aplica"; en Progr
   assert.equal(response.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(response));
   assert.equal(response.body.registros[0].estadoWorkflow, 'En Ejecución');
   assert.equal(response.body.registros[0].revisor, 'No aplica');
+});
+
+test('rol auditor: gestiona como un líder (solo sus tareas), no como administrador', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.sesion.usuario = { uid: 'u7', email: 'auditor.consulta@example.test', rol: 'auditor' };
+  fixture.documents.set('usuarios/u7', { rol: 'auditor', permisos: [], procesosAsignados: ['Finanzas'] });
+  // Acción ajena: no la puede editar aunque su rol sea auditor.
+  const ajena = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 1, accion: 'Intento' }], nuevas: [] } });
+  assert.equal(ajena.code, 403);
+  assert.notEqual(fixture.documents.get(`${ROOT}/planes_accion/1`).accion, 'Intento');
+  // Crear acciones exige "Seguimiento de Planes".
+  const nueva = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [], nuevas: [{ idHallazgo: 'h1', accion: 'Nueva', ...correosPlan }] } });
+  assert.equal(nueva.code, 403);
+  assert.match(nueva.error, /No tiene permiso para gestionar planes/);
+});
+
+test('sin "Seguimiento de Planes" el ejecutor igual avanza su propia tarea', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { correoResponsable: 'ejecutor@example.test', estadoWorkflow: 'En Ejecución', progreso: 20 }));
+  fixture.sesion.usuario = { uid: 'u8', email: 'ejecutor@example.test', rol: 'lider' };
+  fixture.documents.set('usuarios/u8', { rol: 'lider', permisos: ['inicio', 'sub_mi_espacio'], procesosAsignados: ['Operaciones'] });
+  const avance = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 60 }], nuevas: [] } });
+  assert.equal(avance.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(avance));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).progreso, 60);
+});
+
+test('rol auditor: no elimina riesgos (solo administradores)', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  fixture.sesion.usuario = { uid: 'u7', email: 'auditor.consulta@example.test', rol: 'auditor', procesosAsignados: ['Operaciones'] };
+  assert.equal((await fixture.riesgos('DELETE', null, { id: '1' })).code, 403);
+  assert.ok((await fixture.workspace.leerWorkspaceGrc()).data.riesgos.some(item => item.id === 1));
+});
+
+test('roles: el auditor ve todo pero no administra', () => {
+  assert.equal(puedeVerTodo('auditor'), true);
+  assert.equal(esAdministradorTotal('auditor'), false);
+  assert.equal(esAdministradorTotal(' Admin '), true);
+  assert.equal(puedeVerTodo('lider'), false);
 });
 
 test('matriz de planes rechaza editar una acción de otro informe', async () => {

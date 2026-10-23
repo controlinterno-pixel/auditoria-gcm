@@ -2,10 +2,10 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { esAdministradorTotal, puedeVerTodo } from '../_lib/roles.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 
-const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const normalizar = valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const subprocesosDelCargo = registro => (
   Array.isArray(registro?.subprocesos)
@@ -23,11 +23,12 @@ export default async function handler(req, res) {
 
     const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
     const perfil = perfilSnap.exists ? perfilSnap.data() : {};
-    const esAdmin = ROLES_ADMIN.includes(normalizar(perfil.rol));
+    const esAdmin = esAdministradorTotal(perfil.rol);
+    const veTodo = puedeVerTodo(perfil.rol);
 
     if (req.method === 'POST') {
       const permisos = Array.isArray(perfil.permisos) ? perfil.permisos : [];
-      if (!esAdmin && !permisos.includes('sub_informes')) {
+      if (!veTodo && !permisos.includes('sub_informes')) {
         return sendError(res, 'No tiene permiso para consultar destinatarios de informes.', 403);
       }
 

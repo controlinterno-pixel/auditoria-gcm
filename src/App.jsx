@@ -356,7 +356,11 @@ export default function App() {
   // 🔐 Casillas de Configuración: cada submódulo se ve solo con su casilla y la de su módulo (admin: todo).
   // Un usuario sin permisos guardados recibe el paquete básico que Configuración le muestra.
   const permisosUsuario = permisosEfectivos(perfilUsuario);
-  const verSubmodulo = submodulo => puedeVerSubmodulo(permisosUsuario, submodulo, isAdmin);
+  // El rol auditor VE todas las pantallas de consulta; crear y editar siguen sus casillas y su alcance
+  // (el servidor aplica la misma regla). Configuración y las vistas de administración siguen con isAdmin.
+  const esAuditorConsulta = String(perfilUsuario?.rol || '').trim().toLowerCase() === 'auditor';
+  const verSubmodulo = submodulo => puedeVerSubmodulo(permisosUsuario, submodulo, isAdmin || esAuditorConsulta);
+  const crearEnSubmodulo = submodulo => puedeVerSubmodulo(permisosUsuario, submodulo, isAdmin);
   const puedeVerMiEspacio = verSubmodulo('sub_mi_espacio');
   const puedeVerDashboard = verSubmodulo('sub_dashboard');
   const puedeVerMatriz = verSubmodulo('sub_matriz_riesgos');
@@ -371,9 +375,9 @@ export default function App() {
   const puedeVerProgramas = verSubmodulo('sub_programas');
   const puedeVerComites = verSubmodulo('sub_comites');
   const puedeVerTrazabilidad = verSubmodulo('sub_trazabilidad');
-  const puedeCrearInformes = puedeVerInformes;
-  const puedeCrearHallazgos = puedeVerHallazgos;
-  const puedeCrearPlanes = puedeVerTableroPlanes;
+  const puedeCrearInformes = crearEnSubmodulo('sub_informes');
+  const puedeCrearHallazgos = crearEnSubmodulo('sub_hallazgos');
+  const puedeCrearPlanes = crearEnSubmodulo('sub_seguimiento_planes');
 
   // Sin "Seguimiento de Planes": el módulo muestra solo los planes donde el usuario es ejecutor, revisor o auditor.
   const esPlanPropio = plan => esPlanDelUsuario(plan, user?.email);
