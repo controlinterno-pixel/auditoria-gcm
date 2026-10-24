@@ -1,7 +1,7 @@
 // Revisión de los prompts de IA: reglas del manual, datos exactos del sistema y sin plantillas genéricas.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { contextoMatriz, contextoRiesgo } from '../src/utils/contextoIARiesgos.js';
+import { armarPanelIA, contextoMatriz, contextoRiesgo } from '../src/utils/contextoIARiesgos.js';
 import { contextoTarjetaDashboard, mitigacionRiesgo } from '../src/utils/contextoIADashboard.js';
 import { calcularEficaciaControl } from '../src/utils/explicacionControles.js';
 
@@ -20,6 +20,7 @@ prueba('la instrucción general incluye las reglas del Manual E-GE-MAN-001', () 
   for (const regla of ['E-GE-MAN-001', 'Tabla 4', 'Tabla 6', 'Tabla 8', 'Numeral 9', 'impacto Catastrófico el riesgo es Extremo', 'analisisSistema', 'cumplimientoNumeral9']) {
     assert.ok(audit.includes(regla), `falta en la instrucción general: ${regla}`);
   }
+  assert.ok(audit.includes('NO plan de acción'), 'Moderado o Bajo no exige plan de acción');
   assert.equal(audit.includes('HALLAZGO grave'), false, 'la sugerencia de hallazgo no debe pedir exagerar la gravedad');
 });
 
@@ -72,6 +73,11 @@ prueba('el copiloto ya no usa la plantilla con niveles y confianza inventados', 
     assert.equal(copiloto.includes(inventado), false, `queda texto inventado: ${inventado}`);
   }
   assert.ok(copiloto.includes('contextoTarjetaDashboard'), 'debe enviar los resúmenes con identificadores');
+});
+
+prueba('el panel de riesgos muestra etiquetas que dicen lo que mide cada cifra', () => {
+  const panel = JSON.parse(armarPanelIA('{}', { badges: {}, kpis: { scoreRiesgo: '3/25', scoreMadurez: 38, totalControles: 7, coberturaControles: 96 } }));
+  assert.deepEqual(panel.indicadores.map(i => `${i.etiqueta}=${i.valor}`), ['Puntaje residual=3/25', 'Eficacia prom.=38%', 'Controles=7', 'Mitigación=96%']);
 });
 
 console.log(`promptsIA.test.js: ${pruebas} pruebas OK`);

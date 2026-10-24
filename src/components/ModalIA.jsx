@@ -154,14 +154,15 @@ function PanelIA({ aiModal, setAiModal }) {
   const panelData = normalizePanelEjecutivo(parsedData, rawText);
 
   // Handlers para PDF
-  const descargarPDF = async (modoModoBlanco = false) => {
+  const descargarPDF = async () => {
     setIsExporting(true);
     await new Promise(resolve => setTimeout(resolve, 400));
 
     const safeTitle = (aiModal?.titulo || 'Informe_GRC_Ejecutivo').replace(/[^a-zA-Z0-9]/g, '_');
     const fileName = `${safeTitle}.pdf`;
     
-    const colorFondo = modoModoBlanco ? '#ffffff' : '#0f172a';
+    // Siempre fondo blanco: el texto del panel es oscuro y sobre fondo negro no se leía.
+    const colorFondo = '#ffffff';
     await exportarA_PDF(pdfRef, fileName, colorFondo);
     setIsExporting(false);
   };
@@ -208,7 +209,7 @@ function PanelIA({ aiModal, setAiModal }) {
 
           {/* ESTRUCTURA VISUAL DE 7 BLOQUES (RSK-189) */}
           <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-white text-slate-800">
-            <div ref={pdfRef} className="p-6 space-y-6 text-xs leading-relaxed text-slate-800">
+            <div ref={pdfRef} className="bg-white p-6 space-y-6 text-xs leading-relaxed text-slate-800">
               
               {/* BADGES SUPERIORES */}
               <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-500 uppercase border-b pb-2">
@@ -334,19 +335,12 @@ function PanelIA({ aiModal, setAiModal }) {
               Enterprise GRC Suite • Termales Santa Rosa
             </span>
             <div className="flex gap-2">
-              <button 
-                onClick={() => descargarPDF(false)} 
+              <button
+                onClick={descargarPDF}
                 disabled={isExporting}
                 className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
               >
-                <span>📥</span> PDF Dark
-              </button>
-              <button 
-                onClick={() => descargarPDF(true)} 
-                disabled={isExporting}
-                className="bg-slate-100 hover:bg-white text-slate-900 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
-              >
-                <span>📄</span> PDF Impresión (Blanco)
+                <span>📥</span> Descargar PDF
               </button>
               <button 
                 onClick={() => setAiModal(null)} 

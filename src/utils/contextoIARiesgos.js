@@ -185,5 +185,14 @@ export function armarPanelIA(respuesta, { badges, kpis, indicadores }) {
     datos = { analisisEjecutivo: String(respuesta || '') };
   }
   if (!datos || typeof datos !== 'object' || Array.isArray(datos)) datos = { analisisEjecutivo: String(respuesta || '') };
-  return JSON.stringify({ ...datos, headerBadges: badges, kpis, ...(indicadores ? { indicadores } : {}) });
+  // Etiquetas que dicen lo que mide cada cifra (antes "Madurez" era la eficacia y "Cobertura" la mitigación).
+  const comoPorcentaje = valor => (typeof valor === 'number' ? `${valor}%` : valor ?? '—');
+  const porDefecto = kpis && Object.keys(kpis).length ? [
+    { etiqueta: 'Puntaje residual', valor: kpis.scoreRiesgo ?? '—' },
+    { etiqueta: 'Eficacia prom.', valor: comoPorcentaje(kpis.scoreMadurez) },
+    { etiqueta: 'Controles', valor: kpis.totalControles ?? '—' },
+    { etiqueta: 'Mitigación', valor: comoPorcentaje(kpis.coberturaControles) },
+  ] : null;
+  const finales = indicadores || porDefecto;
+  return JSON.stringify({ ...datos, headerBadges: badges, kpis, ...(finales ? { indicadores: finales } : {}) });
 }

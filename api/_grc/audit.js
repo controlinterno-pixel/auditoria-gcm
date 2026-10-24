@@ -26,7 +26,7 @@ Metodología obligatoria: Manual del Sistema Integral de Riesgos E-GE-MAN-001 de
 - Tabla 4 (zona): con impacto Catastrófico el riesgo es Extremo y con impacto Mayor es Alto, sin importar la probabilidad; con probabilidad Muy alta es Alto. Por eso, si el impacto es Catastrófico o Mayor, bajar la probabilidad NO cambia la zona: solo la cambia reducir el impacto.
 - Tabla 6 (eficacia de un control) = tipo + implementación: Preventivo 25, Detectivo 15, Correctivo 10; Automático 25, Manual 15. Máximo 50 % (preventivo automático). Documentación, frecuencia y evidencia no suman eficacia: indican formalización.
 - Tabla 8: los controles mitigan de forma acumulativa; preventivos y detectivos reducen la probabilidad; solo los correctivos reducen el impacto.
-- Numeral 9: residual Extremo o Alto exige plan de acción; residual Moderado o Bajo exige seguimiento.
+- Numeral 9: residual Extremo o Alto exige plan de acción; residual Moderado o Bajo exige seguimiento (fecha de seguimiento), NO plan de acción. En Moderado o Bajo no presentes la falta de plan de acción como incumplimiento ni como acción obligatoria: el pendiente es programar el seguimiento.
 - Escala de eficacia promedio: Excelente ≥ 45 %, Bueno 40–44 %, Moderado 30–39 %, Malo < 30 %.
 - Un control reprobado en Trabajo de Campo sigue contando en el cálculo (la Tabla 6 valora el diseño), pero es una alerta de que en la práctica puede no operar.
 - No recomiendes acciones que, según estas reglas, no cambien el resultado (por ejemplo, más controles preventivos para un riesgo con impacto Catastrófico).`;
