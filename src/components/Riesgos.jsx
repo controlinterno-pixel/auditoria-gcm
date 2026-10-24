@@ -1300,6 +1300,11 @@ const handleRiesgoSubmit = async (e) => {
       Moderado: 'border-amber-400/40 bg-amber-950/55 text-amber-200 hover:bg-amber-900/70',
     }[zona] || 'border-emerald-400/35 bg-emerald-950/65 text-emerald-200 hover:bg-emerald-900/80');
 
+    // Cuántos filtros hay aplicados (se muestra en el botón "Quitar filtros").
+    const filtrosActivosDashboard = [
+      searchTerm, filtroProceso !== 'Todos', filtroSubproceso !== 'Todos', filtroClasificacion !== 'Todas',
+      filtroNivelDashboard !== 'Todos', cuadranteDashboard,
+    ].filter(Boolean).length;
     const limpiarFiltrosDashboard = () => {
       setSearchTerm('');
       setFiltroProceso('Todos');
@@ -1397,7 +1402,22 @@ const handleRiesgoSubmit = async (e) => {
                 {niveles.map(nivel => <option key={nivel} value={nivel}>{nivel}</option>)}
               </select>
             </label>
-            <button type="button" onClick={limpiarFiltrosDashboard} className="min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-600 hover:border-slate-500 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">Restablecer</button>
+            <button
+              type="button"
+              onClick={limpiarFiltrosDashboard}
+              disabled={filtrosActivosDashboard === 0}
+              title={filtrosActivosDashboard > 0 ? 'Quita todos los filtros y vuelve a mostrar toda la matriz' : 'No hay filtros aplicados'}
+              aria-label={filtrosActivosDashboard > 0 ? `Quitar ${filtrosActivosDashboard} filtro(s) y restablecer la vista` : 'No hay filtros aplicados'}
+              className={`group inline-flex min-h-10 items-center gap-2 rounded-lg px-3.5 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${filtrosActivosDashboard > 0
+                ? 'bg-[#0A3B32] text-white shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 hover:bg-[#062620] hover:shadow-lg'
+                : 'cursor-default border border-slate-200 bg-slate-50 text-slate-400'}`}
+            >
+              <RotateCcw size={14} aria-hidden="true" className={filtrosActivosDashboard > 0 ? 'transition-transform duration-500 group-hover:-rotate-180' : ''} />
+              <span>Quitar filtros</span>
+              {filtrosActivosDashboard > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-1.5 text-[10px] font-black text-[#0A3B32]">{filtrosActivosDashboard}</span>
+              )}
+            </button>
           </div>
         </section>
 
