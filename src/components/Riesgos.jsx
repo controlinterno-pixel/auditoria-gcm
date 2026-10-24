@@ -310,6 +310,17 @@ export default function Riesgos({
     setSoloLecturaRiesgo(false);
     setVistaActiva(nuevaVista);
   });
+  // Cancelar el formulario regresa a "Ver matriz", arriba de la página.
+  const cancelarFormularioRiesgo = () => guardNavigationRiesgos(() => {
+    setFormularioModificado(false);
+    setSoloLecturaRiesgo(false);
+    setEditRiesgo(null);
+    setVistaActiva('matriz');
+    window.requestAnimationFrame(() => {
+      document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'instant' });
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+  });
 // 🛡️ Estado para el modal explicativo de eficacia del control
   const [controlSeleccionadoIA, setControlSeleccionadoIA] = useState(null);
   // Formulario completo del riesgo abierto en modo consulta (sin edición ni guardado).
@@ -3179,7 +3190,7 @@ const renderMatriz = () => {
               <button type="button" onClick={() => { setSoloLecturaRiesgo(false); setEditRiesgo(null); setVistaActiva('matriz'); }} className="min-h-11 px-6 py-3 rounded-xl font-bold text-white bg-[#0A3B32] hover:bg-[#062620] text-xs">← Volver a la matriz</button>
             ) : (
               <>
-                <button type="button" onClick={() => cambiarVistaSeguraRiesgos('dashboard')} className="mr-3 min-h-11 px-6 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 text-xs">Cancelar</button>
+                <button type="button" onClick={cancelarFormularioRiesgo} className="mr-3 min-h-11 px-6 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 text-xs">Cancelar</button>
                 <button type="submit" disabled={isSubmitting} className="bg-[#0A3B32] hover:bg-[#062620] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-md disabled:opacity-50">
                   {isSubmitting ? 'Guardando...' : (editRiesgo ? 'Actualizar Matriz' : 'Guardar en la Nube')}
                 </button>
