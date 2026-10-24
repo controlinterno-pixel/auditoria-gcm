@@ -17,7 +17,7 @@ import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, z
 import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, validarMotivo, vigentes } from '../utils/anulacion.js';
 import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
 import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
-import { explicarRiesgoDetallado } from '../utils/explicacionRiesgoDetallada.js';
+import { explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../utils/explicacionRiesgoDetallada.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
@@ -270,8 +270,8 @@ const BotonExplicacion = ({ etiqueta, onClick }) => (
 );
 // 📖 "Explícame este riesgo": panel desplegable con la explicación completa, calculada con los datos del riesgo.
 // Es un <details> (no un botón) para que funcione también dentro del formulario en modo consulta.
-const ExplicacionRiesgoDetallada = ({ riesgo }) => {
-  const detalle = explicarRiesgoDetallado(riesgo);
+const ExplicacionRiesgoDetallada = ({ riesgo, evaluaciones = [] }) => {
+  const detalle = explicarRiesgoDetallado(riesgo, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, riesgo.id) });
   const bloques = [
     ['1. Probabilidad', detalle.probabilidad],
     ['2. Impacto', detalle.impacto],
@@ -314,6 +314,7 @@ export default function Riesgos({
   isAdmin = false, 
   user = null,
   perfilUsuario = null,
+  evaluaciones = [],
  safeRiesgos: rawRiesgos, 
   setRiesgos = () => console.warn("Modo offline: setRiesgos no detectado"), 
   showNotification = () => {} 
@@ -2432,7 +2433,7 @@ const renderMatriz = () => {
           </div>
 
           {/* 📖 Explicación completa de este riesgo (la misma del formulario) */}
-          <ExplicacionRiesgoDetallada riesgo={r} />
+          <ExplicacionRiesgoDetallada riesgo={r} evaluaciones={evaluaciones} />
         </div>
       );
     })()}
@@ -3297,7 +3298,7 @@ const renderMatriz = () => {
                   </div>
                   <p className="border-t border-emerald-800/60 pt-2"><strong className="text-emerald-300">📌 En resumen:</strong> {lectura.conclusion}</p>
                   {/* 📖 Explicación completa de este riesgo */}
-                  <ExplicacionRiesgoDetallada riesgo={{ probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento }} />
+                  <ExplicacionRiesgoDetallada riesgo={{ id: editRiesgo?.id ?? customId, probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento }} evaluaciones={evaluaciones} />
                 </div>
               );
             })()}

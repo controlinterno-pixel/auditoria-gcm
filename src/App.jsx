@@ -1017,6 +1017,7 @@ return (
     {subTabPlanificar === 'riesgos' && puedeVerMatriz && (
       <Riesgos 
         isAdmin={isAdmin} 
+        evaluaciones={safeEvaluaciones}
         user={user}
         perfilUsuario={perfilUsuario}
         editRiesgo={editRiesgo} 

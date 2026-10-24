@@ -1,6 +1,6 @@
 // "Explícame este riesgo": la explicación sale de los datos del riesgo (caso real RSK-196 y un caso Moderado).
 import assert from 'node:assert/strict';
-import { explicarRiesgoDetallado } from '../src/utils/explicacionRiesgoDetallada.js';
+import { explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../src/utils/explicacionRiesgoDetallada.js';
 
 let pruebas = 0;
 const prueba = (nombre, fn) => { fn(); pruebas += 1; };
@@ -48,6 +48,23 @@ prueba('RSK-2: probabilidad ya en nivel mínimo y redondeo explicado', () => {
   assert.ok(r.probabilidad.some(l => l.includes('que ya era el más bajo de la escala')));
   assert.ok(r.zona.some(l => l.includes('hay que reducir el impacto con controles correctivos')));
   assert.ok(r.mejoras[0].accion.startsWith('Si se agrega 1 control correctivo manual') && r.mejoras[0].resultado.endsWith('zona Bajo'));
+});
+
+prueba('control reprobado en Trabajo de Campo: usa la última prueba y muestra el residual sin él', () => {
+  const evaluaciones = [
+    { id: Date.parse('2026-08-05T15:00:00Z'), idRiesgo: '2', control: 'CTL-2-1', calificacion: 50, diseno: 'Adecuado', ejecucion: 'Inefectiva' },
+    { id: Date.parse('2026-06-01T15:00:00Z'), idRiesgo: '2', control: 'CTL-2-1', calificacion: 100 },
+    { id: Date.parse('2026-08-05T15:00:00Z'), idRiesgo: '9', control: 'CTL-9-1', calificacion: 0 },
+  ];
+  const pruebasCampo = pruebasDeCampoDelRiesgo(evaluaciones, 2);
+  assert.equal(pruebasCampo.size, 1);
+  assert.equal(pruebasCampo.get(0).calificacion, 50);
+  const P = () => ({ tipo: 'Preventivo', implementacion: 'Manual' });
+  const r = explicarRiesgoDetallado({ probabilidadInherente: 20, impactoInherente: 60, fechaSeguimiento: '2026-12-01',
+    controlesDetallados: [P(), P(), P(), P(), P(), P(), { tipo: 'Correctivo', implementacion: 'Manual' }] }, { pruebasCampo, hoy: new Date('2026-10-24') });
+  const aviso = r.pendientes.find(l => l.startsWith('CTL-21 fue reprobado en Trabajo de Campo el 2026-08-05'));
+  assert.ok(aviso, 'debe avisar el control reprobado');
+  assert.match(aviso, /la probabilidad quedaría en 2 % en lugar de 1 %/);
 });
 
 console.log(`explicacionRiesgoDetallada.test.js: ${pruebas} pruebas OK`);

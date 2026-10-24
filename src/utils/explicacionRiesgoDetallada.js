@@ -45,6 +45,33 @@ const redondeo = (pasosEje, entero) => {
   return Math.abs(exacto - entero) >= 0.05 ? `; el cálculo da ${numero(exacto)} % y la matriz lo guarda redondeado` : '';
 };
 
+/**
+ * Última prueba de Trabajo de Campo de cada control de un riesgo. Evaluaciones guarda el control como
+ * "CTL-{idRiesgo}-{n}" (n desde 1); se empareja por riesgo y número, no por el código que muestra la matriz.
+ * @returns {Map<number, {calificacion:number, fecha:string, diseno:string, ejecucion:string}>} índice del control → prueba
+ */
+export function pruebasDeCampoDelRiesgo(evaluaciones, idRiesgo) {
+  const pruebas = new Map();
+  (Array.isArray(evaluaciones) ? evaluaciones : [])
+    .filter(ev => ev && String(ev.idRiesgo) === String(idRiesgo))
+    .forEach(ev => {
+      const coincide = /^CTL-[^-]+-(\d+)$/.exec(String(ev.control || '').trim());
+      if (!coincide) return;
+      const indice = Number(coincide[1]) - 1;
+      const marca = Number(ev.id) > 1e12 ? Number(ev.id) : 0;
+      const previa = pruebas.get(indice);
+      if (previa && previa.marca >= marca) return;
+      pruebas.set(indice, {
+        marca,
+        calificacion: Number(ev.calificacion),
+        fecha: marca ? new Date(marca).toISOString().slice(0, 10) : [ev.mes, ev.anio].filter(Boolean).join(' '),
+        diseno: ev.diseno || 'No evaluado',
+        ejecucion: ev.ejecucion || 'No evaluado',
+      });
+    });
+  return pruebas;
+}
+
 const CONTROLES_SIMULADOS = [
   { nombre: '1 control correctivo manual', controles: [{ tipo: 'Correctivo', implementacion: 'Manual' }] },
   { nombre: '1 control correctivo automático', controles: [{ tipo: 'Correctivo', implementacion: 'Automático' }] },
@@ -56,7 +83,7 @@ const CONTROLES_SIMULADOS = [
 /**
  * @param {{ probabilidadInherente:number, impactoInherente:number, controlesDetallados:object[], planAccionRiesgo?:string, fechaSeguimiento?:string }} riesgo
  */
-export function explicarRiesgoDetallado(riesgo, { hoy = new Date() } = {}) {
+export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo = new Map() } = {}) {
   const pInh = Number(riesgo.probabilidadInherente) || 60;
   const iInh = Number(riesgo.impactoInherente) || 60;
   const todos = (Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [])
@@ -122,6 +149,18 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date() } = {}) {
       .map(({ control, indice }) => ({ codigo: codigoControl(indice), faltantes: explicarControl(control).faltantes }))
       .filter(item => item.faltantes.length)
       .map(item => `${item.codigo} figura como ${item.faltantes.join(', ').toLowerCase()}: no cambia la eficacia, pero el manual lo pide para considerar el control formalizado.`),
+    // Controles reprobados en Trabajo de Campo: el cálculo los cuenta (Tabla 6 valora el diseño), pero se muestra
+    // cuánto quedaría el residual si en la práctica no operan.
+    ...vigentesConIndice
+      .filter(({ indice }) => pruebasCampo.get(indice) && pruebasCampo.get(indice).calificacion < 100)
+      .map(({ control, indice }) => {
+        const prueba = pruebasCampo.get(indice);
+        const sinEl = calcularResiduales(pInh, iInh, vigentesConIndice.filter(item => item.indice !== indice).map(item => item.control));
+        const eje = desglosarEficaciaControl(control).tipo === 'Correctivo' ? 'el impacto' : 'la probabilidad';
+        const actual = eje === 'el impacto' ? iRes : pRes;
+        const sinControl = eje === 'el impacto' ? sinEl.impactoResidual : sinEl.probabilidadResidual;
+        return `${codigoControl(indice)} fue reprobado en Trabajo de Campo el ${prueba.fecha} (calificación ${prueba.calificacion} %; diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}). El cálculo lo sigue contando porque el manual valora la eficacia por diseño (Tabla 6); si en la práctica no opera, ${eje} quedaría en ${numero(sinControl)} % en lugar de ${numero(actual)} % (zona ${zonaDe(sinEl.probabilidadResidual, sinEl.impactoResidual)}).`;
+      }),
     anulados.length ? `${anulados.map(({ indice }) => codigoControl(indice)).join(', ')} ${anulados.length === 1 ? 'está anulado y no cuenta' : 'están anulados y no cuentan'} en el cálculo.` : '',
   ].filter(Boolean);
 
