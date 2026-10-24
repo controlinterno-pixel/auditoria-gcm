@@ -1,7 +1,8 @@
 // Ruta: src/components/ModalIA.jsx
-import { useState, useRef } from 'react';
+import { Component, useState, useRef } from 'react';
 import { exportarA_PDF } from '../utils/pdfUtils';
 import { ThinkingOrb } from 'thinking-orbs';
+import { aTexto } from '../utils/textoIA.js';
 
 function cleanMarkdown(text) {
   if (typeof text !== 'string') return text;
@@ -36,7 +37,7 @@ function normalizePanelEjecutivo(parsedData, rawText) {
   if (!analisis && typeof rawText === 'string' && !rawText.trim().startsWith('{')) {
     analisis = rawText;
   }
-  analisis = cleanMarkdown(analisis || 'La IA no devolvió un análisis para estos datos. Intenta generarlo de nuevo.');
+  analisis = cleanMarkdown(aTexto(analisis) || 'La IA no devolvió un análisis para estos datos. Intenta generarlo de nuevo.');
 
   // 3. Recomendaciones
   let recomendaciones = data.recomendaciones;
@@ -45,20 +46,26 @@ function normalizePanelEjecutivo(parsedData, rawText) {
   }
   // Sin recomendaciones genéricas de relleno: si la IA no las dio, el bloque no se muestra.
   if (!Array.isArray(recomendaciones)) recomendaciones = [];
+  recomendaciones = recomendaciones.map(aTexto).filter(Boolean);
 
   // 4. Plan de Acción
   let planAccion = data.planAccion;
   if (!Array.isArray(planAccion)) planAccion = [];
+  planAccion = planAccion
+    .map(item => (item && typeof item === 'object' && !Array.isArray(item)
+      ? { prioridad: aTexto(item.prioridad) || 'MEDIA', accion: aTexto(item.accion || item.descripcion), responsable: aTexto(item.responsable) || 'Por asignar' }
+      : { prioridad: 'MEDIA', accion: aTexto(item), responsable: 'Por asignar' }))
+    .filter(item => item.accion);
 
   // 5. Dictamen del Director
   let dictamen = data.dictamenDirector || data.dictamen || '';
-  dictamen = cleanMarkdown(dictamen);
+  dictamen = cleanMarkdown(aTexto(dictamen));
 
   // 6. Secciones Metodológicas
   const acuerdos = data.acuerdosTecnicos || {};
-  const iso31000 = cleanMarkdown(data.iso31000 || acuerdos.analisisMetodologico || '');
-  const cosoErm = cleanMarkdown(data.cosoErm || acuerdos.evaluacionControles || acuerdos.isoCosoAlignment || '');
-  const kris = cleanMarkdown(data.kris || data.kpisEvidencias || '');
+  const iso31000 = cleanMarkdown(aTexto(data.iso31000 || acuerdos.analisisMetodologico));
+  const cosoErm = cleanMarkdown(aTexto(data.cosoErm || acuerdos.evaluacionControles || acuerdos.isoCosoAlignment));
+  const kris = cleanMarkdown(aTexto(data.kris || data.kpisEvidencias));
 
   return {
     inherente: badges.inherente || data.inherente || '—',
@@ -70,8 +77,9 @@ function normalizePanelEjecutivo(parsedData, rawText) {
     cobertura: typeof cobertura === 'number' ? `${cobertura}%` : cobertura,
     totalControles,
     // Indicadores y etiquetas propias (Dashboard GRC: planes, hallazgos…); si no llegan, se usan los de riesgos.
-    indicadores: Array.isArray(data.indicadores) ? data.indicadores.slice(0, 4) : null,
-    insignias: Array.isArray(badges.items) ? badges.items : null,
+    indicadores: Array.isArray(data.indicadores) ? data.indicadores.slice(0, 4).map(item => ({ etiqueta: aTexto(item?.etiqueta), valor: aTexto(item?.valor) })) : null,
+    insignias: Array.isArray(badges.items) ? badges.items.map(item => ({ etiqueta: aTexto(item?.etiqueta), valor: aTexto(item?.valor) })) : null,
+
     analisis,
     recomendaciones,
     planAccion,
@@ -82,7 +90,46 @@ function normalizePanelEjecutivo(parsedData, rawText) {
   };
 } 
 
-export default function ModalIA({ aiModal, setAiModal }) {
+// Si algo del dictamen no se puede mostrar, el error queda dentro del panel y no tumba el módulo completo.
+class LimiteErrorPanel extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { fallo: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { fallo: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('[IA] No se pudo mostrar el dictamen', { name: error?.name || 'Error', message: String(error?.message || '').slice(0, 200) });
+  }
+
+  render() {
+    if (!this.state.fallo) return this.props.children;
+    return (
+      <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/70 p-4" role="alert">
+        <div className="w-full max-w-md space-y-3 rounded-2xl bg-white p-6 text-center shadow-2xl">
+          <p className="text-3xl" aria-hidden="true">⚠️</p>
+          <p className="text-sm font-black text-slate-900">No se pudo mostrar el dictamen</p>
+          <p className="text-xs text-slate-600">La IA respondió en un formato inesperado. Cierra y vuelve a intentarlo; la matriz y tus datos no se afectaron.</p>
+          <button type="button" onClick={this.props.onCerrar} className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-800">Cerrar</button>
+        </div>
+      </div>
+    );
+  }
+}
+
+export default function ModalIA(props) {
+  if (!props.aiModal) return null;
+  return (
+    <LimiteErrorPanel key={props.aiModal.titulo || 'dictamen'} onCerrar={() => props.setAiModal(null)}>
+      <PanelIA {...props} />
+    </LimiteErrorPanel>
+  );
+}
+
+function PanelIA({ aiModal, setAiModal }) {
   // 1. TODOS LOS HOOKS ARRIBA (Reglas de React)
   const pdfRef = useRef();
   const [isExporting, setIsExporting] = useState(false);
@@ -259,7 +306,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
                 <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                   <span>▼</span> Análisis Metodológico ISO 31000
                 </h5>
-                <p className="text-slate-600 text-justify">{panelData?.iso31000}</p>
+                <p className="whitespace-pre-line text-slate-600 text-justify">{panelData?.iso31000}</p>
               </div>}
 
               {/* BLOQUE 7: COSO ERM & KRIS */}
@@ -268,13 +315,13 @@ export default function ModalIA({ aiModal, setAiModal }) {
                   <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                     <span>▼</span> Evaluación de Controles & COSO ERM
                   </h5>
-                  <p className="text-slate-600 text-justify">{panelData?.cosoErm}</p>
+                  <p className="whitespace-pre-line text-slate-600 text-justify">{panelData?.cosoErm}</p>
                 </div>}
                 {panelData?.kris && <div className="space-y-1">
                   <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                     <span>▼</span> KRIs, Monitoreo y Evidencias
                   </h5>
-                  <p className="text-slate-600 text-justify">{panelData?.kris}</p>
+                  <p className="whitespace-pre-line text-slate-600 text-justify">{panelData?.kris}</p>
                 </div>}
               </div>}
 
