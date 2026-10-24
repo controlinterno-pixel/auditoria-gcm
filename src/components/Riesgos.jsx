@@ -396,7 +396,13 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     setSubprocesosPorMacroprocesoSeleccionados(crearRelacionSubprocesosInicial(macrosIniciales));
     setFormularioModificado(false);
     setEditRiesgo(null);
-    
+    // Un riesgo nuevo arranca en blanco: no hereda líder, sedes ni textos del último riesgo abierto o guardado.
+    setCategoria(''); setClasificacionRiesgo(CLASIFICACIONES_MANUAL[0]); setNormativa('');
+    setSedeForm([]); setSedeTemp(''); setResponsablesMultiples([]); setResponsableTemp('');
+    setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setEscenarioFinal('');
+    setProbInherente(60); setImpInherente(60); setControles([]); setTratamiento('Reducir el riesgo');
+    setPlanAccionRiesgo(''); setFechaSeguimiento(''); setSeguimientoBitacora(''); setHistorialPendienteFormulario([]);
+
     const maxId = safeRiesgos.reduce((max, r) => {
       const idStr = String(r.id).trim();
       
