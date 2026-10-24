@@ -85,86 +85,94 @@ const normalizarUbicacionRiesgo = (riesgo, mapaProcesos) => {
 };
 
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
+// 💡 Ayuda de cada casilla del formulario: qué es, por qué se diligencia y un ejemplo técnico.
+// Escalas, pesos y fórmulas del Manual de Riesgos E-GE-MAN-001 (Tablas 2, 3, 5, 6 y 8).
 const EXPLICACIONES_CAMPOS = {
-  proceso: {
-    titulo: "Proceso / Subproceso",
-    porQue: "Permite segregar el mapa de riesgos corporativo. Al asignarle un bloque exacto de la operación, facilitamos la consolidación de estadísticas en el Dashboard por áreas de negocio.",
-    ejemplo: "Si se están auditando pérdidas de vajilla o inventario en restaurantes, se debe seleccionar obligatoriamente 'Alimentos y Bebidas (AYB)'."
-  },
   categoria: {
     titulo: "Categoría de Riesgo",
-    porQue: "Agrupa los riesgos bajo la taxonomía de la norma internacional ISO 31000. Ayuda a la Junta Directiva a entender si la mayor exposición de Termales es operacional, de estrategia o legal.",
-    ejemplo: "Un ataque informático al sistema de reservas Zeus corresponde a la categoría 'Tecnológico'. Una demanda laboral corresponde a 'Cumplimiento'."
+    que: "Es el tipo de objetivo de la organización que el riesgo puede afectar: Estratégico, Operativo, Cumplimiento, Financiero, Tecnológico o Ambiental.",
+    porQue: "Permite ver en el Dashboard y en los informes a la Junta en qué frente se concentra la exposición de Termales y asignar el seguimiento al área que corresponde.",
+    ejemplo: "Riesgo: 'Caída del sistema de reservas en temporada alta'. Afecta la operación por una falla de tecnología → Categoría: Tecnológico. Riesgo: 'Sanción por no reportar información exógena a la DIAN' → Categoría: Cumplimiento."
   },
-
-clasificacion: {
+  clasificacion: {
     titulo: "Clasificación de riesgo (Tabla 5)",
-    porQue: "Permite agrupar los riesgos identificados en las categorías estandarizadas por la Guía de administración del riesgo V5.",
+    que: "Es la clase de evento de pérdida según la Tabla 5 del manual. Cada riesgo se ubica en una sola de las 7 clasificaciones.",
+    porQue: "Unifica cómo se agrupan los riesgos de todos los procesos: así se puede filtrar y comparar la matriz, por ejemplo cuántos riesgos de fraude interno tiene la empresa.",
     ejemplo: () => (
-      <div className="overflow-x-auto mt-2">
+      <div className="overflow-x-auto mt-1">
         <table className="w-full text-left border-collapse bg-white rounded-lg overflow-hidden shadow-sm text-[10px]">
           <tbody className="divide-y divide-emerald-200/50">
-            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900 w-1/3">Ejecución y adm. de procesos</td><td className="p-2 text-slate-700">Pérdidas derivadas de errores.</td></tr>
-            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Fraude Externo</td><td className="p-2 text-slate-700">Actos de fraude por personas ajenas.</td></tr>
-            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Fraude Interno</td><td className="p-2 text-slate-700">Fraude por personal interno.</td></tr>
-            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Fallas Tecnológicas</td><td className="p-2 text-slate-700">Errores en hardware o software.</td></tr>
-            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Relaciones Laborales</td><td className="p-2 text-slate-700">Demandas por daños o discriminación.</td></tr>
-            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Usuarios y productos</td><td className="p-2 text-slate-700">Fallas frente a usuarios o prácticas.</td></tr>
-            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Daños externos</td><td className="p-2 text-slate-700">Pérdidas por desastres o vandalismo.</td></tr>
+            <tr><td className="p-2 font-bold text-emerald-900 w-2/5">Ejecución y administración de procesos</td><td className="p-2 text-slate-700">Errores al ejecutar un proceso: facturar una tarifa equivocada a un huésped.</td></tr>
+            <tr><td className="p-2 font-bold text-emerald-900">Fraude Externo</td><td className="p-2 text-slate-700">Un tercero engaña o roba: pago de reserva con tarjeta clonada.</td></tr>
+            <tr><td className="p-2 font-bold text-emerald-900">Fraude Interno</td><td className="p-2 text-slate-700">Un colaborador actúa con intención: cajero que anula ventas cobradas.</td></tr>
+            <tr><td className="p-2 font-bold text-emerald-900">Fallas Tecnológicas</td><td className="p-2 text-slate-700">Falla de hardware, software o comunicaciones: caída del servidor del POS.</td></tr>
+            <tr><td className="p-2 font-bold text-emerald-900">Relaciones Laborales</td><td className="p-2 text-slate-700">Demandas o reclamos de trabajadores: horas extra no liquidadas.</td></tr>
+            <tr><td className="p-2 font-bold text-emerald-900">Usuarios, productos y practicas</td><td className="p-2 text-slate-700">Fallas frente al cliente o al producto: quejas por incumplir lo ofrecido en un plan.</td></tr>
+            <tr><td className="p-2 font-bold text-emerald-900">Daños a activos fijos/ eventos externos</td><td className="p-2 text-slate-700">Pérdida de bienes por desastres o terceros: avalancha que daña las piscinas.</td></tr>
           </tbody>
         </table>
       </div>
     )
-  }, 
+  },
   normativa: {
     titulo: "Normativa Asociada",
-    porQue: "Conecta el riesgo con el marco legal, leyes o lineamientos de entes de control externos que rigen la operación de Termales. Ayuda a evitar sanciones o cierres.",
-    ejemplo: "Para riesgos de Seguridad y Salud en el Trabajo, la norma asociada es el 'Decreto 1072'. Para temas contables, el 'Estatuto Tributario'."
+    que: "Es la ley, decreto, resolución o norma técnica que regula la actividad donde está el riesgo. Si no aplica ninguna, se escribe 'Ninguna'.",
+    porQue: "Cuando el riesgo tiene norma asociada, materializarlo puede traer sanciones, multas o cierres; esto ayuda a valorar el impacto y a priorizar los controles de cumplimiento.",
+    ejemplo: "Riesgo de accidente laboral en mantenimiento de piscinas → 'Decreto 1072 de 2015 (SG-SST)'. Riesgo de manejo indebido de datos de huéspedes → 'Ley 1581 de 2012 (Habeas Data)'."
   },
   responsable: {
     titulo: "Líder Dueño del Proceso",
-    porQue: "Establece la rendición de cuentas (Accountability). Define qué cargo de la organización es el único responsable de vigilar la ejecución diaria de los controles preventivos y responder ante auditorías.",
-    ejemplo: "Para el proceso de contabilidad e impuestos, el líder dueño del proceso es el 'Jefe de Contabilidad'."
+    que: "Es el cargo que responde por el riesgo: vigila que los controles se ejecuten, define los planes de acción y rinde cuentas en las auditorías.",
+    porQue: "Sin un dueño asignado nadie responde por el riesgo. Según el numeral 9 del manual, el dueño debe definir plan de acción cuando el riesgo queda Extremo o Alto, y hacer seguimiento cuando queda Moderado o Bajo.",
+    ejemplo: "Riesgo: 'Pérdida de activos fijos por falta de conciliación'. Dueño: 'Líder Administrativa', porque su proceso administra el inventario de activos. Se registra el cargo, no el nombre de la persona."
   },
   afectacion: {
     titulo: "Tipo de Afectación",
-    porQue: "Define las dimensiones afectadas del negocio. Ayuda a priorizar la atención: un riesgo puede implicar solo desembolso de dinero, o dañar gravemente el nombre y la marca del hotel.",
-    ejemplo: "Si un huésped sufre un accidente en las instalaciones, la afectación es 'Económico-Reputacional' debido a la indemnización y el impacto publicitario municipal."
+    que: "Es la consecuencia principal que tendría el riesgo si ocurre: pérdida de dinero, afectación de la operación, de la imagen, legal o en la salud de las personas.",
+    porQue: "Orienta la valoración del impacto: la Tabla 3 del manual mide el impacto en SMLMV (afectación económica) o en el alcance de la afectación de imagen (reputacional).",
+    ejemplo: "Accidente de un huésped en un tobogán: hay indemnización (dinero) y difusión en medios (imagen) → 'Económico-Reputacional'. Error en una conciliación bancaria sin efecto externo → 'Económico'."
   },
   causaInmediata: {
     titulo: "Causa Inmediata (¿Qué pasa?)",
-    porQue: "Describe el síntoma o la circunstancia visible e inmediata bajo la cual el riesgo se materializa. Es la primera parte obligatoria de la redacción metodológica.",
-    ejemplo: "Pérdida o descuadre físico de activos fijos por daños, hurtos y/o actos indebidos."
+    que: "Es la circunstancia visible que se presenta cuando el riesgo ocurre. Responde a la pregunta: ¿qué pasa?",
+    porQue: "Es la primera parte de la redacción del riesgo que pide el manual. Describe el hecho, sin explicar todavía por qué ocurre.",
+    ejemplo: "'Inconsistencia en la información de activos fijos', 'Descuadre de caja al cierre del turno', 'Ingreso de visitantes sin pago del pasadía'."
   },
   causaRaiz: {
     titulo: "Causa Raíz (¿Por qué pasa?)",
-    porQue: "Es la vulnerabilidad básica o falla estructural de control interno que causó el evento. Aquí es donde los controles de la empresa deben atacar para que no vuelva a ocurrir.",
-    ejemplo: "Ausencia de un procedimiento de seguimiento, monitoreo y conciliación mensual del módulo de activos fijos Zeus contra la contabilidad física."
+    que: "Es la falla de fondo que origina la causa inmediata. Responde a la pregunta: ¿por qué pasa? Puede ser falta de procedimiento, de control, de capacitación o de herramienta.",
+    porQue: "Los controles deben atacar la causa raíz. Si se identifica mal, el control puede quedar bien diseñado y aun así el riesgo se sigue presentando.",
+    ejemplo: "Causa inmediata: 'Inconsistencia en la información de activos fijos'. Causa raíz: 'Bases de datos de inventario desactualizadas en ubicación y responsables, sin conciliación periódica contra el registro contable'."
   },
   probInh: {
     titulo: "Probabilidad Inherente",
-    porQue: "Mide cuántas veces al año ejecutamos la actividad que conlleva el riesgo, calculando la exposición pura del hotel antes de implementar cualquier tipo de defensa o control.",
-    ejemplo: "Si la facturación en el hotel se realiza más de 5,000 veces al año, su probabilidad inherente es 'Muy Alta (100%)'."
+    que: "Es la posibilidad de que el riesgo ocurra sin tener en cuenta ningún control. Según la Tabla 2 del manual, se mide por cuántas veces al año se ejecuta la actividad que expone al riesgo.",
+    porQue: "Es el punto de partida del cálculo: los controles preventivos y detectivos reducen este valor para obtener la probabilidad residual.",
+    ejemplo: "Escala Tabla 2: hasta 2 veces/año = Muy baja (20 %); 3 a 24 = Baja (40 %); 24 a 500 = Media (60 %); 500 a 5.000 = Alta (80 %); más de 5.000 = Muy alta (100 %). Ejemplo: la recepción registra unas 40 facturas al día → 40 × 365 = 14.600 veces al año → Muy alta (100 %)."
   },
   impInh: {
     titulo: "Impacto Inherente",
-    porQue: "Evalúa la gravedad máxima del daño en términos de Salarios Mínimos (SMLMV) o impacto reputacional nacional/local si el riesgo se llegara a materializar sin controles.",
-    ejemplo: "Una afectación mayor a 500 Salarios Mínimos Mensuales Legales Vigentes se califica a nivel máximo como 'Catastrófico (100%)'."
+    que: "Es la magnitud del daño si el riesgo ocurre, sin tener en cuenta los controles. Según la Tabla 3 del manual, se mide en SMLMV o por el alcance de la afectación de imagen.",
+    porQue: "Junto con la probabilidad ubica el riesgo en la matriz de calor (Tabla 4). Con impacto Catastrófico el riesgo es Extremo y con impacto Mayor es Alto, cualquiera sea la probabilidad.",
+    ejemplo: "Escala Tabla 3: menos de 10 SMLMV = Leve (20 %); 10 a 50 = Menor (40 %); 50 a 100 = Moderado (60 %); 100 a 500 = Mayor (80 %); más de 500 SMLMV o afectación de imagen a nivel nacional = Catastrófico (100 %). Ejemplo: pérdida estimada de 120 SMLMV por hurto de activos → Mayor (80 %)."
   },
   controlDesc: {
     titulo: "Descripción de la Tarea del Control",
-    porQue: "Detalla la acción o procedimiento específico que realiza el personal o un sistema automatizado para anular las causas del riesgo e impedir su materialización.",
-    ejemplo: "El Coordinador de Contabilidad realiza mensualmente la toma física y aleatoria de los inventarios confrontando el módulo Zeus contra los activos asignados por acta."
+    que: "Es la actividad concreta que una persona o un sistema ejecuta para evitar que el riesgo ocurra, detectarlo a tiempo o reducir su daño.",
+    porQue: "Según la Tabla 6, la eficacia del control depende de su tipo (Preventivo 25 %, Detectivo 15 %, Correctivo 10 %) y de su implementación (Automático 25 %, Manual 15 %). La descripción debe dejar claro quién, qué, cada cuánto y con qué evidencia.",
+    ejemplo: "Estructura: responsable + acción + qué verifica + frecuencia + evidencia. 'El Auxiliar Contable concilia mensualmente el módulo de activos fijos contra el inventario físico por sede, investiga las diferencias y deja el acta de conciliación firmada por la Líder Administrativa.' → Preventivo manual = 25 % + 15 % = 40 %."
   },
   probRes: {
     titulo: "Probabilidad Residual Final",
-    porQue: "Calcula qué tan probable es que ocurra el evento DESPUÉS de aplicar los controles Preventivos y Detectivos. El sistema resta más porcentaje si el control es Automático y Documentado, que si es Manual.",
-    ejemplo: "Fórmula: Prob. Inicial - (Prob. Inicial × Suma de pesos de los controles Preventivos/Detectivos)."
+    que: "Es la probabilidad que queda después de aplicar los controles preventivos y detectivos. La app la calcula sola; no se digita.",
+    porQue: "Según la Tabla 8, los controles mitigan de forma acumulativa: cada control reduce lo que quedó después del control anterior, no el valor inicial. Los controles correctivos no reducen la probabilidad.",
+    ejemplo: "Probabilidad inherente 80 %. Control 1, preventivo manual (40 %): 80 − 80 × 0,40 = 48 %. Control 2, detectivo automático (15 % + 25 % = 40 %): 48 − 48 × 0,40 = 28,8 % → 29 % → Baja (21 % a 40 %)."
   },
   impRes: {
     titulo: "Impacto Residual Final",
-    porQue: "Calcula qué tan grave sería el daño DESPUÉS de aplicar controles Correctivos. IMPORTANTE: Los controles preventivos NO reducen el impacto. Solo las acciones como pólizas de seguro o copias de seguridad logran amortiguar la caída.",
-    ejemplo: "Fórmula: Impacto Inicial - (Impacto Inicial × Suma de pesos de los controles Correctivos)."
+    que: "Es el impacto que queda después de aplicar los controles correctivos. La app lo calcula sola; no se digita.",
+    porQue: "Según la Tabla 8, solo los controles correctivos (pólizas, planes de contingencia, copias de seguridad) reducen el impacto, también de forma acumulativa. Los preventivos y detectivos no lo reducen.",
+    ejemplo: "Impacto inherente 80 %. Control correctivo manual (10 % + 15 % = 25 %): 80 − 80 × 0,25 = 60 % → Moderado. Si el riesgo solo tiene controles preventivos, el impacto residual sigue en 80 %."
   }
 };
 
@@ -2587,7 +2595,7 @@ const renderMatriz = () => {
       {/* 🔮 EL POPUP MODAL SUTIL Y ELEGANTE CON BASE EN LA MAQUETA DE FORMATO */}
       {ayudaModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 overflow-hidden relative animate-in zoom-in-95 duration-300">
+          <div role="dialog" aria-modal="true" aria-label={`Ayuda: ${ayudaModal.titulo}`} className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 relative animate-in zoom-in-95 duration-300">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60"></div>
             
             <div className="flex items-center space-x-2 border-b pb-3 relative z-10">
@@ -2596,14 +2604,20 @@ const renderMatriz = () => {
             </div>
 
             <div className="mt-4 space-y-4 relative z-10 text-xs">
+              {ayudaModal.que && (
+                <div>
+                  <h5 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1">📌 ¿Qué es?</h5>
+                  <p className="text-slate-700 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/60">{ayudaModal.que}</p>
+                </div>
+              )}
               <div>
                 <h5 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1">💡 ¿Por qué diligenciarlo?</h5>
                 <p className="text-slate-600 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/60">{ayudaModal.porQue}</p>
               </div>
 <div>
-                <h5 className="font-black text-[10px] text-emerald-600 uppercase tracking-widest mb-1">📝 Guía Metodológica</h5>
+                <h5 className="font-black text-[10px] text-emerald-600 uppercase tracking-widest mb-1">📝 Ejemplo técnico</h5>
                 <div className="text-emerald-950 font-semibold leading-relaxed bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
-                  {typeof ayudaModal.ejemplo === 'function' ? ayudaModal.ejemplo() : `"${ayudaModal.ejemplo}"`}
+                  {typeof ayudaModal.ejemplo === 'function' ? ayudaModal.ejemplo() : ayudaModal.ejemplo}
                 </div>
               </div>             
             </div>
@@ -2799,7 +2813,7 @@ const renderMatriz = () => {
               </div>
 
               <div>
-                <LabelConPalomita idCampo="categoria" />
+                <LabelConPalomita idCampo="categoria" onAbrirAyuda={setAyudaModal} />
                 <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">                  
                   <option value="">Seleccione...</option>
                   <option value="Estratégico">Estratégico</option>
@@ -2812,13 +2826,13 @@ const renderMatriz = () => {
               </div>
               
               <div>
-                <LabelConPalomita idCampo="clasificacion" />
+                <LabelConPalomita idCampo="clasificacion" onAbrirAyuda={setAyudaModal} />
                 <select value={clasificacionRiesgo} onChange={(e) => setClasificacionRiesgo(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   {CLASIFICACIONES_MANUAL.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <LabelConPalomita idCampo="normativa" />
+                <LabelConPalomita idCampo="normativa" onAbrirAyuda={setAyudaModal} />
                 <input type="text" value={normativa} onChange={(e) => setNormativa(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej. ISO 31000..." />
               </div>
               
@@ -2858,7 +2872,7 @@ const renderMatriz = () => {
 
               {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO (AGRUPADO POR SEDES SELECCIONADAS) */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2 lg:col-span-3">
-                <LabelConPalomita idCampo="responsable" />
+                <LabelConPalomita idCampo="responsable" onAbrirAyuda={setAyudaModal} />
                 <div className="flex gap-2 mb-2 md:w-1/2">
                   <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white">
                     <option value="">-- Escoger Líder --</option>
@@ -2888,7 +2902,7 @@ const renderMatriz = () => {
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">2. Estructura y Redacción (Mandato del Manual)</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <LabelConPalomita idCampo="afectacion" />
+                <LabelConPalomita idCampo="afectacion" onAbrirAyuda={setAyudaModal} />
                 <select value={afectacion} onChange={e => setAfectacion(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   <option value="Económico">Económico</option>
                   <option value="Operacional">Operacional</option>
@@ -2899,7 +2913,7 @@ const renderMatriz = () => {
                 </select>
               </div>
               <div>
-                <LabelConPalomita idCampo="causaInmediata" />           
+                <LabelConPalomita idCampo="causaInmediata" onAbrirAyuda={setAyudaModal} />           
                 <textarea
                   rows="3"
                   value={causaInmediata}
@@ -2909,7 +2923,7 @@ const renderMatriz = () => {
                 />
               </div>
               <div>
-                <LabelConPalomita idCampo="causaRaiz" />
+                <LabelConPalomita idCampo="causaRaiz" onAbrirAyuda={setAyudaModal} />
                 <textarea
                   rows="3"
                   value={causaRaiz}
@@ -2948,7 +2962,7 @@ const renderMatriz = () => {
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">3. Nivel de Riesgo Inherente</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <LabelConPalomita idCampo="probInh" />
+                <LabelConPalomita idCampo="probInh" onAbrirAyuda={setAyudaModal} />
                 <select value={probInherente} onChange={e => setProbInherente(Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   <option value={20}>Muy Baja (20%)</option>
                   <option value={40}>Baja (40%)</option>
@@ -2958,7 +2972,7 @@ const renderMatriz = () => {
                 </select>
               </div>
               <div>
-                <LabelConPalomita idCampo="impInh" />
+                <LabelConPalomita idCampo="impInh" onAbrirAyuda={setAyudaModal} />
                 <select value={impInherente} onChange={e => setImpInherente(Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   <option value={20}>Leve (20%)</option>
                   <option value={40}>Menor (40%)</option>
@@ -3012,7 +3026,7 @@ const renderMatriz = () => {
     </div>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">            
 <div className="md:col-span-11">
-                    <LabelConPalomita idCampo="controlDesc" />
+                    <LabelConPalomita idCampo="controlDesc" onAbrirAyuda={setAyudaModal} />
                     <textarea
                       rows="3"
                       value={ctrl.descripcion}
