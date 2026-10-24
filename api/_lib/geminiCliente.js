@@ -19,11 +19,17 @@ const VERSION_CACHE = 'v2';
 // Con respuesta JSON se valida antes de aceptarla: un JSON mal formado (p. ej. comillas sin escapar) se
 // descarta y se prueba el siguiente modelo, en lugar de mostrarse como texto crudo o quedar en la caché.
 export function normalizarJson(texto) {
-  let valor = String(texto || '').replace(/```json/gi, '').replace(/```/g, '').trim();
-  const inicio = valor.indexOf('{');
-  const fin = valor.lastIndexOf('}');
-  if (inicio > 0 || (fin >= 0 && fin < valor.length - 1)) valor = valor.slice(inicio, fin + 1);
-  let datos = JSON.parse(valor);
+  const valor = String(texto || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  let datos;
+  try {
+    datos = JSON.parse(valor);
+  } catch (error) {
+    // Texto antes o después del objeto: se toma solo lo que va entre la primera { y la última }.
+    const inicio = valor.indexOf('{');
+    const fin = valor.lastIndexOf('}');
+    if (inicio < 0 || fin <= inicio) throw error;
+    datos = JSON.parse(valor.slice(inicio, fin + 1));
+  }
   if (typeof datos === 'string') datos = JSON.parse(datos); // JSON enviado como texto dentro de comillas
   if (!datos || typeof datos !== 'object' || Array.isArray(datos)) throw new Error('La respuesta no es un objeto JSON');
   return JSON.stringify(datos);
