@@ -768,7 +768,7 @@ test('tras migrar: cada edición deja en el historial qué cambió, antes y desp
   const { data } = await fixture.workspace.leerWorkspaceGrc();
   const ultima = data.riesgos.find(item => item.id === 1).historialCambios.at(-1);
   assert.equal(ultima.usuario, 'controlinterno@example.test');
-  assert.deepEqual(ultima.cambios.map(cambio => cambio.campo), ['Probabilidad residual', 'Plan de acción', 'CTL-21 · Frecuencia', 'CTL-22 agregado']);
+  assert.deepEqual(ultima.cambios.map(cambio => cambio.campo), ['Probabilidad residual', 'Plan de acción', 'CTL-1-1 · Frecuencia', 'CTL-1-2 agregado']);
   assert.deepEqual(ultima.cambios.find(cambio => cambio.campo === 'Probabilidad residual'), { campo: 'Probabilidad residual', antes: '36%', despues: '25%' });
 
   const sinCambios = await fixture.riesgos('POST', { ...base, planAccionRiesgo: 'Conciliación mensual en Zeus', controlesDetallados: [{ ...control, frecuencia: 'Aleatoria' }, { descripcion: 'Revisión del jefe', tipo: 'Detectivo' }] });

@@ -582,15 +582,15 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     // Pasos de Probabilidad (Preventivos / Detectivos)
     let currP = probInh;
     const pasosP = [];
-    // Los controles anulados no mitigan (conservan su código CTL-2x por su posición en la lista).
+    // Los controles anulados no mitigan (conservan su código CTL-{riesgo}-{n} por su posición en la lista).
     const prevs = lista.filter(c => !estaAnulado(c) && !(c.tipo || '').includes('Correctivo'));
 
     prevs.forEach((c) => {
       const ef = calcularEficaciaControl(c);
       const despues = currP - (currP * (ef / 100));
       pasosP.push({
-        codigo: codigoControl(lista.indexOf(c)),
-        etiqueta: `${codigoControl(lista.indexOf(c))} (${c.tipo || 'Preventivo'})`,
+        codigo: codigoControl(lista.indexOf(c), r.id),
+        etiqueta: `${codigoControl(lista.indexOf(c), r.id)} (${c.tipo || 'Preventivo'})`,
         eficacia: ef,
         antes: Math.round(currP * 100) / 100,
         despues: Math.round(despues * 100) / 100
@@ -607,8 +607,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       const ef = calcularEficaciaControl(c);
       const despues = currI - (currI * (ef / 100));
       pasosI.push({
-        codigo: codigoControl(lista.indexOf(c)),
-        etiqueta: `${codigoControl(lista.indexOf(c))} (Correctivo)`,
+        codigo: codigoControl(lista.indexOf(c), r.id),
+        etiqueta: `${codigoControl(lista.indexOf(c), r.id)} (Correctivo)`,
         eficacia: ef,
         antes: Math.round(currI * 100) / 100,
         despues: Math.round(despues * 100) / 100
@@ -684,7 +684,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
           ? anular(control, { usuario: usuarioFormulario, tipoMotivo: formAnulacion.tipoMotivo, motivo: formAnulacion.motivo, ahora: ahoraFormulario })
           : reactivar(control);
       }));
-      const accionFormulario = `Control ${codigoControl(indiceControl)} ${accion === 'anular' ? 'anulado' : 'reactivado'}`;
+      const accionFormulario = `Control ${codigoControl(indiceControl, id ?? customId)} ${accion === 'anular' ? 'anulado' : 'reactivado'}`;
       setHistorialPendienteFormulario(actuales => [...actuales, entradaHistorial({
         usuario: usuarioFormulario,
         accion: accionFormulario,
@@ -716,7 +716,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         ? anular(controlesActualizados[indiceControl], datos)
         : reactivar(controlesActualizados[indiceControl]);
       actualizado = { ...riesgo, controlesDetallados: controlesActualizados };
-      accionHistorial = `Control ${codigoControl(indiceControl)} ${accion === 'anular' ? 'anulado' : 'reactivado'}`;
+      accionHistorial = `Control ${codigoControl(indiceControl, riesgo.id)} ${accion === 'anular' ? 'anulado' : 'reactivado'}`;
     }
     const motivoHistorial = accion === 'anular' ? `${formAnulacion.tipoMotivo}: ${formAnulacion.motivo.trim()}` : formAnulacion.motivo;
     actualizado.historialCambios = [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []),
@@ -2161,7 +2161,7 @@ const renderMatriz = () => {
               <li key={cIdx} className="flex flex-col gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-slate-500 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-md border border-slate-300 bg-white px-2 py-0.5 font-mono text-[11px] font-black text-slate-500 line-through">{codigoControl(cIdx)}</span>
+                    <span className="rounded-md border border-slate-300 bg-white px-2 py-0.5 font-mono text-[11px] font-black text-slate-500 line-through">{codigoControl(cIdx, r.id)}</span>
                     <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-black uppercase text-slate-600">Anulado</span>
                     <p className="text-[12px] text-slate-500 line-through">{c.descripcion}</p>
                   </div>
@@ -2200,7 +2200,7 @@ const renderMatriz = () => {
               <div className="min-w-0 space-y-3">
                 <div className="flex items-start gap-3">
                   <span className="shrink-0 whitespace-nowrap rounded-md border border-emerald-900/20 bg-emerald-50 px-2 py-1 font-mono text-[11px] font-black text-[#0A3B32]">
-                    {codigoControl(cIdx)}
+                    {codigoControl(cIdx, r.id)}
                   </span>
                   <p className="pt-0.5 text-[13px] font-semibold leading-snug text-slate-800">{c.descripcion}</p>
                 </div>
@@ -2555,7 +2555,7 @@ const renderMatriz = () => {
         const riesgoSolicitud = safeRiesgos.find(item => String(item.id) === String(solicitudAnulacion.id));
         const esControl = solicitudAnulacion.indiceControl !== null;
         const esAnular = solicitudAnulacion.accion === 'anular';
-        const objeto = esControl ? `el control ${codigoControl(solicitudAnulacion.indiceControl)} del riesgo RSK-${solicitudAnulacion.id}` : `el riesgo RSK-${solicitudAnulacion.id}`;
+        const objeto = esControl ? `el control ${codigoControl(solicitudAnulacion.indiceControl, solicitudAnulacion.id ?? customId)} del riesgo RSK-${solicitudAnulacion.id}` : `el riesgo RSK-${solicitudAnulacion.id}`;
         const errorMotivo = validarMotivo(formAnulacion, { exigirTipo: esAnular });
         const descripcionControl = !esControl ? ''
           : solicitudAnulacion.enFormulario ? controles[solicitudAnulacion.indiceControl]?.descripcion
@@ -3130,7 +3130,7 @@ const renderMatriz = () => {
   // Control anulado: solo lectura en el formulario; se reactiva desde el expediente del riesgo.
   <div key={idx} className="relative mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-100 p-4 text-slate-500">
     <div className="absolute -top-3 left-4 rounded-md border border-slate-400 bg-slate-500 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
-      Control {codigoControl(idx)} · Anulado
+      Control {codigoControl(idx, editRiesgo?.id ?? customId)} · Anulado
     </div>
     <p className="text-xs line-through">{ctrl.descripcion}</p>
     {ctrl.anulacion && <p className="mt-1 text-[11px]"><strong>{ctrl.anulacion.tipoMotivo}:</strong> {ctrl.anulacion.motivo} — {ctrl.anulacion.usuario}, {fechaEntradaHistorial(ctrl.anulacion)}.</p>}
@@ -3146,7 +3146,7 @@ const renderMatriz = () => {
     {/* 🏷️ ETIQUETA VISUAL + BOTÓN DE CÁLCULO DE EFICACIA */}
     <div className="flex justify-between items-center">
       <div className="absolute -top-3 left-4 bg-[#0A3B32] text-white font-black text-[10px] px-3 py-1 rounded-md shadow-sm uppercase tracking-widest border border-[#062620]">
-        Control {codigoControl(idx)}
+        Control {codigoControl(idx, editRiesgo?.id ?? customId)}
       </div>
 
       {/* 📊 BOTÓN CHULITO VERDE QUE ABRE EL DESGLOSE */}
@@ -3273,8 +3273,8 @@ const renderMatriz = () => {
 
             {/* 💡 Qué significan estos porcentajes para este riesgo: se actualiza mientras se editan los controles */}
             {(() => {
-              const exp = obtenerExplicacionCalculo({ probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles });
-              const lectura = explicarCalculoResidual(exp, { controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento });
+              const exp = obtenerExplicacionCalculo({ id: editRiesgo?.id ?? customId, probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles });
+              const lectura = explicarCalculoResidual(exp, { id: editRiesgo?.id ?? customId, controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento });
               const tonoZona = {
                 Extremo: 'bg-red-600 text-white', Alto: 'bg-orange-500 text-white', Moderado: 'bg-amber-400 text-slate-900', Bajo: 'bg-emerald-500 text-white',
               };

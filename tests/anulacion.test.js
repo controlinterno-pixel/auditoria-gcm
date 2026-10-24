@@ -19,7 +19,7 @@ test('anular y reactivar conservan el registro, el motivo y quién lo hizo', () 
   assert.equal(estaAnulado(reactivado), false);
   assert.equal(reactivado.anulacion, null, 'null (no undefined) para que el guardado por fusión la quite');
   assert.deepEqual(vigentes([anulado, control(), null].filter(Boolean)).length, 1);
-  assert.match(entradaHistorial({ usuario: 'x', accion: 'Control CTL-21 anulado', motivo: 'Ya no aplica: cambio de proceso', ahora }).accion, /anulado/);
+  assert.match(entradaHistorial({ usuario: 'x', accion: 'Control CTL-2-1 anulado', motivo: 'Ya no aplica: cambio de proceso', ahora }).accion, /anulado/);
 });
 
 test('el motivo es obligatorio', () => {

@@ -25,7 +25,7 @@ function razonZona(p, i) {
 }
 
 // Pasos del cálculo acumulativo (Tabla 8) para un eje.
-function pasos(controles, inicial, eje) {
+function pasos(controles, inicial, eje, idRiesgo) {
   let valor = Number(inicial) || 0;
   return controles.map(({ control, indice }) => {
     const d = desglosarEficaciaControl(control);
@@ -33,7 +33,7 @@ function pasos(controles, inicial, eje) {
     valor -= valor * (d.total / 100);
     return {
       valor,
-      texto: `${codigoControl(indice)} — ${d.tipo} ${d.implementacion.toLowerCase()} (${d.factores.map(f => f.puntos).join(' + ')} = ${d.total} %): ${numero(antes)} % − ${numero(antes)} % × ${d.total} % = ${numero(valor)} %.`,
+      texto: `${codigoControl(indice, idRiesgo)} — ${d.tipo} ${d.implementacion.toLowerCase()} (${d.factores.map(f => f.puntos).join(' + ')} = ${d.total} %): ${numero(antes)} % − ${numero(antes)} % × ${d.total} % = ${numero(valor)} %.`,
       eje,
     };
   });
@@ -93,8 +93,8 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
   const reducenP = vigentesConIndice.filter(({ control }) => desglosarEficaciaControl(control).tipo !== 'Correctivo');
   const reducenI = vigentesConIndice.filter(({ control }) => desglosarEficaciaControl(control).tipo === 'Correctivo');
   const { probabilidadResidual: pRes, impactoResidual: iRes } = calcularResiduales(pInh, iInh, vigentesConIndice.map(({ control }) => control));
-  const pasosP = pasos(reducenP, pInh, 'p');
-  const pasosI = pasos(reducenI, iInh, 'i');
+  const pasosP = pasos(reducenP, pInh, 'p', riesgo.id);
+  const pasosI = pasos(reducenI, iInh, 'i', riesgo.id);
   const zonaInh = zonaDe(pInh, iInh);
   const zonaRes = zonaDe(pRes, iRes);
 
@@ -109,7 +109,7 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
         nivelP(pRes) === nivelP(pInh)
           ? `${reducenP.length === 1 ? 'Este control baja' : `Estos ${reducenP.length} controles bajan`} el porcentaje, pero la probabilidad sigue en el mismo nivel (${etiquetaP(pInh)}, nivel ${nivelP(pInh)})${nivelP(pInh) === 1 ? ', que ya era el más bajo de la escala' : ''}: por eso no ${reducenP.length === 1 ? 'cambia' : 'cambian'} la zona.`
           : '',
-        reducenP.length === 1 ? `Toda la reducción depende de ${codigoControl(reducenP[0].indice)}: si ese control falla, la probabilidad vuelve a ${numero(pInh)} %.` : '',
+        reducenP.length === 1 ? `Toda la reducción depende de ${codigoControl(reducenP[0].indice, riesgo.id)}: si ese control falla, la probabilidad vuelve a ${numero(pInh)} %.` : '',
       ]
       : ['No tiene controles preventivos ni detectivos vigentes: la probabilidad no baja.']),
   ].filter(Boolean);
@@ -123,9 +123,9 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
         ...pasosI.map(paso => paso.texto),
         `Resultado: ${numero(iRes)} % (${etiquetaI(iRes)})${redondeo(pasosI, iRes)}.`,
         nivelI(iRes) === nivelI(iInh) ? `${reducenI.length === 1 ? 'Este control baja' : 'Estos controles bajan'} el porcentaje, pero el impacto sigue en el mismo nivel (${etiquetaI(iInh)}).` : '',
-        reducenI.length === 1 ? `Toda la reducción del impacto depende de ${codigoControl(reducenI[0].indice)}.` : '',
+        reducenI.length === 1 ? `Toda la reducción del impacto depende de ${codigoControl(reducenI[0].indice, riesgo.id)}.` : '',
       ]
-      : [`Solo los controles correctivos reducen el impacto (Tabla 8) y este riesgo no tiene ninguno${reducenP.length ? `: ${reducenP.map(({ indice }) => codigoControl(indice)).join(', ')} ${reducenP.length === 1 ? 'evita' : 'evitan'} que ocurra, pero si ocurre el daño es el mismo` : ''}. El impacto se queda en ${numero(iInh)} %.`]),
+      : [`Solo los controles correctivos reducen el impacto (Tabla 8) y este riesgo no tiene ninguno${reducenP.length ? `: ${reducenP.map(({ indice }) => codigoControl(indice, riesgo.id)).join(', ')} ${reducenP.length === 1 ? 'evita' : 'evitan'} que ocurra, pero si ocurre el daño es el mismo` : ''}. El impacto se queda en ${numero(iInh)} %.`]),
   ].filter(Boolean);
 
   // 3. Zona
@@ -146,7 +146,7 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
     requierePlan && !fecha ? 'Fecha de seguimiento: no hay una programada para revisar el avance del plan.' : '',
     vencido ? `El seguimiento programado para el ${fecha} ya venció.` : '',
     ...vigentesConIndice
-      .map(({ control, indice }) => ({ codigo: codigoControl(indice), faltantes: explicarControl(control).faltantes }))
+      .map(({ control, indice }) => ({ codigo: codigoControl(indice, riesgo.id), faltantes: explicarControl(control).faltantes }))
       .filter(item => item.faltantes.length)
       .map(item => `${item.codigo} figura como ${item.faltantes.join(', ').toLowerCase()}: no cambia la eficacia, pero el manual lo pide para considerar el control formalizado.`),
     // Controles reprobados en Trabajo de Campo: el cálculo los cuenta (Tabla 6 valora el diseño), pero se muestra
@@ -159,9 +159,9 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
         const eje = desglosarEficaciaControl(control).tipo === 'Correctivo' ? 'el impacto' : 'la probabilidad';
         const actual = eje === 'el impacto' ? iRes : pRes;
         const sinControl = eje === 'el impacto' ? sinEl.impactoResidual : sinEl.probabilidadResidual;
-        return `${codigoControl(indice)} fue reprobado en Trabajo de Campo el ${prueba.fecha} (calificación ${prueba.calificacion} %; diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}). El cálculo lo sigue contando porque el manual valora la eficacia por diseño (Tabla 6); si en la práctica no opera, ${eje} quedaría en ${numero(sinControl)} % en lugar de ${numero(actual)} % (zona ${zonaDe(sinEl.probabilidadResidual, sinEl.impactoResidual)}).`;
+        return `${codigoControl(indice, riesgo.id)} fue reprobado en Trabajo de Campo el ${prueba.fecha} (calificación ${prueba.calificacion} %; diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}). El cálculo lo sigue contando porque el manual valora la eficacia por diseño (Tabla 6); si en la práctica no opera, ${eje} quedaría en ${numero(sinControl)} % en lugar de ${numero(actual)} % (zona ${zonaDe(sinEl.probabilidadResidual, sinEl.impactoResidual)}).`;
       }),
-    anulados.length ? `${anulados.map(({ indice }) => codigoControl(indice)).join(', ')} ${anulados.length === 1 ? 'está anulado y no cuenta' : 'están anulados y no cuentan'} en el cálculo.` : '',
+    anulados.length ? `${anulados.map(({ indice }) => codigoControl(indice, riesgo.id)).join(', ')} ${anulados.length === 1 ? 'está anulado y no cuenta' : 'están anulados y no cuentan'} en el cálculo.` : '',
   ].filter(Boolean);
 
   // 5. Qué lo mejoraría: simulación con los mismos inherentes y los controles vigentes + controles nuevos.
@@ -174,7 +174,7 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
   if (manuales.length) {
     const automatizados = actuales.map(control => (desglosarEficaciaControl(control).implementacion === 'Manual' ? { ...control, implementacion: 'Automático', ejecucion: 'Automático' } : control));
     const r = calcularResiduales(pInh, iInh, automatizados);
-    simulaciones.push({ nombre: `automatizar ${manuales.map(({ indice }) => codigoControl(indice)).join(', ')}`, p: r.probabilidadResidual, i: r.impactoResidual, zona: zonaDe(r.probabilidadResidual, r.impactoResidual) });
+    simulaciones.push({ nombre: `automatizar ${manuales.map(({ indice }) => codigoControl(indice, riesgo.id)).join(', ')}`, p: r.probabilidadResidual, i: r.impactoResidual, zona: zonaDe(r.probabilidadResidual, r.impactoResidual) });
   }
   const bajanZona = simulaciones.filter(s => ORDEN_ZONA[s.zona] < ORDEN_ZONA[zonaRes])
     .sort((a, b) => ORDEN_ZONA[a.zona] - ORDEN_ZONA[b.zona]);

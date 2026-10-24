@@ -51,12 +51,13 @@ export function compararRiesgos(anterior = {}, nuevo = {}) {
     if (antes !== despues) cambios.push({ campo: etiqueta, antes: recortar(antes), despues: recortar(despues) });
   });
 
-  // Controles por posición (su código CTL-2x). Anular/reactivar tiene su propia entrada con el motivo.
+  // Controles por posición (código CTL-{riesgo}-{n}). Anular/reactivar tiene su propia entrada con el motivo.
+  const idRiesgo = nuevo.id ?? anterior.id;
   if (Array.isArray(nuevo.controlesDetallados)) {
     const antes = Array.isArray(anterior.controlesDetallados) ? anterior.controlesDetallados : [];
     const despues = nuevo.controlesDetallados;
     despues.forEach((control, indice) => {
-      const codigo = codigoControl(indice);
+      const codigo = codigoControl(indice, idRiesgo);
       const previo = antes[indice];
       if (!previo) {
         cambios.push({ campo: `${codigo} agregado`, antes: '', despues: recortar(comoTexto(control?.descripcion)) });
@@ -69,7 +70,7 @@ export function compararRiesgos(anterior = {}, nuevo = {}) {
       });
     });
     antes.slice(despues.length).forEach((control, desplazamiento) => {
-      cambios.push({ campo: `${codigoControl(despues.length + desplazamiento)} eliminado`, antes: recortar(comoTexto(control?.descripcion)), despues: '' });
+      cambios.push({ campo: `${codigoControl(despues.length + desplazamiento, idRiesgo)} eliminado`, antes: recortar(comoTexto(control?.descripcion)), despues: '' });
     });
   }
   return cambios;

@@ -8,7 +8,10 @@
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaSeveridad } from './nivelRiesgo.js';
 import { vigentes } from './anulacion.js';
 
-export const codigoControl = indice => `CTL-2${indice + 1}`;
+// Código del control: CTL-{riesgo}-{n}, el mismo que usa Trabajo de Campo (Evaluaciones). Sin riesgo: CTL-{n}.
+export const codigoControl = (indice, idRiesgo) => (idRiesgo !== undefined && idRiesgo !== null && String(idRiesgo) !== ''
+  ? `CTL-${idRiesgo}-${indice + 1}`
+  : `CTL-${indice + 1}`);
 
 const incluye = (valor, texto) => String(valor || '').includes(texto);
 const esCorrectivo = control => incluye(control?.tipo, 'Correctivo');
@@ -131,7 +134,7 @@ export function explicarCalculoResidual(exp, riesgo = {}, { hoy = new Date() } =
   const fallas = (Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [])
     .map((control, indice) => ({ control, indice }))
     .filter(({ control }) => control && control.estado !== 'Anulado')
-    .map(({ control, indice }) => ({ codigo: codigoControl(indice), faltantes: explicarControl(control).faltantes }))
+    .map(({ control, indice }) => ({ codigo: codigoControl(indice, riesgo.id), faltantes: explicarControl(control).faltantes }))
     .filter(item => item.faltantes.length > 0);
 
   const zonaInherente = zonaSeveridad(exp.probInh, exp.impInh, true).label;

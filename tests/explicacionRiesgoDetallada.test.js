@@ -6,13 +6,13 @@ let pruebas = 0;
 const prueba = (nombre, fn) => { fn(); pruebas += 1; };
 
 const rsk196 = explicarRiesgoDetallado({
-  probabilidadInherente: 100, impactoInherente: 100, planAccionRiesgo: '', fechaSeguimiento: '',
+  id: 196, probabilidadInherente: 100, impactoInherente: 100, planAccionRiesgo: '', fechaSeguimiento: '',
   controlesDetallados: [{ tipo: 'Preventivo (Foco Probabilidad)', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua / Permanente', evidencia: 'Con registro / Trazable' }],
 });
 
 prueba('RSK-196: cálculo de probabilidad paso a paso', () => {
-  assert.ok(rsk196.probabilidad.includes('CTL-21 — Preventivo manual (25 + 15 = 40 %): 100 % − 100 % × 40 % = 60 %.'));
-  assert.ok(rsk196.probabilidad.some(l => l.startsWith('Toda la reducción depende de CTL-21')));
+  assert.ok(rsk196.probabilidad.includes('CTL-196-1 — Preventivo manual (25 + 15 = 40 %): 100 % − 100 % × 40 % = 60 %.'));
+  assert.ok(rsk196.probabilidad.some(l => l.startsWith('Toda la reducción depende de CTL-196-1')));
 });
 
 prueba('RSK-196: impacto sin correctivos y zona Extremo por la Tabla 4', () => {
@@ -41,7 +41,7 @@ prueba('riesgo en Bajo: sin mejoras y con nota de mantener', () => {
 
 prueba('RSK-2: probabilidad ya en nivel mínimo y redondeo explicado', () => {
   const P = (documentacion = 'Documentado', evidencia = 'Con registro / Trazable') => ({ tipo: 'Preventivo (Foco Probabilidad)', implementacion: 'Manual', documentacion, frecuencia: 'Continua / Permanente', evidencia });
-  const r = explicarRiesgoDetallado({ probabilidadInherente: 20, impactoInherente: 60, fechaSeguimiento: '',
+  const r = explicarRiesgoDetallado({ id: 2, probabilidadInherente: 20, impactoInherente: 60, fechaSeguimiento: '',
     controlesDetallados: [P(), P(), P(), P(), P(), P('No documentado', 'Sin registro'), { tipo: 'Correctivo (Foco Impacto)', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua / Permanente', evidencia: 'Con registro / Trazable' }] });
   assert.equal(r.zonaResidual, 'Moderado');
   assert.ok(r.probabilidad.includes('Resultado: 1 % (Muy baja); el cálculo da 0,9 % y la matriz lo guarda redondeado.'));
@@ -60,9 +60,9 @@ prueba('control reprobado en Trabajo de Campo: usa la última prueba y muestra e
   assert.equal(pruebasCampo.size, 1);
   assert.equal(pruebasCampo.get(0).calificacion, 50);
   const P = () => ({ tipo: 'Preventivo', implementacion: 'Manual' });
-  const r = explicarRiesgoDetallado({ probabilidadInherente: 20, impactoInherente: 60, fechaSeguimiento: '2026-12-01',
+  const r = explicarRiesgoDetallado({ id: 2, probabilidadInherente: 20, impactoInherente: 60, fechaSeguimiento: '2026-12-01',
     controlesDetallados: [P(), P(), P(), P(), P(), P(), { tipo: 'Correctivo', implementacion: 'Manual' }] }, { pruebasCampo, hoy: new Date('2026-10-24') });
-  const aviso = r.pendientes.find(l => l.startsWith('CTL-21 fue reprobado en Trabajo de Campo el 2026-08-05'));
+  const aviso = r.pendientes.find(l => l.startsWith('CTL-2-1 fue reprobado en Trabajo de Campo el 2026-08-05'));
   assert.ok(aviso, 'debe avisar el control reprobado');
   assert.match(aviso, /la probabilidad quedaría en 2 % en lugar de 1 %/);
 });

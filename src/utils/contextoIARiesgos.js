@@ -1,5 +1,6 @@
 // Datos reales que se envían a la IA en los análisis de Riesgos.
 // Todo número sale de los registros; si algo no existe se reporta como 0 o "sin datos", nunca con un valor de relleno.
+import { codigoControl } from './explicacionControles.js';
 import { nivelEscala, riesgoEnPorcentaje, zonasRiesgo } from './nivelRiesgo.js';
 import { normalizarClasificacion } from './clasificacionRiesgo.js';
 
@@ -24,7 +25,7 @@ export function puntajesRiesgo(riesgo) {
 export function controlesDeRiesgo(riesgo, calcularEficacia) {
   // Los controles anulados no se envían a la IA (conservan su código por posición).
   return lista(riesgo?.controlesDetallados).map((control, indice) => ({ control, indice })).filter(({ control }) => control?.estado !== 'Anulado').map(({ control, indice }) => ({
-    codigo: `CTL-2${indice + 1}`,
+    codigo: codigoControl(indice, riesgo?.id),
     descripcion: texto(control.descripcion, 300),
     tipo: control.tipo || 'Sin dato',
     ejecucion: control.implementacion || control.ejecucion || 'Sin dato',

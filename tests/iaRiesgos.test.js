@@ -45,7 +45,7 @@ test('distribución inherente vs residual y top de exposición con su RSK', () =
 test('ficha del riesgo incluye controles con código y eficacia', () => {
   const datos = contextoRiesgo(riesgo(7), calculos);
   assert.equal(datos.riesgo.codigo, 'RSK-7');
-  assert.equal(datos.controles[0].codigo, 'CTL-21');
+  assert.equal(datos.controles[0].codigo, 'CTL-7-1');
   assert.equal(datos.controles[0].eficacia, 70);
   assert.equal(datos.riesgo.nivelInherente, 'Extremo');
 });

@@ -1,6 +1,6 @@
 import { riesgoEnPorcentaje } from './nivelRiesgo.js';
 import { normalizarClasificacion } from './clasificacionRiesgo.js';
-import { desglosarEficaciaControl } from './explicacionControles.js';
+import { codigoControl, desglosarEficaciaControl } from './explicacionControles.js';
 const COLORES = {
   tinta: 'FF173B35',
   verde: 'FF176B5B',
@@ -206,7 +206,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     }
     return controles.map((control, indice) => ({
       ...contexto,
-      'ID Control': `RSK-${riesgo.id}-C${indice + 1}`,
+      'ID Control': codigoControl(indice, riesgo.id),
       'N° Control': indice + 1,
       'Control Estructurado': 'Sí',
       'Descripción del Control': control.descripcion || 'Sin descripción',

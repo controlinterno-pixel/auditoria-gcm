@@ -47,25 +47,25 @@ test('lectura del residual: cuánto bajó, de qué control depende y qué falta 
   // Caso de la captura: 4 preventivos manuales y 1 correctivo; zona Moderado.
   const exp = {
     probInh: 60, impInh: 60, probFinal: 8, impFinal: 45,
-    pasosP: pasos([['CTL-21', 40, 36], ['CTL-22', 40, 21.6], ['CTL-23', 40, 12.96], ['CTL-24', 40, 7.78]]),
-    pasosI: pasos([['CTL-25', 25, 45]]),
+    pasosP: pasos([['CTL-5-1', 40, 36], ['CTL-5-2', 40, 21.6], ['CTL-5-3', 40, 12.96], ['CTL-5-4', 40, 7.78]]),
+    pasosI: pasos([['CTL-5-5', 25, 45]]),
   };
   const controles = [control(), control({ frecuencia: 'Aleatoria' }), control(), control(), control({ tipo: 'Correctivo' })];
-  const lectura = explicarCalculoResidual(exp, { controlesDetallados: controles }, { hoy });
+  const lectura = explicarCalculoResidual(exp, { id: 5, controlesDetallados: controles }, { hoy });
   assert.deepEqual(lectura.probabilidad, [
-    'Baja de 60% a 8% (Muy baja) con 4 controles: CTL-21, CTL-22, CTL-23, CTL-24.',
-    'Si CTL-21 deja de aplicarse, la probabilidad sube a 13%.',
+    'Baja de 60% a 8% (Muy baja) con 4 controles: CTL-5-1, CTL-5-2, CTL-5-3, CTL-5-4.',
+    'Si CTL-5-1 deja de aplicarse, la probabilidad sube a 13%.',
   ]);
   assert.deepEqual(lectura.impacto, [
-    'Baja de 60% a 45% (Moderado) con CTL-25.',
-    'Depende solo de CTL-25: si falla, el impacto vuelve a 60%.',
+    'Baja de 60% a 45% (Moderado) con CTL-5-5.',
+    'Depende solo de CTL-5-5: si falla, el impacto vuelve a 60%.',
   ]);
   assert.equal(lectura.conclusion,
-    'Sigue en zona Moderado. No tiene fecha de seguimiento programada y en zona Moderado el manual exige seguimiento. Controles con fallas de formalización: CTL-22 (frecuencia aleatoria).');
+    'Sigue en zona Moderado. No tiene fecha de seguimiento programada y en zona Moderado el manual exige seguimiento. Controles con fallas de formalización: CTL-5-2 (frecuencia aleatoria).');
 });
 
 test('zona Alta: exige plan de acción y avisa si el seguimiento venció', () => {
-  const exp = { probInh: 60, impInh: 80, probFinal: 25, impFinal: 80, pasosP: pasos([['CTL-21', 40, 36], ['CTL-22', 30, 25.2]]), pasosI: [] };
+  const exp = { probInh: 60, impInh: 80, probFinal: 25, impFinal: 80, pasosP: pasos([['CTL-5-1', 40, 36], ['CTL-5-2', 30, 25.2]]), pasosI: [] };
   const sinPlan = explicarCalculoResidual(exp, { fechaSeguimiento: '2026-09-30' }, { hoy });
   assert.equal(sinPlan.impacto[0], 'Ningún control correctivo: si el riesgo ocurre, el impacto sigue en 80% (Mayor).');
   assert.equal(sinPlan.conclusion,
