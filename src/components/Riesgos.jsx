@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Ban, History, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { ThinkingOrb } from 'thinking-orbs';
@@ -302,6 +302,11 @@ export default function Riesgos({
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
+  // Al cambiar de vista (dashboard, matriz, formulario) la página arranca arriba, no donde quedó la anterior.
+  useEffect(() => {
+    document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [vistaActiva]);
   const [formularioModificado, setFormularioModificado] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const guardNavigationRiesgos = useUnsavedChangesGuard(formularioModificado && vistaActiva === 'nuevo', 'el riesgo');
@@ -310,16 +315,12 @@ export default function Riesgos({
     setSoloLecturaRiesgo(false);
     setVistaActiva(nuevaVista);
   });
-  // Cancelar el formulario regresa a "Ver matriz", arriba de la página.
+  // Cancelar el formulario regresa a "Ver matriz" (el efecto de vistaActiva la deja arriba).
   const cancelarFormularioRiesgo = () => guardNavigationRiesgos(() => {
     setFormularioModificado(false);
     setSoloLecturaRiesgo(false);
     setEditRiesgo(null);
     setVistaActiva('matriz');
-    window.requestAnimationFrame(() => {
-      document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'instant' });
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    });
   });
 // 🛡️ Estado para el modal explicativo de eficacia del control
   const [controlSeleccionadoIA, setControlSeleccionadoIA] = useState(null);
