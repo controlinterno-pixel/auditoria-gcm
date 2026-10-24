@@ -39,4 +39,15 @@ prueba('riesgo en Bajo: sin mejoras y con nota de mantener', () => {
   assert.match(r.notaMejoras, /zona más baja/);
 });
 
+prueba('RSK-2: probabilidad ya en nivel mínimo y redondeo explicado', () => {
+  const P = (documentacion = 'Documentado', evidencia = 'Con registro / Trazable') => ({ tipo: 'Preventivo (Foco Probabilidad)', implementacion: 'Manual', documentacion, frecuencia: 'Continua / Permanente', evidencia });
+  const r = explicarRiesgoDetallado({ probabilidadInherente: 20, impactoInherente: 60, fechaSeguimiento: '',
+    controlesDetallados: [P(), P(), P(), P(), P(), P('No documentado', 'Sin registro'), { tipo: 'Correctivo (Foco Impacto)', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua / Permanente', evidencia: 'Con registro / Trazable' }] });
+  assert.equal(r.zonaResidual, 'Moderado');
+  assert.ok(r.probabilidad.includes('Resultado: 1 % (Muy baja); el cálculo da 0,9 % y la matriz lo guarda redondeado.'));
+  assert.ok(r.probabilidad.some(l => l.includes('que ya era el más bajo de la escala')));
+  assert.ok(r.zona.some(l => l.includes('hay que reducir el impacto con controles correctivos')));
+  assert.ok(r.mejoras[0].accion.startsWith('Si se agrega 1 control correctivo manual') && r.mejoras[0].resultado.endsWith('zona Bajo'));
+});
+
 console.log(`explicacionRiesgoDetallada.test.js: ${pruebas} pruebas OK`);

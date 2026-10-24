@@ -32,11 +32,18 @@ function pasos(controles, inicial, eje) {
     const antes = valor;
     valor -= valor * (d.total / 100);
     return {
+      valor,
       texto: `${codigoControl(indice)} — ${d.tipo} ${d.implementacion.toLowerCase()} (${d.factores.map(f => f.puntos).join(' + ')} = ${d.total} %): ${numero(antes)} % − ${numero(antes)} % × ${d.total} % = ${numero(valor)} %.`,
       eje,
     };
   });
 }
+
+// La matriz guarda el residual en entero: si el cálculo exacto tiene decimales, se aclara el redondeo.
+const redondeo = (pasosEje, entero) => {
+  const exacto = pasosEje.length ? pasosEje[pasosEje.length - 1].valor : entero;
+  return Math.abs(exacto - entero) >= 0.05 ? `; el cálculo da ${numero(exacto)} % y la matriz lo guarda redondeado` : '';
+};
 
 const CONTROLES_SIMULADOS = [
   { nombre: '1 control correctivo manual', controles: [{ tipo: 'Correctivo', implementacion: 'Manual' }] },
@@ -59,6 +66,8 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date() } = {}) {
   const reducenP = vigentesConIndice.filter(({ control }) => desglosarEficaciaControl(control).tipo !== 'Correctivo');
   const reducenI = vigentesConIndice.filter(({ control }) => desglosarEficaciaControl(control).tipo === 'Correctivo');
   const { probabilidadResidual: pRes, impactoResidual: iRes } = calcularResiduales(pInh, iInh, vigentesConIndice.map(({ control }) => control));
+  const pasosP = pasos(reducenP, pInh, 'p');
+  const pasosI = pasos(reducenI, iInh, 'i');
   const zonaInh = zonaDe(pInh, iInh);
   const zonaRes = zonaDe(pRes, iRes);
 
@@ -68,8 +77,11 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date() } = {}) {
     ...(reducenP.length
       ? [
         `La reducen los controles preventivos y detectivos, uno tras otro sobre lo que deja el anterior (Tabla 8):`,
-        ...pasos(reducenP, pInh, 'p').map(paso => paso.texto),
-        `Resultado: ${numero(pRes)} % (${etiquetaP(pRes)}).`,
+        ...pasosP.map(paso => paso.texto),
+        `Resultado: ${numero(pRes)} % (${etiquetaP(pRes)})${redondeo(pasosP, pRes)}.`,
+        nivelP(pRes) === nivelP(pInh)
+          ? `${reducenP.length === 1 ? 'Este control baja' : `Estos ${reducenP.length} controles bajan`} el porcentaje, pero la probabilidad sigue en el mismo nivel (${etiquetaP(pInh)}, nivel ${nivelP(pInh)})${nivelP(pInh) === 1 ? ', que ya era el más bajo de la escala' : ''}: por eso no ${reducenP.length === 1 ? 'cambia' : 'cambian'} la zona.`
+          : '',
         reducenP.length === 1 ? `Toda la reducción depende de ${codigoControl(reducenP[0].indice)}: si ese control falla, la probabilidad vuelve a ${numero(pInh)} %.` : '',
       ]
       : ['No tiene controles preventivos ni detectivos vigentes: la probabilidad no baja.']),
@@ -81,8 +93,9 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date() } = {}) {
     ...(reducenI.length
       ? [
         `Lo reducen solo los controles correctivos (Tabla 8):`,
-        ...pasos(reducenI, iInh, 'i').map(paso => paso.texto),
-        `Resultado: ${numero(iRes)} % (${etiquetaI(iRes)}).`,
+        ...pasosI.map(paso => paso.texto),
+        `Resultado: ${numero(iRes)} % (${etiquetaI(iRes)})${redondeo(pasosI, iRes)}.`,
+        nivelI(iRes) === nivelI(iInh) ? `${reducenI.length === 1 ? 'Este control baja' : 'Estos controles bajan'} el porcentaje, pero el impacto sigue en el mismo nivel (${etiquetaI(iInh)}).` : '',
         reducenI.length === 1 ? `Toda la reducción del impacto depende de ${codigoControl(reducenI[0].indice)}.` : '',
       ]
       : [`Solo los controles correctivos reducen el impacto (Tabla 8) y este riesgo no tiene ninguno${reducenP.length ? `: ${reducenP.map(({ indice }) => codigoControl(indice)).join(', ')} ${reducenP.length === 1 ? 'evita' : 'evitan'} que ocurra, pero si ocurre el daño es el mismo` : ''}. El impacto se queda en ${numero(iInh)} %.`]),
@@ -92,7 +105,8 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date() } = {}) {
   const zona = [
     zonaInh === zonaRes ? `Sigue en zona ${zonaRes}: los controles no alcanzan a cambiarla.` : `Pasa de zona ${zonaInh} a zona ${zonaRes}.`,
     razonZona(pRes, iRes),
-  ];
+    nivelP(pRes) === 1 && ORDEN_ZONA[zonaRes] > 1 ? `La probabilidad ya está en el nivel más bajo (Muy baja): más controles preventivos o detectivos no cambian la zona. Para bajarla hay que reducir el impacto con controles correctivos.` : '',
+  ].filter(Boolean);
 
   // 4. Lo que falta según el numeral 9 y la formalización de los controles
   const plan = String(riesgo.planAccionRiesgo || '').trim();
