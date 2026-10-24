@@ -14,7 +14,20 @@ const ESPERA_POR_INTENTO_MS = 25000;
 const MAX_TOKENS_SALIDA = 8192;
 const CACHE_SEGUNDOS = 7 * 24 * 60 * 60;
 // Si cambian las reglas o la forma del prompt, subir la versión invalida la caché anterior.
-const VERSION_CACHE = 'v1';
+const VERSION_CACHE = 'v2';
+
+// Con respuesta JSON se valida antes de aceptarla: un JSON mal formado (p. ej. comillas sin escapar) se
+// descarta y se prueba el siguiente modelo, en lugar de mostrarse como texto crudo o quedar en la caché.
+export function normalizarJson(texto) {
+  let valor = String(texto || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  const inicio = valor.indexOf('{');
+  const fin = valor.lastIndexOf('}');
+  if (inicio > 0 || (fin >= 0 && fin < valor.length - 1)) valor = valor.slice(inicio, fin + 1);
+  let datos = JSON.parse(valor);
+  if (typeof datos === 'string') datos = JSON.parse(datos); // JSON enviado como texto dentro de comillas
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos)) throw new Error('La respuesta no es un objeto JSON');
+  return JSON.stringify(datos);
+}
 
 export const obtenerModelos = (entorno = process.env) => {
   const configurados = String(entorno.GEMINI_MODELOS || entorno.GEMINI_MODEL || '')
@@ -59,7 +72,14 @@ async function llamarModelo({ modelo, clave, instruccionSistema, prompt, json, t
     }
     const texto = (cuerpo?.candidates?.[0]?.content?.parts || []).map(parte => parte?.text || '').join('').trim();
     if (!texto) throw new Error(`Respuesta vacía (${cuerpo?.candidates?.[0]?.finishReason || 'sin candidatos'})`);
-    return texto;
+    if (!json) return texto;
+    try {
+      return normalizarJson(texto);
+    } catch (error) {
+      const invalido = new Error(`JSON inválido (${cuerpo?.candidates?.[0]?.finishReason || 'sin motivo'}): ${error.message}`);
+      invalido.estado = 'json-invalido';
+      throw invalido;
+    }
   } catch (error) {
     if (error?.name === 'AbortError') {
       const tiempo = new Error(`Sin respuesta en ${Math.round(esperaMs / 1000)} s`);
@@ -84,7 +104,7 @@ export async function generarConGemini({ instruccionSistema, prompt, json = fals
   if (enCache?.[0]) {
     try {
       const guardado = JSON.parse(enCache[0]);
-      if (guardado?.texto) return { texto: guardado.texto, modelo: guardado.modelo, desdeCache: true };
+      if (guardado?.texto) return { texto: json ? normalizarJson(guardado.texto) : guardado.texto, modelo: guardado.modelo, desdeCache: true };
     } catch { /* caché dañada: se genera de nuevo */ }
   }
 

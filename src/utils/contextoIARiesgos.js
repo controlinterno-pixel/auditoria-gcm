@@ -178,11 +178,20 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
 export function armarPanelIA(respuesta, { badges, kpis, indicadores }) {
   let datos;
   try {
-    datos = typeof respuesta === 'string'
-      ? JSON.parse(respuesta.replace(/```json/g, '').replace(/```/g, '').trim())
-      : respuesta;
+    if (typeof respuesta === 'string') {
+      let texto = respuesta.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const inicio = texto.indexOf('{');
+      const fin = texto.lastIndexOf('}');
+      if (inicio >= 0 && fin > inicio) texto = texto.slice(inicio, fin + 1);
+      datos = JSON.parse(texto);
+      if (typeof datos === 'string') datos = JSON.parse(datos);
+    } else {
+      datos = respuesta;
+    }
   } catch {
-    datos = { analisisEjecutivo: String(respuesta || '') };
+    // Texto libre se muestra tal cual; un JSON roto nunca se muestra crudo: se pide generarlo de nuevo.
+    const texto = String(respuesta || '');
+    datos = { analisisEjecutivo: texto.includes('{') ? 'La IA respondió en un formato que no se pudo leer. Cierra y vuelve a generar el dictamen.' : texto };
   }
   if (!datos || typeof datos !== 'object' || Array.isArray(datos)) datos = { analisisEjecutivo: String(respuesta || '') };
   // Etiquetas que dicen lo que mide cada cifra (antes "Madurez" era la eficacia y "Cobertura" la mitigación).
