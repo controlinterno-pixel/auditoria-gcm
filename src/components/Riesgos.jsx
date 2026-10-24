@@ -17,6 +17,7 @@ import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, z
 import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, validarMotivo, vigentes } from '../utils/anulacion.js';
 import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
 import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
+import { explicarRiesgoDetallado } from '../utils/explicacionRiesgoDetallada.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
@@ -3253,6 +3254,44 @@ const renderMatriz = () => {
                     </div>
                   </div>
                   <p className="border-t border-emerald-800/60 pt-2"><strong className="text-emerald-300">📌 En resumen:</strong> {lectura.conclusion}</p>
+                  {/* 📖 Explicación completa de este riesgo (desplegable: funciona también en modo consulta) */}
+                  {(() => {
+                    const detalle = explicarRiesgoDetallado({ probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento });
+                    const bloques = [
+                      ['1. Probabilidad', detalle.probabilidad],
+                      ['2. Impacto', detalle.impacto],
+                      [`3. Por qué queda en zona ${detalle.zonaResidual}`, detalle.zona],
+                      ...(detalle.pendientes.length ? [['4. Lo que falta', detalle.pendientes]] : []),
+                    ];
+                    return (
+                      <details className="group rounded-lg border border-emerald-700/60 bg-slate-950/40">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 font-bold text-emerald-200 hover:bg-emerald-900/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 [&::-webkit-details-marker]:hidden">
+                          <span>📖 Explícame este riesgo</span>
+                          <span aria-hidden="true" className="text-emerald-400 transition-transform group-open:rotate-180">▾</span>
+                        </summary>
+                        <div className="space-y-3 border-t border-emerald-800/60 px-3 py-3">
+                          {bloques.map(([titulo, lineas]) => (
+                            <div key={titulo}>
+                              <p className="font-bold text-emerald-300">{titulo}</p>
+                              <ul className="mt-1 space-y-1">{lineas.map(linea => <li key={linea}>{linea}</li>)}</ul>
+                            </div>
+                          ))}
+                          <div>
+                            <p className="font-bold text-emerald-300">{detalle.pendientes.length ? '5' : '4'}. Qué lo mejoraría</p>
+                            {detalle.mejoras.length > 0 && (
+                              <ul className="mt-1 space-y-1">
+                                {detalle.mejoras.map(mejora => (
+                                  <li key={mejora.accion}><strong className={mejora.bajaZona ? 'text-emerald-300' : 'text-emerald-100'}>{mejora.accion}:</strong> {mejora.resultado}.</li>
+                                ))}
+                              </ul>
+                            )}
+                            {detalle.notaMejoras && <p className="mt-1">{detalle.notaMejoras}</p>}
+                            <p className="mt-1 text-[10px] text-emerald-400/80">Simulación con los mismos valores inherentes y los controles actuales; no cambia el riesgo.</p>
+                          </div>
+                        </div>
+                      </details>
+                    );
+                  })()}
                 </div>
               );
             })()}
