@@ -246,14 +246,20 @@ const LabelConPalomita = ({ idCampo, dark, onAbrirAyuda }) => {
   return (
     <div className="flex items-center space-x-1.5 mb-1">
       <span className={`text-[10px] font-black uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{dataAyuda.titulo}</span>
-      <button
-        type="button"
+      {/* No es <button>: dentro del <fieldset disabled> del modo consulta un botón queda desactivado y la ayuda no abría. */}
+      <span
+        role="button"
+        tabIndex={0}
         onClick={() => onAbrirAyuda && onAbrirAyuda(dataAyuda)}
-        className="w-4 h-4 rounded-full bg-emerald-50 border border-emerald-300 flex items-center justify-center text-[9px] text-emerald-600 font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm group"
-        title="Ver por qué diligenciar y ejemplo"
+        onKeyDown={evento => {
+          if (evento.key === 'Enter' || evento.key === ' ') { evento.preventDefault(); onAbrirAyuda && onAbrirAyuda(dataAyuda); }
+        }}
+        aria-label={`Ayuda: ${dataAyuda.titulo}`}
+        className="w-4 h-4 cursor-pointer rounded-full bg-emerald-50 border border-emerald-300 flex items-center justify-center text-[9px] text-emerald-600 font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+        title="Ver qué es, por qué diligenciarlo y un ejemplo"
       >
         <span className="group-hover:scale-110 transition-transform">✓</span>
-      </button>
+      </span>
     </div>
   );
 };
@@ -3203,15 +3209,18 @@ const renderMatriz = () => {
       </div>
 
       {/* 📊 BOTÓN CHULITO VERDE QUE ABRE EL DESGLOSE */}
-      <button
-        type="button"
+      {/* No es <button> para que funcione también en modo consulta (dentro del <fieldset disabled>). */}
+      <span
+        role="button"
+        tabIndex={0}
         onClick={() => setControlSeleccionadoIA(ctrl)}
-        className="ml-auto text-[10px] font-black bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm transition-all transform hover:scale-105 cursor-pointer"
+        onKeyDown={evento => { if (evento.key === 'Enter' || evento.key === ' ') { evento.preventDefault(); setControlSeleccionadoIA(ctrl); } }}
+        className="ml-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 text-[10px] font-black bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm transition-all transform hover:scale-105 cursor-pointer"
         title="Ver desglose de eficacia según el Manual de Riesgos"
       >
         <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[8px] font-bold">✓</span>
         <span>Ver Eficacia ({calcularEficaciaControl(ctrl)}%)</span>
-      </button>
+      </span>
     </div>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">            
 <div className="md:col-span-11">
