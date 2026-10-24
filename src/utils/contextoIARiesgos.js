@@ -3,6 +3,8 @@
 import { codigoControl } from './explicacionControles.js';
 import { nivelEscala, riesgoEnPorcentaje, zonasRiesgo } from './nivelRiesgo.js';
 import { normalizarClasificacion } from './clasificacionRiesgo.js';
+import { explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from './explicacionRiesgoDetallada.js';
+import { cumplimientoNumeral9 } from './cumplimientoManual.js';
 
 const texto = (valor, max = 400) => {
   const limpio = String(valor ?? '').replace(/\s+/g, ' ').trim();
@@ -43,9 +45,12 @@ const procesosDe = riesgo => {
 };
 
 // Ficha de un riesgo para el dictamen individual.
-export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion }) {
+export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion, evaluaciones = [] }) {
   const controles = controlesDeRiesgo(riesgo, calcularEficacia);
   const puntajes = puntajesRiesgo(riesgo);
+  // Conclusiones exactas del sistema (las mismas de "Explícame este riesgo"): la IA las interpreta, no las recalcula.
+  const pruebasCampo = pruebasDeCampoDelRiesgo(evaluaciones, riesgo.id);
+  const detalle = explicarRiesgoDetallado(riesgo, { pruebasCampo });
   return {
     riesgo: {
       codigo: `RSK-${riesgo.id}`,
@@ -63,6 +68,19 @@ export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion })
       bitacora: texto(riesgo.seguimientoBitacora, 800) || 'Sin registros en bitácora',
     },
     controles,
+    analisisSistema: {
+      probabilidad: detalle.probabilidad,
+      impacto: detalle.impacto,
+      porQueQuedaEnSuZona: detalle.zona,
+      pendientes: detalle.pendientes.length ? detalle.pendientes : ['Sin pendientes del numeral 9 ni de formalización.'],
+      simulacionDeMejoras: detalle.mejoras.length
+        ? detalle.mejoras.map(mejora => `${mejora.accion}: ${mejora.resultado}`)
+        : [detalle.notaMejoras || 'Sin opciones que cambien el resultado.'],
+      notaSimulacion: detalle.notaMejoras || '',
+    },
+    pruebasTrabajoDeCampo: [...pruebasCampo].map(([indice, prueba]) => ({
+      control: codigoControl(indice, riesgo.id), calificacion: prueba.calificacion, fecha: prueba.fecha, diseno: prueba.diseno, ejecucion: prueba.ejecucion,
+    })),
     metricas: {
       totalControles: controles.length || (riesgo.descripcionControl ? 1 : 0),
       eficaciaPromedioControles: promedio(controles.map(control => control.eficacia)),
@@ -80,7 +98,7 @@ const planVencido = (plan, hoy) => {
 };
 
 // Panorama de un conjunto de riesgos (toda la matriz o la vista filtrada del dashboard).
-export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, hallazgos = [], planes = [], hoy = new Date() }) {
+export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, hallazgos = [], planes = [], evaluaciones = [], hoy = new Date() }) {
   const registros = lista(riesgos);
   const niveles = ['Extremo', 'Alto', 'Moderado', 'Bajo'];
   const conPuntajes = registros.map(riesgo => ({ riesgo, ...puntajesRiesgo(riesgo) }));
@@ -113,6 +131,8 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
     && new Date(`${riesgo.fechaSeguimiento}T23:59:59`) < hoy && riesgo.estado !== 'Cerrado');
   const listaHallazgos = lista(hallazgos);
   const listaPlanes = lista(planes);
+  const cumplimiento = cumplimientoNumeral9(registros, evaluaciones);
+  const resumenCumplimiento = criterio => ({ total: cumplimiento[criterio].length, riesgos: cumplimiento[criterio].slice(0, 20).map(riesgo => `RSK-${riesgo.id}`) });
 
   return {
     metricas: {
@@ -138,6 +158,12 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
     },
     riesgosSinControles: { total: sinControl.length, ejemplos: sinControl.slice(0, 15).map(item => `RSK-${item.riesgo.id}`) },
     seguimientosVencidos: { total: seguimientosVencidos.length, ejemplos: seguimientosVencidos.slice(0, 15).map(riesgo => `RSK-${riesgo.id}`) },
+    // Numeral 9 del manual (calculado por el sistema): incumplimientos que el informe debe priorizar.
+    cumplimientoNumeral9: {
+      extremoOAltoSinPlanDeAccion: resumenCumplimiento('sin-plan'),
+      moderadoOBajoSinFechaDeSeguimiento: resumenCumplimiento('sin-seguimiento'),
+      conControlesReprobadosEnTrabajoDeCampo: resumenCumplimiento('reprobados'),
+    },
     auditoria: {
       hallazgosTotal: listaHallazgos.length,
       hallazgosAbiertos: listaHallazgos.filter(hallazgo => hallazgo?.estado !== 'Cerrado').length,
@@ -149,7 +175,7 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
 }
 
 // Une la respuesta de la IA con las cifras del sistema (las cifras nunca vienen de la IA).
-export function armarPanelIA(respuesta, { badges, kpis }) {
+export function armarPanelIA(respuesta, { badges, kpis, indicadores }) {
   let datos;
   try {
     datos = typeof respuesta === 'string'
@@ -159,5 +185,5 @@ export function armarPanelIA(respuesta, { badges, kpis }) {
     datos = { analisisEjecutivo: String(respuesta || '') };
   }
   if (!datos || typeof datos !== 'object' || Array.isArray(datos)) datos = { analisisEjecutivo: String(respuesta || '') };
-  return JSON.stringify({ ...datos, headerBadges: badges, kpis });
+  return JSON.stringify({ ...datos, headerBadges: badges, kpis, ...(indicadores ? { indicadores } : {}) });
 }

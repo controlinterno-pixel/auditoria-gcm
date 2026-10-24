@@ -1,6 +1,7 @@
 // src/handlers/auditorIaHandler.js
 import { calcularMatriz5x5 } from '../utils/helpers';
 import { apiService } from '../services/apiService';
+import { contextoTarjetaDashboard } from '../utils/contextoIADashboard.js';
 export const executeAuditorQuery = async ({
   textoDirecto,
   auditorInput,
@@ -52,120 +53,41 @@ export const executeAuditorQuery = async ({
       fecha: inf.fecha
     }));
 
+    // Resúmenes con identificadores (los mismos de los paneles), no las listas completas: así no se
+    // recortan los datos en el servidor y la IA puede citar RSK, PLA, hallazgos y controles concretos.
+    const fuentes = { riesgos: riesgosBase, hallazgos: hallazgosBase, planes: planesBase, evaluaciones: evalFiltradas, hoy };
     const contextoDatos = {
-      dashboard: {
-        cumplimientoPlanAnual: avanceCronogramaGlobal + '%',
-        avancePlanesAccion: (planesBase.length > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / planesBase.length) : 0) + '%',
-        efectividadControles: efectividadControlesGlobal + '%'
+      indicadoresGenerales: {
+        cumplimientoPlanAnual: `${avanceCronogramaGlobal}%`,
+        efectividadControlesEnCampo: `${efectividadControlesGlobal}%`,
       },
-      riesgos: riesgosBase,
-      hallazgos: hallazgosBase,
-      planesAccion: planesBase,
-      controlesEvaluados: evalFiltradas,
-      incidentes: incidentesBase,
-      informesAuditoria: resumenInformes,
-      indicadoresMonitoreo: safeMonitoreo
-    };  
+      riesgos: contextoTarjetaDashboard('riesgos', fuentes).datos,
+      planesDeAccion: contextoTarjetaDashboard('planes', fuentes).datos,
+      hallazgos: contextoTarjetaDashboard('hallazgos', fuentes).datos,
+      controlesProbadosEnCampo: contextoTarjetaDashboard('controles', fuentes).datos,
+      incidentes: {
+        total: incidentesBase.length,
+        costoTotal: incidentesBase.reduce((suma, incidente) => suma + (Number(incidente.costo) || 0), 0),
+      },
+      informesAuditoria: resumenInformes.slice(0, 30),
+      indicadoresMonitoreo: Array.isArray(safeMonitoreo) ? safeMonitoreo.slice(0, 30) : safeMonitoreo,
+    };
 
-    if (
-      consultaFinal.toLowerCase().includes('planes de mejoramiento') || 
-      consultaFinal.toLowerCase().includes('avance físico') || 
-      consultaFinal.toLowerCase().includes('planes de acción')
-    ) {
-      const total = planesBase.length;
-      const cerrados = planesBase.filter(p => p.estado === 'Cerrado' || p.progreso === 100).length;
-      const abiertos = total - cerrados;
-      const vencidosPlanes = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy);
-      const vencidos = vencidosPlanes.length;
-      
-      const pctCerrados = total > 0 ? Math.round((cerrados / total) * 100) : 0;
-      const pctVencidos = total > 0 ? Math.round((vencidos / total) * 100) : 0;
-      const avanceFisico = total > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / total) : 0;
-
-      const conteoProcesos = {};
-      const conteoResponsables = {};
-
-      vencidosPlanes.forEach(p => {
-        const hallazgoVinculado = safeHallazgos.find(h => String(h.id) === String(p.idHallazgo));
-        const procesoNombre = hallazgoVinculado?.proceso || p.proceso || 'Procesos Específicos';
-        const respNombre = p.responsable || 'Sin Asignar';
-
-        conteoProcesos[procesoNombre] = (conteoProcesos[procesoNombre] || 0) + 1;
-        conteoResponsables[respNombre] = (conteoResponsables[respNombre] || 0) + 1;
+    const resIA = await apiService.consultarAuditor({
+      prompt: `Pregunta de Control Interno: "${consultaFinal}"
+Responde solo con lo que muestran los datos, en español, en markdown breve (títulos cortos y viñetas). Cita los identificadores (RSK, PLA, referencia del hallazgo, control). Si los datos no permiten responder algo, dilo. No escribas niveles, porcentajes de confianza ni urgencias que no estén en los datos.`,
+      datosContexto: contextoDatos,
+    });
+    const respuestaIA = resIA?.respuesta || resIA;
+    
+    if (typeof respuestaIA === 'object' && respuestaIA !== null) {
+      setAuditorRespuesta(respuestaIA.summary || respuestaIA.dictamen || "Análisis completado. Revisa el informe detallado en pantalla.");
+      setAiModal({
+        titulo: respuestaIA.title || respuestaIA.titulo || "Informe Ejecutivo de Auditoría GRC",
+        contenido: respuestaIA
       });
-
-      const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]);
-      const topResponsables = Object.entries(conteoResponsables).sort((a, b) => b[1] - a[1]);
-
-      let hallazgoPatron = "";
-      if (topProcesos.length > 0) {
-        const acumTopProcesos = topProcesos.slice(0, 3).reduce((acc, curr) => acc + curr[1], 0);
-        hallazgoPatron += `• Focalización de la mora: ${acumTopProcesos} de los ${vencidos} planes vencidos pertenecen principalmente a los procesos de **${topProcesos.slice(0, 3).map(p => p[0]).join(', ')}**, lo que sugiere que el problema de oportunidad no es institucional sino focalizado.\n`;
-      }
-      if (topResponsables.length > 0 && topResponsables[0][1] > 1) {
-        const pctResp = Math.round((topResponsables[0][1] / (vencidos || 1)) * 100);
-        hallazgoPatron += `• Concentración de carga: El responsable **${topResponsables[0][0]}** acumula el ${pctResp}% de las acciones vencidas (${topResponsables[0][1]} planes), lo que evidencia una posible sobrecarga o cuello de botella operativo.`;
-      }
-
-      const nivelSemaforo = pctVencidos > 35 ? '🔴 Crítico' : (pctVencidos > 15 ? '🟠 Atención' : '🟢 Controlado');
-
-      const dictamenEjecutivo = `📌 DIAGNÓSTICO EJECUTIVO GRC
-• Estado General: ${nivelSemaforo}
-• Nivel de Riesgo Operativo: Alto
-• Nivel de Cumplimiento: ${pctCerrados}%
-• Urgencia de Intervención: Alta
-• Confianza del Análisis: 98% (Evidencia sobre ${total} registros)
-
----
-
-## 📊 Estado Situacional de los Planes de Acción
-Actualmente existen **${total} planes de acción**, de los cuales **${cerrados} (${pctCerrados}%)** se encuentran cerrados y **${abiertos}** continúan abiertos.
-
-El avance físico consolidado es del **${avanceFisico}%**, indicando que la mayoría de los compromisos están en proceso de implementación.
-
-No obstante, el **${pctVencidos}% de la cartera (${vencidos} planes)** se encuentra vencido. Esta cifra evidencia que el proceso de seguimiento no está logrando convertir oportunamente los hallazgos en acciones efectivas, lo cual podría incrementar el riesgo residual y afectar el cumplimiento oportuno de las mejoras.
-
----
-
-## 🔎 Patrones y Cuellos de Botella Detectados
-${hallazgoPatron || '• Los vencimientos se distribuyen de manera uniforme sin concentraciones críticas por proceso.'}
-
----
-
-## 🟢 Aspectos Positivos
-✔ El programa de mejoramiento registra un avance físico continuo (**${avanceFisico}%**), descartando una paralización del proceso.
-✔ Un **${pctCerrados}%** de los planes ha completado satisfactoriamente su ciclo de cierre.
-✔ La trazabilidad del sistema permite identificar con precisión las áreas de retraso para intervenir de forma quirúrgica.
-
----
-
-## 🎯 Prioridades Recomendadas por la Dirección de Auditoría
-1. **Recuperar la cartera vencida**: Concentrar esfuerzos en resolver los ${vencidos} planes vencidos antes de autorizar o cargar nuevas acciones de mejora.
-2. **Revisar sobrecargas**: Evaluar la capacidad de gestión en los procesos de ${topProcesos[0]?.[0] || 'las áreas críticas'} y con el responsable **${topResponsables[0]?.[0] || 'asignado'}**.
-3. **Escalamiento**: Presentar este mapa de patrones en la próxima sesión del Comité de Auditoría.
-
----
-
-## 💡 Conclusión Ejecutiva
-Aunque el programa mantiene dinámica de ejecución, la acumulación de un **${pctVencidos}% de planes vencidos** representa el principal factor que limita el cierre efectivo de las desviaciones. La administración debería priorizar la nivelación de los planes atrasados para fortalecer la madurez del Sistema de Control Interno.`;
-
-      setAuditorRespuesta(dictamenEjecutivo);
     } else {
-      const resIA = await apiService.consultarAuditor({ 
-        prompt: consultaFinal, 
-        datosContexto: contextoDatos 
-      });
-      const respuestaIA = resIA?.respuesta || resIA;
-      
-      if (typeof respuestaIA === 'object' && respuestaIA !== null) {
-        setAuditorRespuesta(respuestaIA.summary || respuestaIA.dictamen || "Análisis completado. Revisa el informe detallado en pantalla.");
-        setAiModal({
-          titulo: respuestaIA.title || respuestaIA.titulo || "Informe Ejecutivo de Auditoría GRC",
-          contenido: respuestaIA
-        });
-      } else {
-        setAuditorRespuesta(respuestaIA);
-      }
+      setAuditorRespuesta(respuestaIA);
     }
   } catch (error) {
     console.error("🔍 Error IA:", error);

@@ -816,10 +816,10 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 
     try {
       // Cifras calculadas por el sistema; la IA solo las interpreta.
-      const datos = contextoRiesgo(riesgo, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo });
+      const datos = contextoRiesgo(riesgo, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo, evaluaciones });
       const { riesgo: ficha, metricas } = datos;
       const respuesta = await consultarPanelIA({
-        instruccion: `Evalúa el riesgo ${ficha.codigo} de la matriz corporativa. Contrasta el diseño de sus controles (tipo, ejecución, documentación, evidencia y eficacia de cada CTL) con lo que muestran la bitácora y el plan de acción, y explica si el nivel residual ${ficha.nivelResidual} es creíble frente al inherente ${ficha.nivelInherente}. Señala los controles débiles por su código y qué falta para sostener la mitigación.`,
+        instruccion: `Emite el dictamen del riesgo ${ficha.codigo} (inherente ${ficha.nivelInherente}, residual ${ficha.nivelResidual}). Parte de "analisisSistema", que ya trae el cálculo exacto, por qué queda en su zona, los pendientes y la simulación de mejoras: no lo repitas literalmente, interprétalo. 1) Di si la reducción a ${ficha.nivelResidual} es creíble contrastando el diseño de cada CTL con la bitácora, el plan de acción y "pruebasTrabajoDeCampo" (un control reprobado en campo debilita la credibilidad). 2) Señala por código los controles de los que depende la mitigación y su punto débil. 3) Recomienda primero las acciones que la simulación muestra que sí cambian la zona; si ninguna la cambia, dilo. 4) Incluye los pendientes del numeral 9 como acciones del plan.`,
         datos,
       });
       setDictamenIA({
@@ -850,7 +850,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     setDictamenIA(null);
 
     try {
-      const datosRiesgo = contextoRiesgo(r, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo });
+      const datosRiesgo = contextoRiesgo(r, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo, evaluaciones });
       const indice = (Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []).indexOf(c);
       const control = datosRiesgo.controles[indice] || {
         codigo: 'CTL', descripcion: c.descripcion || 'Sin dato', tipo: c.tipo || 'Sin dato',
@@ -858,7 +858,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         frecuencia: c.frecuencia || 'Sin dato', evidencia: c.evidencia || 'Sin dato', eficacia: calcularEficaciaControl(c),
       };
       const respuesta = await consultarPanelIA({
-        instruccion: `Audita el control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. No lo describas: evalúa su diseño (tipo, ejecución, documentación, frecuencia y evidencia), su dependencia manual, su riesgo de falla, su trazabilidad y qué tanto cubre las causas del riesgo, comparándolo con los demás controles del mismo riesgo. Explica qué pasaría si falla y la recomendación prioritaria.`,
+        instruccion: `Audita el control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. No lo describas: evalúa su diseño (tipo, ejecución, documentación, frecuencia y evidencia) con la Tabla 6, su dependencia manual, su trazabilidad y si ataca la causa raíz del riesgo, comparándolo con los demás controles del mismo riesgo. Si aparece en "pruebasTrabajoDeCampo" con calificación menor a 100 %, trátalo como alerta principal. Usa "analisisSistema" para explicar qué pasaría con el residual si este control falla y da la recomendación prioritaria.`,
         datos: { controlAuditado: control, ...datosRiesgo },
       });
       setDictamenIA({
@@ -998,10 +998,11 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         calcularMitigacion: calcularMitigacionRiesgo,
         hallazgos,
         planes: planesDeAccion,
+        evaluaciones,
       });
       const { metricas, distribucionInherente, distribucionResidual } = datos;
       const respuesta = await consultarPanelIA({
-        instruccion: `Redacta el informe estratégico de la matriz corporativa de riesgos (${metricas.totalRiesgos} riesgos, ${metricas.totalControles} controles) para la Junta Directiva. Compara la distribución inherente con la residual y evalúa si la reducción es creíble según la calidad real de los controles (manuales, no documentados, sin evidencia, de baja eficacia) y el estado de hallazgos y planes vencidos. Identifica los procesos y riesgos (por RSK) que concentran la exposición, los riesgos sin controles y los seguimientos vencidos, y propón prioridades.`,
+        instruccion: `Redacta el informe estratégico de la matriz corporativa de riesgos (${metricas.totalRiesgos} riesgos, ${metricas.totalControles} controles) para la Junta Directiva. Compara la distribución inherente con la residual y evalúa si la reducción es creíble según la calidad real de los controles (manuales, no documentados, sin evidencia, de baja eficacia) y el estado de hallazgos y planes vencidos. Identifica los procesos y riesgos (por RSK) que concentran la exposición, los riesgos sin controles y los seguimientos vencidos. Prioriza los incumplimientos de "cumplimientoNumeral9" (Extremo o Alto sin plan de acción primero) y los controles reprobados en Trabajo de Campo, y propón prioridades aplicando las reglas de la Tabla 4 (no propongas bajar la probabilidad cuando el impacto es Mayor o Catastrófico).`,
         datos,
       });
       const altosExtremos = distribucion => distribucion.Extremo + distribucion.Alto;
@@ -1423,10 +1424,11 @@ const handleRiesgoSubmit = async (e) => {
             calcularMitigacion: calcularMitigacionRiesgo,
             hallazgos,
             planes: planesDeAccion,
+            evaluaciones,
           }),
         };
         const respuesta = await consultarPanelIA({
-          instruccion: `Analiza la vista actual del panorama de riesgos (filtros en "vista"; momento evaluado: ${nivelActivo.toLowerCase()}). Explica dónde se concentra la exposición, qué procesos y riesgos (por RSK) requieren atención primero, y si los controles sostienen la reducción de inherente a residual.`,
+          instruccion: `Analiza la vista actual del panorama de riesgos (filtros en "vista"; momento evaluado: ${nivelActivo.toLowerCase()}). Explica dónde se concentra la exposición, qué procesos y riesgos (por RSK) requieren atención primero, si los controles sostienen la reducción de inherente a residual, y qué incumplimientos de "cumplimientoNumeral9" hay en esta vista.`,
           datos,
         });
         const altosExtremos = distribucion => distribucion.Extremo + distribucion.Alto;

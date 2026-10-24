@@ -1,7 +1,10 @@
 import { useState, useMemo, useRef } from 'react';
 import { formatSafeDate } from '../utils/helpers';
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles } from '../utils/nivelRiesgo.js';
-import { generarDictamenEjecutivo } from '../services/aiEngine';
+import { consultarPanelIA } from '../services/aiEngine';
+import { armarPanelIA } from '../utils/contextoIARiesgos.js';
+import { contextoTarjetaDashboard } from '../utils/contextoIADashboard.js';
+import ModalIA from './ModalIA';
 import { toPng } from 'html-to-image';
 import { generarPDFEjecutivo } from '../services/pdfEngine';
 // 🧹 Normalizador estricto para emparejar cadenas
@@ -236,45 +239,25 @@ export default function DashboardEjecutivo({
   const proximasAuditorias = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) < 100).slice(0, 4);
 
 const solicitarDictamenIA = async (tipoCard) => {
-    setProcesandoIA(true); 
+    setProcesandoIA(true);
     setDictamenIA(null);
-
+    const TITULOS = {
+      cumplimiento: 'Cumplimiento Global', riesgos: 'Inventario de Riesgos', controles: 'Efectividad de Controles',
+      hallazgos: 'Desviaciones Abiertas', planes: 'Planes en Ejecución',
+    };
     try {
-      let datosParaIA = "";
-      let tituloModal = "";
-      
-      if (tipoCard === 'cumplimiento') {
-        tituloModal = "Cumplimiento Global";
-        datosParaIA = `Cumplimiento Global de Planes de Acción en ${avancePlanesGlobal}%. Total Planes: ${totalPlanes}, Activos: ${planesActivos}, Vencidos: ${planesVencidos}.`;
-      } else if (tipoCard === 'riesgos') {
-        tituloModal = "Inventario de Riesgos";
-        datosParaIA = `Inventario de Riesgos Residuales. Total: ${totalRiesgos} (${riesgosExtremos} Extremos, ${riesgosAltos} Altos, ${riesgosModerados} Moderados, ${riesgosBajos} Bajos).`;
-      } else if (tipoCard === 'controles') {
-        tituloModal = "Efectividad de Controles";
-        datosParaIA = `Efectividad de Controles Auditados en ${efectividadControlesGlobal}%. Total Evaluaciones Eficaces vs Total Evaluadas.`;
-      } else if (tipoCard === 'hallazgos') {
-        tituloModal = "Desviaciones Abiertas";
-        datosParaIA = `Hallazgos/Desviaciones Abiertas: ${hallazgosAbiertos} total, con ${hallazgosCriticosCount} en nivel Crítico/Alto.`;
-      } else if (tipoCard === 'planes') {
-        tituloModal = "Planes en Ejecución";
-        datosParaIA = `Planes de Acción en Ejecución: Activos: ${planesActivos}, Vencidos/Retrasados: ${planesVencidos}. Avance Global: ${avancePlanesGlobal}%.`;
-      }
-
-const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
-      
-      let objetoRespuesta = { titulo: tituloModal, dictamen: "" };
-      try {
-        const parsed = typeof respuestaIA === 'string' ? JSON.parse(respuestaIA) : respuestaIA;
-        objetoRespuesta.titulo = parsed.titulo || tituloModal;
-        objetoRespuesta.dictamen = parsed.dictamen || respuestaIA;
-      } catch {
-        objetoRespuesta.dictamen = typeof respuestaIA === 'string' ? respuestaIA : JSON.stringify(respuestaIA);
-      }
-
-      setDictamenIA(objetoRespuesta);
+      // Registros reales con su identificador (planes, hallazgos, pruebas de campo, riesgos) de los filtros actuales.
+      const { instruccion, datos, indicadores, insignias } = contextoTarjetaDashboard(tipoCard, {
+        riesgos: riesgosBase, hallazgos: hallazgosBase, planes: planesBase, evaluaciones: metricas.eBase, hoy: new Date(),
+      });
+      const respuesta = await consultarPanelIA({ instruccion, datos });
+      setDictamenIA({
+        titulo: `${TITULOS[tipoCard] || 'Dictamen'} — Inteligencia Artificial`,
+        dictamen: armarPanelIA(respuesta, { badges: { items: insignias }, kpis: {}, indicadores }),
+      });
     } catch (error) {
       console.error("Error al obtener IA:", error);
-      setDictamenIA({ titulo: "Error", dictamen: "Falló la conexión con el motor GRC." });
+      setDictamenIA({ titulo: "Error", dictamen: JSON.stringify({ analisisEjecutivo: "No se pudo conectar con el motor de IA. Intenta de nuevo en unos minutos." }) });
     } finally {
       setProcesandoIA(false);
     }
@@ -408,17 +391,10 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
         </div>
       )}
 
-      {dictamenIA && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in">
-          <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-2xl relative border-l-4 border-l-emerald-500 w-full">
-            <button onClick={() => setDictamenIA(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs font-bold uppercase bg-[#1e293b] px-2.5 py-1 rounded-xl">✕ Cerrar</button>
-            <h3 className="text-sm font-black text-white uppercase mb-4">{dictamenIA.titulo}</h3>
-            <div className="text-emerald-300 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20 whitespace-pre-wrap text-sm leading-relaxed">
-              {dictamenIA.dictamen}
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalIA
+        aiModal={dictamenIA ? { titulo: dictamenIA.titulo, contenido: dictamenIA.dictamen } : null}
+        setAiModal={setDictamenIA}
+      />
       {/* ─── ENCABEZADO PREMIUM Y FILTROS ─── */}
       <div className="bg-[#0a1122] border border-blue-500/10 p-5 rounded-2xl shadow-md space-y-4 mb-4 relative z-50">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800/80 pb-4 gap-4">

@@ -69,6 +69,9 @@ function normalizePanelEjecutivo(parsedData, rawText) {
     madurez: typeof madurez === 'number' ? `${madurez}%` : madurez,
     cobertura: typeof cobertura === 'number' ? `${cobertura}%` : cobertura,
     totalControles,
+    // Indicadores y etiquetas propias (Dashboard GRC: planes, hallazgos…); si no llegan, se usan los de riesgos.
+    indicadores: Array.isArray(data.indicadores) ? data.indicadores.slice(0, 4) : null,
+    insignias: Array.isArray(badges.items) ? badges.items : null,
     analisis,
     recomendaciones,
     planAccion,
@@ -162,12 +165,26 @@ export default function ModalIA({ aiModal, setAiModal }) {
               
               {/* BADGES SUPERIORES */}
               <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-500 uppercase border-b pb-2">
-                <span>INH: <strong className="text-slate-800">{panelData?.inherente}</strong></span>
-                <span>RESIDUAL: <strong className="text-slate-800">{panelData?.residual}</strong></span>
-                {panelData?.calidad && <span>CALIDAD: <strong className="text-slate-800">{panelData.calidad}</strong></span>}
+                {panelData?.insignias ? panelData.insignias.map(item => (
+                  <span key={item.etiqueta}>{item.etiqueta}: <strong className="text-slate-800">{item.valor}</strong></span>
+                )) : <>
+                  <span>INH: <strong className="text-slate-800">{panelData?.inherente}</strong></span>
+                  <span>RESIDUAL: <strong className="text-slate-800">{panelData?.residual}</strong></span>
+                  {panelData?.calidad && <span>CALIDAD: <strong className="text-slate-800">{panelData.calidad}</strong></span>}
+                </>}
               </div>
 
               {/* BLOQUE 1: KPIS */}
+              {panelData?.indicadores ? (
+                <div className="grid grid-cols-4 gap-4 text-center">
+                  {panelData.indicadores.map(item => (
+                    <div key={item.etiqueta} className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.etiqueta}</span>
+                      <span className="text-xl font-black text-slate-800">{item.valor}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <div className="grid grid-cols-4 gap-4 text-center">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Score Riesgo</span>
@@ -186,6 +203,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
                   <span className="text-xl font-black text-emerald-600">{panelData?.cobertura}</span>
                 </div>
               </div>
+              )}
 
               {/* BLOQUE 2: ANÁLISIS EJECUTIVO */}
               <div className="text-justify space-y-2 text-slate-700">
