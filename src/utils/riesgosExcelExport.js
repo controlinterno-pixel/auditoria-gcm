@@ -357,12 +357,21 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   ];
   const celdaAux = indice => `$K$${22 + indice}`;
   const [totalAux, promedioAux, maximoAux, manualesAux] = [6, 7, 8, 9].map(celdaAux);
+  // Calificación sobre el máximo de la Tabla 6 (50 %, preventivo automático), con los rangos de color de la app:
+  // verde ≥ 80 % del máximo (Excelente ≥ 90 %), ámbar 60–79 %, rojo < 60 %.
+  const [calificacionAux, metaAux, faltanAux, porAutomatizarAux] = [10, 11, 12, 13].map(celdaAux);
+  auxiliares.push(
+    `IF(${totalAux}=0,"SIN CONTROLES",IF(ROUND(${promedioAux},0)>=45,"EXCELENTE",IF(ROUND(${promedioAux},0)>=40,"BUENO",IF(ROUND(${promedioAux},0)>=30,"REGULAR","MALO"))))`,
+    `IF(ROUND(${promedioAux},0)>=45,0,IF(ROUND(${promedioAux},0)>=40,45,IF(ROUND(${promedioAux},0)>=30,40,30)))`,
+    `MAX(0,${metaAux}-${promedioAux})`,
+    `IFERROR(ROUNDUP(${faltanAux}*${totalAux}/10,0),0)`,
+  );
   const detalleCombinaciones = `_xlfn.TEXTJOIN(", ",TRUE,${COMBINACIONES_TABLA_6.map(([, , etiqueta, puntos], indice) => (
     `IF(${celdaAux(indice)}>0,${celdaAux(indice)}&" ${etiqueta} (${puntos} %)","")`
   )).join(',')})`;
   const formulaExplicacionEficacia = `IF(${totalAux}=0,"No hay controles estructurados en este filtro, por eso la eficacia promedio es 0 %.",`
     + `"Cómo se obtiene el "&TEXT(${promedioAux},"0")&" %: cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), Tabla 6 del manual. `
-    + `En este filtro hay "&${totalAux}&" controles: "&${detalleCombinaciones}&". Promedio: "&TEXT(${promedioAux},"0")&" %, que es el "&TEXT(${promedioAux}/${maximoAux},"0%")&" del máximo que permite el tipo de esos controles ("&TEXT(${maximoAux},"0")&" %)."`
+    + `En este filtro hay "&${totalAux}&" controles: "&${detalleCombinaciones}&". Promedio: "&TEXT(${promedioAux},"0")&" %. Con el tipo de estos controles, lo máximo alcanzable automatizándolos todos sería "&TEXT(${maximoAux},"0")&" %."`
     + `&IF(${manualesAux}>0," Si los "&${manualesAux}&" controles manuales se automatizaran, cada uno sumaría 10 puntos y el promedio subiría a "&TEXT(${promedioAux}+10*${manualesAux}/${totalAux},"0")&" %.",""))`;
   // Mismo texto calculado en JavaScript, para que el archivo lo muestre aunque Excel no haya recalculado.
   const controlesEstructurados = controlesPorRiesgo.filter(control => control['Control Estructurado'] === 'Sí');
@@ -377,8 +386,36 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
       return cantidad > 0 ? `${cantidad} ${etiqueta} (${puntos} %)` : '';
     }).filter(Boolean).join(', ');
     return `Cómo se obtiene el ${Math.round(promedio)} %: cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), Tabla 6 del manual. `
-      + `En este filtro hay ${total} controles: ${detalle}. Promedio: ${Math.round(promedio)} %, que es el ${Math.round((promedio / maximo) * 100)}% del máximo que permite el tipo de esos controles (${Math.round(maximo)} %).`
+      + `En este filtro hay ${total} controles: ${detalle}. Promedio: ${Math.round(promedio)} %. Con el tipo de estos controles, lo máximo alcanzable automatizándolos todos sería ${Math.round(maximo)} %.`
       + (manuales > 0 ? ` Si los ${manuales} controles manuales se automatizaran, cada uno sumaría 10 puntos y el promedio subiría a ${Math.round(promedio + (10 * manuales) / total)} %.` : '');
+  })();
+  const SIGNIFICADO_CALIFICACION = {
+    EXCELENTE: 'Qué significa: casi todos los controles son preventivos y automáticos; evitan que el riesgo ocurra sin depender de una persona. Mantenerlos y verificar que sigan operando.',
+    BUENO: 'Qué significa: predominan los controles preventivos, pero varios dependen de una persona (manuales).',
+    REGULAR: 'Qué significa: muchos controles son manuales o solo detectan o corrigen después de que el riesgo ocurre; conviene volverlos preventivos o automatizarlos.',
+    MALO: 'Qué significa: la mayoría de los controles actúa después de que el riesgo ocurre y de forma manual; hay que priorizar controles preventivos.',
+  };
+  const ESCALA_CALIFICACION = 'Escala sobre el máximo de la Tabla 6 (50 %, preventivo automático): Excelente ≥ 45 % · Bueno 40–44 % · Regular 30–39 % · Malo < 30 %.';
+  const formulaCalificacionEficacia = `IF(${totalAux}=0,"Calificación: sin controles estructurados en este filtro.",`
+    + `"Calificación: "&${calificacionAux}&" ("&TEXT(${promedioAux},"0")&" % de 50 % posible = "&TEXT(${promedioAux}/50,"0%")&" del máximo). ${ESCALA_CALIFICACION} "`
+    + `&IF(${calificacionAux}="EXCELENTE","${SIGNIFICADO_CALIFICACION.EXCELENTE}",IF(${calificacionAux}="BUENO","${SIGNIFICADO_CALIFICACION.BUENO}",IF(${calificacionAux}="REGULAR","${SIGNIFICADO_CALIFICACION.REGULAR}","${SIGNIFICADO_CALIFICACION.MALO}")))`
+    + `&IF(${metaAux}>0," Para subir a "&IF(${metaAux}=45,"Excelente",IF(${metaAux}=40,"Bueno","Regular"))&" ("&${metaAux}&" %) faltan "&TEXT(${faltanAux},"0.0")&" puntos"`
+    + `&IF(AND(${porAutomatizarAux}>0,${porAutomatizarAux}<=${manualesAux}),": equivale a automatizar "&${porAutomatizarAux}&" de los "&${manualesAux}&" controles manuales.","."),""))`;
+  const calificacionEficaciaInicial = (() => {
+    const total = controlesEstructurados.length;
+    if (total === 0) return 'Calificación: sin controles estructurados en este filtro.';
+    const promedio = controlesEstructurados.reduce((suma, control) => suma + Number(control['Eficacia Calculada (%)'] || 0), 0) / total;
+    const redondeado = Math.round(promedio);
+    const calificacion = redondeado >= 45 ? 'EXCELENTE' : redondeado >= 40 ? 'BUENO' : redondeado >= 30 ? 'REGULAR' : 'MALO';
+    const meta = redondeado >= 45 ? 0 : redondeado >= 40 ? 45 : redondeado >= 30 ? 40 : 30;
+    const faltan = Math.max(0, meta - promedio);
+    const porAutomatizar = Math.ceil((faltan * total) / 10);
+    const manuales = controlesEstructurados.filter(control => control['Implementación'] === 'Manual').length;
+    const subir = meta > 0
+      ? ` Para subir a ${meta === 45 ? 'Excelente' : meta === 40 ? 'Bueno' : 'Regular'} (${meta} %) faltan ${faltan.toFixed(1).replace('.', ',')} puntos`
+        + (porAutomatizar > 0 && porAutomatizar <= manuales ? `: equivale a automatizar ${porAutomatizar} de los ${manuales} controles manuales.` : '.')
+      : '';
+    return `Calificación: ${calificacion} (${redondeado} % de 50 % posible = ${Math.round((promedio / 50) * 100)}% del máximo). ${ESCALA_CALIFICACION} ${SIGNIFICADO_CALIFICACION[calificacion]}${subir}`;
   })();
   const riesgosAltosIniciales = matrizRiesgos.filter(riesgo => ['EXTREMO', 'ALTO'].includes(riesgo['Nivel Residual Final'])).length;
   const mitigacionInicial = matrizRiesgos.reduce((total, riesgo) => total + Number(riesgo['Mitigación Lograda (%)'] || 0), 0) / matrizRiesgos.length;
@@ -552,10 +589,28 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   auxiliares.forEach((formula, indice) => { dashboard.getCell(celdaAux(indice).replace(/\$/g, '')).value = { formula }; });
   dashboard.getColumn('K').hidden = true;
   dashboard.mergeCells('A29:I29');
-  dashboard.getCell('A29').value = 'Los filtros de proceso y nivel residual actualizan los indicadores y ambos mapas. Probabilidad e impacto se agrupan en la misma escala categórica del Dashboard GRC.';
-  dashboard.getCell('A29').font = { name: 'Aptos', size: 9, italic: true, color: { argb: 'FF64746C' } };
-  dashboard.getCell('A29').alignment = { wrapText: true };
-  dashboard.getRow(29).height = 28;
+  dashboard.getCell('A29').value = { formula: formulaCalificacionEficacia, result: calificacionEficaciaInicial };
+  dashboard.getCell('A29').font = { name: 'Aptos', size: 9, bold: true, color: { argb: COLORES.texto } };
+  dashboard.getCell('A29').alignment = { wrapText: true, vertical: 'top' };
+  dashboard.getRow(29).height = 58;
+  const colorCalificacion = [
+    [`${calificacionAux}="EXCELENTE"`, COLORES.bajo, COLORES.blanco],
+    [`${calificacionAux}="BUENO"`, COLORES.bajo, COLORES.blanco],
+    [`${calificacionAux}="REGULAR"`, COLORES.moderado, COLORES.texto],
+    [`${calificacionAux}="MALO"`, COLORES.extremo, COLORES.blanco],
+  ];
+  ['I27', 'A29:I29'].forEach(ref => dashboard.addConditionalFormatting({
+    ref,
+    rules: colorCalificacion.map(([formula, fondo, letra], indice) => ({
+      type: 'expression', priority: indice + 1, formulae: [formula],
+      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: fondo } }, font: { color: { argb: letra }, bold: true } },
+    })),
+  }));
+  dashboard.mergeCells('A30:I30');
+  dashboard.getCell('A30').value = 'Los filtros de proceso y nivel residual actualizan los indicadores y ambos mapas. Probabilidad e impacto se agrupan en la misma escala categórica del Dashboard GRC.';
+  dashboard.getCell('A30').font = { name: 'Aptos', size: 9, italic: true, color: { argb: 'FF64746C' } };
+  dashboard.getCell('A30').alignment = { wrapText: true };
+  dashboard.getRow(30).height = 28;
 
   return libro;
 };
