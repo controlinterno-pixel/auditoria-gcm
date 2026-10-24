@@ -18,6 +18,7 @@ import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, va
 import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
 import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../utils/explicacionRiesgoDetallada.js';
+import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '../utils/cumplimientoManual.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
@@ -391,6 +392,8 @@ export default function Riesgos({
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas');
   const [filtroNivel, setFiltroNivel] = useState('Todos');
   const [filtroEstadoRiesgo, setFiltroEstadoRiesgo] = useState('Activos');
+  // Filtro de cumplimiento del numeral 9 ('sin-plan' | 'sin-seguimiento' | 'reprobados'), abierto desde el Dashboard.
+  const [filtroCumplimiento, setFiltroCumplimiento] = useState(null);
   const [mitigacionAbierta, setMitigacionAbierta] = useState(null);
   const [filtroNivelDashboard, setFiltroNivelDashboard] = useState('Todos');
   const [matrizDashboardTipo, setMatrizDashboardTipo] = useState('residual');
@@ -1324,7 +1327,17 @@ const handleRiesgoSubmit = async (e) => {
     const abrirMatrizDeProceso = proceso => {
       if (filtroProceso !== proceso) setFiltroSubproceso('Todos');
       setFiltroProceso(proceso);
+      setFiltroCumplimiento(null);
       setFiltroNivel(filtroNivelDashboard === 'Todos' ? 'Todos' : `${matrizDashboardTipo === 'inherente' ? 'inh' : 'res'}:${filtroNivelDashboard}`);
+      setFiltroEstadoRiesgo('Activos');
+      setCuadranteDashboard(null);
+      setVistaActiva('matriz');
+    };
+    // Cumplimiento del numeral 9 con los filtros del dashboard (sin el nivel elegido: el criterio ya define la zona).
+    const cumplimiento = cumplimientoNumeral9(riesgosBaseDashboard, evaluaciones);
+    const abrirMatrizCumplimiento = criterio => {
+      setFiltroCumplimiento(criterio);
+      setFiltroNivel('Todos');
       setFiltroEstadoRiesgo('Activos');
       setCuadranteDashboard(null);
       setVistaActiva('matriz');
@@ -1379,6 +1392,7 @@ const handleRiesgoSubmit = async (e) => {
       setFiltroNivel('Todos');
       setFiltroNivelDashboard('Todos');
       setCuadranteDashboard(null);
+      setFiltroCumplimiento(null);
     };
 
     const solicitarDictamenIA = async () => {
@@ -1625,6 +1639,39 @@ const handleRiesgoSubmit = async (e) => {
           </aside>
         </section>
 
+        <section aria-labelledby="titulo-cumplimiento" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 id="titulo-cumplimiento" className="text-sm font-black text-slate-900">Cumplimiento del manual (numeral 9)</h3>
+            <p className="text-[10px] text-slate-500">Con los filtros actuales · selecciona una tarjeta para ver esos riesgos en la matriz</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {Object.entries(CRITERIOS_CUMPLIMIENTO).map(([criterio, { titulo, regla }]) => {
+              const lista = cumplimiento[criterio];
+              const hay = lista.length > 0;
+              return (
+                <button
+                  type="button"
+                  key={criterio}
+                  onClick={() => abrirMatrizCumplimiento(criterio)}
+                  disabled={!hay}
+                  title={regla}
+                  aria-label={`${titulo}: ${lista.length} riesgo(s). ${hay ? 'Ver en la matriz' : 'Cumple'}`}
+                  className={`group rounded-lg border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${hay
+                    ? 'border-rose-200 bg-rose-50/60 hover:-translate-y-0.5 hover:border-rose-400 hover:shadow-md'
+                    : 'cursor-default border-emerald-200 bg-emerald-50/50'}`}
+                >
+                  <span className={`block text-2xl font-black tabular-nums ${hay ? 'text-rose-700' : 'text-emerald-700'}`}>{hay ? lista.length : '✓'}</span>
+                  <span className="mt-1 block text-[11px] font-bold text-slate-800">{titulo}</span>
+                  <span className="mt-1 block text-[10px] leading-snug text-slate-500">
+                    {hay ? `${lista.slice(0, 4).map(r => `RSK-${r.id}`).join(', ')}${lista.length > 4 ? ` y ${lista.length - 4} más` : ''}` : 'Ningún riesgo incumple.'}
+                  </span>
+                  {hay && <span className="mt-2 inline-block text-[10px] font-bold text-rose-700 group-hover:underline">Ver en la matriz →</span>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         <section aria-label="Indicadores complementarios" className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
           {[
             { titulo: 'Controles registrados', valor: controlesRegistrados, nota: `${controlesEstructurados.length} estructurados`, explicar: () => explicarControlesRegistrados({ riesgos: riesgosDashboard, alcance: alcanceDashboard }) },
@@ -1739,7 +1786,8 @@ const renderMatriz = () => {
         : getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
       const matchNivel = filtroNivel === 'Todos' || zonaFiltro.label === etiquetaNivel;
       const matchEstado = filtroEstadoRiesgo === 'Todos' || (filtroEstadoRiesgo === 'Anulados' ? estaAnulado(r) : !estaAnulado(r));
-      return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel && matchEstado;
+      const matchCumplimiento = !filtroCumplimiento || incumpleCriterio(r, filtroCumplimiento, evaluaciones);
+      return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel && matchEstado && matchCumplimiento;
     });
 
     const procesosUnicos = [...new Set([...Object.keys(MAPA_PROCESOS), ...riesgosNormalizados.flatMap(r => r.macroprocesos)])]
@@ -1890,6 +1938,11 @@ const renderMatriz = () => {
         {/* ========================================================================= */}
         <p role="status" aria-live="polite" className="mb-2 px-1 text-xs font-semibold text-slate-600">
           Mostrando <strong className="text-slate-900">{riesgosFiltrados.length}</strong> de {riesgosNormalizados.length} riesgos
+          {filtroCumplimiento && (
+            <> · <strong className="text-rose-700">{CRITERIOS_CUMPLIMIENTO[filtroCumplimiento].titulo}</strong>
+              <button type="button" onClick={() => setFiltroCumplimiento(null)} className="ml-2 font-bold text-[#0A3B32] underline">Quitar</button>
+            </>
+          )}
           {filtroNivel !== 'Todos' && (
             <> · nivel {filtroNivel.startsWith('inh:') ? 'inherente' : 'residual'} <strong className="text-slate-900">{filtroNivel.split(':').pop()}</strong>
               <button type="button" onClick={() => setFiltroNivel('Todos')} className="ml-2 font-bold text-[#0A3B32] underline">Quitar</button>
