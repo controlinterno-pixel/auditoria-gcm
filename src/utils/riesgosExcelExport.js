@@ -1,5 +1,6 @@
 import { riesgoEnPorcentaje } from './nivelRiesgo.js';
 import { normalizarClasificacion } from './clasificacionRiesgo.js';
+import { desglosarEficaciaControl } from './explicacionControles.js';
 const COLORES = {
   tinta: 'FF173B35',
   verde: 'FF176B5B',
@@ -209,8 +210,8 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
       'N° Control': indice + 1,
       'Control Estructurado': 'Sí',
       'Descripción del Control': control.descripcion || 'Sin descripción',
-      Tipo: control.tipo || 'Preventivo',
-      Implementación: control.implementacion || control.ejecucion || 'Manual',
+      Tipo: desglosarEficaciaControl(control).tipo,
+      Implementación: desglosarEficaciaControl(control).implementacion,
       Documentación: control.documentacion || 'No especificada',
       Frecuencia: control.frecuencia || 'No especificada',
       Evidencia: control.evidencia || 'No especificada',
@@ -330,6 +331,55 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   const controlesFiltrados = `COUNTIFS(${rangoProcesoControl},${criterioProceso},${rangoNivelControl},${criterioNivel},${rangoEstructurado},"Sí")`;
   const formulaMitigacion = `IFERROR(AVERAGEIFS(${rangoMitigacion},${rangoProceso},${criterioProceso},${rangoNivel},${criterioNivel}),0)`;
   const formulaEficacia = `IFERROR(AVERAGEIFS(${rangoEficaciaControl},${rangoProcesoControl},${criterioProceso},${rangoNivelControl},${criterioNivel},${rangoEstructurado},"Sí"),0)`;
+  // 🧾 Explicación de la eficacia promedio con los controles del filtro (Tabla 6: tipo + implementación).
+  const rangoTipoControl = rango('Controles por Riesgo', columnaControles('Tipo'), 5, controlesFin);
+  const rangoImplementacionControl = rango('Controles por Riesgo', columnaControles('Implementación'), 5, controlesFin);
+  const filtroControles = `${rangoProcesoControl},${criterioProceso},${rangoNivelControl},${criterioNivel},${rangoEstructurado},"Sí"`;
+  const COMBINACIONES_TABLA_6 = [
+    ['Preventivo', 'Automático', 'preventivo(s) automático(s)', 50],
+    ['Preventivo', 'Manual', 'preventivo(s) manual(es)', 40],
+    ['Detectivo', 'Automático', 'detectivo(s) automático(s)', 40],
+    ['Detectivo', 'Manual', 'detectivo(s) manual(es)', 30],
+    ['Correctivo', 'Automático', 'correctivo(s) automático(s)', 35],
+    ['Correctivo', 'Manual', 'correctivo(s) manual(es)', 25],
+  ];
+  const MAXIMO_POR_TIPO = { Preventivo: 50, Detectivo: 40, Correctivo: 35 };
+  const contarCombinacion = (tipo, implementacion) => `COUNTIFS(${filtroControles},${rangoTipoControl},"${tipo}",${rangoImplementacionControl},"${implementacion}")`;
+  const contarTipo = tipo => `COUNTIFS(${filtroControles},${rangoTipoControl},"${tipo}")`;
+  const manualesFiltro = `COUNTIFS(${filtroControles},${rangoImplementacionControl},"Manual")`;
+  // Conteos en celdas auxiliares (columna K, oculta): la explicación las referencia y no supera el límite de largo de fórmula de Excel.
+  const auxiliares = [
+    ...COMBINACIONES_TABLA_6.map(([tipo, implementacion]) => contarCombinacion(tipo, implementacion)),
+    controlesFiltrados,
+    formulaEficacia,
+    `IFERROR((${Object.entries(MAXIMO_POR_TIPO).map(([tipo, maximo]) => `${contarTipo(tipo)}*${maximo}`).join('+')})/${controlesFiltrados},0)`,
+    manualesFiltro,
+  ];
+  const celdaAux = indice => `$K$${22 + indice}`;
+  const [totalAux, promedioAux, maximoAux, manualesAux] = [6, 7, 8, 9].map(celdaAux);
+  const detalleCombinaciones = `_xlfn.TEXTJOIN(", ",TRUE,${COMBINACIONES_TABLA_6.map(([, , etiqueta, puntos], indice) => (
+    `IF(${celdaAux(indice)}>0,${celdaAux(indice)}&" ${etiqueta} (${puntos} %)","")`
+  )).join(',')})`;
+  const formulaExplicacionEficacia = `IF(${totalAux}=0,"No hay controles estructurados en este filtro, por eso la eficacia promedio es 0 %.",`
+    + `"Cómo se obtiene el "&TEXT(${promedioAux},"0")&" %: cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), Tabla 6 del manual. `
+    + `En este filtro hay "&${totalAux}&" controles: "&${detalleCombinaciones}&". Promedio: "&TEXT(${promedioAux},"0")&" %, que es el "&TEXT(${promedioAux}/${maximoAux},"0%")&" del máximo que permite el tipo de esos controles ("&TEXT(${maximoAux},"0")&" %)."`
+    + `&IF(${manualesAux}>0," Si los "&${manualesAux}&" controles manuales se automatizaran, cada uno sumaría 10 puntos y el promedio subiría a "&TEXT(${promedioAux}+10*${manualesAux}/${totalAux},"0")&" %.",""))`;
+  // Mismo texto calculado en JavaScript, para que el archivo lo muestre aunque Excel no haya recalculado.
+  const controlesEstructurados = controlesPorRiesgo.filter(control => control['Control Estructurado'] === 'Sí');
+  const explicacionEficaciaInicial = (() => {
+    const total = controlesEstructurados.length;
+    if (total === 0) return 'No hay controles estructurados en este filtro, por eso la eficacia promedio es 0 %.';
+    const promedio = controlesEstructurados.reduce((suma, control) => suma + Number(control['Eficacia Calculada (%)'] || 0), 0) / total;
+    const maximo = controlesEstructurados.reduce((suma, control) => suma + (MAXIMO_POR_TIPO[control.Tipo] || 50), 0) / total;
+    const manuales = controlesEstructurados.filter(control => control['Implementación'] === 'Manual').length;
+    const detalle = COMBINACIONES_TABLA_6.map(([tipo, implementacion, etiqueta, puntos]) => {
+      const cantidad = controlesEstructurados.filter(control => control.Tipo === tipo && control['Implementación'] === implementacion).length;
+      return cantidad > 0 ? `${cantidad} ${etiqueta} (${puntos} %)` : '';
+    }).filter(Boolean).join(', ');
+    return `Cómo se obtiene el ${Math.round(promedio)} %: cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), Tabla 6 del manual. `
+      + `En este filtro hay ${total} controles: ${detalle}. Promedio: ${Math.round(promedio)} %, que es el ${Math.round((promedio / maximo) * 100)}% del máximo que permite el tipo de esos controles (${Math.round(maximo)} %).`
+      + (manuales > 0 ? ` Si los ${manuales} controles manuales se automatizaran, cada uno sumaría 10 puntos y el promedio subiría a ${Math.round(promedio + (10 * manuales) / total)} %.` : '');
+  })();
   const riesgosAltosIniciales = matrizRiesgos.filter(riesgo => ['EXTREMO', 'ALTO'].includes(riesgo['Nivel Residual Final'])).length;
   const mitigacionInicial = matrizRiesgos.reduce((total, riesgo) => total + Number(riesgo['Mitigación Lograda (%)'] || 0), 0) / matrizRiesgos.length;
   const controlesIniciales = controlesPorRiesgo.filter(control => control['Control Estructurado'] === 'Sí').length;
@@ -493,6 +543,14 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   dashboard.getCell('I27').font = { name: 'Aptos', size: 11, bold: true, color: { argb: COLORES.tinta } };
   dashboard.getCell('I27').alignment = { horizontal: 'center', vertical: 'middle' };
   dashboard.getRow(27).height = 26;
+  dashboard.mergeCells('A28:I28');
+  dashboard.getCell('A28').value = { formula: formulaExplicacionEficacia, result: explicacionEficaciaInicial };
+  dashboard.getCell('A28').font = { name: 'Aptos', size: 9, color: { argb: COLORES.texto } };
+  dashboard.getCell('A28').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.verdeClaro } };
+  dashboard.getCell('A28').alignment = { wrapText: true, vertical: 'top' };
+  dashboard.getRow(28).height = 58;
+  auxiliares.forEach((formula, indice) => { dashboard.getCell(celdaAux(indice).replace(/\$/g, '')).value = { formula }; });
+  dashboard.getColumn('K').hidden = true;
   dashboard.mergeCells('A29:I29');
   dashboard.getCell('A29').value = 'Los filtros de proceso y nivel residual actualizan los indicadores y ambos mapas. Probabilidad e impacto se agrupan en la misma escala categórica del Dashboard GRC.';
   dashboard.getCell('A29').font = { name: 'Aptos', size: 9, italic: true, color: { argb: 'FF64746C' } };
