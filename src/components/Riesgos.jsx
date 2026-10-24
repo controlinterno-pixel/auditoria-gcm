@@ -308,7 +308,7 @@ const ExplicacionRiesgoDetallada = ({ riesgo, evaluaciones = [] }) => {
             </ul>
           )}
           {detalle.notaMejoras && <p className="mt-1">{detalle.notaMejoras}</p>}
-          <p className="mt-1 text-[10px] text-emerald-400/80">Simulación con los mismos valores inherentes y los controles actuales; no cambia el riesgo.</p>
+          <p className="mt-1 text-[10px] text-emerald-400/80">Esto es una simulación: muestra cómo quedaría el riesgo si se agregara ese control. No cambia nada en la matriz hasta que el control se implemente y se registre.</p>
         </div>
       </div>
     </details>

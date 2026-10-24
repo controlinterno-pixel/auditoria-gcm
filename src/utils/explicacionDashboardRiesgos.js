@@ -14,8 +14,8 @@ export function calificarEficacia(promedio) {
   const redondeado = Math.round(promedio);
   if (redondeado >= 45) return { calificacion: 'Excelente', meta: null };
   if (redondeado >= 40) return { calificacion: 'Bueno', meta: { nombre: 'Excelente', valor: 45 } };
-  if (redondeado >= 30) return { calificacion: 'Regular', meta: { nombre: 'Bueno', valor: 40 } };
-  return { calificacion: 'Malo', meta: { nombre: 'Regular', valor: 30 } };
+  if (redondeado >= 30) return { calificacion: 'Moderado', meta: { nombre: 'Bueno', valor: 40 } };
+  return { calificacion: 'Malo', meta: { nombre: 'Moderado', valor: 30 } };
 }
 
 const COMBINACIONES = [
@@ -74,7 +74,7 @@ export function explicarEficaciaPromedio({ riesgos, alcance }) {
     lineas: [
       `Cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), según la Tabla 6 del manual. El máximo es 50 % (preventivo automático).`,
       `En ${alcance} hay ${desgloses.length} controles vigentes: ${detalle}. El promedio es ${numero(promedio)} %.`,
-      `Calificación: ${calificacion} (${Math.round((promedio / 50) * 100)} % del máximo). Escala: Excelente ≥ 45 % · Bueno 40–44 % · Regular 30–39 % · Malo < 30 %.`,
+      `Calificación: ${calificacion} (${Math.round((promedio / 50) * 100)} % del máximo). Escala: Excelente ≥ 45 % · Bueno 40–44 % · Moderado 30–39 % · Malo < 30 %.`,
       `Con el tipo de estos controles, lo máximo alcanzable automatizándolos todos sería ${numero(maximoAlcanzable)} %.`,
     ],
     accion: meta

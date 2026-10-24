@@ -21,7 +21,7 @@ const prueba = (nombre, fn) => { fn(); pruebas += 1; };
 prueba('calificación con la escala del Excel', () => {
   assert.equal(calificarEficacia(45).calificacion, 'Excelente');
   assert.equal(calificarEficacia(40).calificacion, 'Bueno');
-  assert.equal(calificarEficacia(37).calificacion, 'Regular');
+  assert.equal(calificarEficacia(37).calificacion, 'Moderado');
   assert.equal(calificarEficacia(29).calificacion, 'Malo');
 });
 
@@ -37,7 +37,7 @@ prueba('eficacia: excluye anulados, usa la Tabla 6 y dice cuánto falta', () => 
   const r = explicarEficaciaPromedio({ riesgos, alcance });
   assert.equal(r.valor, '36%'); // (40 + 40 + 25 + 40) / 4
   assert.ok(r.lineas.some(l => l.includes('2 preventivos manuales (40 %), 1 detectivo automático (40 %), 1 correctivo manual (25 %)')));
-  assert.ok(r.lineas.some(l => l.startsWith('Calificación: Regular')));
+  assert.ok(r.lineas.some(l => l.startsWith('Calificación: Moderado')));
   assert.match(r.accion, /Bueno \(40 %\) faltan 3,8 puntos/);
 });
 

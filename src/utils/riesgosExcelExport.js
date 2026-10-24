@@ -361,7 +361,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   // verde ≥ 80 % del máximo (Excelente ≥ 90 %), ámbar 60–79 %, rojo < 60 %.
   const [calificacionAux, metaAux, faltanAux, porAutomatizarAux] = [10, 11, 12, 13].map(celdaAux);
   auxiliares.push(
-    `IF(${totalAux}=0,"SIN CONTROLES",IF(ROUND(${promedioAux},0)>=45,"EXCELENTE",IF(ROUND(${promedioAux},0)>=40,"BUENO",IF(ROUND(${promedioAux},0)>=30,"REGULAR","MALO"))))`,
+    `IF(${totalAux}=0,"SIN CONTROLES",IF(ROUND(${promedioAux},0)>=45,"EXCELENTE",IF(ROUND(${promedioAux},0)>=40,"BUENO",IF(ROUND(${promedioAux},0)>=30,"MODERADO","MALO"))))`,
     `IF(ROUND(${promedioAux},0)>=45,0,IF(ROUND(${promedioAux},0)>=40,45,IF(ROUND(${promedioAux},0)>=30,40,30)))`,
     `MAX(0,${metaAux}-${promedioAux})`,
     `IFERROR(ROUNDUP(${faltanAux}*${totalAux}/10,0),0)`,
@@ -392,27 +392,27 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   const SIGNIFICADO_CALIFICACION = {
     EXCELENTE: 'Qué significa: casi todos los controles son preventivos y automáticos; evitan que el riesgo ocurra sin depender de una persona. Mantenerlos y verificar que sigan operando.',
     BUENO: 'Qué significa: predominan los controles preventivos, pero varios dependen de una persona (manuales).',
-    REGULAR: 'Qué significa: muchos controles son manuales o solo detectan o corrigen después de que el riesgo ocurre; conviene volverlos preventivos o automatizarlos.',
+    MODERADO: 'Qué significa: muchos controles son manuales o solo detectan o corrigen después de que el riesgo ocurre; conviene volverlos preventivos o automatizarlos.',
     MALO: 'Qué significa: la mayoría de los controles actúa después de que el riesgo ocurre y de forma manual; hay que priorizar controles preventivos.',
   };
-  const ESCALA_CALIFICACION = 'Escala sobre el máximo de la Tabla 6 (50 %, preventivo automático): Excelente ≥ 45 % · Bueno 40–44 % · Regular 30–39 % · Malo < 30 %.';
+  const ESCALA_CALIFICACION = 'Escala sobre el máximo de la Tabla 6 (50 %, preventivo automático): Excelente ≥ 45 % · Bueno 40–44 % · Moderado 30–39 % · Malo < 30 %.';
   const formulaCalificacionEficacia = `IF(${totalAux}=0,"Calificación: sin controles estructurados en este filtro.",`
     + `"Calificación: "&${calificacionAux}&" ("&TEXT(${promedioAux},"0")&" % de 50 % posible = "&TEXT(${promedioAux}/50,"0%")&" del máximo). ${ESCALA_CALIFICACION} "`
-    + `&IF(${calificacionAux}="EXCELENTE","${SIGNIFICADO_CALIFICACION.EXCELENTE}",IF(${calificacionAux}="BUENO","${SIGNIFICADO_CALIFICACION.BUENO}",IF(${calificacionAux}="REGULAR","${SIGNIFICADO_CALIFICACION.REGULAR}","${SIGNIFICADO_CALIFICACION.MALO}")))`
-    + `&IF(${metaAux}>0," Para subir a "&IF(${metaAux}=45,"Excelente",IF(${metaAux}=40,"Bueno","Regular"))&" ("&${metaAux}&" %) faltan "&TEXT(${faltanAux},"0.0")&" puntos"`
+    + `&IF(${calificacionAux}="EXCELENTE","${SIGNIFICADO_CALIFICACION.EXCELENTE}",IF(${calificacionAux}="BUENO","${SIGNIFICADO_CALIFICACION.BUENO}",IF(${calificacionAux}="MODERADO","${SIGNIFICADO_CALIFICACION.MODERADO}","${SIGNIFICADO_CALIFICACION.MALO}")))`
+    + `&IF(${metaAux}>0," Para subir a "&IF(${metaAux}=45,"Excelente",IF(${metaAux}=40,"Bueno","Moderado"))&" ("&${metaAux}&" %) faltan "&TEXT(${faltanAux},"0.0")&" puntos"`
     + `&IF(AND(${porAutomatizarAux}>0,${porAutomatizarAux}<=${manualesAux}),": equivale a automatizar "&${porAutomatizarAux}&" de los "&${manualesAux}&" controles manuales.","."),""))`;
   const calificacionEficaciaInicial = (() => {
     const total = controlesEstructurados.length;
     if (total === 0) return 'Calificación: sin controles estructurados en este filtro.';
     const promedio = controlesEstructurados.reduce((suma, control) => suma + Number(control['Eficacia Calculada (%)'] || 0), 0) / total;
     const redondeado = Math.round(promedio);
-    const calificacion = redondeado >= 45 ? 'EXCELENTE' : redondeado >= 40 ? 'BUENO' : redondeado >= 30 ? 'REGULAR' : 'MALO';
+    const calificacion = redondeado >= 45 ? 'EXCELENTE' : redondeado >= 40 ? 'BUENO' : redondeado >= 30 ? 'MODERADO' : 'MALO';
     const meta = redondeado >= 45 ? 0 : redondeado >= 40 ? 45 : redondeado >= 30 ? 40 : 30;
     const faltan = Math.max(0, meta - promedio);
     const porAutomatizar = Math.ceil((faltan * total) / 10);
     const manuales = controlesEstructurados.filter(control => control['Implementación'] === 'Manual').length;
     const subir = meta > 0
-      ? ` Para subir a ${meta === 45 ? 'Excelente' : meta === 40 ? 'Bueno' : 'Regular'} (${meta} %) faltan ${faltan.toFixed(1).replace('.', ',')} puntos`
+      ? ` Para subir a ${meta === 45 ? 'Excelente' : meta === 40 ? 'Bueno' : 'Moderado'} (${meta} %) faltan ${faltan.toFixed(1).replace('.', ',')} puntos`
         + (porAutomatizar > 0 && porAutomatizar <= manuales ? `: equivale a automatizar ${porAutomatizar} de los ${manuales} controles manuales.` : '.')
       : '';
     return `Calificación: ${calificacion} (${redondeado} % de 50 % posible = ${Math.round((promedio / 50) * 100)}% del máximo). ${ESCALA_CALIFICACION} ${SIGNIFICADO_CALIFICACION[calificacion]}${subir}`;
@@ -586,7 +586,22 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   dashboard.getCell('A28').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.verdeClaro } };
   dashboard.getCell('A28').alignment = { wrapText: true, vertical: 'top' };
   dashboard.getRow(28).height = 58;
-  auxiliares.forEach((formula, indice) => { dashboard.getCell(celdaAux(indice).replace(/\$/g, '')).value = { formula }; });
+  // Valores ya calculados de las celdas auxiliares: en Vista protegida Excel no recalcula, y sin ellos la
+  // calificación quedaba sin color.
+  const resultadosAux = (() => {
+    const total = controlesEstructurados.length;
+    const combos = COMBINACIONES_TABLA_6.map(([tipo, implementacion]) => controlesEstructurados
+      .filter(control => control.Tipo === tipo && control['Implementación'] === implementacion).length);
+    const promedio = total ? controlesEstructurados.reduce((suma, control) => suma + Number(control['Eficacia Calculada (%)'] || 0), 0) / total : 0;
+    const maximo = total ? controlesEstructurados.reduce((suma, control) => suma + (MAXIMO_POR_TIPO[control.Tipo] || 50), 0) / total : 0;
+    const manuales = controlesEstructurados.filter(control => control['Implementación'] === 'Manual').length;
+    const redondeado = Math.round(promedio);
+    const calificacion = !total ? 'SIN CONTROLES' : redondeado >= 45 ? 'EXCELENTE' : redondeado >= 40 ? 'BUENO' : redondeado >= 30 ? 'MODERADO' : 'MALO';
+    const meta = redondeado >= 45 ? 0 : redondeado >= 40 ? 45 : redondeado >= 30 ? 40 : 30;
+    const faltan = Math.max(0, meta - promedio);
+    return [...combos, total, promedio, maximo, manuales, calificacion, meta, faltan, total ? Math.ceil((faltan * total) / 10) : 0];
+  })();
+  auxiliares.forEach((formula, indice) => { dashboard.getCell(celdaAux(indice).replace(/\$/g, '')).value = { formula, result: resultadosAux[indice] }; });
   dashboard.getColumn('K').hidden = true;
   dashboard.mergeCells('A29:I29');
   dashboard.getCell('A29').value = { formula: formulaCalificacionEficacia, result: calificacionEficaciaInicial };
@@ -596,7 +611,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   const colorCalificacion = [
     [`${calificacionAux}="EXCELENTE"`, COLORES.bajo, COLORES.blanco],
     [`${calificacionAux}="BUENO"`, COLORES.bajo, COLORES.blanco],
-    [`${calificacionAux}="REGULAR"`, COLORES.moderado, COLORES.texto],
+    [`${calificacionAux}="MODERADO"`, COLORES.moderado, COLORES.texto],
     [`${calificacionAux}="MALO"`, COLORES.extremo, COLORES.blanco],
   ];
   ['I27', 'A29:I29'].forEach(ref => dashboard.addConditionalFormatting({
