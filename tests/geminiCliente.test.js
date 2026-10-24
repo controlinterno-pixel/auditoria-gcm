@@ -1,0 +1,82 @@
+// Cliente de Gemini: alias -latest, el más rápido primero, paso al siguiente modelo, límite de tiempo y caché.
+import assert from 'node:assert/strict';
+import { claveCache, generarConGemini, MODELOS_POR_DEFECTO, obtenerModelos } from '../api/_lib/geminiCliente.js';
+
+let pruebas = 0;
+const prueba = async (nombre, fn) => { await fn(); pruebas += 1; };
+const entorno = { GEMINI_API_KEYS: 'clave-1' };
+const respuestaOk = texto => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: texto }] } }] }) });
+const respuestaError = (status, mensaje) => ({ ok: false, status, json: async () => ({ error: { message: mensaje } }) });
+const redisEnMemoria = () => {
+  const datos = new Map();
+  const redis = async comandos => comandos.map(([comando, clave, valor]) => {
+    if (comando === 'GET') return datos.get(clave) ?? null;
+    if (comando === 'SET') { datos.set(clave, valor); return 'OK'; }
+    return null;
+  });
+  return { redis, datos };
+};
+const solicitud = { instruccionSistema: 'Reglas', prompt: 'Analiza RSK-2', json: true };
+
+await prueba('modelos por defecto: alias -latest, Flash-Lite primero; GEMINI_MODELOS los reemplaza', () => {
+  assert.deepEqual(MODELOS_POR_DEFECTO.slice(0, 2), ['gemini-flash-lite-latest', 'gemini-flash-latest']);
+  assert.ok(MODELOS_POR_DEFECTO.includes('gemini-2.5-flash'), 'respaldo con el modelo que funciona hoy');
+  assert.deepEqual(obtenerModelos({}), MODELOS_POR_DEFECTO);
+  assert.deepEqual(obtenerModelos({ GEMINI_MODELOS: 'modelo-a, modelo-b' }), ['modelo-a', 'modelo-b']);
+});
+
+await prueba('primera llamada genera y guarda; la segunda sale de la caché sin llamar a Gemini', async () => {
+  const { redis, datos } = redisEnMemoria();
+  const llamadas = [];
+  const fetchImpl = async (url, opciones) => { llamadas.push({ url, cuerpo: JSON.parse(opciones.body), clave: opciones.headers['x-goog-api-key'] }); return respuestaOk('{"analisisEjecutivo":"ok"}'); };
+  const primera = await generarConGemini(solicitud, { entorno, fetchImpl, redis });
+  assert.equal(primera.desdeCache, false);
+  assert.equal(primera.modelo, 'gemini-flash-lite-latest');
+  assert.match(llamadas[0].url, /gemini-flash-lite-latest:generateContent$/);
+  assert.equal(llamadas[0].clave, 'clave-1');
+  assert.equal(llamadas[0].cuerpo.generationConfig.responseMimeType, 'application/json');
+  assert.equal(llamadas[0].cuerpo.systemInstruction.parts[0].text, 'Reglas');
+  assert.ok(datos.has(claveCache(solicitud)));
+  const segunda = await generarConGemini(solicitud, { entorno, fetchImpl, redis });
+  assert.equal(segunda.desdeCache, true);
+  assert.equal(segunda.texto, '{"analisisEjecutivo":"ok"}');
+  assert.equal(llamadas.length, 1, 'la segunda no debe llamar a Gemini');
+});
+
+await prueba('si un modelo no existe (404) pasa al siguiente', async () => {
+  const { redis } = redisEnMemoria();
+  const modelos = [];
+  const fetchImpl = async url => { modelos.push(url); return url.includes('lite') ? respuestaError(404, 'model not found') : respuestaOk('texto'); };
+  const r = await generarConGemini({ ...solicitud, prompt: 'otro' }, { entorno, fetchImpl, redis });
+  assert.equal(r.modelo, 'gemini-flash-latest');
+  assert.equal(modelos.length, 2);
+  modelos.length = 0;
+  const soloFijos = async url => { modelos.push(url); return url.includes('latest') ? respuestaError(404, 'model not found') : respuestaOk('fijo'); };
+  const respaldo = await generarConGemini({ ...solicitud, prompt: 'alias caídos' }, { entorno, fetchImpl: soloFijos, redis });
+  assert.equal(respaldo.modelo, 'gemini-2.5-flash-lite');
+  modelos.length = 2;
+  assert.equal(modelos.length, 2);
+});
+
+await prueba('si un modelo tarda más del límite, pasa al siguiente', async () => {
+  const { redis } = redisEnMemoria();
+  const fetchImpl = (url, { signal }) => (url.includes('lite')
+    ? new Promise((_, rechazar) => signal.addEventListener('abort', () => rechazar(Object.assign(new Error('abortado'), { name: 'AbortError' }))))
+    : Promise.resolve(respuestaOk('rápido')));
+  const r = await generarConGemini({ ...solicitud, prompt: 'lento' }, { entorno, fetchImpl, redis, esperaMs: 30 });
+  assert.equal(r.texto, 'rápido');
+});
+
+await prueba('sin almacén (redis devuelve null) igual responde', async () => {
+  const r = await generarConGemini({ ...solicitud, prompt: 'sin caché' }, { entorno, fetchImpl: async () => respuestaOk('ok'), redis: async () => null });
+  assert.equal(r.texto, 'ok');
+  assert.equal(r.desdeCache, false);
+});
+
+await prueba('si ningún modelo responde, lanza el último error', async () => {
+  const { redis } = redisEnMemoria();
+  await assert.rejects(generarConGemini({ ...solicitud, prompt: 'falla' }, { entorno, fetchImpl: async () => respuestaError(429, 'cuota agotada'), redis }), /cuota agotada/);
+  await assert.rejects(generarConGemini(solicitud, { entorno: {}, fetchImpl: async () => respuestaOk('x'), redis: async () => null }), /GEMINI_API_KEYS/);
+});
+
+console.log(`geminiCliente.test.js: ${pruebas} pruebas OK`);

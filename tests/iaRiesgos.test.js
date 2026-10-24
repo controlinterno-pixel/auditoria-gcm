@@ -69,18 +69,14 @@ test('Riesgos ya no inventa cifras ni reescribe porcentajes de la IA', () => {
   for (const relleno of ["'36%'", "'62%'", "'95%'", "'90/100'"]) assert.equal(modal.includes(relleno), false, `modal sin ${relleno}`);
 });
 
-test('servidor: instrucción de sistema, modo JSON, temperatura y modelo configurable', async () => {
+test('servidor: instrucción de sistema, modo JSON y datos delimitados (cliente Gemini)', async () => {
   const fuente = read('../api/_grc/audit.js')
     .replace(/^import [^;]*;\r?\n/gm, '')
     .replace('export default async function handler', 'async function handler');
   const llamadas = [];
-  class GoogleGenerativeAI {
-    getGenerativeModel(config) {
-      return { generateContent: async prompt => { llamadas.push({ config, prompt }); return { response: { text: () => '{"analisisEjecutivo":"ok"}' } }; } };
-    }
-  }
   const bindings = {
-    GoogleGenerativeAI,
+    generarConGemini: async solicitud => { llamadas.push(solicitud); return { texto: '{"analisisEjecutivo":"ok"}', modelo: 'gemini-flash-lite-latest', desdeCache: false }; },
+    obtenerClaves: () => ['k1'],
     requireAuth: async () => ({ email: 'auditor@example.test' }),
     sendSuccess: (res, data) => { res.data = data; },
     sendError: (res, message, code) => { res.error = { message, code }; },
@@ -89,24 +85,16 @@ test('servidor: instrucción de sistema, modo JSON, temperatura y modelo configu
     esUrlPermitida: () => true,
   };
   const handler = new Function(...Object.keys(bindings), `${fuente}\nreturn handler;`)(...Object.values(bindings));
-  const anterior = { ...process.env };
-  process.env.GEMINI_API_KEYS = 'k1';
-  process.env.GEMINI_MODELOS = 'modelo-a,modelo-b';
-  try {
-    const res = {};
-    await handler({ method: 'POST', body: { prompt: 'Analiza', datosContexto: { metricas: { totalRiesgos: 3 } }, formato: 'json' } }, res);
-    assert.equal(res.data.respuesta, '{"analisisEjecutivo":"ok"}');
-    const { config, prompt } = llamadas[0];
-    assert.equal(config.model, 'modelo-a');
-    assert.match(config.systemInstruction, /No inventes cifras/);
-    assert.equal(config.generationConfig.responseMimeType, 'application/json');
-    assert.equal(config.generationConfig.temperature, 0.3);
-    assert.match(prompt, /<<<DATOS_GRC\n\{"metricas":\{"totalRiesgos":3\}\}\nDATOS_GRC>>>/);
-    // Sin formato json la respuesta puede ser texto libre (copiloto, evidencias).
-    await handler({ method: 'POST', body: { prompt: 'Texto' } }, {});
-    assert.equal(llamadas[1].config.generationConfig.responseMimeType, undefined);
-  } finally {
-    process.env = anterior;
-  }
+  const res = {};
+  await handler({ method: 'POST', body: { prompt: 'Analiza', datosContexto: { metricas: { totalRiesgos: 3 } }, formato: 'json' } }, res);
+  assert.equal(res.data.respuesta, '{"analisisEjecutivo":"ok"}');
+  assert.equal(res.data.modelo, 'gemini-flash-lite-latest');
+  const { instruccionSistema, prompt, json } = llamadas[0];
+  assert.match(instruccionSistema, /No inventes cifras/);
+  assert.equal(json, true);
+  assert.match(prompt, /<<<DATOS_GRC\n\{"metricas":\{"totalRiesgos":3\}\}\nDATOS_GRC>>>/);
+  // Sin formato json la respuesta puede ser texto libre (copiloto, evidencias).
+  await handler({ method: 'POST', body: { prompt: 'Texto' } }, {});
+  assert.equal(llamadas[1].json, false);
   assert.equal(read('../api/_grc/audit.js').includes('gemini-1.5-flash'), false);
 });
