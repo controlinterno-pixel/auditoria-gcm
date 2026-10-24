@@ -17,6 +17,7 @@ import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, z
 import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, validarMotivo, vigentes } from '../utils/anulacion.js';
 import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
 import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
+import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
@@ -254,6 +255,18 @@ const LabelConPalomita = ({ idCampo, dark, onAbrirAyuda }) => {
     </div>
   );
 };
+// ✓ Chulito verde que abre la explicación de un dato del Dashboard.
+const BotonExplicacion = ({ etiqueta, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={`Ver qué significa: ${etiqueta}`}
+    title="Ver qué significa este dato y cómo se calcula"
+    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-[9px] font-bold text-emerald-600 shadow-sm transition-all hover:bg-emerald-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+  >
+    ✓
+  </button>
+);
 // 🏛️ COMPONENTE PRINCIPAL
 export default function Riesgos({ 
   hallazgos = [],        
@@ -302,6 +315,8 @@ export default function Riesgos({
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
+  // Explicación de un dato del Dashboard (chulitos verdes), calculada con los riesgos del filtro.
+  const [explicacionDashboard, setExplicacionDashboard] = useState(null);
   // Al cambiar de vista (dashboard, matriz, formulario) la página arranca arriba, no donde quedó la anterior.
   useEffect(() => {
     document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'instant' });
@@ -1229,9 +1244,19 @@ const handleRiesgoSubmit = async (e) => {
       return total + (controles || (riesgo.descripcionControl ? 1 : 0));
     }, 0);
     const riesgosSinControl = riesgosDashboard.filter(r => !Array.isArray(r.controlesDetallados) || r.controlesDetallados.length === 0).length;
-    const eficaciaPromedio = controlesEstructurados.length > 0
-      ? Math.round(controlesEstructurados.reduce((total, control) => total + calcularEficaciaControl(control), 0) / controlesEstructurados.length)
+    // Los controles anulados no reducen el riesgo: no cuentan en la eficacia promedio.
+    const controlesVigentesDashboard = vigentes(controlesEstructurados);
+    const eficaciaPromedio = controlesVigentesDashboard.length > 0
+      ? Math.round(controlesVigentesDashboard.reduce((total, control) => total + calcularEficaciaControl(control), 0) / controlesVigentesDashboard.length)
       : 0;
+    // Texto del alcance para las explicaciones: proceso y filtros aplicados.
+    const filtrosAlcance = [
+      filtroSubproceso !== 'Todos' && `subproceso ${filtroSubproceso}`,
+      filtroClasificacion !== 'Todas' && `clasificación ${filtroClasificacion}`,
+      filtroNivelDashboard !== 'Todos' && `nivel ${filtroNivelDashboard} ${nivelActivo.toLowerCase()}`,
+      searchTerm && `búsqueda "${searchTerm}"`,
+    ].filter(Boolean);
+    const alcanceDashboard = `${filtroProceso !== 'Todos' ? filtroProceso : 'toda la matriz'}${filtrosAlcance.length ? ` (${filtrosAlcance.join(', ')})` : ''}`;
     const mitigacionPromedio = totalRiesgos > 0
       ? Math.round(riesgosDashboard.reduce((total, riesgo) => total + calcularMitigacionRiesgo(riesgo), 0) / totalRiesgos)
       : 0;
@@ -1561,13 +1586,13 @@ const handleRiesgoSubmit = async (e) => {
 
         <section aria-label="Indicadores complementarios" className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
           {[
-            { titulo: 'Controles registrados', valor: controlesRegistrados, nota: `${controlesEstructurados.length} estructurados` },
-            { titulo: 'Eficacia promedio', valor: `${eficaciaPromedio}%`, nota: 'Según atributos del control' },
-            { titulo: 'Mitigación promedio', valor: `${mitigacionPromedio}%`, nota: 'Reducción frente al riesgo inherente' },
-            { titulo: 'Seguimientos vencidos', valor: riesgosVencidos, nota: `${riesgosSinControl} riesgos sin controles estructurados` },
+            { titulo: 'Controles registrados', valor: controlesRegistrados, nota: `${controlesEstructurados.length} estructurados`, explicar: () => explicarControlesRegistrados({ riesgos: riesgosDashboard, alcance: alcanceDashboard }) },
+            { titulo: 'Eficacia promedio', valor: `${eficaciaPromedio}%`, nota: 'Según atributos del control', explicar: () => explicarEficaciaPromedio({ riesgos: riesgosDashboard, alcance: alcanceDashboard }) },
+            { titulo: 'Mitigación promedio', valor: `${mitigacionPromedio}%`, nota: 'Reducción frente al riesgo inherente', explicar: () => explicarMitigacionPromedio({ riesgos: riesgosDashboard, alcance: alcanceDashboard, calcularMitigacion: calcularMitigacionRiesgo }) },
+            { titulo: 'Seguimientos vencidos', valor: riesgosVencidos, nota: `${riesgosSinControl} riesgos sin controles estructurados`, explicar: () => explicarSeguimientos({ riesgos: riesgosDashboard, alcance: alcanceDashboard }) },
           ].map(indicador => (
             <div key={indicador.titulo} className="bg-white px-4 py-3">
-              <span className="block text-[10px] font-bold text-slate-500">{indicador.titulo}</span>
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">{indicador.titulo}<BotonExplicacion etiqueta={indicador.titulo} onClick={() => setExplicacionDashboard(indicador.explicar())} /></span>
               <span className="mt-1 block text-xl font-black tabular-nums text-slate-900">{indicador.valor}</span>
               <span className="mt-1 block text-[9px] text-slate-500">{indicador.nota}</span>
             </div>
@@ -1578,7 +1603,7 @@ const handleRiesgoSubmit = async (e) => {
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
-                <h3 className="text-sm font-black text-slate-900">Exposición por proceso</h3>
+                <h3 className="flex items-center gap-1.5 text-sm font-black text-slate-900">Exposición por proceso<BotonExplicacion etiqueta="Exposición por proceso" onClick={() => setExplicacionDashboard(explicarExposicionPorProceso({ riesgos: riesgosDashboard, topProcesos, nivelRiesgo, nivelActivo }))} /></h3>
                 <p className="mt-1 text-[10px] text-slate-500">Selecciona un proceso para ver sus riesgos en la matriz.</p>
               </div>
               <button type="button" onClick={solicitarDictamenIA} className="min-h-9 rounded-lg border border-emerald-700 px-3 text-[10px] font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">Analizar con IA</button>
@@ -1596,21 +1621,20 @@ const handleRiesgoSubmit = async (e) => {
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 border-b border-slate-200 pb-3">
-              <h3 className="text-sm font-black text-slate-900">Riesgos de mayor exposición</h3>
+              <h3 className="flex items-center gap-1.5 text-sm font-black text-slate-900">Riesgos de mayor exposición<BotonExplicacion etiqueta="Riesgos de mayor exposición" onClick={() => setExplicacionDashboard(explicarMayorExposicion({ riesgos: riesgosPrioritarios.slice(0, 5), obtenerCoordenada, nivelRiesgo, nivelActivo }))} /></h3>
               <p className="mt-1 text-[10px] text-slate-500">Ordenados por puntaje {nivelActivo.toLowerCase()}; selecciona para abrir el registro.</p>
             </div>
             <div className="space-y-1">
               {riesgosPrioritarios.slice(0, 5).map((riesgo, indice) => {
                 const puedeEditar = puedeModificarRiesgo(riesgo);
-                const ElementoRiesgo = puedeEditar ? 'button' : 'article';
-                return <ElementoRiesgo {...(puedeEditar ? { type: 'button', onClick: () => handleEditRiesgo(riesgo) } : {})} key={riesgo.id} className={`grid min-h-12 w-full grid-cols-[28px_minmax(0,1fr)_54px] items-center gap-2 rounded-md px-2 text-left ${puedeEditar ? 'hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700' : ''}`}>
+                return <button type="button" onClick={() => (puedeEditar ? handleEditRiesgo(riesgo) : verDetalleRiesgo(riesgo))} aria-label={`${puedeEditar ? 'Editar' : 'Consultar'} riesgo RSK-${riesgo.id}`} key={riesgo.id} className={`grid min-h-12 w-full grid-cols-[28px_minmax(0,1fr)_54px] items-center gap-2 rounded-md px-2 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700`}>
                   <span className="font-mono text-[10px] font-bold text-slate-400">{String(indice + 1).padStart(2, '0')}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-[11px] font-bold text-slate-800">{riesgo.descripcion || riesgo.escenarioFinal || `Riesgo RSK-${riesgo.id}`}</span>
                     <span className="block truncate text-[9px] text-slate-500">{riesgo.macroprocesos.join(', ') || 'Sin proceso'} · RSK-{riesgo.id}{riesgo.fechaSeguimiento ? ` · ${riesgo.fechaSeguimiento}` : ''}</span>
                   </span>
                   <span className="rounded-md bg-slate-100 px-2 py-1 text-center text-[10px] font-black tabular-nums text-slate-800">S {scoreRiesgo(riesgo)}</span>
-                </ElementoRiesgo>;
+                </button>;
               })}
               {riesgosPrioritarios.length === 0 && <p className="py-5 text-center text-xs text-slate-500">No hay riesgos que coincidan con los filtros.</p>}
             </div>
@@ -2639,6 +2663,27 @@ const renderMatriz = () => {
         </div>
       )}
 
+      {/* 💡 EXPLICACIÓN DE UN DATO DEL DASHBOARD (calculada con los riesgos del filtro) */}
+      {explicacionDashboard && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setExplicacionDashboard(null)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="titulo-explicacion-dashboard" onClick={evento => evento.stopPropagation()} className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-2 border-b pb-3">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-black text-white">✓</span>
+              <h4 id="titulo-explicacion-dashboard" className="text-xs font-black uppercase tracking-wider text-slate-800">{explicacionDashboard.titulo}</h4>
+              {explicacionDashboard.valor && <span className="ml-auto rounded-lg bg-slate-900 px-2.5 py-1 text-sm font-black tabular-nums text-white">{explicacionDashboard.valor}</span>}
+            </div>
+            <ul className="mt-4 space-y-2 text-xs leading-relaxed text-slate-700">
+              {explicacionDashboard.lineas.map(linea => <li key={linea} className="rounded-xl border border-slate-200/60 bg-slate-50 p-3">{linea}</li>)}
+            </ul>
+            {explicacionDashboard.accion && (
+              <p className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-xs font-semibold leading-relaxed text-emerald-950"><span className="font-black">📌 Qué hacer: </span>{explicacionDashboard.accion}</p>
+            )}
+            <div className="mt-5 flex justify-end">
+              <button type="button" autoFocus onClick={() => setExplicacionDashboard(null)} className="rounded-xl bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-md hover:bg-slate-800">Entendido</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 🔮 EL POPUP MODAL SUTIL Y ELEGANTE CON BASE EN LA MAQUETA DE FORMATO */}
       {ayudaModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
