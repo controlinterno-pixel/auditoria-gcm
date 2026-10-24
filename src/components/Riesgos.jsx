@@ -1254,6 +1254,15 @@ const handleRiesgoSubmit = async (e) => {
       // Las coordenadas cambian entre inherente y residual: la celda elegida ya no aplica.
       setCuadranteDashboard(null);
     };
+    // Abre "Ver matriz" con los riesgos del proceso y los mismos filtros del dashboard, para que el número coincida.
+    const abrirMatrizDeProceso = proceso => {
+      if (filtroProceso !== proceso) setFiltroSubproceso('Todos');
+      setFiltroProceso(proceso);
+      setFiltroNivel(filtroNivelDashboard === 'Todos' ? 'Todos' : `${matrizDashboardTipo === 'inherente' ? 'inh' : 'res'}:${filtroNivelDashboard}`);
+      setFiltroEstadoRiesgo('Activos');
+      setCuadranteDashboard(null);
+      setVistaActiva('matriz');
+    };
     const elegirNivelDashboard = nivel => {
       setFiltroNivelDashboard(actual => (actual === nivel && nivel !== 'Todos' ? 'Todos' : nivel));
       setCuadranteDashboard(null);
@@ -1550,13 +1559,13 @@ const handleRiesgoSubmit = async (e) => {
             <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-sm font-black text-slate-900">Exposición por proceso</h3>
-                <p className="mt-1 text-[10px] text-slate-500">Selecciona un proceso para cruzarlo con toda la vista.</p>
+                <p className="mt-1 text-[10px] text-slate-500">Selecciona un proceso para ver sus riesgos en la matriz.</p>
               </div>
               <button type="button" onClick={solicitarDictamenIA} className="min-h-9 rounded-lg border border-emerald-700 px-3 text-[10px] font-bold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">Analizar con IA</button>
             </div>
             <div className="space-y-1">
               {topProcesos.length === 0 ? <p className="py-5 text-center text-xs text-slate-500">No hay procesos con riesgos en esta vista.</p> : topProcesos.map(([proceso, cantidad]) => (
-                <button type="button" key={proceso} aria-pressed={filtroProceso === proceso} onClick={() => { setFiltroProceso(filtroProceso === proceso ? 'Todos' : proceso); setFiltroSubproceso('Todos'); setCuadranteDashboard(null); }} className={`grid min-h-10 w-full grid-cols-[minmax(110px,0.9fr)_minmax(60px,1.8fr)_36px] items-center gap-3 rounded-md px-2 text-left text-[11px] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${filtroProceso === proceso ? 'bg-emerald-50' : ''}`}>
+                <button type="button" key={proceso} onClick={() => abrirMatrizDeProceso(proceso)} aria-label={`Ver en la matriz los ${cantidad} riesgos de ${proceso}`} className={`grid min-h-10 w-full grid-cols-[minmax(110px,0.9fr)_minmax(60px,1.8fr)_36px] items-center gap-3 rounded-md px-2 text-left text-[11px] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${filtroProceso === proceso ? 'bg-emerald-50' : ''}`}>
                   <span className="truncate font-semibold text-slate-700">{proceso}</span>
                   <span className="h-2 overflow-hidden rounded-sm bg-slate-100"><span className="block h-full rounded-sm bg-[#0A3B32]" style={{ width: `${(cantidad / maxProceso) * 100}%` }} /></span>
                   <span className="text-right font-black tabular-nums text-slate-800">{cantidad}</span>
