@@ -410,6 +410,12 @@ export const apiService = {
     aplicadoLocalmente: true,
   }),
 
+  // "No aplica" de un hallazgo: accion 'proponer' | 'aprobar' | 'rechazar'.
+  decidirNoAplicaHallazgo: (idHallazgo, accion, justificacion = '') => request('/api/grc/no-aplica', {
+    method: 'POST',
+    body: { idHallazgo, accion, justificacion },
+    aplicadoLocalmente: true,
+  }),
   evaluarDisenoPlanes: (idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion) => request('/api/grc/review-plans', {
     method: 'POST',
     body: { decision: 'evaluar-diseno', idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion },

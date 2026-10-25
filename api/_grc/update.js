@@ -149,6 +149,8 @@ export default async function handler(req, res) {
           idsActualizados.add(clave);
           if (!admin && normalizar(anterior.correoResponsable) !== usuarioEmail) return { error: 'not-owner' };
           if (bloqueadaParaRevisorOAuditor(anterior, user.email, correoAuditorInforme)) return { error: 'reviewer-read-only' };
+          // Acción cerrada por un "No aplica" aprobado: es definitiva y no se modifica.
+          if (anterior.estadoWorkflow === 'No aplica' || anterior.noAplica === true) return { error: 'no-aplica-locked' };
 
           const actualizaCorreoResponsable = Object.hasOwn(peticion, 'correoResponsable') || Object.hasOwn(peticion, 'correoConfirmacion');
           const actualizaCorreoRevisor = Object.hasOwn(peticion, 'correoRevisor') || Object.hasOwn(peticion, 'correoRevisorConfirmacion');
@@ -374,6 +376,7 @@ export default async function handler(req, res) {
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
         'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
         'design-correction-progress': ['Primero corrige el diseño de la acción y guárdalo: vuelve al revisor. El avance se habilita cuando lo apruebe.', 409],
+        'no-aplica-locked': ['Esta acción quedó cerrada porque el hallazgo se declaró No aplica (decisión definitiva). No se puede modificar.', 409],
         'reviewer-read-only': ['Con el diseño aprobado, solo el ejecutor puede trabajar esta acción. El revisor y el auditor aprobador solo pueden consultarla.', 403],
         'executor-locked-review': ['Esta acción ya fue reportada al 100% y está pendiente por revisar; el ejecutor no puede modificarla.', 403],
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],

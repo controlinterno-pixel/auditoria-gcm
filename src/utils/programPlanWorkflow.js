@@ -34,7 +34,8 @@ export function ejecucionEnviadaARevision(plan) {
 
 // Cerrada con eficacia aprobada: ya no admite cambios del ejecutor.
 export function accionCerrada(plan) {
-  return Boolean(plan && (plan.estadoWorkflow === 'Cerrado' || (!plan.estadoWorkflow && plan.estado === 'Cerrado')));
+  // "No aplica": acción cerrada porque el auditor aprobó que su hallazgo no aplica.
+  return Boolean(plan && (plan.estadoWorkflow === 'Cerrado' || plan.estadoWorkflow === 'No aplica' || (!plan.estadoWorkflow && plan.estado === 'Cerrado')));
 }
 
 // El ejecutor solo trabaja lo que está en ejecución: lo enviado a revisión y lo cerrado queda bloqueado.

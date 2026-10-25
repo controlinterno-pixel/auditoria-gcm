@@ -1,4 +1,5 @@
 import { Fragment, useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { MOTIVO_MINIMO_NO_APLICA, estadoNoAplica, justificacionNoAplica, planFinalizado } from '../utils/noAplicaHallazgo.js';
 import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { createPortal } from 'react-dom';
@@ -125,6 +126,7 @@ export default function Planes({
   misPlanesEjecucion = [],
   misPlanesRevision = [],
   misPlanesAprobacion = [],
+  misNoAplicaPorAprobar = [],
   encolarReintentoNotificacion = () => {},
   user = null,
   perfilUsuario = null,
@@ -607,7 +609,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     const informe = informesAuditoria.find(item => String(item.id) === String(idInforme));
     if (!hallazgo || !informe) return [];
     const limite = p.fecha ? new Date(`${p.fecha}T00:00:00`) : null;
-    const esVencido = p.progreso < 100 && limite && limite.getTime() < timestampInicioDia;
+    const esVencido = !planFinalizado(p) && p.progreso < 100 && limite && limite.getTime() < timestampInicioDia;
 
     return [{
       ...p,
@@ -1151,6 +1153,9 @@ const handleNotificarPlan = async (planId) => {
             idsSobrevivientes.push(String(act.id));
           }
         });
+      } else {
+        // Hallazgo No aplica: sus acciones se conservan (con su historial), nunca se borran al guardar.
+        safePlanes.filter(plan => String(plan.idHallazgo) === String(hallazgoId)).forEach(plan => idsSobrevivientes.push(String(plan.id)));
       }
     });
 
@@ -1261,9 +1266,8 @@ const handleNotificarPlan = async (planId) => {
         let forzarGuardadoHistorial = false;
         
         if (!stateNode.aplica) {
-          nuevoEstado = 'Cerrado';
-          accionHistorial = `❌ Hallazgo marcado como NO APLICA. Justificación: ${stateNode.justificacionNoAplica}`;
-          forzarGuardadoHistorial = true; // Para que siempre guarde la observación aunque ya estuviera cerrado
+          // El "No aplica" se registra con su propio flujo (propuesta del ejecutor, aprobación del auditor).
+          return;
         } else {
           const actividadesDeEsteHallazgo = updatedPlanesList.filter(p => String(p.idHallazgo) === String(hallazgoId));
           if (actividadesDeEsteHallazgo.length > 0) {
@@ -1591,9 +1595,14 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
     const newState = {};
     reportFindings.forEach(h => {
       const existingActivities = currentPlanes.filter(p => p.idHallazgo === h.id);
+// "No aplica" aprobado (definitivo) o pendiente del auditor: el hallazgo no se edita como si aplicara.
+      const estadoNoAplicaHallazgo = estadoNoAplica(h);
+      const noAplicaActivo = ['Aprobado', 'Pendiente'].includes(estadoNoAplicaHallazgo);
 if (existingActivities.length > 0) {
-        newState[h.id] = { 
-          aplica: true, 
+        newState[h.id] = {
+          aplica: !noAplicaActivo,
+          estadoNoAplica: estadoNoAplicaHallazgo,
+          justificacionNoAplica: justificacionNoAplica(h), 
           actividades: existingActivities.map(p => ({ 
             ...p, 
             correoConfirmacion: p.correoResponsable,
@@ -1607,7 +1616,9 @@ if (existingActivities.length > 0) {
         };
       } else {
         newState[h.id] = {
-          aplica: h.estado !== 'Cerrado',
+          aplica: !noAplicaActivo && h.estado !== 'Cerrado',
+          estadoNoAplica: estadoNoAplicaHallazgo,
+          justificacionNoAplica: justificacionNoAplica(h),
           actividades: [{ 
             id: 'new-' + Math.random(), 
             accion: '', 
@@ -1653,12 +1664,56 @@ if (existingActivities.length > 0) {
     return () => clearTimeout(timer);
   }, [editPlan, safeHallazgos, handleInformeChange, formInformeId, vistaActiva]);
 
-  const [modalNoAplica, setModalNoAplica] = useState({ activo: false, hallazgoId: null, justificacionTemporal: '' });
+  const [modalNoAplica, setModalNoAplica] = useState({ activo: false, hallazgoId: null, justificacionTemporal: '', modo: 'proponer' });
+  const [enviandoNoAplica, setEnviandoNoAplica] = useState(false);
+  // El auditor del informe (o un administrador) aprueba o rechaza el "No aplica" que propone el ejecutor.
+  const esAuditorDelHallazgo = hallazgoId => {
+    if (isAdmin) return true;
+    const yo = String(user?.email || '').trim().toLowerCase();
+    const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
+    const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo?.idInforme || formInformeId));
+    const correos = [informe?.correoAuditor, informe?.correoAuditorResponsable,
+      ...safePlanes.filter(plan => String(plan.idHallazgo) === String(hallazgoId)).flatMap(plan => [plan.correoAuditor, plan.correoAuditorResponsable])]
+      .flatMap(valor => String(valor || '').split(',')).map(valor => valor.trim().toLowerCase()).filter(Boolean);
+    return Boolean(yo) && correos.includes(yo);
+  };
+  const registrarNoAplica = async (hallazgoId, accion, justificacion = '') => {
+    setEnviandoNoAplica(true);
+    try {
+      const respuesta = await apiService.decidirNoAplicaHallazgo(hallazgoId, accion, justificacion);
+      const hallazgoGuardado = respuesta?.hallazgo;
+      if (!hallazgoGuardado) throw new Error('El servidor no confirmó el cambio.');
+      const planesGuardados = new Map((respuesta.planes || []).map(plan => [String(plan.id), plan]));
+      if (setHallazgos) setHallazgos(prev => (Array.isArray(prev) ? prev : []).map(item => (String(item.id) === String(hallazgoId) ? hallazgoGuardado : item)));
+      if (planesGuardados.size) setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => planesGuardados.get(String(plan.id)) || plan));
+      const estado = estadoNoAplica(hallazgoGuardado);
+      setMatrixState(prev => ({
+        ...prev,
+        [hallazgoId]: {
+          ...prev[hallazgoId],
+          aplica: !['Aprobado', 'Pendiente'].includes(estado),
+          estadoNoAplica: estado,
+          justificacionNoAplica: justificacionNoAplica(hallazgoGuardado),
+        },
+      }));
+      showNotification(estado === 'Aprobado'
+        ? 'Hallazgo cerrado como No aplica. Sus acciones quedaron cerradas y conservan su historial.'
+        : estado === 'Pendiente'
+          ? 'Propuesta de No aplica enviada al auditor del informe para su aprobación.'
+          : 'No aplica rechazado: el hallazgo sigue aplicando.', 'success');
+      return true;
+    } catch (error) {
+      showNotification(error?.message || 'No se pudo registrar el No aplica.', 'error');
+      return false;
+    } finally {
+      setEnviandoNoAplica(false);
+    }
+  };
   const guardNoAplica = useUnsavedChangesGuard(
     modalNoAplica.activo && Boolean(modalNoAplica.justificacionTemporal.trim()),
     'la justificación de inaplicabilidad'
   );
-  const cerrarModalNoAplica = () => guardNoAplica(() => setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' }));
+  const cerrarModalNoAplica = () => guardNoAplica(() => setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '', modo: 'proponer' }));
 
   // Aprobado el diseño, revisor y auditor aprobador (o el ejecutor que ya envió al 100%) no cambian si el hallazgo aplica.
   const aplicaBloqueadaParaUsuario = (hallazgoId) => {
@@ -1679,31 +1734,21 @@ if (existingActivities.length > 0) {
     }
     if (value === false) {
       // Abre la ventana sutil en lugar de cambiar directamente a falso
-      setModalNoAplica({
-        activo: true,
-        hallazgoId: hallazgoId,
-        justificacionTemporal: matrixState[hallazgoId]?.justificacionNoAplica || ''
-      });
+      setModalNoAplica({ activo: true, hallazgoId, justificacionTemporal: '', modo: 'proponer' });
     } else {
       setMatrixDirty(true);
       setMatrixState(prev => ({ ...prev, [hallazgoId]: { ...prev[hallazgoId], aplica: true } }));
     }
   };
 
-  const confirmarNoAplica = () => {
-    if (modalNoAplica.justificacionTemporal.trim() === '') {
-      return alert("❌ Debe ingresar una justificación válida para marcar el hallazgo como No Aplica.");
+  const confirmarNoAplica = async () => {
+    const texto = modalNoAplica.justificacionTemporal.trim();
+    if (texto.length < MOTIVO_MINIMO_NO_APLICA) {
+      showNotification(`Escribe ${modalNoAplica.modo === 'rechazar' ? 'la razón del rechazo' : 'la justificación'} (mínimo ${MOTIVO_MINIMO_NO_APLICA} caracteres).`, 'error');
+      return;
     }
-    setMatrixDirty(true);
-    setMatrixState(prev => ({
-      ...prev,
-      [modalNoAplica.hallazgoId]: {
-        ...prev[modalNoAplica.hallazgoId],
-        aplica: false,
-        justificacionNoAplica: modalNoAplica.justificacionTemporal
-      }
-    }));
-    setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' });
+    const ok = await registrarNoAplica(modalNoAplica.hallazgoId, modalNoAplica.modo === 'rechazar' ? 'rechazar' : 'proponer', texto);
+    if (ok) setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '', modo: 'proponer' });
   };
 
   // 🧠 MODIFICADO: MANTIENE LA CONSISTENCIA DE HERENCIA SI AGREGAN MÁS ACTIVIDADES
@@ -3032,6 +3077,25 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       <button type="button" onClick={() => setDetallePanelPlanes(null)} aria-label="Cerrar detalle de planes" className="text-slate-400 hover:text-slate-800 text-lg leading-none">×</button>
                     </div>
                     <div className="max-h-[62vh] overflow-y-auto space-y-2 pr-1">
+                      {esAprobacion && misNoAplicaPorAprobar.map(hallazgo => {
+                        const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo.idInforme));
+                        return (
+                          <article key={`no-aplica-${hallazgo.id}`} className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-mono text-[9px] font-black text-slate-500">{hallazgo.ref || `HAL-${hallazgo.id}`}</span>
+                              <span className="text-[9px] font-black text-amber-700">⏳ No aplica propuesto</span>
+                            </div>
+                            <h4 className="mt-1.5 break-words text-xs font-black text-slate-800">{hallazgo.titulo || 'Hallazgo sin título'}</h4>
+                            <p className="mt-1 break-words text-[10px] italic text-slate-600">"{hallazgo.noAplica?.justificacion}"</p>
+                            <p className="mt-1 text-[10px] text-slate-500">Propuesto por {hallazgo.noAplica?.propuestoPor || 'el ejecutor'}</p>
+                            {informe && (
+                              <button type="button" onClick={() => { setDetallePanelPlanes(null); seleccionarInforme(informe); }} className="mt-2 text-[10px] font-black text-amber-800 underline underline-offset-2 hover:text-amber-950">
+                                Revisar y decidir
+                              </button>
+                            )}
+                          </article>
+                        );
+                      })}
                       {planesDetalle.map(plan => (
                         <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido || esEjecucion ? 'border-rose-100 bg-rose-50/40' : esRevision ? 'border-amber-100 bg-amber-50/40' : esAprobacion ? 'border-emerald-100 bg-emerald-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
                           <div className="flex justify-between items-start gap-2">
@@ -3180,12 +3244,17 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     </div>
     <h4 className="text-xs font-black text-slate-900 mt-2">{h.titulo}</h4>
   </div>
-                      {(!modoRevisionMatriz) && aplicaBloqueadaParaUsuario(h.id) && (
+                      {['Aprobado', 'Pendiente'].includes(node.estadoNoAplica) && (
+                        <span className={`shrink-0 rounded-lg border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${node.estadoNoAplica === 'Aprobado' ? 'border-slate-400 bg-slate-200 text-slate-700' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>
+                          {node.estadoNoAplica === 'Aprobado' ? '🔒 No aplica · definitivo' : '⏳ No aplica · en revisión del auditor'}
+                        </span>
+                      )}
+                      {(!modoRevisionMatriz) && !['Aprobado', 'Pendiente'].includes(node.estadoNoAplica) && aplicaBloqueadaParaUsuario(h.id) && (
                         <span className="shrink-0 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-600" title="Con el diseño aprobado, solo el ejecutor trabaja estas acciones">
                           🔒 {node.aplica ? 'Sí aplica' : 'No aplica'}
                         </span>
                       )}
-                      {(!modoRevisionMatriz) && !aplicaBloqueadaParaUsuario(h.id) && (
+                      {(!modoRevisionMatriz) && !['Aprobado', 'Pendiente'].includes(node.estadoNoAplica) && !aplicaBloqueadaParaUsuario(h.id) && (
                         <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
                           <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
                           <button type="button" onClick={() => handleToggleAplica(h.id, false)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>No Aplica</button>
@@ -3704,19 +3773,34 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       </div>
                     )}
 
-                    {/* Si está marcado como "No Aplica", mostramos el recuadro con la justificación */}
+                    {/* "No aplica": justificación, estado y, si está pendiente, la decisión del auditor */}
                     {!node.aplica && (
-                      <div className="bg-slate-100 p-4 rounded-xl border border-slate-300 shadow-inner flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mt-2">
-                       <div>
-                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Motivo de rechazo (No Aplica)</span>
-                          <p className="text-xs text-slate-700 font-medium italic whitespace-pre-wrap">"{node.justificacionNoAplica}"</p>
+                      <div className={`mt-2 flex flex-col gap-3 rounded-xl border p-4 shadow-inner md:flex-row md:items-center md:justify-between ${node.estadoNoAplica === 'Pendiente' ? 'border-amber-200 bg-amber-50' : 'border-slate-300 bg-slate-100'}`}>
+                        <div>
+                          <span className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            {node.estadoNoAplica === 'Pendiente'
+                              ? 'Propuesta del ejecutor: No aplica · pendiente de aprobación del auditor'
+                              : 'Hallazgo cerrado como No aplica (decisión definitiva)'}
+                          </span>
+                          <p className="whitespace-pre-wrap text-xs font-medium italic text-slate-700">"{node.justificacionNoAplica || 'Sin justificación registrada'}"</p>
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            {node.estadoNoAplica === 'Pendiente'
+                              ? 'Mientras el auditor decide, las acciones de este hallazgo no se editan.'
+                              : 'Sus acciones quedaron cerradas como "No aplica": se conservan con su historial y ya no aparecen en tareas ni en vencidos.'}
+                          </p>
                         </div>
-                        {!modoRevisionMatriz && !aplicaBloqueadaParaUsuario(h.id) && (
-                          <button type="button" onClick={() => handleToggleAplica(h.id, false)} className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase transition-colors shrink-0 shadow-sm flex items-center gap-1">
-                            <span>✏️</span> Editar Observación
-                          </button>
+                        {!modoRevisionMatriz && node.estadoNoAplica === 'Pendiente' && esAuditorDelHallazgo(h.id) && (
+                          <div className="flex shrink-0 gap-2">
+                            <button type="button" disabled={enviandoNoAplica} onClick={() => registrarNoAplica(h.id, 'aprobar')} className="rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-slate-900 disabled:opacity-50">Aprobar No aplica</button>
+                            <button type="button" disabled={enviandoNoAplica} onClick={() => setModalNoAplica({ activo: true, hallazgoId: h.id, justificacionTemporal: '', modo: 'rechazar' })} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-700 hover:bg-slate-50 disabled:opacity-50">Rechazar</button>
+                          </div>
                         )}
                       </div>
+                    )}
+                    {node.aplica && node.estadoNoAplica === 'Rechazado' && (
+                      <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                        <strong>El auditor rechazó la propuesta de No aplica:</strong> {safeHallazgos.find(item => String(item.id) === String(h.id))?.noAplica?.motivoRechazo || 'sin motivo registrado'}. El hallazgo sigue aplicando.
+                      </p>
                     )}
                   </div>
                 );       
@@ -5121,13 +5205,17 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95">
             <div className="bg-slate-800 p-4 flex justify-between items-center text-white shrink-0">
               <h4 id="no-aplica-titulo" className="font-black text-sm flex items-center gap-2">
-                <span>🛑</span> Justificación de Inaplicabilidad
+                <span>🛑</span> {modalNoAplica.modo === 'rechazar' ? 'Rechazar el No aplica' : 'Justificación de Inaplicabilidad'}
               </h4>
               <button type="button" aria-label="Cerrar justificación" onClick={cerrarModalNoAplica} className="min-h-11 min-w-11 text-slate-300 hover:text-white font-black text-lg px-2">✕</button>
             </div>
             <div className="p-6 space-y-4">
               <p className="text-xs text-slate-600 font-medium">
-                Por favor, detalla los argumentos técnicos, normativos o de proceso por los cuales este hallazgo <strong>no requiere</strong> un plan de acción correctivo. Esta observación quedará registrada en el historial de auditoría.
+                {modalNoAplica.modo === 'rechazar'
+                  ? 'Explica por qué el hallazgo sí aplica. El ejecutor verá el motivo y el hallazgo seguirá abierto con sus acciones.'
+                  : esAuditorDelHallazgo(modalNoAplica.hallazgoId)
+                    ? <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Como auditor del informe, al guardar queda <strong>cerrado como No aplica de forma definitiva</strong>; sus acciones abiertas se cierran y conservan su historial.</>
+                    : <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Se enviará al <strong>auditor del informe para su aprobación</strong>; si la aprueba, la decisión es definitiva.</>}
               </p>
               <label htmlFor="justificacion-no-aplica" className="block text-xs font-bold text-slate-700">Justificación</label>
               <textarea
@@ -5141,7 +5229,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             </div>
             <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
               <button type="button" onClick={cerrarModalNoAplica} className="min-h-11 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Cancelar</button>
-              <button type="button" onClick={confirmarNoAplica} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Guardar Observación</button>
+              <button type="button" onClick={confirmarNoAplica} disabled={enviandoNoAplica} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all disabled:opacity-50">
+                {enviandoNoAplica ? 'Guardando…' : modalNoAplica.modo === 'rechazar' ? 'Rechazar No aplica' : esAuditorDelHallazgo(modalNoAplica.hallazgoId) ? 'Cerrar como No aplica' : 'Enviar al auditor'}
+              </button>
             </div>
           </div>
         </div>

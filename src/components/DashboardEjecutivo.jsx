@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { formatSafeDate } from '../utils/helpers';
+import { planFinalizado } from '../utils/noAplicaHallazgo.js';
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles } from '../utils/nivelRiesgo.js';
 import { consultarPanelIA } from '../services/aiEngine';
 import { armarPanelIA } from '../utils/contextoIARiesgos.js';
@@ -189,8 +190,9 @@ export default function DashboardEjecutivo({
     });
 
     const totPlanes = pBase.length;
-    const planActivos = pBase.filter(p => (Number(p.progreso) || 0) < 100).length;
-    const planVencidos = pBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < ahora).length;
+    // Las acciones cerradas o "No aplica" no cuentan como activas ni vencidas.
+    const planActivos = pBase.filter(p => !planFinalizado(p) && (Number(p.progreso) || 0) < 100).length;
+    const planVencidos = pBase.filter(p => !planFinalizado(p) && (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < ahora).length;
     const planCerrados = pBase.filter(p => (Number(p.progreso) || 0) === 100).length;
     const avanceGlobal = totPlanes > 0 ? Math.round((planCerrados / totPlanes) * 100) : 0;
     
@@ -231,7 +233,7 @@ export default function DashboardEjecutivo({
     : riesgosBase.slice(0, 5);
 
   const planesVencidosList = planesBase
-    .filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy)
+    .filter(p => !planFinalizado(p) && (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy)
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
     .slice(0, 5);
 

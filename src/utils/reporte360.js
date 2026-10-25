@@ -38,9 +38,10 @@ export const progreso360 = valor => {
   return Number.isFinite(numero) && numero >= 0 && numero <= 100 ? numero : null;
 };
 
+// Una acción cerrada como "No aplica" (hallazgo que no aplica, aprobado por el auditor) también está cerrada.
 export const planCerrado360 = plan => (
   plan.estadoWorkflow
-    ? normalizar(plan.estadoWorkflow) === 'cerrado'
+    ? ['cerrado', 'no aplica'].includes(normalizar(plan.estadoWorkflow))
     : normalizar(plan.estado) === 'cerrado'
 );
 

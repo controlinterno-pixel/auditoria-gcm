@@ -10,6 +10,7 @@ import {
 import AppErrorBoundary from './components/AppErrorBoundary';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
 import { esInformePrograma, pendienteEvaluacionInicial, planDevueltoAlEjecutor, ESTADO_AJUSTES_INICIALES } from './utils/programPlanWorkflow.js';
+import { noAplicaPendiente } from './utils/noAplicaHallazgo.js';
 
 import Configuracion from './components/Configuracion';
 import Hallazgos from './components/Hallazgos';
@@ -648,7 +649,8 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   // 1. Tareas que el usuario debe EJECUTAR (Subir evidencias y avance)
   const misPlanesEjecucion = planesConOrigen.filter(p => {
     const correoEjecutor = (p.correoResponsable || '').trim().toLowerCase();
-    return correoEjecutor === userEmailLower.trim() &&
+    // Mientras el auditor decide un "No aplica" propuesto, las acciones del hallazgo no se ejecutan.
+    return correoEjecutor === userEmailLower.trim() && !noAplicaPendiente(hallazgosPorId.get(String(p.idHallazgo))) &&
       (['En Ejecución', ESTADO_AJUSTES_INICIALES].includes(p.estadoWorkflow) || planDevueltoAlEjecutor(p));
   });
   // Las devueltas por el revisor o el auditor (diseño o evidencias) tienen su propia alerta "Corregir".
@@ -691,7 +693,16 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
             ['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow) ||
             (!esInformePrograma(informe, fuentesMejora) && p.estadoWorkflow === 'En Ejecución' && Number(p.progreso) >= 100));
   });
-  const misTareasAprobacion = misPlanesAprobacion.length;
+  // Hallazgos con "No aplica" propuesto por el ejecutor, pendientes de la decisión de este auditor.
+  const misNoAplicaPorAprobar = safeHallazgos.filter(hallazgo => {
+    if (!noAplicaPendiente(hallazgo)) return false;
+    const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo.idInforme));
+    const correos = [informe?.correoAuditor, informe?.correoAuditorResponsable,
+      ...safePlanes.filter(plan => String(plan.idHallazgo) === String(hallazgo.id)).flatMap(plan => [plan.correoAuditor, plan.correoAuditorResponsable])]
+      .flatMap(valor => String(valor || '').split(',')).map(valor => valor.trim().toLowerCase()).filter(Boolean);
+    return correos.includes(userEmailLower.trim());
+  });
+  const misTareasAprobacion = misPlanesAprobacion.length + misNoAplicaPorAprobar.length;
 
   // El total de notificaciones para el usuario actual
   // 📜 Restablecer el scroll arriba del todo al cambiar de módulo o subpestaña (Garantizado)
@@ -1188,7 +1199,7 @@ return (
                 {subTabPlanes === 'planes' && (
                   <Planes 
                     key={`planes-tareas-${solicitudTareasPlanes}`}
-                    reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} encolarReintentoNotificacion={encolarReintentoNotificacion} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user} perfilUsuario={perfilUsuario}
+                    reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} misNoAplicaPorAprobar={misNoAplicaPorAprobar} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} encolarReintentoNotificacion={encolarReintentoNotificacion} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user} perfilUsuario={perfilUsuario}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
                     FilterInput={FilterInput} pFiltrados={soloMisTareas ? pFiltrados.filter(esPlanPropio) : pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}

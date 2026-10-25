@@ -11,6 +11,7 @@ import { zonaSeveridad } from '../src/utils/nivelRiesgo.js';
 import { revisarControlesEliminados } from '../src/utils/anulacion.js';
 import { compararRiesgos, entradaDeCambios } from '../src/utils/historialRiesgo.js';
 import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
+import * as noAplicaUtil from '../src/utils/noAplicaHallazgo.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const moduleBody = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default ', '').replaceAll('export ', '');
@@ -120,7 +121,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const errors = [];
   const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
-    ...workspace, ...workflow, ...alcance, ...validacion, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios, esAdministradorTotal, puedeVerTodo,
+    ...workspace, ...workflow, ...alcance, ...validacion, ...noAplicaUtil, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios, esAdministradorTotal, puedeVerTodo,
     applyCors: () => false,
     requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
@@ -136,6 +137,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const riesgosHandler = load('../api/_grc/riesgos.js');
   const migrarHandler = load('../api/_grc/migrar-riesgos.js');
   const limpiarHandler = load('../api/_grc/limpiar-riesgos.js');
+  const noAplicaHandler = load('../api/_grc/no-aplica.js');
   const call = async (target, method, body, url, query = {}) => {
     const res = {};
     await target({ method, body, url, query }, res);
@@ -151,6 +153,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
     riesgos: (method, body, query) => call(riesgosHandler, method, body, '/api/grc/riesgos', query),
     migrar: body => call(migrarHandler, 'POST', body, '/api/grc/migrar-riesgos'),
     limpiar: body => call(limpiarHandler, 'POST', body, '/api/grc/limpiar-riesgos'),
+    noAplica: body => call(noAplicaHandler, 'POST', body, '/api/grc/no-aplica'),
   };
 }
 
@@ -844,4 +847,55 @@ test('limpieza: se bloquea si un riesgo antiguo no está en la matriz vigente, s
   assert.equal(fixture.documents.get(ROOT).riesgos.length, 3, 'no borró nada');
   const confirmado = await fixture.limpiar({ ...CONFIRMAR_LIMPIEZA, faltantesConfirmados: ['2'] });
   assert.equal(confirmado.body.estado, 'limpiado');
+});
+
+// "No aplica" de un hallazgo: el ejecutor propone, el auditor decide; aprobado es definitivo y no borra acciones.
+for (const fragmented of [false, true]) {
+  test(`No aplica ${fragmented ? 'fragmentado' : 'legado'}: propone el ejecutor, aprueba el auditor, acciones conservadas`, async () => {
+    const fixture = storeFixture({ fragmented });
+    const ejecutor = { uid: 'u2', email: 'ejecutor@example.test' };
+    const auditor = { uid: 'u1', email: 'auditor@example.test' };
+    fixture.sesion.usuario = ejecutor;
+    assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'corto' })).code, 400);
+    const propuesta = await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'Subsanado en campo según acta 12' });
+    assert.equal(propuesta.code, 200, JSON.stringify(propuesta));
+    assert.equal(propuesta.body.hallazgo.noAplica.estado, 'Pendiente');
+    assert.equal(propuesta.body.hallazgo.estado, 'Abierto');
+    assert.equal(propuesta.body.planes.length, 0, 'pendiente no toca las acciones');
+    assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar' })).code, 403, 'el ejecutor no aprueba');
+    fixture.sesion.usuario = auditor;
+    const aprobado = await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar' });
+    assert.equal(aprobado.code, 200, JSON.stringify(aprobado));
+    const { data } = await fixture.workspace.leerWorkspaceGrc();
+    const hallazgo = data.hallazgos.find(item => item.id === 'h1');
+    assert.equal(hallazgo.estado, 'Cerrado');
+    assert.equal(hallazgo.noAplica.estado, 'Aprobado');
+    assert.ok(hallazgo.historialCambios.some(entrada => /NO APLICA \(aprobado\)/.test(entrada.accion)));
+    const planes = data.planes.filter(plan => String(plan.idHallazgo) === 'h1');
+    assert.equal(planes.length, 2, 'las acciones no se borran');
+    assert.ok(planes.every(plan => plan.estadoWorkflow === 'No aplica' && plan.estado === 'Cerrado' && plan.noAplica === true));
+    assert.ok(planes.every(plan => plan.historialCambios.some(entrada => /NO APLICA/.test(entrada.accion))));
+    fixture.sesion.usuario = ejecutor;
+    assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'Otra justificación larga' })).code, 409, 'definitivo');
+  });
+}
+
+test('No aplica: el auditor rechaza la propuesta y el hallazgo sigue aplicando', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.sesion.usuario = { uid: 'u2', email: 'ejecutor@example.test' };
+  assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'No corresponde a este proceso' })).code, 200);
+  fixture.sesion.usuario = { uid: 'u1', email: 'auditor@example.test' };
+  assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'rechazar', justificacion: 'x' })).code, 400, 'el rechazo exige motivo');
+  const rechazo = await fixture.noAplica({ idHallazgo: 'h1', accion: 'rechazar', justificacion: 'La desviación sí se evidenció en campo' });
+  assert.equal(rechazo.code, 200, JSON.stringify(rechazo));
+  assert.equal(rechazo.body.hallazgo.noAplica.estado, 'Rechazado');
+  assert.equal(rechazo.body.hallazgo.estado, 'Abierto');
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  assert.ok(data.planes.filter(plan => String(plan.idHallazgo) === 'h1').every(plan => plan.estadoWorkflow !== 'No aplica'));
+});
+
+test('No aplica: alguien sin rol en el hallazgo no puede proponerlo', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.sesion.usuario = { uid: 'u3', email: 'otro@example.test' };
+  assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'Intento de un tercero ajeno' })).code, 403);
 });
