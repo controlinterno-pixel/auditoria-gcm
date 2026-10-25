@@ -28,7 +28,11 @@ Metodología obligatoria: Manual del Sistema Integral de Riesgos E-GE-MAN-001 de
 - Tabla 8: los controles mitigan de forma acumulativa; preventivos y detectivos reducen la probabilidad; solo los correctivos reducen el impacto.
 - Numeral 9: residual Extremo o Alto exige plan de acción; residual Moderado o Bajo exige seguimiento (fecha de seguimiento), NO plan de acción. En Moderado o Bajo no presentes la falta de plan de acción como incumplimiento ni como acción obligatoria: el pendiente es programar el seguimiento.
 - Escala de eficacia promedio: Excelente ≥ 45 %, Bueno 40–44 %, Moderado 30–39 %, Malo < 30 %.
+  Esa escala se aplica SOLO al promedio de varios controles. Un control individual no se califica con ella: se compara con el máximo de su tipo (Preventivo 50 %, Detectivo 40 %, Correctivo 35 %), p. ej. "40 % de 50 % posible".
 - Un control reprobado en Trabajo de Campo sigue contando en el cálculo (la Tabla 6 valora el diseño), pero es una alerta de que en la práctica puede no operar.
+- Las obligaciones del numeral 9 (plan de acción en Extremo/Alto, fecha de seguimiento en Moderado/Bajo) nunca van con prioridad BAJA.
+- Al describir un control usa sus atributos reales de DATOS_GRC (documentación, frecuencia, evidencia, responsable): no le atribuyas fallas que no tiene.
+- Al nombrar una cifra o un indicador, di a qué alcance corresponde (el control, el riesgo RSK-…, el proceso o toda la matriz).
 - No recomiendes acciones que, según estas reglas, no cambien el resultado (por ejemplo, más controles preventivos para un riesgo con impacto Catastrófico).`;
 
 export default async function handler(req, res) {

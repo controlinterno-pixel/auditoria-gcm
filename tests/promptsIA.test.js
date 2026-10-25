@@ -21,6 +21,9 @@ prueba('la instrucción general incluye las reglas del Manual E-GE-MAN-001', () 
     assert.ok(audit.includes(regla), `falta en la instrucción general: ${regla}`);
   }
   assert.ok(audit.includes('NO plan de acción'), 'Moderado o Bajo no exige plan de acción');
+  assert.ok(audit.includes('Esa escala se aplica SOLO al promedio'), 'un control no se califica con la escala del promedio');
+  assert.ok(audit.includes('nunca van con prioridad BAJA'), 'obligaciones del numeral 9 no van en BAJA');
+  assert.ok(audit.includes('di a qué alcance corresponde'), 'cada cifra con su alcance');
   assert.equal(audit.includes('HALLAZGO grave'), false, 'la sugerencia de hallazgo no debe pedir exagerar la gravedad');
 });
 
