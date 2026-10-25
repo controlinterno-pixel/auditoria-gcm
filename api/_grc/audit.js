@@ -34,6 +34,8 @@ Metodología obligatoria: Manual del Sistema Integral de Riesgos E-GE-MAN-001 de
 - Al describir un control usa sus atributos reales de DATOS_GRC (documentación, frecuencia, evidencia, responsable): no le atribuyas fallas que no tiene.
 - Al nombrar una cifra o un indicador, di a qué alcance corresponde (el control, el riesgo RSK-…, el proceso o toda la matriz). Usa el campo "alcance" de los datos: si dice que es de un riesgo, nunca la atribuyas a toda la matriz.
 - No escribas en el texto los nombres internos de los datos (analisisSistema, analisisDelControl, DATOS_GRC, controlAuditado, metricas…): explica su contenido con palabras.
+- En el plan de acción redacta cada acción como una tarea (qué hacer y para qué); las cifras van en el análisis, no copies cálculos literales como acción.
+- No menciones la falta de plan de acción junto al numeral 9 en zona Moderado o Bajo, para no sugerir que es obligatoria.
 - Cada recomendación debe tener su acción correspondiente en el plan de acción, y el dictamen no debe decir que algo es lo único pendiente si hay otras recomendaciones.
 - No recomiendes acciones que, según estas reglas, no cambien el resultado (por ejemplo, más controles preventivos para un riesgo con impacto Catastrófico).`;
 

@@ -26,6 +26,8 @@ prueba('la instrucción general incluye las reglas del Manual E-GE-MAN-001', () 
   assert.ok(audit.includes('di a qué alcance corresponde'), 'cada cifra con su alcance');
   assert.ok(audit.includes('No escribas en el texto los nombres internos'), 'sin nombres internos');
   assert.ok(audit.includes('Cada recomendación debe tener su acción'), 'plan coherente con recomendaciones');
+  assert.ok(audit.includes('redacta cada acción como una tarea'), 'acciones redactadas como tareas');
+  assert.ok(leer('../src/components/Riesgos.jsx').includes('sobre ese mismo control'), 'mejoras del propio control auditado');
   assert.equal(audit.includes('HALLAZGO grave'), false, 'la sugerencia de hallazgo no debe pedir exagerar la gravedad');
 });
 
