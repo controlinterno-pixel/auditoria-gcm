@@ -354,7 +354,7 @@ export function crearPdfReporte360(reporte, { logo } = {}) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...COLORES.tenue);
-    doc.text(textoPdf('Control interno · Informe ejecutivo de seguimiento'), 49, 21);
+    doc.text(textoPdf('Informe ejecutivo de seguimiento'), 49, 21);
     doc.setFontSize(7);
     doc.text(identificador, ancho - margen, 20, { align: 'right' });
     doc.setDrawColor(...COLORES.oro);
