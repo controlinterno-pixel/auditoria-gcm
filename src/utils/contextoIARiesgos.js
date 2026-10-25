@@ -83,6 +83,7 @@ export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion, e
       control: codigoControl(indice, riesgo.id), calificacion: prueba.calificacion, fecha: prueba.fecha, diseno: prueba.diseno, ejecucion: prueba.ejecucion,
     })),
     metricas: {
+      alcance: `Solo el riesgo RSK-${riesgo.id} (no toda la matriz)`,
       totalControles: controles.length || (riesgo.descripcionControl ? 1 : 0),
       eficaciaPromedioControles: promedio(controles.map(control => control.eficacia)),
       mitigacionLograda: calcularMitigacion(riesgo),
@@ -137,6 +138,7 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
 
   return {
     metricas: {
+      alcance: `Conjunto analizado: ${registros.length} riesgo(s) con los filtros aplicados`,
       totalRiesgos: registros.length,
       totalControles: controles.length,
       eficaciaPromedioControles: promedio(controles.map(control => control.eficacia)),

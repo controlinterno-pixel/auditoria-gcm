@@ -32,7 +32,9 @@ Metodología obligatoria: Manual del Sistema Integral de Riesgos E-GE-MAN-001 de
 - Un control reprobado en Trabajo de Campo sigue contando en el cálculo (la Tabla 6 valora el diseño), pero es una alerta de que en la práctica puede no operar.
 - Las obligaciones del numeral 9 (plan de acción en Extremo/Alto, fecha de seguimiento en Moderado/Bajo) nunca van con prioridad BAJA.
 - Al describir un control usa sus atributos reales de DATOS_GRC (documentación, frecuencia, evidencia, responsable): no le atribuyas fallas que no tiene.
-- Al nombrar una cifra o un indicador, di a qué alcance corresponde (el control, el riesgo RSK-…, el proceso o toda la matriz).
+- Al nombrar una cifra o un indicador, di a qué alcance corresponde (el control, el riesgo RSK-…, el proceso o toda la matriz). Usa el campo "alcance" de los datos: si dice que es de un riesgo, nunca la atribuyas a toda la matriz.
+- No escribas en el texto los nombres internos de los datos (analisisSistema, analisisDelControl, DATOS_GRC, controlAuditado, metricas…): explica su contenido con palabras.
+- Cada recomendación debe tener su acción correspondiente en el plan de acción, y el dictamen no debe decir que algo es lo único pendiente si hay otras recomendaciones.
 - No recomiendes acciones que, según estas reglas, no cambien el resultado (por ejemplo, más controles preventivos para un riesgo con impacto Catastrófico).`;
 
 export default async function handler(req, res) {
