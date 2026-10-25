@@ -349,12 +349,16 @@ export default function SidebarNavigation({
                     </button>
                   )}
                   {misTareasAprobacion > 0 && (
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => navigateTo('planes_tab', () => { setSubTabPlanes('planes'); onSelectAprobacionTasks(); })}
-                      className="min-h-6 rounded px-1 hover:underline hover:text-emerald-500 cursor-pointer transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                      className="group relative isolate flex items-center gap-2 rounded-lg border border-emerald-300/40 bg-emerald-400/10 px-3 py-1.5 font-extrabold text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-400/20 hover:text-emerald-100 hover:shadow-[0_0_18px_rgba(52,211,153,0.38)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-300"
+                      aria-label={`Mostrar ${misTareasAprobacion} aprobaciones pendientes`}
                     >
-                      ✓ Aprobar: {misTareasAprobacion}
+                      <span aria-hidden="true" className="absolute -inset-1 -z-10 rounded-xl bg-emerald-300/15 blur-md animate-pulse" />
+                      <span aria-hidden="true" className="text-sm transition-transform duration-300 group-hover:scale-110">✓</span>
+                      <span>Aprobar</span>
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-1.5 text-[10px] font-black text-slate-950 shadow-sm">{misTareasAprobacion}</span>
                     </button>
                   )}
                 </div>

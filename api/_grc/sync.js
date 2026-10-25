@@ -220,6 +220,19 @@ function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
   });
 }
 
+// true si el guardado cambia o elimina una acción que quedó en estado "No aplica".
+export function modificaAccionesNoAplica(planesNuevos, workspaceActual) {
+  if (!Array.isArray(planesNuevos)) return false;
+  const nuevosPorId = new Map(planesNuevos.map(plan => [String(plan?.id), plan]));
+  return (Array.isArray(workspaceActual?.planes) ? workspaceActual.planes : [])
+    .filter(plan => plan?.estadoWorkflow === 'No aplica' || plan?.noAplica === true)
+    .some(guardado => {
+      const nuevo = nuevosPorId.get(String(guardado.id));
+      const campos = ['estadoWorkflow', 'estado', 'progreso', 'accion', 'fecha', 'fechaInicio', 'responsable', 'correoResponsable', 'evidenciaUrl', 'idHallazgo', 'noAplica'];
+      return !nuevo || campos.some(campo => JSON.stringify(nuevo[campo] ?? null) !== JSON.stringify(guardado[campo] ?? null));
+    });
+}
+
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
 
@@ -391,6 +404,12 @@ export default async function handler(req, res) {
       const workspaceActual = Array.isArray(partialData.planes)
         ? (await leerWorkspaceGrc(null, { origen: 'sync-post-validacion' })).data
         : null;
+
+      // Acciones cerradas por un "No aplica" aprobado: definitivas para todos, también para administradores.
+      if (modificaAccionesNoAplica(partialData.planes, workspaceActual)) {
+        logger.warn('Intento de modificar acciones cerradas como No aplica', { usuario: user.email });
+        return sendError(res, 'Hay acciones cerradas porque su hallazgo se declaró No aplica (decisión definitiva). No se pueden modificar ni eliminar.', 409);
+      }
 
       if (hayConflictosDeRolesEnPlanesActualizados(partialData.planes, workspaceActual)) {
         return sendError(res, 'Ejecutor, revisor y auditor deben ser personas distintas. Revisa los correos asignados.', 400);

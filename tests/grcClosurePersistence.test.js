@@ -899,3 +899,14 @@ test('No aplica: alguien sin rol en el hallazgo no puede proponerlo', async () =
   fixture.sesion.usuario = { uid: 'u3', email: 'otro@example.test' };
   assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'Intento de un tercero ajeno' })).code, 403);
 });
+
+test('sync: ni un administrador modifica o elimina acciones cerradas como No aplica', () => {
+  const modificaAccionesNoAplica = new Function(`${moduleBody('../api/_grc/sync.js').split('async function handler')[0]}
+return modificaAccionesNoAplica;`)();
+  const guardado = { id: 7, idHallazgo: 'h1', accion: 'A', estadoWorkflow: 'No aplica', estado: 'Cerrado', noAplica: true, progreso: 40 };
+  const workspace = { planes: [guardado, { id: 8, estadoWorkflow: 'En Ejecución', progreso: 10 }] };
+  assert.equal(modificaAccionesNoAplica([{ ...guardado, docId: 'x', otro: 1 }, { id: 8, progreso: 50 }], workspace), false, 'sin cambios relevantes no bloquea');
+  assert.equal(modificaAccionesNoAplica([{ ...guardado, progreso: 100 }], workspace), true, 'cambiar avance');
+  assert.equal(modificaAccionesNoAplica([{ ...guardado, estadoWorkflow: 'En Ejecución' }], workspace), true, 'reabrir');
+  assert.equal(modificaAccionesNoAplica([{ id: 8 }], workspace), true, 'eliminarla');
+});
