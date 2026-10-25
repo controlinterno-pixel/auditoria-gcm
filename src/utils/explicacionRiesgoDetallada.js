@@ -211,7 +211,7 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
  * Análisis exacto de un control dentro de su riesgo: qué pasa con el residual y la zona si el control
  * falla (no opera) y si se automatiza. Lo usa la auditoría de control con IA para no deducirlo.
  */
-export function analizarControlEnRiesgo(riesgo, indiceControl) {
+export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = new Map() } = {}) {
   const pInh = Number(riesgo.probabilidadInherente) || 60;
   const iInh = Number(riesgo.impactoInherente) || 60;
   const todos = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
@@ -280,6 +280,14 @@ export function analizarControlEnRiesgo(riesgo, indiceControl) {
     situacionActual: `Con todos los controles vigentes: ${eje} ${numero(actual.valor)} % (${actual.nivel}) → zona ${actual.zona}.`,
     siElControlFalla: describe(`Si ${codigo} falla o no opera`, siFalla),
     siSeAutomatiza: automatizado ? describe(`Si ${codigo} se automatiza (${d.total} % → ${d.total + 10} %)`, automatizado) : `${codigo} ya es automático.`,
+    // Última prueba de Trabajo de Campo de este control (null si nunca se probó).
+    pruebaTrabajoDeCampo: (() => {
+      const prueba = pruebasCampo.get(indiceControl);
+      if (!prueba) return 'Este control no tiene pruebas de Trabajo de Campo registradas.';
+      return prueba.calificacion < 100
+        ? `ALERTA: ${codigo} fue REPROBADO en Trabajo de Campo el ${prueba.fecha} con ${prueba.calificacion} % (diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}). Su eficacia de diseño sigue contando en el cálculo, pero en la práctica puede no estar operando: la mitigación que aporta no está demostrada.`
+        : `${codigo} aprobó su última prueba de Trabajo de Campo (${prueba.fecha}, 100 %).`;
+    })(),
     controlesDelRiesgoPorTipo: controlesPorTipo,
     accionesQueCambianLaZona: accionesQueCambianLaZona.length ? accionesQueCambianLaZona : [`Ninguna acción de un solo paso saca el riesgo de zona ${actual.zona}.`],
     combinacionesDeDosPasos: combinacionesDeDosPasos.length ? combinacionesDeDosPasos
