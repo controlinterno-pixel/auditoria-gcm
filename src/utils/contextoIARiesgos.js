@@ -34,6 +34,7 @@ export function controlesDeRiesgo(riesgo, calcularEficacia) {
     documentacion: control.documentacion || 'Sin dato',
     frecuencia: control.frecuencia || 'Sin dato',
     evidencia: control.evidencia || 'Sin dato',
+    responsable: control.responsable || control.responsableControl || 'Sin asignar',
     eficacia: calcularEficacia(control),
   }));
 }

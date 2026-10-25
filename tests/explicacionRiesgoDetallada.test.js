@@ -1,6 +1,6 @@
 // "Explícame este riesgo": la explicación sale de los datos del riesgo (caso real RSK-196 y un caso Moderado).
 import assert from 'node:assert/strict';
-import { explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../src/utils/explicacionRiesgoDetallada.js';
+import { analizarControlEnRiesgo, explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../src/utils/explicacionRiesgoDetallada.js';
 
 let pruebas = 0;
 const prueba = (nombre, fn) => { fn(); pruebas += 1; };
@@ -65,6 +65,17 @@ prueba('control reprobado en Trabajo de Campo: usa la última prueba y muestra e
   const aviso = r.pendientes.find(l => l.startsWith('CTL-2-1 fue reprobado en Trabajo de Campo el 2026-08-05'));
   assert.ok(aviso, 'debe avisar el control reprobado');
   assert.match(aviso, /la probabilidad quedaría en 2 % en lugar de 1 %/);
+});
+
+prueba('análisis de un control (RSK-71): si falla no cambia la zona; automatizarlo la lleva a Bajo', () => {
+  const r = { id: 71, probabilidadInherente: 40, impactoInherente: 60, controlesDetallados: [
+    { tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'No documentado', frecuencia: 'Aleatoria' },
+    { tipo: 'Correctivo', implementacion: 'Manual' }, { tipo: 'Correctivo', implementacion: 'Manual' }] };
+  const a = analizarControlEnRiesgo(r, 0);
+  assert.equal(a.siElControlFalla, 'Si CTL-71-1 falla o no opera: probabilidad 40 % (Baja) → zona Moderado (la zona no cambia).');
+  assert.equal(a.siSeAutomatiza, 'Si CTL-71-1 se automatiza (40 % → 50 %): probabilidad 20 % (Muy baja) → zona Bajo (cambia desde Moderado).');
+  assert.match(a.documentarlo, /no cambia su eficacia/);
+  assert.equal(analizarControlEnRiesgo(r, 9), null);
 });
 
 console.log(`explicacionRiesgoDetallada.test.js: ${pruebas} pruebas OK`);

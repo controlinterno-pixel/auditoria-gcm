@@ -17,7 +17,7 @@ import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, z
 import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, validarMotivo, vigentes } from '../utils/anulacion.js';
 import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
 import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
-import { explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../utils/explicacionRiesgoDetallada.js';
+import { analizarControlEnRiesgo, explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../utils/explicacionRiesgoDetallada.js';
 import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '../utils/cumplimientoManual.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
@@ -858,8 +858,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         frecuencia: c.frecuencia || 'Sin dato', evidencia: c.evidencia || 'Sin dato', eficacia: calcularEficaciaControl(c),
       };
       const respuesta = await consultarPanelIA({
-        instruccion: `Audita el control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. No lo describas: evalúa su diseño (tipo, ejecución, documentación, frecuencia y evidencia) con la Tabla 6, su dependencia manual, su trazabilidad y si ataca la causa raíz del riesgo, comparándolo con los demás controles del mismo riesgo. Si aparece en "pruebasTrabajoDeCampo" con calificación menor a 100 %, trátalo como alerta principal. Usa "analisisSistema" para explicar qué pasaría con el residual si este control falla y da la recomendación prioritaria.`,
-        datos: { controlAuditado: control, ...datosRiesgo },
+        instruccion: `Audita el control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. No lo describas: evalúa su diseño (tipo, ejecución, documentación, frecuencia y evidencia) con la Tabla 6, su dependencia manual, su trazabilidad y si ataca la causa raíz del riesgo, comparándolo con los demás controles del mismo riesgo. Empieza por "analisisDelControl", que trae el cálculo exacto: di con sus cifras qué pasa si el control falla y si se automatiza, y si la zona cambia o no (si no cambia, no lo presentes como crítico). Si automatizarlo cambia la zona, esa es la recomendación prioritaria. Si aparece en "pruebasTrabajoDeCampo" con calificación menor a 100 %, trátalo como alerta principal. El responsable del control está en controlAuditado.responsable.`,
+        datos: { controlAuditado: control, analisisDelControl: analizarControlEnRiesgo(r, indice), ...datosRiesgo },
       });
       setDictamenIA({
         titulo: `Auditoría de Control ${control.codigo} — ${datosRiesgo.riesgo.codigo}`,
@@ -871,6 +871,12 @@ const [editRiesgo, setEditRiesgo] = useState(null);
             totalControles: datosRiesgo.metricas.totalControles,
             coberturaControles: datosRiesgo.metricas.mitigacionLograda,
           },
+          indicadores: [
+            { etiqueta: 'Puntaje residual', valor: `${datosRiesgo.riesgo.puntajeResidual}/25` },
+            { etiqueta: 'Eficacia del control', valor: `${control.eficacia}%` },
+            { etiqueta: 'Controles del riesgo', valor: datosRiesgo.metricas.totalControles },
+            { etiqueta: 'Mitigación del riesgo', valor: `${datosRiesgo.metricas.mitigacionLograda}%` },
+          ],
         }),
       });
     } catch (error) {

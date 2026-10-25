@@ -206,3 +206,41 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
     notaMejoras,
   };
 }
+
+/**
+ * Análisis exacto de un control dentro de su riesgo: qué pasa con el residual y la zona si el control
+ * falla (no opera) y si se automatiza. Lo usa la auditoría de control con IA para no deducirlo.
+ */
+export function analizarControlEnRiesgo(riesgo, indiceControl) {
+  const pInh = Number(riesgo.probabilidadInherente) || 60;
+  const iInh = Number(riesgo.impactoInherente) || 60;
+  const todos = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
+  const control = todos[indiceControl];
+  if (!control) return null;
+  const vigentes = todos.map((item, indice) => ({ item, indice })).filter(({ item }) => item && !estaAnulado(item));
+  const d = desglosarEficaciaControl(control);
+  const eje = d.tipo === 'Correctivo' ? 'impacto' : 'probabilidad';
+  const etiqueta = eje === 'impacto' ? etiquetaI : etiquetaP;
+  const resultado = lista => {
+    const r = calcularResiduales(pInh, iInh, lista);
+    const valor = eje === 'impacto' ? r.impactoResidual : r.probabilidadResidual;
+    return { valor, nivel: etiqueta(valor), zona: zonaDe(r.probabilidadResidual, r.impactoResidual) };
+  };
+  const actual = resultado(vigentes.map(({ item }) => item));
+  const siFalla = resultado(vigentes.filter(({ indice }) => indice !== indiceControl).map(({ item }) => item));
+  const automatizado = d.implementacion === 'Automático' ? null : resultado(vigentes.map(({ item, indice }) => (
+    indice === indiceControl ? { ...item, implementacion: 'Automático', ejecucion: 'Automático' } : item)));
+  const codigo = codigoControl(indiceControl, riesgo.id);
+  const describe = (titulo, r) => `${titulo}: ${eje} ${numero(r.valor)} % (${r.nivel}) → zona ${r.zona}${r.zona === actual.zona ? ' (la zona no cambia)' : ` (cambia desde ${actual.zona})`}.`;
+  return {
+    control: codigo,
+    reduce: eje,
+    eficacia: `${d.tipo} ${d.implementacion.toLowerCase()}: ${d.factores.map(f => f.puntos).join(' + ')} = ${d.total} % (máximo de su tipo ${d.maximoPosible} %).`,
+    situacionActual: `Con todos los controles vigentes: ${eje} ${numero(actual.valor)} % (${actual.nivel}) → zona ${actual.zona}.`,
+    siElControlFalla: describe(`Si ${codigo} falla o no opera`, siFalla),
+    siSeAutomatiza: automatizado ? describe(`Si ${codigo} se automatiza (${d.total} % → ${d.total + 10} %)`, automatizado) : `${codigo} ya es automático.`,
+    documentarlo: d.informativos.some(i => !i.cumple)
+      ? `Documentarlo, darle frecuencia continua y registro (${d.informativos.filter(i => !i.cumple).map(i => i.valor.toLowerCase()).join(', ')}) no cambia su eficacia según la Tabla 6, pero lo formaliza y da evidencia para auditoría.`
+      : 'Está formalizado: documentado, con frecuencia continua y con registro.',
+  };
+}
