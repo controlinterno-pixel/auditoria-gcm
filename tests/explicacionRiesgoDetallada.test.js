@@ -75,6 +75,11 @@ prueba('análisis de un control (RSK-71): si falla no cambia la zona; automatiza
   assert.equal(a.siElControlFalla, 'Si CTL-71-1 falla o no opera: probabilidad 40 % (Baja) → zona Moderado (la zona no cambia).');
   assert.equal(a.siSeAutomatiza, 'Si CTL-71-1 se automatiza (40 % → 50 %): probabilidad 20 % (Muy baja) → zona Bajo (cambia desde Moderado).');
   assert.match(a.documentarlo, /no cambia su eficacia/);
+  const correctivo = analizarControlEnRiesgo(r, 1);
+  assert.equal(correctivo.accionesQueCambianLaZona[0], 'Automatizar CTL-71-1: probabilidad 20 % (Muy baja), impacto 34 % (Menor) → zona Bajo.');
+  assert.ok(correctivo.accionesQueCambianLaZona.some(l => l.startsWith('Agregar 1 control preventivo manual') && l.endsWith('zona Bajo.')));
+  assert.ok(correctivo.accionesQueCambianLaZona.some(l => l.startsWith('Agregar 2 controles correctivos manuales') && l.endsWith('zona Bajo.')));
+  assert.equal(correctivo.accionesQueCambianLaZona.some(l => l.startsWith('Automatizar CTL-71-2')), false, 'automatizar CTL-71-2 no cambia la zona');
   assert.equal(analizarControlEnRiesgo(r, 9), null);
 });
 
