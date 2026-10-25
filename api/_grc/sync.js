@@ -221,7 +221,7 @@ function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
 }
 
 // true si el guardado cambia o elimina una acción que quedó en estado "No aplica".
-export function modificaAccionesNoAplica(planesNuevos, workspaceActual) {
+function modificaAccionesNoAplica(planesNuevos, workspaceActual) {
   if (!Array.isArray(planesNuevos)) return false;
   const nuevosPorId = new Map(planesNuevos.map(plan => [String(plan?.id), plan]));
   return (Array.isArray(workspaceActual?.planes) ? workspaceActual.planes : [])
