@@ -34,7 +34,10 @@ export function controlesDeRiesgo(riesgo, calcularEficacia) {
     documentacion: control.documentacion || 'Sin dato',
     frecuencia: control.frecuencia || 'Sin dato',
     evidencia: control.evidencia || 'Sin dato',
-    responsable: control.responsable || control.responsableControl || 'Sin asignar',
+    // Los controles no tienen responsable propio: la matriz y el Excel muestran el del riesgo.
+    responsable: control.responsable || control.responsableControl
+      || (Array.isArray(riesgo?.responsable) ? riesgo.responsable.join(', ') : riesgo?.responsable)
+      || 'Sin asignar',
     eficacia: calcularEficacia(control),
   }));
 }

@@ -276,7 +276,7 @@ export function analizarControlEnRiesgo(riesgo, indiceControl) {
   return {
     control: codigo,
     reduce: eje,
-    eficacia: `${d.tipo} ${d.implementacion.toLowerCase()}: ${d.factores.map(f => f.puntos).join(' + ')} = ${d.total} % (máximo de su tipo ${d.maximoPosible} %).`,
+    eficacia: `${d.tipo} ${d.implementacion.toLowerCase()}: ${d.factores.map(f => f.puntos).join(' + ')} = ${d.total} % de ${d.maximoPosible} % posible para su tipo${d.total < d.maximoPosible ? ` (no está en el máximo: le faltan ${d.maximoPosible - d.total} puntos, que se ganan automatizándolo)` : ' (está en el máximo de su tipo)'}.`,
     situacionActual: `Con todos los controles vigentes: ${eje} ${numero(actual.valor)} % (${actual.nivel}) → zona ${actual.zona}.`,
     siElControlFalla: describe(`Si ${codigo} falla o no opera`, siFalla),
     siSeAutomatiza: automatizado ? describe(`Si ${codigo} se automatiza (${d.total} % → ${d.total + 10} %)`, automatizado) : `${codigo} ya es automático.`,
