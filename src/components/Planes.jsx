@@ -1676,8 +1676,52 @@ if (existingActivities.length > 0) {
       .flatMap(valor => String(valor || '').split(',')).map(valor => valor.trim().toLowerCase()).filter(Boolean);
     return Boolean(yo) && correos.includes(yo);
   };
+  // Correos de los participantes del hallazgo: auditor aprobador (decide) y ejecutores (proponen).
+  const correosDelHallazgo = (hallazgoId, campos) => {
+    const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
+    const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo?.idInforme || formInformeId));
+    const planesHallazgo = safePlanes.filter(plan => String(plan.idHallazgo) === String(hallazgoId));
+    const valores = campos.includes('auditor')
+      ? [informe?.correoAuditor, informe?.correoAuditorResponsable, ...planesHallazgo.flatMap(plan => [plan.correoAuditor, plan.correoAuditorResponsable])]
+      : planesHallazgo.map(plan => plan.correoResponsable);
+    return [...new Set(valores.flatMap(valor => String(valor || '').split(',')).map(valor => valor.trim().toLowerCase()).filter(Boolean))].join(', ');
+  };
+  const notificarNoAplica = (hallazgo, accion, justificacion, autorizacionLista) => {
+    const referencia = hallazgo.ref || `HAL-${hallazgo.id}`;
+    const enlace = `${window.location.origin}/?reviewReportId=${encodeURIComponent(hallazgo.idInforme || formInformeId)}`;
+    const estado = estadoNoAplica(hallazgo);
+    if (accion === 'proponer' && estado === 'Pendiente') {
+      return enviarNotificacionPlanConReintento({
+        ref_consecutivo: referencia,
+        asunto: `No aplica propuesto: ${referencia} requiere su aprobación`,
+        titulo_informe: 'Aprobar o rechazar No aplica del hallazgo',
+        proceso_auditado: `El ejecutor propuso que el hallazgo ${referencia} "${hallazgo.titulo || ''}" NO APLICA. Justificación: "${justificacion}". Ingrese a Planes de Acción (botón "Aprobar" del menú) para aprobarlo o rechazarlo con su observación. Mientras decide, las acciones del hallazgo quedan en pausa.`,
+        enlace_pdf: enlace,
+        destinatarios: correosDelHallazgo(hallazgo.id, ['auditor']),
+      }, autorizacionLista);
+    }
+    if (['aprobar', 'rechazar'].includes(accion)) {
+      const aprobado = accion === 'aprobar';
+      return enviarNotificacionPlanConReintento({
+        ref_consecutivo: referencia,
+        asunto: aprobado ? `No aplica aprobado: ${referencia} quedó cerrado` : `No aplica rechazado: ${referencia} sigue aplicando`,
+        titulo_informe: aprobado ? 'No aplica aprobado por el auditor' : 'No aplica rechazado por el auditor',
+        proceso_auditado: aprobado
+          ? `El auditor aprobó el No aplica del hallazgo ${referencia}. El hallazgo quedó cerrado de forma definitiva y sus acciones bloqueadas. Observación del auditor: "${justificacion}".`
+          : `El auditor rechazó el No aplica del hallazgo ${referencia}: el hallazgo sigue aplicando y sus acciones vuelven a ejecución. Motivo: "${justificacion}". Ingrese a Planes de Acción para continuar.`,
+        enlace_pdf: enlace,
+        destinatarios: correosDelHallazgo(hallazgo.id, ['ejecutor']),
+      }, autorizacionLista);
+    }
+    return Promise.resolve(true);
+  };
   const registrarNoAplica = async (hallazgoId, accion, justificacion = '') => {
     setEnviandoNoAplica(true);
+    // Gmail se autoriza en el mismo clic (antes de esperar al servidor), como en el resto de notificaciones.
+    let preparacionCorreo = Promise.resolve(true);
+    if (prepararEnvioGmail) {
+      try { preparacionCorreo = Promise.resolve(prepararEnvioGmail()).catch(() => false); } catch { preparacionCorreo = Promise.resolve(false); }
+    }
     try {
       const respuesta = await apiService.decidirNoAplicaHallazgo(hallazgoId, accion, justificacion);
       const hallazgoGuardado = respuesta?.hallazgo;
@@ -1695,10 +1739,11 @@ if (existingActivities.length > 0) {
           justificacionNoAplica: justificacionNoAplica(hallazgoGuardado),
         },
       }));
+      preparacionCorreo.then(lista => notificarNoAplica(hallazgoGuardado, accion, justificacion, Boolean(lista))).catch(() => {});
       showNotification(estado === 'Aprobado'
         ? 'Hallazgo cerrado como No aplica. Sus acciones quedaron cerradas y conservan su historial.'
         : estado === 'Pendiente'
-          ? 'Propuesta de No aplica enviada al auditor del informe para su aprobación.'
+          ? 'Propuesta de No aplica enviada al auditor aprobador (también por correo).'
           : 'No aplica rechazado: el hallazgo sigue aplicando.', 'success');
       return true;
     } catch (error) {
