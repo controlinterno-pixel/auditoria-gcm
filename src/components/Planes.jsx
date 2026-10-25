@@ -1666,9 +1666,8 @@ if (existingActivities.length > 0) {
 
   const [modalNoAplica, setModalNoAplica] = useState({ activo: false, hallazgoId: null, justificacionTemporal: '', modo: 'proponer' });
   const [enviandoNoAplica, setEnviandoNoAplica] = useState(false);
-  // El auditor del informe (o un administrador) aprueba o rechaza el "No aplica" que propone el ejecutor.
+  // Solo el auditor aprobador del informe aprueba o rechaza el "No aplica" que propone el ejecutor.
   const esAuditorDelHallazgo = hallazgoId => {
-    if (isAdmin) return true;
     const yo = String(user?.email || '').trim().toLowerCase();
     const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
     const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo?.idInforme || formInformeId));
@@ -1744,10 +1743,10 @@ if (existingActivities.length > 0) {
   const confirmarNoAplica = async () => {
     const texto = modalNoAplica.justificacionTemporal.trim();
     if (texto.length < MOTIVO_MINIMO_NO_APLICA) {
-      showNotification(`Escribe ${modalNoAplica.modo === 'rechazar' ? 'la razón del rechazo' : 'la justificación'} (mínimo ${MOTIVO_MINIMO_NO_APLICA} caracteres).`, 'error');
+      showNotification(`Escribe ${{ rechazar: 'la razón del rechazo', aprobar: 'tu observación de aprobación' }[modalNoAplica.modo] || 'la justificación'} (mínimo ${MOTIVO_MINIMO_NO_APLICA} caracteres).`, 'error');
       return;
     }
-    const ok = await registrarNoAplica(modalNoAplica.hallazgoId, modalNoAplica.modo === 'rechazar' ? 'rechazar' : 'proponer', texto);
+    const ok = await registrarNoAplica(modalNoAplica.hallazgoId, ['rechazar', 'aprobar'].includes(modalNoAplica.modo) ? modalNoAplica.modo : 'proponer', texto);
     if (ok) setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '', modo: 'proponer' });
   };
 
@@ -3779,19 +3778,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                         <div>
                           <span className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">
                             {node.estadoNoAplica === 'Pendiente'
-                              ? 'Propuesta del ejecutor: No aplica · pendiente de aprobación del auditor'
+                              ? `Propuesta de No aplica de ${safeHallazgos.find(item => String(item.id) === String(h.id))?.noAplica?.propuestoPor || 'el ejecutor'} · pendiente de aprobación del auditor`
                               : 'Hallazgo cerrado como No aplica (decisión definitiva)'}
                           </span>
                           <p className="whitespace-pre-wrap text-xs font-medium italic text-slate-700">"{node.justificacionNoAplica || 'Sin justificación registrada'}"</p>
                           <p className="mt-1 text-[10px] text-slate-500">
                             {node.estadoNoAplica === 'Pendiente'
-                              ? 'Mientras el auditor decide, las acciones de este hallazgo no se editan.'
-                              : 'Sus acciones quedaron cerradas como "No aplica": se conservan con su historial y ya no aparecen en tareas ni en vencidos.'}
+                              ? 'Mientras el auditor aprobador decide, las acciones de este hallazgo no se editan.'
+                              : `Sus acciones quedaron cerradas como "No aplica": se conservan con su historial y ya no aparecen en tareas ni en vencidos.${safeHallazgos.find(item => String(item.id) === String(h.id))?.noAplica?.observacionAprobacion ? ` Observación del auditor: "${safeHallazgos.find(item => String(item.id) === String(h.id)).noAplica.observacionAprobacion}".` : ''}`}
                           </p>
                         </div>
                         {!modoRevisionMatriz && node.estadoNoAplica === 'Pendiente' && esAuditorDelHallazgo(h.id) && (
                           <div className="flex shrink-0 gap-2">
-                            <button type="button" disabled={enviandoNoAplica} onClick={() => registrarNoAplica(h.id, 'aprobar')} className="rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-slate-900 disabled:opacity-50">Aprobar No aplica</button>
+                            <button type="button" disabled={enviandoNoAplica} onClick={() => setModalNoAplica({ activo: true, hallazgoId: h.id, justificacionTemporal: '', modo: 'aprobar' })} className="rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-slate-900 disabled:opacity-50">Aprobar No aplica</button>
                             <button type="button" disabled={enviandoNoAplica} onClick={() => setModalNoAplica({ activo: true, hallazgoId: h.id, justificacionTemporal: '', modo: 'rechazar' })} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-700 hover:bg-slate-50 disabled:opacity-50">Rechazar</button>
                           </div>
                         )}
@@ -5205,17 +5204,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95">
             <div className="bg-slate-800 p-4 flex justify-between items-center text-white shrink-0">
               <h4 id="no-aplica-titulo" className="font-black text-sm flex items-center gap-2">
-                <span>🛑</span> {modalNoAplica.modo === 'rechazar' ? 'Rechazar el No aplica' : 'Justificación de Inaplicabilidad'}
+                <span>🛑</span> {{ rechazar: 'Rechazar el No aplica', aprobar: 'Aprobar el No aplica' }[modalNoAplica.modo] || 'Justificación de Inaplicabilidad'}
               </h4>
               <button type="button" aria-label="Cerrar justificación" onClick={cerrarModalNoAplica} className="min-h-11 min-w-11 text-slate-300 hover:text-white font-black text-lg px-2">✕</button>
             </div>
             <div className="p-6 space-y-4">
               <p className="text-xs text-slate-600 font-medium">
-                {modalNoAplica.modo === 'rechazar'
+                {modalNoAplica.modo === 'aprobar'
+                  ? <>Escribe tu observación de aprobación. Al aprobar, el hallazgo queda <strong>cerrado como No aplica de forma definitiva</strong> y sus acciones se bloquean para todos (se conservan con su historial).</>
+                  : modalNoAplica.modo === 'rechazar'
                   ? 'Explica por qué el hallazgo sí aplica. El ejecutor verá el motivo y el hallazgo seguirá abierto con sus acciones.'
                   : esAuditorDelHallazgo(modalNoAplica.hallazgoId)
-                    ? <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Como auditor del informe, al guardar queda <strong>cerrado como No aplica de forma definitiva</strong>; sus acciones abiertas se cierran y conservan su historial.</>
-                    : <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Se enviará al <strong>auditor del informe para su aprobación</strong>; si la aprueba, la decisión es definitiva.</>}
+                    ? <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Como auditor aprobador, al guardar queda <strong>cerrado como No aplica de forma definitiva</strong>; sus acciones abiertas se cierran y conservan su historial.</>
+                    : <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Se enviará al <strong>auditor aprobador para que lo apruebe o rechace</strong>; si la aprueba, la decisión es definitiva.</>}
               </p>
               <label htmlFor="justificacion-no-aplica" className="block text-xs font-bold text-slate-700">Justificación</label>
               <textarea
@@ -5230,7 +5231,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
               <button type="button" onClick={cerrarModalNoAplica} className="min-h-11 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Cancelar</button>
               <button type="button" onClick={confirmarNoAplica} disabled={enviandoNoAplica} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all disabled:opacity-50">
-                {enviandoNoAplica ? 'Guardando…' : modalNoAplica.modo === 'rechazar' ? 'Rechazar No aplica' : esAuditorDelHallazgo(modalNoAplica.hallazgoId) ? 'Cerrar como No aplica' : 'Enviar al auditor'}
+                {enviandoNoAplica ? 'Guardando…' : modalNoAplica.modo === 'rechazar' ? 'Rechazar No aplica' : modalNoAplica.modo === 'aprobar' ? 'Aprobar No aplica' : esAuditorDelHallazgo(modalNoAplica.hallazgoId) ? 'Cerrar como No aplica' : 'Enviar al auditor'}
               </button>
             </div>
           </div>

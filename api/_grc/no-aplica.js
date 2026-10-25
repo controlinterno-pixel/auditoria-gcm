@@ -1,5 +1,5 @@
-// api/_grc/no-aplica.js - "No aplica" de un hallazgo: el ejecutor propone, el auditor del informe aprueba o
-// rechaza. Aprobado es definitivo: el hallazgo se cierra y sus acciones abiertas pasan a "No aplica".
+// api/_grc/no-aplica.js - "No aplica" de un hallazgo: el ejecutor propone; solo el auditor
+// aprobador del informe aprueba o rechaza, con su observación (el administrador no interviene). Aprobado es definitivo: el hallazgo se cierra y sus acciones abiertas pasan a "No aplica".
 // Nunca se borra ninguna acción: conservan su historial y quedan consultables.
 import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
@@ -7,7 +7,6 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-import { esAdministradorTotal } from '../_lib/roles.js';
 import {
   guardarPlanesGrc, guardarRegistrosGrc, leerInformeTx, leerWorkspaceGrcLigero, obtenerHallazgosTx, obtenerPlanesDeHallazgosTx,
 } from '../_lib/grcWorkspace.js';
@@ -35,10 +34,10 @@ export default async function handler(req, res) {
   const { idHallazgo, accion, justificacion = '' } = req.body || {};
   const texto = String(justificacion || '').trim().slice(0, 2000);
   if (!idHallazgo || !['proponer', 'aprobar', 'rechazar'].includes(accion)) return sendError(res, 'Solicitud de "No aplica" no válida.', 400);
-  if (['proponer', 'rechazar'].includes(accion) && texto.length < MOTIVO_MINIMO_NO_APLICA) {
-    return sendError(res, `Escribe la ${accion === 'proponer' ? 'justificación' : 'razón del rechazo'} (mínimo ${MOTIVO_MINIMO_NO_APLICA} caracteres).`, 400);
+  if (texto.length < MOTIVO_MINIMO_NO_APLICA) {
+    const que = { proponer: 'la justificación', aprobar: 'tu observación de aprobación', rechazar: 'la razón del rechazo' }[accion];
+    return sendError(res, `Escribe ${que} (mínimo ${MOTIVO_MINIMO_NO_APLICA} caracteres).`, 400);
   }
-  const admin = esAdministradorTotal(user.rol);
 
   try {
     const resultado = await adminDb.runTransaction(async transaction => {
@@ -62,7 +61,7 @@ export default async function handler(req, res) {
       let actualizado;
       let planesActualizados = [];
 
-      const aprobar = (base, justificacionFinal) => {
+      const aprobar = (base, justificacionFinal, observacion) => {
         // Definitivo: el hallazgo se cierra y sus acciones abiertas quedan "No aplica" (no se borran).
         planesActualizados = planes.filter(plan => plan.estadoWorkflow !== 'Cerrado' && plan.estado !== 'Cerrado').map(plan => ({
           ...plan,
@@ -76,25 +75,25 @@ export default async function handler(req, res) {
         return {
           ...base,
           estado: 'Cerrado',
-          noAplica: { ...(base.noAplica || {}), estado: 'Aprobado', justificacion: justificacionFinal, decididoPor: user.email, decididoEn: ahora.toISOString() },
+          noAplica: { ...(base.noAplica || {}), estado: 'Aprobado', justificacion: justificacionFinal, observacionAprobacion: observacion, decididoPor: user.email, decididoEn: ahora.toISOString() },
         };
       };
 
       if (accion === 'proponer') {
         if (hallazgo.estado === 'Cerrado') return { error: 'closed' };
         if (estadoActual === 'Pendiente') return { error: 'already-pending' };
-        if (!admin && !esAuditor && !esEjecutor) return { error: 'forbidden-propose' };
+        if (!esAuditor && !esEjecutor) return { error: 'forbidden-propose' };
         const propuesto = { ...hallazgo, noAplica: { estado: 'Pendiente', justificacion: texto, propuestoPor: user.email, propuestoEn: ahora.toISOString() } };
-        // El auditor del informe o un administrador son quienes aprueban: si lo proponen ellos, queda aprobado.
-        actualizado = admin || esAuditor
-          ? { ...aprobar(propuesto, texto), historialCambios: [...historial, { ...marca, accion: `❌ Hallazgo marcado como NO APLICA (aprobado por ${esAuditor ? 'el auditor' : 'un administrador'}). Justificación: ${texto}` }] }
+        // El auditor aprobador es quien decide: si lo marca él mismo, queda aprobado con su justificación.
+        actualizado = esAuditor
+          ? { ...aprobar(propuesto, texto, texto), historialCambios: [...historial, { ...marca, accion: `❌ Hallazgo marcado como NO APLICA por el auditor aprobador. Justificación: ${texto}` }] }
           : { ...propuesto, historialCambios: [...historial, { ...marca, accion: `⏳ NO APLICA propuesto por el ejecutor, pendiente de aprobación del auditor. Justificación: ${texto}` }] };
       } else {
         if (estadoActual !== 'Pendiente') return { error: 'not-pending' };
-        if (!admin && !esAuditor) return { error: 'forbidden-decide' };
+        if (!esAuditor) return { error: 'forbidden-decide' };
         const justificacionPropuesta = hallazgo.noAplica?.justificacion || '';
         actualizado = accion === 'aprobar'
-          ? { ...aprobar(hallazgo, justificacionPropuesta), historialCambios: [...historial, { ...marca, accion: `❌ Hallazgo marcado como NO APLICA (aprobado). Justificación: ${justificacionPropuesta}` }] }
+          ? { ...aprobar(hallazgo, justificacionPropuesta, texto), historialCambios: [...historial, { ...marca, accion: `❌ Hallazgo marcado como NO APLICA (aprobado por el auditor). Justificación: ${justificacionPropuesta}. Observación del auditor: ${texto}`, motivo: texto }] }
           : {
             ...hallazgo,
             noAplica: { ...hallazgo.noAplica, estado: 'Rechazado', motivoRechazo: texto, decididoPor: user.email, decididoEn: ahora.toISOString() },
@@ -112,8 +111,8 @@ export default async function handler(req, res) {
       closed: ['El hallazgo ya está cerrado.', 409],
       'already-pending': ['Ya hay una propuesta de No aplica pendiente de aprobación del auditor.', 409],
       'not-pending': ['No hay una propuesta de No aplica pendiente para este hallazgo.', 409],
-      'forbidden-propose': ['Solo el ejecutor de alguna acción del hallazgo, el auditor del informe o un administrador pueden proponer No aplica.', 403],
-      'forbidden-decide': ['Solo el auditor del informe o un administrador pueden aprobar o rechazar el No aplica.', 403],
+      'forbidden-propose': ['Solo el ejecutor de alguna acción del hallazgo (o el auditor aprobador) puede proponer No aplica.', 403],
+      'forbidden-decide': ['Solo el auditor aprobador del informe puede aprobar o rechazar el No aplica.', 403],
     };
     if (resultado.error) {
       const [mensaje, estado] = errores[resultado.error];

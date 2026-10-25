@@ -862,15 +862,19 @@ for (const fragmented of [false, true]) {
     assert.equal(propuesta.body.hallazgo.noAplica.estado, 'Pendiente');
     assert.equal(propuesta.body.hallazgo.estado, 'Abierto');
     assert.equal(propuesta.body.planes.length, 0, 'pendiente no toca las acciones');
-    assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar' })).code, 403, 'el ejecutor no aprueba');
+    assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar', justificacion: 'Me apruebo a mí mismo' })).code, 403, 'el ejecutor no aprueba');
+    fixture.sesion.usuario = { uid: 'u9', email: 'admin@example.test', rol: 'admin' };
+    assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar', justificacion: 'Apruebo como administrador' })).code, 403, 'el administrador no decide');
     fixture.sesion.usuario = auditor;
-    const aprobado = await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar' });
+    assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar' })).code, 400, 'aprobar exige observación');
+    const aprobado = await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar', justificacion: 'Verificado el acta 12 en campo' });
     assert.equal(aprobado.code, 200, JSON.stringify(aprobado));
     const { data } = await fixture.workspace.leerWorkspaceGrc();
     const hallazgo = data.hallazgos.find(item => item.id === 'h1');
     assert.equal(hallazgo.estado, 'Cerrado');
     assert.equal(hallazgo.noAplica.estado, 'Aprobado');
-    assert.ok(hallazgo.historialCambios.some(entrada => /NO APLICA \(aprobado\)/.test(entrada.accion)));
+    assert.equal(hallazgo.noAplica.observacionAprobacion, 'Verificado el acta 12 en campo');
+    assert.ok(hallazgo.historialCambios.some(entrada => /NO APLICA \(aprobado por el auditor\).*Observación del auditor: Verificado el acta 12/.test(entrada.accion)));
     const planes = data.planes.filter(plan => String(plan.idHallazgo) === 'h1');
     assert.equal(planes.length, 2, 'las acciones no se borran');
     assert.ok(planes.every(plan => plan.estadoWorkflow === 'No aplica' && plan.estado === 'Cerrado' && plan.noAplica === true));
@@ -892,6 +896,18 @@ test('No aplica: el auditor rechaza la propuesta y el hallazgo sigue aplicando',
   assert.equal(rechazo.body.hallazgo.estado, 'Abierto');
   const { data } = await fixture.workspace.leerWorkspaceGrc();
   assert.ok(data.planes.filter(plan => String(plan.idHallazgo) === 'h1').every(plan => plan.estadoWorkflow !== 'No aplica'));
+});
+
+test('No aplica: el revisor no interviene (no puede proponerlo)', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.sesion.usuario = { uid: 'u4', email: 'revisor@example.test' };
+  assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'El riesgo ya no existe en el proceso' })).code, 403);
+});
+
+test('No aplica: un administrador sin rol en el hallazgo no puede proponerlo', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.sesion.usuario = { uid: 'u9', email: 'admin@example.test', rol: 'admin' };
+  assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'Cierre administrativo directo' })).code, 403);
 });
 
 test('No aplica: alguien sin rol en el hallazgo no puede proponerlo', async () => {
