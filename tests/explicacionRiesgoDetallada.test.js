@@ -83,4 +83,14 @@ prueba('análisis de un control (RSK-71): si falla no cambia la zona; automatiza
   assert.equal(analizarControlEnRiesgo(r, 9), null);
 });
 
+prueba('RSK-75: ningún paso único cambia la zona; se calculan combinaciones de dos pasos y tipos de control', () => {
+  const r = { id: 75, probabilidadInherente: 60, impactoInherente: 60, controlesDetallados: [
+    { tipo: 'Preventivo', implementacion: 'Manual' }, { tipo: 'Preventivo', implementacion: 'Manual' }, { tipo: 'Correctivo', implementacion: 'Manual' }] };
+  const a = analizarControlEnRiesgo(r, 0);
+  assert.equal(a.controlesDelRiesgoPorTipo, 'Preventivos: CTL-75-1, CTL-75-2 · Detectivos: ninguno · Correctivos: CTL-75-3');
+  assert.deepEqual(a.accionesQueCambianLaZona, ['Ninguna acción de un solo paso saca el riesgo de zona Moderado.']);
+  assert.equal(a.combinacionesDeDosPasos[0], 'Automatizar CTL-75-1 + automatizar CTL-75-3: probabilidad 18 % (Muy baja), impacto 39 % (Menor) → zona Bajo.');
+  assert.ok(a.combinacionesDeDosPasos.every(l => l.endsWith('zona Bajo.')));
+});
+
 console.log(`explicacionRiesgoDetallada.test.js: ${pruebas} pruebas OK`);

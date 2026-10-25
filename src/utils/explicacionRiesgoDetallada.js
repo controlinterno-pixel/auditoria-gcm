@@ -243,11 +243,35 @@ export function analizarControlEnRiesgo(riesgo, indiceControl) {
     { accion: 'Agregar 1 control correctivo manual', controles: [...base, { tipo: 'Correctivo', implementacion: 'Manual' }] },
     { accion: 'Agregar 2 controles correctivos manuales', controles: [...base, { tipo: 'Correctivo', implementacion: 'Manual' }, { tipo: 'Correctivo', implementacion: 'Manual' }] },
   ];
-  const accionesQueCambianLaZona = opciones.map(opcion => {
-    const r = calcularResiduales(pInh, iInh, opcion.controles);
-    return { ...opcion, p: r.probabilidadResidual, i: r.impactoResidual, zona: zonaDe(r.probabilidadResidual, r.impactoResidual) };
-  }).filter(opcion => ORDEN_ZONA[opcion.zona] < ORDEN_ZONA[actual.zona])
-    .map(opcion => `${opcion.accion}: probabilidad ${numero(opcion.p)} % (${etiquetaP(opcion.p)}), impacto ${numero(opcion.i)} % (${etiquetaI(opcion.i)}) → zona ${opcion.zona}.`);
+  const evaluar = (accion, controles) => {
+    const r = calcularResiduales(pInh, iInh, controles);
+    return { accion, p: r.probabilidadResidual, i: r.impactoResidual, zona: zonaDe(r.probabilidadResidual, r.impactoResidual) };
+  };
+  const texto = opcion => `${opcion.accion}: probabilidad ${numero(opcion.p)} % (${etiquetaP(opcion.p)}), impacto ${numero(opcion.i)} % (${etiquetaI(opcion.i)}) → zona ${opcion.zona}.`;
+  const bajaZona = opcion => ORDEN_ZONA[opcion.zona] < ORDEN_ZONA[actual.zona];
+  const accionesQueCambianLaZona = opciones.map(opcion => evaluar(opcion.accion, opcion.controles)).filter(bajaZona).map(texto);
+  // Si ningún paso único cambia la zona, se prueban combinaciones de dos pasos (automatizar y/o agregar).
+  const pasosAplicables = [
+    ...vigentes.filter(({ item }) => desglosarEficaciaControl(item).implementacion !== 'Automático').map(({ indice }) => ({ accion: `automatizar ${codigoControl(indice, riesgo.id)}`, automatizar: indice })),
+    { accion: 'agregar 1 control preventivo manual', agregar: { tipo: 'Preventivo', implementacion: 'Manual' } },
+    { accion: 'agregar 1 control correctivo manual', agregar: { tipo: 'Correctivo', implementacion: 'Manual' } },
+    { accion: 'agregar 1 control preventivo automático', agregar: { tipo: 'Preventivo', implementacion: 'Automático' } },
+    { accion: 'agregar 1 control correctivo automático', agregar: { tipo: 'Correctivo', implementacion: 'Automático' } },
+  ];
+  const aplicar = pasos => [
+    ...vigentes.map(({ item, indice }) => (pasos.some(paso => paso.automatizar === indice) ? { ...item, implementacion: 'Automático', ejecucion: 'Automático' } : item)),
+    ...pasos.filter(paso => paso.agregar).map(paso => paso.agregar),
+  ];
+  const combinacionesDeDosPasos = accionesQueCambianLaZona.length ? [] : pasosAplicables
+    .flatMap((primero, i) => pasosAplicables.slice(i + 1).map(segundo => evaluar(`${primero.accion.replace(/^./, l => l.toUpperCase())} + ${segundo.accion}`, aplicar([primero, segundo]))))
+    .filter(bajaZona)
+    .sort((a, b) => ORDEN_ZONA[a.zona] - ORDEN_ZONA[b.zona] || (/automatizar.*automatizar/i.test(b.accion) - /automatizar.*automatizar/i.test(a.accion)))
+    .slice(0, 4)
+    .map(texto);
+  const controlesPorTipo = ['Preventivo', 'Detectivo', 'Correctivo'].map(tipo => {
+    const codigos = vigentes.filter(({ item }) => desglosarEficaciaControl(item).tipo === tipo).map(({ indice }) => codigoControl(indice, riesgo.id));
+    return `${tipo}s: ${codigos.length ? codigos.join(', ') : 'ninguno'}`;
+  }).join(' · ');
   const describe = (titulo, r) => `${titulo}: ${eje} ${numero(r.valor)} % (${r.nivel}) → zona ${r.zona}${r.zona === actual.zona ? ' (la zona no cambia)' : ` (cambia desde ${actual.zona})`}.`;
   return {
     control: codigo,
@@ -256,7 +280,10 @@ export function analizarControlEnRiesgo(riesgo, indiceControl) {
     situacionActual: `Con todos los controles vigentes: ${eje} ${numero(actual.valor)} % (${actual.nivel}) → zona ${actual.zona}.`,
     siElControlFalla: describe(`Si ${codigo} falla o no opera`, siFalla),
     siSeAutomatiza: automatizado ? describe(`Si ${codigo} se automatiza (${d.total} % → ${d.total + 10} %)`, automatizado) : `${codigo} ya es automático.`,
+    controlesDelRiesgoPorTipo: controlesPorTipo,
     accionesQueCambianLaZona: accionesQueCambianLaZona.length ? accionesQueCambianLaZona : [`Ninguna acción de un solo paso saca el riesgo de zona ${actual.zona}.`],
+    combinacionesDeDosPasos: combinacionesDeDosPasos.length ? combinacionesDeDosPasos
+      : (accionesQueCambianLaZona.length ? [] : [`Tampoco hay combinaciones de dos pasos que saquen el riesgo de zona ${actual.zona}.`]),
     documentarlo: d.informativos.some(i => !i.cumple)
       ? `Documentarlo, darle frecuencia continua y registro (${d.informativos.filter(i => !i.cumple).map(i => i.valor.toLowerCase()).join(', ')}) no cambia su eficacia según la Tabla 6, pero lo formaliza y da evidencia para auditoría.`
       : 'Está formalizado: documentado, con frecuencia continua y con registro.',
