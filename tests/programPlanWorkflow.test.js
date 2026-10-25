@@ -5,6 +5,7 @@ import * as workflow from '../src/utils/programPlanWorkflow.js';
 import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
 import { sanitizarUrls, validarDatosSync } from '../api/_lib/validation.js';
 import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
+import { estadoNoAplica } from '../src/utils/noAplicaHallazgo.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const source = path => read(path).replace(/^import [^;]*;\r?\n/gm, '').replace('export default async function handler', 'async function handler');
@@ -30,6 +31,7 @@ function harness({ planes = [plan()], tipoFuente = 'Programa de Auditoría', ema
   const user = { uid: 'u1', email, rol, permisos: ['sub_seguimiento_planes'] };
   const profile = { ...user, procesosAsignados: ['Operaciones'] };
   const bindings = {
+    estadoNoAplica,
     esAdministradorTotal, puedeVerTodo,
     ...workflow,
     validarAdjuntoEvaluacion, sanitizarUrls, validarDatosSync,

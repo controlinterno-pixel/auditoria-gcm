@@ -11,6 +11,7 @@ import {
 } from '../_lib/grcWorkspace.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcance } from '../_lib/assignmentScope.js';
 import { sanitizarUrls } from '../_lib/validation.js';
+import { estadoNoAplica } from '../../src/utils/noAplicaHallazgo.js';
 
 const CAMPOS_EDITABLES = [
   'titulo', 'proceso', 'macroproceso', 'macroprocesos', 'subproceso', 'subprocesos', 'subprocesosPorMacroproceso', 'programaId',
@@ -305,6 +306,8 @@ export default async function handler(req, res) {
         for (const item of nuevas) {
           const hallazgo = hallazgosPorId.get(String(item.idHallazgo));
           if (!hallazgo || String(hallazgo.idInforme) !== String(informeActual.id)) return { error: 'hallazgo-not-found' };
+          // Hallazgo No aplica (aprobado o en decisión del auditor): no admite acciones nuevas.
+          if (['Aprobado', 'Pendiente'].includes(estadoNoAplica(hallazgo))) return { error: 'no-aplica-hallazgo' };
           const procesoHallazgo = normalizar(hallazgo.macroproceso || String(hallazgo.proceso || '').split('/')[0]);
           const subprocesosHallazgo = (Array.isArray(hallazgo.subprocesos) ? hallazgo.subprocesos : [hallazgo.subproceso])
             .map(normalizar);
@@ -376,6 +379,7 @@ export default async function handler(req, res) {
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
         'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
         'design-correction-progress': ['Primero corrige el diseño de la acción y guárdalo: vuelve al revisor. El avance se habilita cuando lo apruebe.', 409],
+        'no-aplica-hallazgo': ['Este hallazgo se declaró No aplica (o está en decisión del auditor): no admite acciones nuevas.', 409],
         'no-aplica-locked': ['Esta acción quedó cerrada porque el hallazgo se declaró No aplica (decisión definitiva). No se puede modificar.', 409],
         'reviewer-read-only': ['Con el diseño aprobado, solo el ejecutor puede trabajar esta acción. El revisor y el auditor aprobador solo pueden consultarla.', 403],
         'executor-locked-review': ['Esta acción ya fue reportada al 100% y está pendiente por revisar; el ejecutor no puede modificarla.', 403],

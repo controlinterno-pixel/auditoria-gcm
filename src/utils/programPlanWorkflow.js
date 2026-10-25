@@ -46,7 +46,7 @@ export function bloqueadaParaEjecutor(plan, correoUsuario) {
   return Boolean(correo && ejecutores.includes(correo) && (ejecucionEnviadaARevision(plan) || accionCerrada(plan)));
 }
 
-const ESTADOS_POSTERIORES_A_APROBACION = ['En Ejecución', ...ESTADOS_EJECUCION_ENVIADA, 'Cerrado'];
+const ESTADOS_POSTERIORES_A_APROBACION = ['En Ejecución', ...ESTADOS_EJECUCION_ENVIADA, 'Cerrado', 'No aplica'];
 
 // Aprobado el diseño, solo el ejecutor trabaja la acción: revisor y auditor aprobador solo la consultan,
 // aunque tengan rol administrador.

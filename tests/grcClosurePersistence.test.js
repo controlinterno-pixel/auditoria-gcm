@@ -853,6 +853,7 @@ test('limpieza: se bloquea si un riesgo antiguo no está en la matriz vigente, s
 for (const fragmented of [false, true]) {
   test(`No aplica ${fragmented ? 'fragmentado' : 'legado'}: propone el ejecutor, aprueba el auditor, acciones conservadas`, async () => {
     const fixture = storeFixture({ fragmented });
+    fixture.documents.set('usuarios/u2', { rol: 'lider', permisos: ['sub_seguimiento_planes'] });
     const ejecutor = { uid: 'u2', email: 'ejecutor@example.test' };
     const auditor = { uid: 'u1', email: 'auditor@example.test' };
     fixture.sesion.usuario = ejecutor;
@@ -881,6 +882,13 @@ for (const fragmented of [false, true]) {
     assert.ok(planes.every(plan => plan.historialCambios.some(entrada => /NO APLICA/.test(entrada.accion))));
     fixture.sesion.usuario = ejecutor;
     assert.equal((await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'Otra justificación larga' })).code, 409, 'definitivo');
+    // Para siempre: al volver a guardar, el ejecutor no puede modificar esas acciones ni crear nuevas en el hallazgo.
+    const editar = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', nuevas: [], actualizaciones: [{ id: 1, accion: 'Reabrir', progreso: 50 }] } });
+    assert.equal(editar.code, 409, JSON.stringify(editar));
+    const crear = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [], nuevas: [{ idHallazgo: 'h1', accion: 'Nueva acción' }] } });
+    assert.equal(crear.code, 409, JSON.stringify(crear));
+    const { data: despues } = await fixture.workspace.leerWorkspaceGrc();
+    assert.ok(despues.planes.filter(plan => String(plan.idHallazgo) === 'h1').every(plan => plan.estadoWorkflow === 'No aplica'), 'siguen bloqueadas');
   });
 }
 
