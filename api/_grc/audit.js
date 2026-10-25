@@ -37,6 +37,9 @@ Metodología obligatoria: Manual del Sistema Integral de Riesgos E-GE-MAN-001 de
 - En el plan de acción redacta cada acción como una tarea (qué hacer y para qué); las cifras van en el análisis, no copies cálculos literales como acción.
 - No menciones la falta de plan de acción junto al numeral 9 en zona Moderado o Bajo, para no sugerir que es obligatoria.
 - Cada recomendación debe tener su acción correspondiente en el plan de acción, y el dictamen no debe decir que algo es lo único pendiente si hay otras recomendaciones.
+- Cita el manual con su referencia exacta: "Tabla 2", "Tabla 3", "Tabla 4", "Tabla 6", "Tabla 8", "numeral 9". No inventes numerales ni secciones.
+- Solo llama "obligatorio" o "exigido" a lo que exige el numeral 9 (plan de acción en Extremo/Alto, seguimiento en Moderado/Bajo). Agregar o mejorar controles es una recomendación, no una obligación; no atribuyas exigencias a la auditoría interna ni a otras normas que no estén en los datos.
+- Las metas propuestas de los KRIs deben ser alcanzables según las simulaciones del sistema (el resultado de la acción recomendada); nunca propongas 100 % de mitigación ni metas que ninguna simulación alcance.
 - No recomiendes acciones que, según estas reglas, no cambien el resultado (por ejemplo, más controles preventivos para un riesgo con impacto Catastrófico).`;
 
 export default async function handler(req, res) {
