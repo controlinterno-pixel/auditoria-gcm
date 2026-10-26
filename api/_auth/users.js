@@ -64,11 +64,12 @@ async function resolverSolicitud(uid, accion) {
   const procesosValidos = procesos.length > 0 && procesos.every(proceso => (
     Object.hasOwn(mapaProcesos, proceso) && Array.isArray(mapaProcesos[proceso])
   ));
-  const subprocesosValidos = subprocesos.length > 0 && subprocesos.every(subproceso => (
+  // Sin subprocesos = todos los de sus macroprocesos (lo que marca "Todos los subprocesos" en el registro).
+  const subprocesosValidos = subprocesos.every(subproceso => (
     procesos.some(proceso => mapaProcesos[proceso].includes(subproceso))
   ));
   if (!procesosValidos || !subprocesosValidos) {
-    return { error: 'Asigna al menos un macroproceso y subproceso válidos antes de aprobar.', status: 400 };
+    return { error: 'Asigna al menos un macroproceso válido (y subprocesos de ese macroproceso) antes de aprobar.', status: 400 };
   }
 
   await userRef.update({

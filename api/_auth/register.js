@@ -2,19 +2,22 @@ import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
 import { applyCors } from '../_lib/cors.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
+import { validarSolicitudProcesos } from '../../src/utils/solicitudProcesos.js';
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== 'POST') return sendError(res, 'Método no permitido.', 405);
 
   try {
-    const { idToken, nombreResponsable, cargo, procesoSolicitado, subprocesoSolicitado } = req.body || {};
+    const { idToken, nombreResponsable, cargo, procesoSolicitado, subprocesoSolicitado, procesosSolicitados, subprocesosSolicitados } = req.body || {};
+    // Uno o varios macroprocesos con sus subprocesos (vacío = todos); también se acepta el formato anterior (uno y uno).
+    const solicitud = Array.isArray(procesosSolicitados)
+      ? { procesos: procesosSolicitados, subprocesos: Array.isArray(subprocesosSolicitados) ? subprocesosSolicitados : null }
+      : { procesos: [procesoSolicitado], subprocesos: [subprocesoSolicitado] };
     if (
       typeof idToken !== 'string' ||
       typeof nombreResponsable !== 'string' ||
       typeof cargo !== 'string' ||
-      typeof procesoSolicitado !== 'string' ||
-      typeof subprocesoSolicitado !== 'string' ||
       !nombreResponsable.trim() ||
       nombreResponsable.trim().length > 160
     ) {
@@ -36,15 +39,12 @@ export default async function handler(req, res) {
     const mapaProcesos = catalog.mapaProcesos && typeof catalog.mapaProcesos === 'object'
       ? catalog.mapaProcesos
       : {};
-    const subprocesosValidos = Array.isArray(mapaProcesos[procesoSolicitado])
-      ? mapaProcesos[procesoSolicitado]
-      : [];
+    const solicitudValida = validarSolicitudProcesos(solicitud, mapaProcesos);
 
     if (
       !catalogosInicializados ||
       !cargos.includes(cargo) ||
-      !Object.hasOwn(mapaProcesos, procesoSolicitado) ||
-      !subprocesosValidos.includes(subprocesoSolicitado)
+      !solicitudValida
     ) {
       return sendError(res, 'El cargo, macroproceso o subproceso no coincide con los catálogos vigentes.', 400);
     }
@@ -58,8 +58,9 @@ export default async function handler(req, res) {
       rol: 'lider',
       permisos: [],
       estadoAcceso: 'pendiente',
-      procesosSolicitados: [procesoSolicitado],
-      subprocesosSolicitados: [subprocesoSolicitado],
+      procesosSolicitados: solicitudValida.procesos,
+      // Vacío = todos los subprocesos de los macroprocesos elegidos.
+      subprocesosSolicitados: solicitudValida.subprocesos,
       procesosAsignados: [],
       subprocesosAsignados: [],
       creadoEn: new Date().toISOString(),

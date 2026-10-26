@@ -225,7 +225,7 @@ export default function Configuracion({
                         <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                           <div className="text-xs text-amber-900">
                             <p className="font-black">Solicitud de acceso</p>
-                            <p className="mt-1">Solicita: {(u.procesosSolicitados || []).join(', ') || 'Sin macroproceso'} · {(u.subprocesosSolicitados || []).join(', ') || 'Sin subproceso'}</p>
+                            <p className="mt-1">Solicita: {(u.procesosSolicitados || []).join(', ') || 'Sin macroproceso'} · {(u.subprocesosSolicitados || []).join(', ') || ((u.procesosSolicitados || []).length ? 'Todos sus subprocesos' : 'Sin subproceso')}</p>
                             <p className="mt-1 text-[10px]">Revisa o ajusta el alcance abajo antes de aprobar.</p>
                           </div>
                           <div className="flex shrink-0 gap-2">

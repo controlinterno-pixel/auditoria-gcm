@@ -23,6 +23,7 @@ import {
 import { apiService } from '../services/apiService';
 import { AUTH_NOTICE_EVENT, consumeAuthNotice, markSignOutReason } from '../services/authDiagnostics';
 import { reiniciarRelojInactividad } from '../hooks/useCierrePorInactividad.js';
+import { armarSolicitudProcesos } from '../utils/solicitudProcesos.js';
 
 export default function AuthScreen() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -46,8 +47,8 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
-  const [area, setArea] = useState('');
-  const [subproceso, setSubproceso] = useState('');
+  // { [macroproceso]: { todos, subprocesos } }: uno o varios macroprocesos con todos o algunos subprocesos.
+  const [seleccionProcesos, setSeleccionProcesos] = useState({});
   const [cargosOpciones, setCargosOpciones] = useState([]);
   const [areasOpciones, setAreasOpciones] = useState([]);
   const [mapaProcesosOpciones, setMapaProcesosOpciones] = useState({});
@@ -107,8 +108,9 @@ export default function AuthScreen() {
     }
 
     // 🛡️ Validación de Selección de Cargo y Área
-    if (!cargo || !area || !subproceso) {
-      alert("⚠️ Debe seleccionar un Cargo, Macroproceso y Subproceso válidos.");
+    const solicitudProcesos = armarSolicitudProcesos(seleccionProcesos, mapaProcesosOpciones);
+    if (!cargo || solicitudProcesos.error) {
+      alert(`⚠️ ${!cargo ? 'Selecciona tu cargo.' : solicitudProcesos.error}`);
       return;
     }
 
@@ -140,8 +142,8 @@ export default function AuthScreen() {
         idToken: await user.getIdToken(),
         nombreResponsable: nombre,
         cargo,
-        procesoSolicitado: area,
-        subprocesoSolicitado: subproceso,
+        procesosSolicitados: solicitudProcesos.procesos,
+        subprocesosSolicitados: solicitudProcesos.subprocesos,
       });
       await sendEmailVerification(user);
       markSignOutReason('registration');
@@ -435,7 +437,7 @@ export default function AuthScreen() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Cargo *</label>
                   <select 
@@ -451,37 +453,60 @@ export default function AuthScreen() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Macroproceso / Área *</label>
-                  <select 
-                    required 
-                    value={area} 
-                    onChange={(e) => setArea(e.target.value)} 
-                    className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
-                  >
-                    <option value="">-- Proceso --</option>
-                    {areasOpciones.map((item, idx) => (
-                      <option key={`area-${idx}`} value={item}>{item}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Subproceso solicitado *</label>
-                <select
-                  required
-                  value={subproceso}
-                  onChange={(e) => setSubproceso(e.target.value)}
-                  disabled={!area}
-                  className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 disabled:opacity-60"
-                >
-                  <option value="">-- Seleccionar subproceso --</option>
-                  {(Array.isArray(mapaProcesosOpciones[area]) ? mapaProcesosOpciones[area] : []).map((item, idx) => (
-                    <option key={`subproceso-${idx}`} value={item}>{item}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Uno o varios macroprocesos a cargo; en cada uno, todos sus subprocesos o solo algunos. */}
+              <fieldset className="rounded-xl border border-slate-200 bg-slate-50/70 p-2">
+                <legend className="px-1 text-[10px] font-bold uppercase text-slate-600">Macroprocesos a tu cargo *</legend>
+                <p className="mb-1 text-[10px] text-slate-500">Marca uno o varios. En cada uno puedes dejar todos sus subprocesos o elegir solo algunos.</p>
+                <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+                  {areasOpciones.map(macroproceso => {
+                    const elegido = seleccionProcesos[macroproceso];
+                    const subprocesosMacro = Array.isArray(mapaProcesosOpciones[macroproceso]) ? mapaProcesosOpciones[macroproceso] : [];
+                    const cambiar = cambio => setSeleccionProcesos(actual => ({ ...actual, [macroproceso]: { ...actual[macroproceso], ...cambio } }));
+                    return (
+                      <div key={macroproceso} className={`rounded-lg ${elegido ? 'border border-blue-200 bg-white p-1.5' : ''}`}>
+                        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(elegido)}
+                            onChange={() => setSeleccionProcesos(actual => {
+                              const siguiente = { ...actual };
+                              if (siguiente[macroproceso]) delete siguiente[macroproceso];
+                              else siguiente[macroproceso] = { todos: true, subprocesos: [] };
+                              return siguiente;
+                            })}
+                          />
+                          {macroproceso}
+                        </label>
+                        {elegido && (
+                          <div className="mt-1 space-y-0.5 pl-6">
+                            <label className="flex cursor-pointer items-center gap-2 text-[11px] font-bold text-blue-700">
+                              <input type="checkbox" checked={elegido.todos} onChange={() => cambiar({ todos: !elegido.todos, subprocesos: [] })} />
+                              Todos los subprocesos ({subprocesosMacro.length})
+                            </label>
+                            {!elegido.todos && subprocesosMacro.map(subprocesoMacro => (
+                              <label key={subprocesoMacro} className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-600">
+                                <input
+                                  type="checkbox"
+                                  checked={elegido.subprocesos.includes(subprocesoMacro)}
+                                  onChange={() => cambiar({
+                                    subprocesos: elegido.subprocesos.includes(subprocesoMacro)
+                                      ? elegido.subprocesos.filter(item => item !== subprocesoMacro)
+                                      : [...elegido.subprocesos, subprocesoMacro],
+                                  })}
+                                />
+                                {subprocesoMacro}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {areasOpciones.length === 0 && <p className="text-[11px] text-slate-500">Cargando macroprocesos…</p>}
+                </div>
+              </fieldset>
 
               <div>
                 <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Correo Institucional *</label>
