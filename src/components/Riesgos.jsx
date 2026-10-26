@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { importarConActualizacion } from '../services/appUpdate.js';
 import { Ban, History, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { useDeleteConfirmation } from '../hooks/useDeleteConfirmation.js';
 import { ThinkingOrb } from 'thinking-orbs';
@@ -898,12 +899,15 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     }
 
     try {
-      const { crearLibroMatrizRiesgosExcel } = await import('../utils/riesgosExcelExport.js');
-      const libro = await crearLibroMatrizRiesgosExcel(lista, {
-        getSeverityZone,
-        calcularMitigacionRiesgo,
-        calcularEficaciaControl,
-        alcance,
+      // Incluye la carga de exceljs: si la app se actualizó, ambos archivos pueden ser de la versión anterior.
+      const libro = await importarConActualizacion(async () => {
+        const { crearLibroMatrizRiesgosExcel } = await import('../utils/riesgosExcelExport.js');
+        return crearLibroMatrizRiesgosExcel(lista, {
+          getSeverityZone,
+          calcularMitigacionRiesgo,
+          calcularEficaciaControl,
+          alcance,
+        });
       });
       const buffer = await libro.xlsx.writeBuffer({
         useStyles: true,
@@ -925,7 +929,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       return true;
     } catch (error) {
       console.error('Error al generar el libro Excel de riesgos:', error);
-      showNotification("No fue posible generar el archivo Excel.", "error");
+      showNotification(/se actualizó/.test(error?.message || '') ? error.message : "No fue posible generar el archivo Excel.", "error");
       return false;
     }
   };

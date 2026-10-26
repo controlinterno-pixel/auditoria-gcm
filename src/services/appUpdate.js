@@ -101,3 +101,19 @@ export const consumeUpdateNotice = () => {
   storage?.removeItem(UPDATE_NOTICE_KEY);
   return pendiente;
 };
+
+/**
+ * Carga un módulo bajo demanda (Excel, PDF…). Si la app se actualizó mientras estaba abierta, el archivo
+ * de la versión anterior ya no existe (404): se recarga sola conservando dónde estaba el usuario.
+ */
+export const importarConActualizacion = async cargar => {
+  try {
+    return await cargar();
+  } catch (error) {
+    if (!isChunkLoadError(error)) throw error;
+    const recargando = reloadForFreshAssets();
+    throw new Error(recargando
+      ? 'GCM se actualizó a una versión nueva. Se está recargando la página: vuelve a pulsar el botón en unos segundos.'
+      : 'GCM se actualizó a una versión nueva. Guarda tus cambios y recarga la página (Ctrl + F5) para descargar el archivo.', { cause: error });
+  }
+};

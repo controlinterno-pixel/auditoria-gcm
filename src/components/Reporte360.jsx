@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { importarConActualizacion } from '../services/appUpdate.js';
 import { AlertCircle, Download, FileCheck2, Files, ListFilter, LoaderCircle } from 'lucide-react';
 import { construirReporte360, fecha360, informesPorFuente360, texto360, tiposFuente360 } from '../utils/reporte360.js';
 
@@ -55,7 +56,7 @@ export default function Reporte360({
         informes, hallazgos: safeHallazgos, planes: safePlanes, fuentes: fuentesMejora,
         modo, idInforme, tiposFuente: tiposSeleccionados, idsInformes, generadoPor: autor,
       });
-      const { descargarReporte360 } = await import('../services/reporte360Pdf.js');
+      const { descargarReporte360 } = await importarConActualizacion(() => import('../services/reporte360Pdf.js'));
       const nombre = await descargarReporte360(corte);
       setConfirmacion(`PDF generado: ${nombre}`);
       showNotification('Reporte 360 generado. Revisa las descargas de tu navegador.');
