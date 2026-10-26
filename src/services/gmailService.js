@@ -57,16 +57,20 @@ const verifySender = (email, expectedEmail) => {
   }
 };
 
+// Autorización de Gmail aún vigente (más de 1 minuto por delante), con permiso de envío y de la misma cuenta.
+const sesionGmailVigente = expectedEmail => {
+  if (!gmailSession || gmailSession.expiresAt <= Date.now() + 60_000) return false;
+  const expected = String(expectedEmail || '').trim().toLowerCase();
+  const hasSendScope = gmailSession.scopes?.includes(GMAIL_SEND_SCOPE);
+  return Boolean(hasSendScope && (!expected || gmailSession.email.toLowerCase() === expected));
+};
+
 const requestGmailSession = async (expectedEmail, { forcePrompt = false, forceConsent = false } = {}) => {
   if (!GOOGLE_CLIENT_ID) {
     throw new Error('Falta configurar VITE_GOOGLE_CLIENT_ID para habilitar el envío desde Gmail.');
   }
 
-  if (!forcePrompt && gmailSession && gmailSession.expiresAt > Date.now() + 60_000) {
-    const expected = String(expectedEmail || '').trim().toLowerCase();
-    const hasSendScope = gmailSession.scopes?.includes(GMAIL_SEND_SCOPE);
-    if (hasSendScope && (!expected || gmailSession.email.toLowerCase() === expected)) return gmailSession;
-  }
+  if (!forcePrompt && sesionGmailVigente(expectedEmail)) return gmailSession;
   gmailSession = null;
 
   if (!pendingAuthorization) {
@@ -137,6 +141,9 @@ const requestGmailSessionWithConsent = async (expectedEmail, { forcePrompt = fal
 
 export const prepararAutorizacionGmail = async (userEmail, showNotification) => {
   try {
+    // Si el usuario ya autorizó Gmail en esta pestaña y sigue vigente (≈1 hora), se envía sin volver a abrir
+    // la ventana de Google; solo se pide de nuevo cuando venció o es la primera vez.
+    if (sesionGmailVigente(userEmail)) return true;
     await requestGmailSessionWithConsent(userEmail, { forcePrompt: true });
     return true;
   } catch (error) {
