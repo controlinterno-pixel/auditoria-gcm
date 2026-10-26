@@ -370,7 +370,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     `IF(${celdaAux(indice)}>0,${celdaAux(indice)}&" ${etiqueta} (${puntos} %)","")`
   )).join(',')})`;
   const formulaExplicacionEficacia = `IF(${totalAux}=0,"No hay controles estructurados en este filtro, por eso la eficacia promedio es 0 %.",`
-    + `"Cómo se obtiene el "&TEXT(${promedioAux},"0")&" %: cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), Tabla 6 del manual. `
+    + `"Cómo se obtiene el "&TEXT(${promedioAux},"0")&" %: cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), según la Tabla 6 del Manual del Sistema Integral de Riesgos (E-GE-MAN-001) de Termales Santa Rosa de Cabal. `
     + `En este filtro hay "&${totalAux}&" controles: "&${detalleCombinaciones}&". Promedio: "&TEXT(${promedioAux},"0")&" %. Con el tipo de estos controles, lo máximo alcanzable automatizándolos todos sería "&TEXT(${maximoAux},"0")&" %."`
     + `&IF(${manualesAux}>0," Si los "&${manualesAux}&" controles manuales se automatizaran, cada uno sumaría 10 puntos y el promedio subiría a "&TEXT(${promedioAux}+10*${manualesAux}/${totalAux},"0")&" %.",""))`;
   // Mismo texto calculado en JavaScript, para que el archivo lo muestre aunque Excel no haya recalculado.
@@ -385,7 +385,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
       const cantidad = controlesEstructurados.filter(control => control.Tipo === tipo && control['Implementación'] === implementacion).length;
       return cantidad > 0 ? `${cantidad} ${etiqueta} (${puntos} %)` : '';
     }).filter(Boolean).join(', ');
-    return `Cómo se obtiene el ${Math.round(promedio)} %: cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), Tabla 6 del manual. `
+    return `Cómo se obtiene el ${Math.round(promedio)} %: cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), según la Tabla 6 del Manual del Sistema Integral de Riesgos (E-GE-MAN-001) de Termales Santa Rosa de Cabal. `
       + `En este filtro hay ${total} controles: ${detalle}. Promedio: ${Math.round(promedio)} %. Con el tipo de estos controles, lo máximo alcanzable automatizándolos todos sería ${Math.round(maximo)} %.`
       + (manuales > 0 ? ` Si los ${manuales} controles manuales se automatizaran, cada uno sumaría 10 puntos y el promedio subiría a ${Math.round(promedio + (10 * manuales) / total)} %.` : '');
   })();
@@ -395,9 +395,9 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     MODERADO: 'Qué significa: muchos controles son manuales o solo detectan o corrigen después de que el riesgo ocurre; conviene volverlos preventivos o automatizarlos.',
     MALO: 'Qué significa: la mayoría de los controles actúa después de que el riesgo ocurre y de forma manual; hay que priorizar controles preventivos.',
   };
-  const ESCALA_CALIFICACION = 'Escala sobre el máximo de la Tabla 6 (50 %, preventivo automático): Excelente ≥ 45 % · Bueno 40–44 % · Moderado 30–39 % · Malo < 30 %.';
+  const ESCALA_CALIFICACION = 'Escala sobre el máximo de la Tabla 6 del manual E-GE-MAN-001 (50 %, preventivo automático): Excelente ≥ 45 % · Bueno 40–44 % · Moderado 30–39 % · Malo < 30 %.';
   const formulaCalificacionEficacia = `IF(${totalAux}=0,"Calificación: sin controles estructurados en este filtro.",`
-    + `"Calificación: "&${calificacionAux}&" ("&TEXT(${promedioAux},"0")&" % de 50 % posible = "&TEXT(${promedioAux}/50,"0%")&" del máximo). ${ESCALA_CALIFICACION} "`
+    + `"Calificación: "&${calificacionAux}&" ("&TEXT(${promedioAux},"0")&" % de 50 % posible = "&TEXT(ROUND(${promedioAux},0)/50,"0%")&" del máximo). ${ESCALA_CALIFICACION} "`
     + `&IF(${calificacionAux}="EXCELENTE","${SIGNIFICADO_CALIFICACION.EXCELENTE}",IF(${calificacionAux}="BUENO","${SIGNIFICADO_CALIFICACION.BUENO}",IF(${calificacionAux}="MODERADO","${SIGNIFICADO_CALIFICACION.MODERADO}","${SIGNIFICADO_CALIFICACION.MALO}")))`
     + `&IF(${metaAux}>0," Para subir a "&IF(${metaAux}=45,"Excelente",IF(${metaAux}=40,"Bueno","Moderado"))&" ("&${metaAux}&" %) faltan "&TEXT(${faltanAux},"0.0")&" puntos"`
     + `&IF(AND(${porAutomatizarAux}>0,${porAutomatizarAux}<=${manualesAux}),": equivale a automatizar "&${porAutomatizarAux}&" de los "&${manualesAux}&" controles manuales.","."),""))`;
@@ -415,7 +415,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
       ? ` Para subir a ${meta === 45 ? 'Excelente' : meta === 40 ? 'Bueno' : 'Moderado'} (${meta} %) faltan ${faltan.toFixed(1).replace('.', ',')} puntos`
         + (porAutomatizar > 0 && porAutomatizar <= manuales ? `: equivale a automatizar ${porAutomatizar} de los ${manuales} controles manuales.` : '.')
       : '';
-    return `Calificación: ${calificacion} (${redondeado} % de 50 % posible = ${Math.round((promedio / 50) * 100)}% del máximo). ${ESCALA_CALIFICACION} ${SIGNIFICADO_CALIFICACION[calificacion]}${subir}`;
+    return `Calificación: ${calificacion} (${redondeado} % de 50 % posible = ${Math.round((redondeado / 50) * 100)}% del máximo). ${ESCALA_CALIFICACION} ${SIGNIFICADO_CALIFICACION[calificacion]}${subir}`;
   })();
   const riesgosAltosIniciales = matrizRiesgos.filter(riesgo => ['EXTREMO', 'ALTO'].includes(riesgo['Nivel Residual Final'])).length;
   const mitigacionInicial = matrizRiesgos.reduce((total, riesgo) => total + Number(riesgo['Mitigación Lograda (%)'] || 0), 0) / matrizRiesgos.length;
