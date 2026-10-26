@@ -1,17 +1,17 @@
 // api/_lib/geminiCliente.js - Llamada a Gemini por su API REST, sin SDK.
 // - Modelos: alias "-latest" de Google, que apuntan siempre al modelo más reciente (se actualizan solos).
 //   Se puede fijar otra lista sin desplegar con GEMINI_MODELOS="modelo-1,modelo-2".
-// - Calidad primero: Pro; cuando su cuota se acaba (o no responde a tiempo) baja a Flash y, como último
-//   recurso, a Flash-Lite. Caché de 7 días en Upstash: si los datos no cambian, la respuesta es inmediata.
+// - Flash primero y Flash-Lite como respaldo. Pro no se usa por defecto: el plan gratuito no tiene cuota
+//   para Pro (429) y el plan, las prioridades y las metas ya los calcula el sistema. Si se activa
+//   facturación, se puede poner primero con GEMINI_MODELOS="gemini-pro-latest,gemini-flash-latest,…".
+//   Caché de 7 días en Upstash: si los datos no cambian, la respuesta es inmediata.
 import { createHash } from 'node:crypto';
 import { ejecutarRedis } from './almacenKV.js';
 import { logger } from './logger.js';
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 // Cada alias va seguido del modelo fijo equivalente: si un alias no existe (404), se pasa al siguiente.
-// gemini-2.5-pro ya no está disponible para cuentas nuevas (404): Pro solo por su alias.
 export const MODELOS_POR_DEFECTO = [
-  'gemini-pro-latest',
   'gemini-flash-latest', 'gemini-2.5-flash',
   'gemini-flash-lite-latest', 'gemini-2.5-flash-lite',
 ];
