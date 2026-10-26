@@ -1,5 +1,7 @@
 // api/grc/riesgos.js - Endpoint Serverless para Gestión de Riesgos (ISO 31000 - Termales SR)
 import { applyCors } from '../_lib/cors.js';
+import { riesgosVisiblesPara } from '../../src/utils/permisosVista.js';
+import { puedeVerTodo } from '../_lib/roles.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { parametrosConsulta } from '../_lib/seguridad.js';
@@ -85,13 +87,15 @@ export default async function handler(req, res) {
     // 🔍 LECTURA CON RLS (GET)
     if (method === 'GET') {
       // Con la matriz migrada se devuelve la misma fuente que ve la aplicación.
+      // Mismo alcance que la sincronización: solo sus macroprocesos, salvo "Ver todos los riesgos".
+      const alcance = { veTodo: puedeVerTodo(user.rol), permisos: user.permisos, procesosAsignados: obtenerProcesosAsignados(user, user) };
       if (await riesgosMigrados()) {
-        return sendSuccess(res, { riesgos: await leerRiesgosVigentes() });
+        return sendSuccess(res, { riesgos: riesgosVisiblesPara(await leerRiesgosVigentes(), alcance) });
       }
       const snapshot = await adminDb.collection('riesgos').get();
       const riesgos = snapshot.docs.map(documento => ({ docId: documento.id, ...documento.data() }));
 
-      return sendSuccess(res, { riesgos });
+      return sendSuccess(res, { riesgos: riesgosVisiblesPara(riesgos, alcance) });
     }
 
     // ✏️ CREACIÓN / ACTUALIZACIÓN (POST)

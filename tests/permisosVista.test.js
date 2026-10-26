@@ -56,3 +56,24 @@ test('servidor: el auditor consulta todo, pero guardar la base completa e histó
     assert.doesNotMatch(fuente, /\['admin', 'administrador', 'auditor'\]/, `${archivo}.js ya no trata al auditor como administrador`);
   }
 });
+
+test('matriz de riesgos: el líder ve solo sus macroprocesos salvo la casilla "Ver todos los riesgos"', async () => {
+  const { riesgosVisiblesPara, PERMISO_VER_TODOS_RIESGOS } = await import('../src/utils/permisosVista.js');
+  const riesgos = [
+    { id: 1, macroprocesos: ['Gestión Administrativa y Financiera'] },
+    { id: 2, proceso: 'Gestión de la cadena de abastecimiento / Compras' },
+    { id: 3, macroprocesos: ['Gestión comercial', 'Gestión Administrativa y Financiera'] },
+    { id: 4, macroproceso: 'Gestión del Talento Humano' },
+  ];
+  const ids = lista => lista.map(riesgo => riesgo.id);
+  const lider = { permisos: ['riesgos', 'sub_matriz_riesgos'], procesosAsignados: ['gestión administrativa y financiera'] };
+  assert.deepEqual(ids(riesgosVisiblesPara(riesgos, lider)), [1, 3], 'solo los de su macroproceso (sin importar mayúsculas)');
+  assert.deepEqual(ids(riesgosVisiblesPara(riesgos, { ...lider, procesosAsignados: ['Gestión de la cadena de abastecimiento'] })), [2], 'proceso escrito como "Macro / Sub"');
+  assert.deepEqual(ids(riesgosVisiblesPara(riesgos, { ...lider, permisos: [...lider.permisos, PERMISO_VER_TODOS_RIESGOS] })), [1, 2, 3, 4], 'con la casilla ve todos');
+  assert.deepEqual(ids(riesgosVisiblesPara(riesgos, { veTodo: true })), [1, 2, 3, 4], 'administrador o auditor');
+  assert.deepEqual(ids(riesgosVisiblesPara(riesgos, { permisos: [], procesosAsignados: [] })), [1, 2, 3, 4], 'sin macroprocesos asignados: acceso global');
+  // El servidor aplica la misma regla (no solo la pantalla).
+  const leer = archivo => readFileSync(new URL(`../api/_grc/${archivo}`, import.meta.url), 'utf8');
+  assert.ok(leer('sync.js').includes('riesgos: riesgosVisiblesPara(data.riesgos'), 'sync filtra la matriz');
+  assert.ok(leer('riesgos.js').includes('riesgosVisiblesPara('), 'GET /api/grc/riesgos filtra la matriz');
+});

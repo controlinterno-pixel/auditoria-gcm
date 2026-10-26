@@ -5,6 +5,7 @@ import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { parametrosConsulta } from '../_lib/seguridad.js';
 import { logger } from '../_lib/logger.js';
 import { esAdministradorTotal } from '../_lib/roles.js';
+import { riesgosVisiblesPara } from '../../src/utils/permisosVista.js';
 import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { sanitizarUrls, validarDatosSync } from '../_lib/validation.js';
@@ -358,8 +359,8 @@ export default async function handler(req, res) {
         hallazgos: hallazgosPermitidos,
         planes: planesPermitidos,
         
-        // La matriz de riesgos es corporativa y de consulta completa para todo usuario autenticado.
-        riesgos: Array.isArray(data.riesgos) ? data.riesgos : [],
+        // Matriz de riesgos: solo los de sus macroprocesos, salvo la casilla "Ver todos los riesgos".
+        riesgos: riesgosVisiblesPara(data.riesgos, { permisos: user.permisos, procesosAsignados: userProcesses }),
 
         // Colecciones con RLS Estándar
         evaluaciones: aplicarRLS(data.evaluaciones, userEmail, userCargo, userProcesses),

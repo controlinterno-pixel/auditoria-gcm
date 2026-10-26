@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
-import { permisosEfectivos } from '../utils/permisosVista.js';
+import { PERMISO_VER_TODOS_RIESGOS, permisosEfectivos } from '../utils/permisosVista.js';
 
 export default function Configuracion({
   forceUpdateCronograma,
@@ -417,6 +417,10 @@ export default function Configuracion({
                                 subs: [
                                   { id: 'sub_matriz_riesgos', label: 'Matriz de Riesgos' },
                                   { id: 'sub_apetito', label: 'Apetito de Riesgo' }
+                                ],
+                                // Se otorga a mano: sin ella el líder solo ve los riesgos de sus macroprocesos.
+                                extras: [
+                                  { id: PERMISO_VER_TODOS_RIESGOS, label: 'Ver todos los riesgos (todos los procesos, solo consulta)', ayuda: 'Sin marcar: solo ve los riesgos de sus macroprocesos. Editar siempre queda limitado a sus macroprocesos.' }
                                 ]
                               },
                               { 
@@ -468,7 +472,7 @@ export default function Configuracion({
                                           });
                                         } else {
                                           nuevosPermisos = nuevosPermisos.filter(p => p !== modulo.id);
-                                          modulo.subs.forEach(s => {
+                                          [...modulo.subs, ...(modulo.extras || [])].forEach(s => {
                                             nuevosPermisos = nuevosPermisos.filter(p => p !== s.id);
                                           });
                                         }
@@ -514,6 +518,31 @@ export default function Configuracion({
                                           {sub.label}
                                         </label>
                                       )
+                                    })}
+                                    {(modulo.extras || []).map(extra => {
+                                      const extraActivo = userPermisos.includes(extra.id);
+                                      return (
+                                        <label key={extra.id} title={extra.ayuda} className={`mt-1 flex items-start gap-2 rounded-lg border border-dashed p-1.5 text-[10px] font-bold cursor-pointer transition-colors ${extraActivo ? 'border-indigo-300 bg-indigo-50 text-indigo-800' : 'border-slate-200 text-slate-500 hover:text-slate-700'}`}>
+                                          <input
+                                            type="checkbox"
+                                            checked={extraActivo}
+                                            disabled={!moduloActivo}
+                                            onChange={async (e) => {
+                                              const nuevosPermisos = e.target.checked
+                                                ? [...new Set([...userPermisos, extra.id])]
+                                                : userPermisos.filter(p => p !== extra.id);
+                                              try {
+                                                await apiService.actualizarUsuario(u.id, { permisos: nuevosPermisos });
+                                                setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
+                                              } catch (error) {
+                                                console.error("Error actualizando permiso:", error);
+                                              }
+                                            }}
+                                            className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 disabled:opacity-50 cursor-pointer"
+                                          />
+                                          <span>{extra.label}<span className="block font-medium text-slate-500">{extra.ayuda}</span></span>
+                                        </label>
+                                      );
                                     })}
                                   </div>
                                 </div>

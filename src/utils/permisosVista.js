@@ -11,6 +11,30 @@ export const SUBMODULOS_POR_MODULO = {
   gobernanza: ['sub_comites', 'sub_trazabilidad', 'sub_auditoria_auto'],
 };
 
+// 🔐 Matriz de riesgos: por defecto un líder solo ve los riesgos de sus macroprocesos. Con esta casilla
+// (Configuración → Riesgos → "Ver todos los riesgos") los consulta todos; editar sigue limitado a los suyos.
+export const PERMISO_VER_TODOS_RIESGOS = 'riesgos_ver_todos';
+
+const normalizarProceso = valor => String(valor || '').split('/')[0].trim().toLowerCase();
+const macroprocesosDelRiesgo = riesgo => [
+  ...(Array.isArray(riesgo?.macroprocesos) ? riesgo.macroprocesos : []),
+  riesgo?.macroproceso,
+  riesgo?.proceso,
+].map(normalizarProceso).filter(Boolean);
+
+/**
+ * Riesgos que puede consultar el usuario. veTodo: administrador o auditor. Sin macroprocesos asignados el
+ * usuario tiene acceso global (igual que en el resto de la app); si no, solo los riesgos de alguno de ellos,
+ * salvo que tenga la casilla "Ver todos los riesgos".
+ */
+export function riesgosVisiblesPara(riesgos, { veTodo = false, permisos = [], procesosAsignados = [] } = {}) {
+  const lista = Array.isArray(riesgos) ? riesgos : [];
+  if (veTodo || (Array.isArray(permisos) && permisos.includes(PERMISO_VER_TODOS_RIESGOS))) return lista;
+  const propios = new Set((Array.isArray(procesosAsignados) ? procesosAsignados : []).map(normalizarProceso).filter(Boolean));
+  if (propios.size === 0) return lista;
+  return lista.filter(riesgo => macroprocesosDelRiesgo(riesgo).some(proceso => propios.has(proceso)));
+}
+
 // Paquete básico: el que Configuración muestra a un usuario sin permisos guardados y el que recibe al aprobarlo.
 export const PERMISOS_BASICOS = ['inicio', 'sub_mi_espacio', 'hallazgos', 'sub_hallazgos', 'planes', 'sub_seguimiento_planes'];
 
