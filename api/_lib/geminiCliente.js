@@ -9,8 +9,9 @@ import { logger } from './logger.js';
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 // Cada alias va seguido del modelo fijo equivalente: si un alias no existe (404), se pasa al siguiente.
+// gemini-2.5-pro ya no está disponible para cuentas nuevas (404): Pro solo por su alias.
 export const MODELOS_POR_DEFECTO = [
-  'gemini-pro-latest', 'gemini-2.5-pro',
+  'gemini-pro-latest',
   'gemini-flash-latest', 'gemini-2.5-flash',
   'gemini-flash-lite-latest', 'gemini-2.5-flash-lite',
 ];
@@ -142,8 +143,9 @@ export async function generarConGemini({ instruccionSistema, prompt, json = fals
       } catch (error) {
         ultimoError = error;
         logger.warn('[IA] Modelo sin respuesta; se prueba el siguiente', { modelo, ms: Date.now() - inicio, estado: error?.estado, motivo: String(error?.message || '').slice(0, 200) });
-        // Modelo inexistente o lento: otra clave no lo arregla. Cuota agotada (429) u otro error: sí.
-        if (error?.estado === 404 || error?.estado === 'timeout') break;
+        // Modelo inexistente (404), saturado en Google (503) o lento: otra clave no lo arregla y solo hace
+        // esperar (p. ej. 503 y luego 25 s sin respuesta con la siguiente clave). Cuota agotada (429): sí.
+        if ([404, 503, 'timeout'].includes(error?.estado)) break;
       }
     }
   }

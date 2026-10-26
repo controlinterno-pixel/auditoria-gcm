@@ -20,7 +20,7 @@ const solicitud = { instruccionSistema: 'Reglas', prompt: 'Analiza RSK-2', json:
 const solicitudTexto = { instruccionSistema: 'Reglas', prompt: 'Texto libre', json: false };
 
 await prueba('modelos por defecto: Pro primero, Flash después y Flash-Lite al final; GEMINI_MODELOS los reemplaza', () => {
-  assert.deepEqual(MODELOS_POR_DEFECTO, ['gemini-pro-latest', 'gemini-2.5-pro', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']);
+  assert.deepEqual(MODELOS_POR_DEFECTO, ['gemini-pro-latest', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']);
   assert.ok(MODELOS_POR_DEFECTO.includes('gemini-2.5-flash'), 'respaldo con el modelo que funciona hoy');
   assert.deepEqual(obtenerModelos({}), MODELOS_POR_DEFECTO);
   assert.deepEqual(obtenerModelos({ GEMINI_MODELOS: 'modelo-a, modelo-b' }), ['modelo-a', 'modelo-b']);
@@ -51,11 +51,11 @@ await prueba('si un modelo no existe (404) pasa al siguiente', async () => {
   const fetchImpl = async url => { modelos.push(url); return url.includes('pro') ? respuestaError(404, 'model not found') : respuestaOk('texto'); };
   const r = await generarConGemini({ ...solicitudTexto, prompt: 'otro' }, { entorno, fetchImpl, redis });
   assert.equal(r.modelo, 'gemini-flash-latest');
-  assert.equal(modelos.length, 3);
+  assert.equal(modelos.length, 2);
   modelos.length = 0;
   const soloFijos = async url => { modelos.push(url); return url.includes('latest') ? respuestaError(404, 'model not found') : respuestaOk('fijo'); };
   const respaldo = await generarConGemini({ ...solicitudTexto, prompt: 'alias caídos' }, { entorno, fetchImpl: soloFijos, redis });
-  assert.equal(respaldo.modelo, 'gemini-2.5-pro');
+  assert.equal(respaldo.modelo, 'gemini-2.5-flash');
   modelos.length = 2;
   assert.equal(modelos.length, 2);
 });
@@ -92,17 +92,19 @@ await prueba('JSON mal formado: se descarta, no se guarda y responde el siguient
   assert.equal(normalizarJson('"{\\"a\\":1}"'), '{"a":1}', 'JSON enviado como texto entre comillas');
 });
 
-await prueba('cuota agotada (429): agota Pro en todas las claves antes de bajar a Flash; un 404 no insiste con otra clave', async () => {
+await prueba('cuota agotada (429): agota Pro en todas las claves antes de bajar a Flash; un 503 no insiste con otra clave', async () => {
   const { redis } = redisEnMemoria();
   const llamadas = [];
   const fetchImpl = async (url, opciones) => {
     llamadas.push(`${url.split('/models/')[1].split(':')[0]}@${opciones.headers['x-goog-api-key']}`);
-    if (url.includes('pro-latest')) return respuestaError(404, 'model not found');
-    return url.includes('pro') ? respuestaError(429, 'cuota agotada') : respuestaOk('flash');
+    if (url.includes('pro')) return respuestaError(429, 'cuota agotada');
+    if (url.includes('flash-latest')) return respuestaError(503, 'high demand');
+    return respuestaOk('flash');
   };
   const r = await generarConGemini({ ...solicitudTexto, prompt: 'cuota' }, { entorno: { GEMINI_API_KEYS: 'clave-1,clave-2' }, fetchImpl, redis });
-  assert.equal(r.modelo, 'gemini-flash-latest');
-  assert.deepEqual(llamadas, ['gemini-pro-latest@clave-1', 'gemini-2.5-pro@clave-1', 'gemini-2.5-pro@clave-2', 'gemini-flash-latest@clave-1']);
+  assert.equal(r.modelo, 'gemini-2.5-flash');
+  // 429 se prueba con cada clave; 503 (Google saturado) no se insiste con otra clave.
+  assert.deepEqual(llamadas, ['gemini-pro-latest@clave-1', 'gemini-pro-latest@clave-2', 'gemini-flash-latest@clave-1', 'gemini-2.5-flash@clave-1']);
 });
 
 console.log(`geminiCliente.test.js: ${pruebas} pruebas OK`);
