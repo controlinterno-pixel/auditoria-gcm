@@ -479,12 +479,7 @@ export const apiService = {
     body: { listaBases }
   }),
 
-  // 📧 NOTIFICACIONES POR CORREO
-  despacharCorreo: (payload) => request('/api/notifications/email', {
-    method: 'POST',
-    body: payload
-  }),
-
+  // 📧 NOTIFICACIONES POR CORREO (se envían con Gmail desde el navegador; el servidor solo prepara adjuntos)
   prepararAdjuntoCorreo: (adjuntoEvaluacion) => request('/api/notifications/email', {
     method: 'POST',
     body: { operacion: 'preparar-adjunto', adjuntoEvaluacion },

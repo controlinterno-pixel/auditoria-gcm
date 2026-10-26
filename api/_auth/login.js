@@ -5,23 +5,11 @@ import { applyCors } from '../_lib/cors.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { almacenCompartidoConfigurado, consultarLimite, limpiarIntentos, registrarFallo } from '../_lib/rateLimit.js';
+import { opcionesCookieSesion, DURACION_SESION_MS } from '../_lib/sesion.js';
+import { obtenerIpCliente } from '../_lib/seguridad.js';
 
 // 🛡️ H8: límite de intentos compartido entre instancias (Upstash/Vercel KV) con respaldo en memoria.
 const LIMITE = { maximo: 5, ventanaMs: 60 * 1000 }; // 5 intentos por 60 segundos
-
-/**
- * Extrae la IP de origen real del cliente evitando fallas por múltiples proxies.
- */
-function obtenerIpCliente(req) {
-  // 🛡️ H8: en Vercel estas cabeceras las fija la propia plataforma (el cliente no puede falsificarlas).
-  const ipPlataforma = req.headers['x-vercel-forwarded-for'] || req.headers['x-real-ip'];
-  if (ipPlataforma && typeof ipPlataforma === 'string') return ipPlataforma.split(',')[0].trim();
-  const xForwardedFor = req.headers['x-forwarded-for'];
-  if (xForwardedFor && typeof xForwardedFor === 'string') {
-    return xForwardedFor.split(',')[0].trim();
-  }
-  return req.socket?.remoteAddress || 'unknown-ip';
-}
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -56,7 +44,9 @@ export default async function handler(req, res) {
       return sendError(res, 'Verifica tu correo institucional antes de iniciar sesión.', 403);
     }
 
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 días de validez
+    // 🔒 Sesión corta: si alguien copia la cookie, deja de servir pronto. La app la renueva sola mientras
+    // el usuario siga activo (y el cierre por inactividad del navegador corta esa renovación).
+    const expiresIn = DURACION_SESION_MS;
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
     const decoded = await adminAuth.verifySessionCookie(sessionCookie);
 
@@ -97,20 +87,7 @@ export default async function handler(req, res) {
       return sendError(res, message, 403);
     }
 
-    const origin = req.headers.origin || '';
-    
-    // CAMBIO ARQUITECTÓNICO: Consideramos "producción" a cualquier entorno que NO sea localhost.
-    // Esto garantiza que los dominios personalizados (ej. termales.com.co) reciban la configuración estricta CORS.
-    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
-    const isProd = process.env.NODE_ENV === 'production' || !isLocalhost;
-
-    const cookieSerialized = serialize('grc_session', sessionCookie, {
-      maxAge: expiresIn / 1000,
-      httpOnly: true, // 🔒 Inaccesible para scripts del cliente (Anti-XSS)
-      secure: isProd, // 🔒 En producción exige HTTPS
-      sameSite: isProd ? 'none' : 'lax', // 🔒 'none' es OBLIGATORIO para peticiones CORS (APIs separadas del Front)
-      path: '/',
-    });
+    const cookieSerialized = serialize('grc_session', sessionCookie, opcionesCookieSesion(req, expiresIn / 1000));
 
     await limpiarSiHabiaFallos();
 

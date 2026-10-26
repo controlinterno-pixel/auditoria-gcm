@@ -47,7 +47,7 @@ await fresh;
 assert.equal((await cache.leerWorkspaceGrc(null, { ...options, revision: '102' })).data.version, 4);
 
 const authSource = readFileSync(new URL('../api/_lib/authMiddleware.js', import.meta.url), 'utf8')
-  .replace(/^import .*;\r?\n/gm, '').replace('export const requireAuth', 'const requireAuth');
+  .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
 for (const [code, expected, failProfile] of [
   ['auth/session-cookie-expired', 401, false],
   ['auth/internal-error', 503, false],

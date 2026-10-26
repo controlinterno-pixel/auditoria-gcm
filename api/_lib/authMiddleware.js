@@ -7,6 +7,9 @@ const authCache = new Map();
 const AUTH_CACHE_TTL_MS = 30_000;
 const AUTH_CACHE_MAX_ENTRIES = 1000;
 
+/** Quita una cookie de la caché (cierre de sesión): deja de aceptarse de inmediato en esta instancia. */
+export const olvidarSesion = sessionCookie => authCache.delete(sessionCookie);
+
 export const requireAuth = async (req, res) => {
   const endpoint = String(req.url || '').split('?')[0];
   const cookies = parse(req.headers.cookie || '');
@@ -19,9 +22,20 @@ export const requireAuth = async (req, res) => {
   }
 
   try {
-    // CAMBIO ARQUITECTÓNICO: checkForRevocation en 'false' para evitar fallos de red en cada petición.
-    // La firma de la cookie se valida criptográficamente de forma local y síncrona.
-    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, false);
+    // La caché va por cookie (no por usuario): una cookie cerrada o revocada nunca hereda la validación
+    // de otra sesión del mismo usuario. Dura 30 s, así que la revocación se comprueba como mucho cada 30 s.
+    const now = Date.now();
+    const cached = authCache.get(sessionCookie);
+    if (cached && now - cached.timestamp < AUTH_CACHE_TTL_MS) {
+      // 📊 Misma etiqueta que grcWorkspace: permite sumar en Vercel todas las lecturas por origen.
+      logger.info('[FS-READS]', { origen: 'auth-perfil', documentos: 0, cache: true, endpoint });
+      return cached.data;
+    }
+    if (cached) authCache.delete(sessionCookie);
+
+    // 🔒 checkRevoked: una cookie de una sesión cerrada (logout), de una cuenta deshabilitada o con
+    // credenciales revocadas deja de servir aunque su firma siga vigente.
+    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
     
     if (!decodedToken.email || !decodedToken.email.endsWith('@termales.com.co')) {
       logger.warn('Autenticación rechazada: dominio no autorizado', { endpoint, status: 403 });
@@ -30,15 +44,6 @@ export const requireAuth = async (req, res) => {
     }
 
     const uid = decodedToken.uid;
-    const now = Date.now();
-
-    const cached = authCache.get(uid);
-    if (cached && now - cached.timestamp < AUTH_CACHE_TTL_MS) {
-      // 📊 Misma etiqueta que grcWorkspace: permite sumar en Vercel todas las lecturas por origen.
-      logger.info('[FS-READS]', { origen: 'auth-perfil', documentos: 0, cache: true, endpoint });
-      return cached.data;
-    }
-    if (cached) authCache.delete(uid);
 
     const userDoc = await adminDb.collection('usuarios').doc(uid).get();
     logger.info('[FS-READS]', { origen: 'auth-perfil', documentos: 1, cache: false, endpoint });
@@ -73,10 +78,10 @@ export const requireAuth = async (req, res) => {
     };
 
     if (authCache.size >= AUTH_CACHE_MAX_ENTRIES) {
-      const oldestUid = authCache.keys().next().value;
-      if (oldestUid) authCache.delete(oldestUid);
+      const oldest = authCache.keys().next().value;
+      if (oldest) authCache.delete(oldest);
     }
-    authCache.set(uid, { timestamp: now, data: sessionData });
+    authCache.set(sessionCookie, { timestamp: now, data: sessionData });
     return sessionData;
   } catch (error) {
     const sesionInvalida = new Set([

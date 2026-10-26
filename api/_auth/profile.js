@@ -17,6 +17,10 @@ export default async function handler(req, res) {
 
   try {
     const { nombreResponsable, cargo } = req.body || {};
+    if ((nombreResponsable !== undefined && (typeof nombreResponsable !== 'string' || !nombreResponsable.trim() || nombreResponsable.length > 160)) ||
+        (cargo !== undefined && (typeof cargo !== 'string' || cargo.length > 160))) {
+      return sendError(res, 'El nombre y el cargo deben ser textos de máximo 160 caracteres.', 400);
+    }
 
     // 🛡️ BLOQUEO DE ESCALAMIENTO RLS: NUNCA se actualiza 'procesoAsignado' ni 'rol' desde este endpoint.
     const datosActualizar = {

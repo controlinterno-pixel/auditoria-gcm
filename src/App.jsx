@@ -56,6 +56,7 @@ import SidebarNavigation from './components/SidebarNavigation';
 import MiPerfil from './components/MiPerfil';
 import { useNavigationGuard } from './hooks/useUnsavedChangesGuard.js';
 import { useDeleteConfirmation } from './hooks/useDeleteConfirmation.js';
+import { MINUTOS_INACTIVIDAD, useCierrePorInactividad } from './hooks/useCierrePorInactividad.js';
 
 import { enviarCorreoGmail, prepararAutorizacionGmail } from './services/gmailService';
 import { useGrcData } from './hooks/useGrcData';
@@ -531,6 +532,14 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
       window.location.reload(); 
     }
   };
+  // 🛡️ Cierre por inactividad: una sesión desatendida no queda abierta (equipos compartidos).
+  const cerrarPorInactividad = useCallback(async () => {
+    markSignOutReason('inactividad', `Tu sesión se cerró tras ${MINUTOS_INACTIVIDAD} minutos sin actividad. Inicia sesión de nuevo.`);
+    try { await apiService.logout(); } catch { /* la cookie vence sola; igual se cierra Firebase */ }
+    await signOut(auth).catch(() => {});
+    window.location.reload();
+  }, []);
+  const { segundosRestantes: segundosParaCierre, seguirConectado } = useCierrePorInactividad(Boolean(user), cerrarPorInactividad);
   const handleImportJSON = (e) => {
   const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -763,6 +772,12 @@ return (
     catalogosInicializados={catalogosInicializados}
   >
     <div className="app-shell flex h-dvh bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
+      {segundosParaCierre !== null && (
+        <div role="alertdialog" aria-live="assertive" className="fixed inset-x-0 top-4 z-[200] mx-auto flex w-[min(92vw,520px)] items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-2xl">
+          <p className="flex-1 text-sm font-semibold">Por inactividad, tu sesión se cerrará en {segundosParaCierre} s. Lo que no hayas guardado se perderá.</p>
+          <button type="button" onClick={seguirConectado} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-black text-white hover:bg-amber-700">Seguir conectado</button>
+        </div>
+      )}
       {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
       {isPresentationMode && (
         <button 

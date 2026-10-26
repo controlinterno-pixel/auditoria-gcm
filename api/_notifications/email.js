@@ -1,5 +1,7 @@
-// api/notifications/email.js - Despacho Real de Correos vía SMTP
-import nodemailer from 'nodemailer';
+// api/notifications/email.js - Prepara el soporte de una evaluación para adjuntarlo al correo.
+// Los correos los envía el navegador con la cuenta de Gmail de cada usuario (src/services/gmailService.js).
+// 🛡️ El envío por SMTP desde el servidor se retiró: no lo usaba la app y permitía a cualquier usuario con
+// sesión mandar correos con HTML libre, a cualquier destinatario, en nombre de la cuenta institucional.
 import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
@@ -17,123 +19,20 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const { operacion, adjuntoEvaluacion, adjuntosCorreo = [] } = req.body || {};
-    if (operacion === 'preparar-adjunto') {
-      try {
-        validarAdjuntoEvaluacion(adjuntoEvaluacion);
-      } catch (error) {
-        return sendError(res, error.message, 400);
-      }
-      const archivo = await descargarAdjuntoEvaluacion(adjuntoEvaluacion);
-      return sendSuccess(res, { ...validarAdjuntoEvaluacion(archivo), contenidoBase64: Buffer.from(archivo.contenido).toString('base64') });
+    const { operacion, adjuntoEvaluacion } = req.body || {};
+    if (operacion !== 'preparar-adjunto') {
+      logger.warn('Solicitud de envío SMTP rechazada: el servidor ya no envía correos', { usuario: user.email });
+      return sendError(res, 'El servidor no envía correos: la app los envía desde tu cuenta de Gmail.', 410);
     }
-    if (!Array.isArray(adjuntosCorreo) || adjuntosCorreo.length > 1) {
-      return sendError(res, 'La notificación admite un soporte de evaluación.', 400);
-    }
-    let soportes;
     try {
-      soportes = adjuntosCorreo.map(validarAdjuntoEvaluacion);
+      validarAdjuntoEvaluacion(adjuntoEvaluacion);
     } catch (error) {
       return sendError(res, error.message, 400);
     }
-const { ref_consecutivo, destinatarios, asunto, titulo, titulo_informe, proceso_auditado, evidenciaUrl, anexosMultiples } = req.body || {};
-    
-    const tituloFinal = titulo_informe || titulo || 'Notificación de Auditoría GRC';
-    const mensajeContexto = proceso_auditado || 'Se ha registrado una actualización en la plataforma que requiere su atención.';
-
-    // 🛠️ PARSEO SEGURO DE ANEXOS: Convierte el string JSON del frontend a un Array de objetos
-    let anexosArray = [];
-    if (anexosMultiples) {
-      try {
-        anexosArray = typeof anexosMultiples === 'string' ? JSON.parse(anexosMultiples) : anexosMultiples;
-      } catch (e) {
-        logger.error("Error parseando anexosMultiples en el correo:", e);
-      }
-    }
-
-    if (!destinatarios || (typeof destinatarios !== 'string' && !Array.isArray(destinatarios))) {
-      return sendError(res, 'Faltan destinatarios válidos para el envío de la notificación.', 400);
-    }
-
-    const listaDestinatarios = Array.isArray(destinatarios) ? destinatarios.join(', ') : destinatarios;
-
-    // ⚡ Configuración del servidor de correo
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: process.env.SMTP_SECURE !== 'false',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS 
-      }
-    });
-
-    const mailOptions = {
-      from: `"Sistema GRC Termales" <${process.env.SMTP_USER || 'no-reply@termales.com.co'}>`,
-      to: listaDestinatarios,
-      subject: asunto || `[GRC Termales] Notificación Acción ${ref_consecutivo || ''}`,
-      attachments: await Promise.all(soportes.map(async soporte => {
-        const archivo = await descargarAdjuntoEvaluacion(soporte);
-        return { filename: archivo.nombre, contentType: archivo.tipo, content: Buffer.from(archivo.contenido) };
-      })),
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; color: #1e293b;">
-          <div style="background-color: #0A3B32; padding: 20px; text-align: center; color: white;">
-            <h2 style="margin: 0; font-size: 18px; font-weight: bold;">TERMALES SANTA ROSA DE CABAL</h2>
-            <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Sistema de Gestión Integral & Control Interno</p>
-          </div>
-          <div style="padding: 24px;">
-            <p style="font-size: 14px; margin-top: 0;">Estimado(a) Equipo,</p>
-            <p style="font-size: 13px; line-height: 1.5;">${mensajeContexto}</p>
-            
-            <div style="background-color: #f8fafc; border-left: 4px solid #0A3B32; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
-              <p style="margin: 4px 0; font-size: 12px;"><b>Código Registro:</b> ${ref_consecutivo || 'N/A'}</p>
-              <p style="margin: 4px 0; font-size: 12px;"><b>Trámite / Título:</b> ${tituloFinal}</p>
-              <p style="margin: 4px 0; font-size: 12px;"><b>Generado por:</b> ${user.email}</p>
-            </div>
-
-            ${evidenciaUrl ? `
-              <div style="text-align: center; margin: 25px 0;">
-                <a href="${evidenciaUrl}" target="_blank" style="background-color: #0A3B32; color: white; padding: 12px 24px; text-decoration: none; font-size: 12px; font-weight: bold; border-radius: 8px; display: inline-block; border: 1px solid #062620;">📄 Ver Informe Principal</a>
-              </div>
-            ` : ''}
-
-            ${anexosArray.length > 0 ? `
-              <div style="margin: 20px 0; padding-top: 20px; border-top: 1px dashed #cbd5e1;">
-                <p style="font-size: 12px; font-weight: bold; color: #475569; margin-bottom: 12px;">📎 Actas y Anexos Adicionales:</p>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                  ${anexosArray.map(anexo => `
-                    <a href="${anexo.url}" target="_blank" style="display: block; background-color: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; padding: 10px 14px; text-decoration: none; font-size: 11px; border-radius: 6px; font-weight: bold;">
-                      ⬇️ ${anexo.nombre}
-                    </a>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
-
-            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-            <p style="font-size: 10px; color: #94a3b8; text-align: center; margin: 0;">Este es un mensaje automático de notificación institucional emitido por la plataforma GRC de Termales Santa Rosa de Cabal.</p>
-          </div>
-        </div>
-      `
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-
-    logger.info('Notificación enviada exitosamente por correo real', {
-      usuario: user.email,
-      ref_consecutivo: ref_consecutivo || 'N/A',
-      destinatarios: listaDestinatarios,
-      messageId: info.messageId
-    });
-
-    return sendSuccess(res, {
-      message: 'Correo electrónico despachado y entregado exitosamente al servidor de destino.',
-      messageId: info.messageId
-    });
-
+    const archivo = await descargarAdjuntoEvaluacion(adjuntoEvaluacion);
+    return sendSuccess(res, { ...validarAdjuntoEvaluacion(archivo), contenidoBase64: Buffer.from(archivo.contenido).toString('base64') });
   } catch (error) {
-    logger.error('Error al despachar correo electrónico real', error, { endpoint: req.url });
-    return sendError(res, `Falla al entregar el correo: ${error.message}`, 500);
+    logger.error('Error preparando el adjunto del correo', error, { endpoint: req.url });
+    return sendError(res, 'No se pudo preparar el soporte para el correo. Intenta de nuevo.', 500);
   }
 }

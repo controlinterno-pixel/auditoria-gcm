@@ -22,6 +22,7 @@ import {
 
 import { apiService } from '../services/apiService';
 import { AUTH_NOTICE_EVENT, consumeAuthNotice, markSignOutReason } from '../services/authDiagnostics';
+import { reiniciarRelojInactividad } from '../hooks/useCierrePorInactividad.js';
 
 export default function AuthScreen() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -29,6 +30,8 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   // ℹ️ Motivo del último cierre de sesión (si no fue solicitado por el usuario en esta pestaña)
   const [authNotice, setAuthNoticeVisible] = useState(consumeAuthNotice);
+  // Un inicio de sesión nuevo empieza con el reloj de inactividad en cero.
+  useEffect(() => { reiniciarRelojInactividad(); }, []);
   useEffect(() => {
     const mostrarAviso = () => {
       const aviso = consumeAuthNotice();

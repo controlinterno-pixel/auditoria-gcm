@@ -87,7 +87,7 @@ function emailHandler({ authenticated = true, failDownload = false } = {}) {
     applyCors: () => false, requireAuth: async () => authenticated ? { email: 'auditor@example.test' } : null,
     sendSuccess: (res, data) => Object.assign(res, { code: 200, data }),
     sendError: (res, error, code) => Object.assign(res, { code, error }),
-    logger: { info() {}, error() {} }, validarAdjuntoEvaluacion,
+    logger: { info() {}, warn() {}, error() {} }, validarAdjuntoEvaluacion,
     descargarAdjuntoEvaluacion: async adjunto => {
       if (failDownload) throw new Error('Repositorio no disponible');
       return { ...validarAdjuntoEvaluacion(adjunto), contenido: bytes };
@@ -102,12 +102,10 @@ function emailHandler({ authenticated = true, failDownload = false } = {}) {
   };
 }
 
-test('SMTP adjunta contenido binario y API autenticada prepara Gmail sin enviar un segundo correo', async () => {
+test('el servidor ya no envía correos por SMTP; la API autenticada solo prepara el adjunto para Gmail', async () => {
   const smtp = emailHandler();
-  assert.equal((await smtp.call({ destinatarios: 'ejecutor@example.test', adjuntosCorreo: [soporte] })).code, 200);
-  assert.equal(smtp.enviados.length, 1);
-  assert.deepEqual(smtp.enviados[0].attachments[0].content, Buffer.from(bytes));
-  assert.equal(smtp.enviados[0].attachments[0].filename, soporte.nombre);
+  assert.equal((await smtp.call({ destinatarios: 'ejecutor@example.test', adjuntosCorreo: [soporte] })).code, 410);
+  assert.equal(smtp.enviados.length, 0);
   const prepare = emailHandler();
   const response = await prepare.call({ operacion: 'preparar-adjunto', adjuntoEvaluacion: soporte });
   assert.equal(response.code, 200);
@@ -118,9 +116,11 @@ test('SMTP adjunta contenido binario y API autenticada prepara Gmail sin enviar 
   assert.equal(unauthenticated.enviados.length, 0);
 });
 
-test('SMTP no envía un mensaje incompleto ante un fallo del repositorio', async () => {
+test('un fallo del repositorio al preparar el adjunto responde 500 sin detalles internos', async () => {
   const h = emailHandler({ failDownload: true });
-  assert.equal((await h.call({ destinatarios: 'ejecutor@example.test', adjuntosCorreo: [soporte] })).code, 500);
+  const res = await h.call({ operacion: 'preparar-adjunto', adjuntoEvaluacion: soporte });
+  assert.equal(res.code, 500);
+  assert.equal(res.error.includes('Repositorio no disponible'), false);
   assert.equal(h.enviados.length, 0);
 });
 
