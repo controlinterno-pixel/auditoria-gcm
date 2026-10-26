@@ -79,7 +79,7 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
     'Content-Type': 'application/json',
   };
   // Solo las llamadas cuyo resultado se aplica completo en pantalla pueden omitir la recarga.
-  const { aplicadoLocalmente = false, ...opcionesFetch } = options;
+  const { aplicadoLocalmente = false, tiempoEsperaMs = 15000, ...opcionesFetch } = options;
 
   // Preparamos la configuración base (sin la señal de aborto, porque esa cambia en cada intento)
   const configBase = {
@@ -101,7 +101,7 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
     
     // El temporizador (Timeout) se crea fresco para cada intento (15 segundos)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); 
+    const timeoutId = setTimeout(() => controller.abort(), tiempoEsperaMs);
 
     const config = { ...configBase, signal: controller.signal };
 
@@ -468,10 +468,13 @@ export const apiService = {
   }),
 
   // 🤖 AUDITORÍA E INTELIGENCIA ARTIFICIAL
+  // La IA prueba Pro primero (puede tardar hasta un minuto) y baja a Flash si se acaba su cuota: se espera
+  // más que en las demás llamadas y no se reintenta (cada reintento empezaría de nuevo por Pro).
   consultarAuditor: (payload) => request('/api/grc/audit', {
     method: 'POST',
-    body: payload
-  }),
+    body: payload,
+    tiempoEsperaMs: 150000,
+  }, 1),
 
   // 🔎 ANÁLISIS FORENSE DE NÓMINA
   ejecutarAnalisisForense: (listaBases) => request('/api/grc/forense', {

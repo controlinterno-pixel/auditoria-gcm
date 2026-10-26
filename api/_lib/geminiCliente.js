@@ -1,20 +1,29 @@
 // api/_lib/geminiCliente.js - Llamada a Gemini por su API REST, sin SDK.
 // - Modelos: alias "-latest" de Google, que apuntan siempre al modelo más reciente (se actualizan solos).
 //   Se puede fijar otra lista sin desplegar con GEMINI_MODELOS="modelo-1,modelo-2".
-// - Rapidez: primero Flash-Lite (el más rápido; los datos ya vienen calculados, la IA solo los interpreta),
-//   límite de tiempo por intento y caché de 7 días en Upstash: si los datos no cambian, la respuesta es inmediata.
+// - Calidad primero: Pro; cuando su cuota se acaba (o no responde a tiempo) baja a Flash y, como último
+//   recurso, a Flash-Lite. Caché de 7 días en Upstash: si los datos no cambian, la respuesta es inmediata.
 import { createHash } from 'node:crypto';
 import { ejecutarRedis } from './almacenKV.js';
 import { logger } from './logger.js';
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
-// Al final, los modelos fijos que funcionan hoy: si un alias no respondiera, la IA no queda peor que antes.
-export const MODELOS_POR_DEFECTO = ['gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+// Cada alias va seguido del modelo fijo equivalente: si un alias no existe (404), se pasa al siguiente.
+export const MODELOS_POR_DEFECTO = [
+  'gemini-pro-latest', 'gemini-2.5-pro',
+  'gemini-flash-latest', 'gemini-2.5-flash',
+  'gemini-flash-lite-latest', 'gemini-2.5-flash-lite',
+];
 const ESPERA_POR_INTENTO_MS = 25000;
+// Pro razona antes de responder: necesita más tiempo y más tokens (el razonamiento cuenta en el límite).
+const esPro = modelo => /pro/i.test(modelo);
+const ESPERA_PRO_MS = 60000;
 const MAX_TOKENS_SALIDA = 8192;
+const MAX_TOKENS_SALIDA_PRO = 32768;
 const CACHE_SEGUNDOS = 7 * 24 * 60 * 60;
-// Si cambian las reglas o la forma del prompt, subir la versión invalida la caché anterior.
-const VERSION_CACHE = 'v2';
+// Si cambian las reglas, la forma del prompt o los modelos, subir la versión invalida la caché anterior.
+// v3: Pro pasa a ser el primer modelo; las respuestas guardadas de Flash-Lite se regeneran.
+const VERSION_CACHE = 'v3';
 
 // Con respuesta JSON se valida antes de aceptarla: un JSON mal formado (p. ej. comillas sin escapar) se
 // descarta y se prueba el siguiente modelo, en lugar de mostrarse como texto crudo o quedar en la caché.
@@ -64,7 +73,7 @@ async function llamarModelo({ modelo, clave, instruccionSistema, prompt, json, t
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: temperatura,
-          maxOutputTokens: MAX_TOKENS_SALIDA,
+          maxOutputTokens: esPro(modelo) ? MAX_TOKENS_SALIDA_PRO : MAX_TOKENS_SALIDA,
           ...(json ? { responseMimeType: 'application/json' } : {}),
         },
       }),
@@ -99,7 +108,9 @@ async function llamarModelo({ modelo, clave, instruccionSistema, prompt, json, t
 }
 
 /**
- * Genera la respuesta probando cada clave y cada modelo en orden. Devuelve { texto, modelo, desdeCache }.
+ * Genera la respuesta probando los modelos en orden (Pro → Flash → Flash-Lite) y, para cada modelo, cada
+ * clave: así se agota la cuota de Pro en todas las claves antes de bajar de modelo. Si un modelo no existe
+ * (404) o no responde a tiempo, no se insiste con las demás claves. Devuelve { texto, modelo, desdeCache }.
  * Lanza el último error si ningún modelo respondió.
  */
 export async function generarConGemini({ instruccionSistema, prompt, json = false }, {
@@ -119,17 +130,20 @@ export async function generarConGemini({ instruccionSistema, prompt, json = fals
   const modelos = obtenerModelos(entorno);
   const temperatura = obtenerTemperatura(entorno);
   let ultimoError = null;
-  for (const apiKey of claves) {
-    for (const modelo of modelos) {
+  for (const modelo of modelos) {
+    for (const apiKey of claves) {
       const inicio = Date.now();
       try {
-        const texto = await llamarModelo({ modelo, clave: apiKey, instruccionSistema, prompt, json, temperatura, fetchImpl, esperaMs });
+        const espera = esPro(modelo) && esperaMs === ESPERA_POR_INTENTO_MS ? ESPERA_PRO_MS : esperaMs;
+        const texto = await llamarModelo({ modelo, clave: apiKey, instruccionSistema, prompt, json, temperatura, fetchImpl, esperaMs: espera });
         logger.info('[IA] Respuesta generada', { modelo, ms: Date.now() - inicio });
         await redis([['SET', clave, JSON.stringify({ texto, modelo }), 'EX', String(CACHE_SEGUNDOS)]], { etiqueta: 'IA-CACHE' });
         return { texto, modelo, desdeCache: false };
       } catch (error) {
         ultimoError = error;
         logger.warn('[IA] Modelo sin respuesta; se prueba el siguiente', { modelo, ms: Date.now() - inicio, estado: error?.estado, motivo: String(error?.message || '').slice(0, 200) });
+        // Modelo inexistente o lento: otra clave no lo arregla. Cuota agotada (429) u otro error: sí.
+        if (error?.estado === 404 || error?.estado === 'timeout') break;
       }
     }
   }
