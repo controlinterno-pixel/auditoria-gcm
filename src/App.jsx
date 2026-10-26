@@ -762,7 +762,16 @@ if (showWelcome) {
   return (
     <WelcomeScreen 
       isAdmin={isAdmin} 
-      onEnter={() => setShowWelcome(false)} 
+      onEnter={() => {
+        setShowWelcome(false);
+        // Sin "Mi Espacio" (p. ej. usuario nuevo que solo tiene Riesgos) entra directo a la matriz de riesgos,
+        // en lugar de quedar en la pantalla "No tienes acceso".
+        if (activeTab === 'tablero' && !puedeVerMiEspacio && puedeVerMatriz) {
+          setActiveTab('plan_anual_tab');
+          setSubTabPlanificar('riesgos');
+          setMenuAbierto('riesgos');
+        }
+      }} 
       onLogout={handleLogout} 
     />
   );

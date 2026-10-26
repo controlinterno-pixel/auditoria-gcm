@@ -38,8 +38,12 @@ export function riesgosVisiblesPara(riesgos, { veTodo = false, permisos = [], pr
   return lista.filter(riesgo => macroprocesosDelRiesgo(riesgo).some(proceso => propios.has(proceso)));
 }
 
-// Paquete básico: el que Configuración muestra a un usuario sin permisos guardados y el que recibe al aprobarlo.
+// Paquete básico: el que rige para usuarios antiguos sin permisos guardados (y el que Configuración les muestra).
 export const PERMISOS_BASICOS = ['inicio', 'sub_mi_espacio', 'hallazgos', 'sub_hallazgos', 'planes', 'sub_seguimiento_planes'];
+
+// Usuario nuevo al aprobarlo: solo el módulo Riesgos (y solo los riesgos de sus macroprocesos). El
+// administrador le habilita el resto en Configuración.
+export const PERMISOS_NUEVOS_USUARIOS = ['riesgos', 'sub_matriz_riesgos', 'sub_apetito'];
 
 const MODULO_DE = Object.fromEntries(Object.entries(SUBMODULOS_POR_MODULO).flatMap(([modulo, subs]) => subs.map(sub => [sub, modulo])));
 

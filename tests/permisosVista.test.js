@@ -25,11 +25,19 @@ test('sin permisos guardados rige el paquete básico (el mismo que muestra Confi
   assert.equal(puedeVerSubmodulo(permisosEfectivos({}), 'sub_matriz_riesgos'), false);
 });
 
-test('Configuración y la aprobación de usuarios usan el mismo paquete básico', () => {
+test('Configuración muestra el paquete básico a usuarios antiguos; un usuario nuevo aprobado solo ve Riesgos', async () => {
   const configuracion = readFileSync(new URL('../src/components/Configuracion.jsx', import.meta.url), 'utf8');
   assert.match(configuracion, /const userPermisos = permisosEfectivos\(u\);/);
   const usuarios = readFileSync(new URL('../api/_auth/users.js', import.meta.url), 'utf8');
-  assert.match(usuarios, /permisos: PERMISOS_BASICOS/);
+  assert.match(usuarios, /permisos: PERMISOS_NUEVOS_USUARIOS/);
+  const { PERMISOS_NUEVOS_USUARIOS } = await import('../src/utils/permisosVista.js');
+  assert.deepEqual(PERMISOS_NUEVOS_USUARIOS, ['riesgos', 'sub_matriz_riesgos', 'sub_apetito']);
+  assert.equal(puedeVerSubmodulo(PERMISOS_NUEVOS_USUARIOS, 'sub_matriz_riesgos'), true);
+  for (const otro of ['sub_mi_espacio', 'sub_hallazgos', 'sub_informes', 'sub_seguimiento_planes', 'sub_comites']) {
+    assert.equal(puedeVerSubmodulo(PERMISOS_NUEVOS_USUARIOS, otro), false, `${otro} no se ve`);
+  }
+  assert.equal(PERMISOS_NUEVOS_USUARIOS.includes('planes'), false, 'sin módulo Planes');
+  assert.equal(PERMISOS_NUEVOS_USUARIOS.includes('riesgos_ver_todos'), false, 'solo los riesgos de sus macroprocesos');
 });
 
 test('solo sus tareas: ve los planes donde está asignado y al guardar no se pierden los demás', () => {

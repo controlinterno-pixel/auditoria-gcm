@@ -3,7 +3,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { applyCors } from '../_lib/cors.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
-import { PERMISOS_BASICOS } from '../../src/utils/permisosVista.js';
+import { PERMISOS_NUEVOS_USUARIOS } from '../../src/utils/permisosVista.js';
 
 const CAMPOS_EDITABLES = new Set([
   'rol',
@@ -73,8 +73,8 @@ async function resolverSolicitud(uid, accion) {
 
   await userRef.update({
     estadoAcceso: 'activo',
-    // Sin casillas asignadas, el usuario aprobado recibe el paquete básico (luego se ajusta en Configuración).
-    ...(Array.isArray(userData.permisos) && userData.permisos.length > 0 ? {} : { permisos: PERMISOS_BASICOS }),
+    // Sin casillas asignadas, el usuario aprobado solo ve Riesgos; el administrador le habilita el resto.
+    ...(Array.isArray(userData.permisos) && userData.permisos.length > 0 ? {} : { permisos: PERMISOS_NUEVOS_USUARIOS }),
     procesosAsignados: procesos,
     subprocesosAsignados: subprocesos,
     procesoAsignado: procesos.length === 1 ? procesos[0] : '',
