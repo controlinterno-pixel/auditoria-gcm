@@ -24,6 +24,13 @@ import { apiService } from '../services/apiService';
 import { AUTH_NOTICE_EVENT, consumeAuthNotice, markSignOutReason } from '../services/authDiagnostics';
 import { reiniciarRelojInactividad } from '../hooks/useCierrePorInactividad.js';
 import { armarSolicitudProcesos } from '../utils/solicitudProcesos.js';
+import { requisitosClave } from '../utils/requisitosClave.js';
+
+// Recuadros de validación del registro: verde fuerte si está bien, rojo fuerte si no.
+const CAMPO_NEUTRO = 'border border-slate-200 bg-slate-100/80 focus:ring-2 focus:ring-blue-500';
+const CAMPO_OK = 'border-2 border-emerald-500 bg-emerald-50 ring-2 ring-emerald-300 text-emerald-900';
+const CAMPO_ERROR = 'border-2 border-red-500 bg-red-50 ring-2 ring-red-300 text-red-900';
+
 
 export default function AuthScreen() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -44,6 +51,7 @@ export default function AuthScreen() {
 
   // Campos del Formulario
   const [email, setEmail] = useState('');
+  const [emailConfirmacion, setEmailConfirmacion] = useState('');
   const [password, setPassword] = useState('');
   const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
@@ -80,26 +88,16 @@ export default function AuthScreen() {
     return () => { activo = false; };
   }, [isRegistering]);
 
-  // 🛡️ Helper para medir la fortaleza de la contraseña
-  const getPasswordStrength = (pass) => {
-    let score = 0;
-    if (!pass) return { score: 0, label: 'Muy débil', color: 'bg-slate-200' };
-
-    if (pass.length >= 8) score += 25;
-    if (/[A-Z]/.test(pass)) score += 25;
-    if (/[0-9]/.test(pass)) score += 25;
-    if (/[^A-Za-z0-9]/.test(pass)) score += 25;
-
-    if (score <= 25) return { score, label: 'Muy débil ❌', color: 'bg-red-500' };
-    if (score <= 50) return { score, label: 'Aceptable ⚠️', color: 'bg-amber-500' };
-    if (score <= 75) return { score, label: 'Buena 👍', color: 'bg-blue-500' };
-    return { score, label: 'Muy Segura 🛡️', color: 'bg-emerald-500' };
-  };
-
   // 1. Manejo del Registro
   const handleRegister = async (e) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
+
+    // 🛡️ Doble validación del correo: debe escribirse igual dos veces.
+    if (cleanEmail !== emailConfirmacion.trim().toLowerCase()) {
+      alert("⚠️ Los correos no coinciden. Escríbelo igual en los dos campos.");
+      return;
+    }
 
     // 🛡️ Validación de Dominio Corporativo
     if (!cleanEmail.endsWith('@termales.com.co')) {
@@ -127,9 +125,8 @@ export default function AuthScreen() {
     }
 
     // 🛡️ Validación de Fortaleza de Contraseña
-    const strength = getPasswordStrength(password);
-    if (strength.score < 75) {
-      alert("⚠️ La contraseña es muy débil. Debe incluir al menos 8 caracteres, una mayúscula, un número y un símbolo especial (!@#$).");
+    if (!requisitosClave(password).every(requisito => requisito.cumple)) {
+      alert("⚠️ La contraseña no es segura. Debe tener 8 caracteres o más, una mayúscula, un número y un símbolo (por ejemplo ! @ # $ %).");
       return;
     }
 
@@ -456,19 +453,27 @@ export default function AuthScreen() {
               </div>
 
               {/* Uno o varios macroprocesos a cargo; en cada uno, todos sus subprocesos o solo algunos. */}
-              <fieldset className="rounded-xl border border-slate-200 bg-slate-50/70 p-2">
-                <legend className="px-1 text-[10px] font-bold uppercase text-slate-600">Macroprocesos a tu cargo *</legend>
-                <p className="mb-1 text-[10px] text-slate-500">Marca uno o varios. En cada uno puedes dejar todos sus subprocesos o elegir solo algunos.</p>
-                <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+              <div>
+                <div className="mb-1 flex items-baseline justify-between gap-2">
+                  <label className="block text-[10px] font-bold uppercase text-slate-600">Macroprocesos a tu cargo *</label>
+                  {Object.keys(seleccionProcesos).length > 0 && (
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                      {Object.keys(seleccionProcesos).length} seleccionado{Object.keys(seleccionProcesos).length === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+                <p className="mb-1.5 text-[10px] leading-snug text-slate-500">Marca uno o varios. En cada uno quedan todos sus subprocesos, o desmarca esa opción para elegir solo algunos.</p>
+                <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-100/80 p-1.5">
                   {areasOpciones.map(macroproceso => {
                     const elegido = seleccionProcesos[macroproceso];
                     const subprocesosMacro = Array.isArray(mapaProcesosOpciones[macroproceso]) ? mapaProcesosOpciones[macroproceso] : [];
                     const cambiar = cambio => setSeleccionProcesos(actual => ({ ...actual, [macroproceso]: { ...actual[macroproceso], ...cambio } }));
                     return (
-                      <div key={macroproceso} className={`rounded-lg ${elegido ? 'border border-blue-200 bg-white p-1.5' : ''}`}>
+                      <div key={macroproceso} className={`rounded-lg px-2 py-1.5 transition-colors ${elegido ? 'bg-white shadow-sm ring-1 ring-blue-200' : 'hover:bg-white/70'}`}>
                         <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
                           <input
                             type="checkbox"
+                            className="h-3.5 w-3.5 shrink-0 accent-blue-600"
                             checked={Boolean(elegido)}
                             onChange={() => setSeleccionProcesos(actual => {
                               const siguiente = { ...actual };
@@ -477,18 +482,19 @@ export default function AuthScreen() {
                               return siguiente;
                             })}
                           />
-                          {macroproceso}
+                          <span className="leading-tight">{macroproceso}</span>
                         </label>
                         {elegido && (
-                          <div className="mt-1 space-y-0.5 pl-6">
+                          <div className="mt-1.5 space-y-1 border-l-2 border-blue-100 pl-3 ml-1.5">
                             <label className="flex cursor-pointer items-center gap-2 text-[11px] font-bold text-blue-700">
-                              <input type="checkbox" checked={elegido.todos} onChange={() => cambiar({ todos: !elegido.todos, subprocesos: [] })} />
+                              <input type="checkbox" className="h-3 w-3 shrink-0 accent-blue-600" checked={elegido.todos} onChange={() => cambiar({ todos: !elegido.todos, subprocesos: [] })} />
                               Todos los subprocesos ({subprocesosMacro.length})
                             </label>
                             {!elegido.todos && subprocesosMacro.map(subprocesoMacro => (
-                              <label key={subprocesoMacro} className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-600">
+                              <label key={subprocesoMacro} className="flex cursor-pointer items-center gap-2 text-[11px] leading-tight text-slate-600">
                                 <input
                                   type="checkbox"
+                                  className="h-3 w-3 shrink-0 accent-blue-600"
                                   checked={elegido.subprocesos.includes(subprocesoMacro)}
                                   onChange={() => cambiar({
                                     subprocesos: elegido.subprocesos.includes(subprocesoMacro)
@@ -499,81 +505,133 @@ export default function AuthScreen() {
                                 {subprocesoMacro}
                               </label>
                             ))}
+                            {!elegido.todos && elegido.subprocesos.length === 0 && (
+                              <p className="text-[10px] font-semibold text-red-600">Elige al menos un subproceso.</p>
+                            )}
                           </div>
                         )}
                       </div>
                     );
                   })}
-                  {areasOpciones.length === 0 && <p className="text-[11px] text-slate-500">Cargando macroprocesos…</p>}
-                </div>
-              </fieldset>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Correo Institucional *</label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input 
-                    type="email" 
-                    required 
-                    placeholder="usuario@termales.com.co" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)} 
-                    className="w-full bg-slate-100/80 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono" 
-                  />
+                  {areasOpciones.length === 0 && <p className="px-2 py-1 text-[11px] text-slate-500">Cargando macroprocesos…</p>}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Contraseña *</label>
-                  <div className="relative">
-                    <input 
-                      type={showPassword ? "text" : "password"} 
-                      required 
-                      placeholder="Mín. 8 caract..." 
-                      value={password} 
-                      onChange={(e) => setPassword(e.target.value)} 
-                      className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none pr-8" 
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowPassword(!showPassword)} 
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  {password && (
-                    <div className="w-full mt-1">
-                      <span className="text-[8px] font-bold block mb-0.5">{getPasswordStrength(password).label}</span>
-                      <div className="w-full bg-slate-200 rounded-full h-1 overflow-hidden">
-                        <div className={`h-full transition-all duration-300 ${getPasswordStrength(password).color}`} style={{ width: `${getPasswordStrength(password).score}%` }} />
+              {(() => {
+                // Doble validación: rojo si no coinciden, verde si coinciden; con rojo no se crea la cuenta.
+                const correo = email.trim().toLowerCase();
+                const confirmacion = emailConfirmacion.trim().toLowerCase();
+                const estado = !confirmacion ? 'vacio' : confirmacion === correo ? 'coincide' : 'distinto';
+                const borde = estado === 'coincide' ? CAMPO_OK : estado === 'distinto' ? CAMPO_ERROR : CAMPO_NEUTRO;
+                return (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Correo institucional *</label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="email"
+                          required
+                          autoComplete="email"
+                          placeholder="usuario@termales.com.co"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className={`w-full rounded-xl pl-9 pr-3 py-2 text-xs font-semibold font-mono outline-none transition-colors ${estado === 'vacio' ? CAMPO_NEUTRO : borde}`}
+                        />
                       </div>
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Confirmar *</label>
-                  <div className="relative">
-                    <input 
-                      type={showConfirmPassword ? "text" : "password"} 
-                      required 
-                      placeholder="Repite clave" 
-                      value={confirmPassword} 
-                      onChange={(e) => setConfirmPassword(e.target.value)} 
-                      className={`w-full bg-slate-100/80 border rounded-xl px-2.5 py-2 text-xs font-semibold focus:ring-2 outline-none pr-8 ${confirmPassword && password !== confirmPassword ? 'border-red-400 focus:ring-red-500' : 'border-slate-200 focus:ring-blue-500'}`} 
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Confirmar correo *</label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="email"
+                          required
+                          autoComplete="off"
+                          placeholder="Escríbelo otra vez"
+                          value={emailConfirmacion}
+                          onChange={(e) => setEmailConfirmacion(e.target.value)}
+                          onPaste={(e) => e.preventDefault()}
+                          aria-invalid={estado === 'distinto'}
+                          className={`w-full rounded-xl pl-9 pr-3 py-2 text-xs font-semibold font-mono outline-none transition-colors ${borde}`}
+                        />
+                      </div>
+                    </div>
+                    {estado !== 'vacio' && (
+                      <p role="status" className={`sm:col-span-2 text-[10px] font-bold ${estado === 'coincide' ? 'text-emerald-700' : 'text-red-600'}`}>
+                        {estado === 'coincide' ? '✓ Los correos coinciden.' : '✗ Los correos no coinciden.'}
+                      </p>
+                    )}
                   </div>
-                </div>
-              </div>
+                );
+              })()}
+
+              {(() => {
+                // Contraseña: requisitos visibles y confirmación en verde o rojo; sin todo en verde no se crea la cuenta.
+                const requisitos = requisitosClave(password);
+                const segura = requisitos.every(requisito => requisito.cumple);
+                const estado = !confirmPassword ? 'vacio' : confirmPassword === password ? 'coincide' : 'distinto';
+                const estiloClave = !password ? CAMPO_NEUTRO : segura ? CAMPO_OK : CAMPO_ERROR;
+                const estiloConfirmacion = estado === 'vacio' ? CAMPO_NEUTRO : estado === 'coincide' && segura ? CAMPO_OK : CAMPO_ERROR;
+                return (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Contraseña *</label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            required
+                            autoComplete="new-password"
+                            placeholder="Escribe tu contraseña"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className={`w-full rounded-xl px-2.5 py-2 pr-8 text-xs font-semibold outline-none transition-colors ${estiloClave}`}
+                          />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                            {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Confirmar contraseña *</label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            required
+                            autoComplete="new-password"
+                            placeholder="Repite la contraseña"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            onPaste={(e) => e.preventDefault()}
+                            aria-invalid={estado === 'distinto'}
+                            className={`w-full rounded-xl px-2.5 py-2 pr-8 text-xs font-semibold outline-none transition-colors ${estiloConfirmacion}`}
+                          />
+                          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                            {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white/80 px-2.5 py-2">
+                      <p className="mb-1 text-[10px] font-bold text-slate-600">Para que sea segura debe tener como mínimo:</p>
+                      <ul className="grid grid-cols-1 gap-x-3 gap-y-0.5 sm:grid-cols-2">
+                        {requisitos.map(requisito => (
+                          <li key={requisito.texto} className={`flex items-center gap-1.5 text-[10px] font-semibold ${requisito.cumple ? 'text-emerald-700' : 'text-slate-500'}`}>
+                            <span aria-hidden="true" className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[8px] font-black text-white ${requisito.cumple ? 'bg-emerald-500' : 'bg-slate-300'}`}>{requisito.cumple ? '✓' : ''}</span>
+                            {requisito.texto}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    {estado !== 'vacio' && (
+                      <p role="status" className={`text-[10px] font-bold ${estado === 'coincide' ? 'text-emerald-700' : 'text-red-600'}`}>
+                        {estado === 'coincide' ? '✓ Las contraseñas coinciden.' : '✗ Las contraseñas no coinciden.'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="p-2.5 bg-slate-100/80 border border-slate-200 rounded-xl flex items-start gap-2">
                 <input 
@@ -590,7 +648,8 @@ export default function AuthScreen() {
 
              <button 
                 type="submit" 
-                disabled={loading} 
+                disabled={loading || !email.trim() || email.trim().toLowerCase() !== emailConfirmacion.trim().toLowerCase() || !password || password !== confirmPassword || !requisitosClave(password).every(requisito => requisito.cumple)}
+                title={email.trim().toLowerCase() !== emailConfirmacion.trim().toLowerCase() ? 'Los correos deben coincidir' : password !== confirmPassword ? 'Las contraseñas deben coincidir' : !requisitosClave(password).every(requisito => requisito.cumple) ? 'La contraseña no cumple los requisitos mínimos' : undefined} 
                 className="w-full bg-gradient-to-r from-[#9b6a38] to-[#784f25] hover:from-[#a87642] hover:to-[#63401d] border border-[#a87642]/50 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-xl transition-all hover:scale-[1.02] disabled:opacity-50 mt-1"
               >
                 <span>{loading ? "Creando cuenta..." : "Crear Cuenta y Enviar Verificación ✉️"}</span>
