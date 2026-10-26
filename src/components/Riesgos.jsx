@@ -10,7 +10,8 @@ import {
 import { useCatalogos } from '../context/useCatalogos';
 import { leerPuente, retirarDelPuente } from '../services/navigationBridge.js';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { consultarPanelIA } from '../services/aiEngine';
+import { consultarPanelIA, ESTRUCTURA_DICTAMEN_CONTROL } from '../services/aiEngine';
+import { generarDictamenControl, planDelControl } from '../utils/dictamenControlIA.js';
 import { armarPanelIA, contextoMatriz, contextoRiesgo } from '../utils/contextoIARiesgos.js';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
@@ -878,9 +879,20 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         ejecucion: c.implementacion || 'Sin dato', documentacion: c.documentacion || 'Sin dato',
         frecuencia: c.frecuencia || 'Sin dato', evidencia: c.evidencia || 'Sin dato', eficacia: calcularEficaciaControl(c),
       };
-      const respuesta = await consultarPanelIA({
-        instruccion: `Audita el control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. No lo describas: evalúa su diseño (tipo, ejecución, documentación, frecuencia y evidencia) con la Tabla 6, su dependencia manual, su trazabilidad y si ataca la causa raíz del riesgo, comparándolo con los demás controles del mismo riesgo. Si "analisisDelControl.pruebaTrabajoDeCampo" empieza con "ALERTA", es el hallazgo principal: menciónalo primero en el análisis, en el dictamen y como acción ALTA del plan (verificar en campo que el control opere y corregir la falla). Empieza por "analisisDelControl", que trae el cálculo exacto: di con sus cifras qué pasa si el control falla y si se automatiza, y si la zona cambia o no (si no cambia, no lo presentes como crítico). Si automatizarlo cambia la zona, esa es la recomendación prioritaria; si ni su falla ni su automatización cambian la zona, dilo e incluye en recomendaciones y en el plan las acciones de "analisisDelControl.accionesQueCambianLaZona" (cálculo exacto del sistema; pueden ser de otro control), empezando por la primera; si ninguna acción de un solo paso cambia la zona, dilo y propone las de "analisisDelControl.combinacionesDeDosPasos" explicando que hay que bajar a la vez probabilidad e impacto. Usa "analisisDelControl.controlesDelRiesgoPorTipo" para nombrar el tipo de cada control (no lo deduzcas). Por cada elemento de "analisisDelControl.faltasDeFormalizacion" (y si controlAuditado.responsable es "Sin asignar"), incluye una recomendación y una acción del plan sobre ESTE control, nombrando el atributo; no la sustituyas por acciones sobre otros controles. Recomendaciones sobre otros controles solo si vienen de "accionesQueCambianLaZona" o "combinacionesDeDosPasos". Prioridades del plan: ALTA = obligaciones del numeral 9 en zona Extremo o Alto, la ALERTA de Trabajo de Campo y la primera acción que cambia la zona si el riesgo está en Extremo o Alto; MEDIA = formalización de este control, su primera prueba de campo si no tiene y el seguimiento del numeral 9 en Moderado o Bajo; BAJA = mejoras que no cambian la zona. Redacta las acciones del plan como tareas (qué hacer y para qué), sin copiar el cálculo literal. Si la alerta trae "Observación del auditor", cítala como la evidencia concreta de la falla y basa en ella la acción ALTA (qué corregir, no solo "verificar"). El responsable del control está en controlAuditado.responsable; si es "Sin asignar", en el plan usa controlAuditado.responsableSegunManual (líder del proceso, numeral 8.3.2).`,
-        datos: { controlAuditado: control, analisisDelControl: analizarControlEnRiesgo(r, indice, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, r.id) }), ...datosRiesgo },
+      // Paso 1: el plan, las recomendaciones y los KRIs salen del cálculo exacto (dictamenControlIA.js).
+      // Paso 2: la IA solo redacta; su texto se revisa y, si trae errores, se corrige o se recorta.
+      const { simulacion, ...analisisDelControl } = analizarControlEnRiesgo(r, indice, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, r.id) }) || {};
+      const plan = planDelControl({ riesgo: r, simulacion, control, ficha: datosRiesgo.riesgo, evaluaciones });
+      const respaldo = simulacion
+        ? [analisisDelControl.eficacia, analisisDelControl.situacionActual, analisisDelControl.siElControlFalla, analisisDelControl.siSeAutomatiza, analisisDelControl.pruebaTrabajoDeCampo].join(' ')
+        : 'Faltan la probabilidad o el impacto inherente del riesgo: registra los valores para analizar este control.';
+      const respuesta = await generarDictamenControl({
+        consultar: consulta => consultarPanelIA({ ...consulta, estructura: ESTRUCTURA_DICTAMEN_CONTROL }),
+        instruccion: `Redacta el dictamen del control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. El plan de acción, sus prioridades, las recomendaciones y los indicadores ya los calculó el sistema ("planDelSistema"): no los repitas como lista ni propongas acciones distintas; tu texto debe ser coherente con ellos. Parte de "analisisDelControl", que trae el cálculo exacto: di con sus cifras la eficacia del control frente al máximo de su tipo, qué pasa si falla y si se automatiza, y si la zona cambia o no (si no cambia, no lo presentes como crítico). Si "analisisDelControl.pruebaTrabajoDeCampo" empieza con "ALERTA", es el hallazgo principal: menciónalo primero y cita la observación del auditor si existe. Compara lo que hace este control (su descripción) con la causa inmediata y la causa raíz del riesgo y con los demás controles.`,
+        datos: { controlAuditado: control, analisisDelControl, planDelSistema: plan.planAccion, ...datosRiesgo },
+        codigosValidos: [datosRiesgo.riesgo.codigo, ...datosRiesgo.controles.map(item => item.codigo)],
+        plan,
+        respaldo,
       });
       setDictamenIA({
         titulo: `Auditoría de Control ${control.codigo} — ${datosRiesgo.riesgo.codigo}`,

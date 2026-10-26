@@ -13,10 +13,23 @@ const ESTRUCTURA_PANEL = `Responde SOLO con un objeto JSON con exactamente estas
 }
 No incluyas cifras que no estén en DATOS_GRC. Prefiere una sección vacía antes que una frase genérica que serviría para cualquier empresa.`;
 
+// Dictamen por control: plan, recomendaciones e indicadores los arma el código (dictamenControlIA.js);
+// la IA solo redacta lo que interpreta.
+export const ESTRUCTURA_DICTAMEN_CONTROL = `Responde SOLO con un objeto JSON con exactamente estas claves:
+{
+  "analisisEjecutivo": "dos párrafos separados por \\n\\n: 1) qué muestra el cálculo de este control (su eficacia frente al máximo de su tipo, qué pasa con el riesgo si falla y si se automatiza, si la zona cambia) y la alerta de Trabajo de Campo si existe; 2) por qué importa para el negocio en este riesgo",
+  "observacionCausaRaiz": "1 o 2 frases: si lo que hace el control (su descripción) ataca la causa inmediata o la causa raíz del riesgo, y qué deja sin cubrir; cadena vacía si faltan la descripción o las causas",
+  "dictamenDirector": "conclusión de 1 a 2 frases para la Dirección, coherente con el plan del sistema",
+  "iso31000": "solo si aporta algo específico de este control (cítalo); si no, cadena vacía",
+  "cosoErm": "solo si aporta algo específico de este control (cítalo); si no, cadena vacía"
+}
+Usa solo cifras que estén en DATOS_GRC. Prefiere una cadena vacía antes que una frase genérica.`;
+
 // Análisis con datos separados de la instrucción y respuesta en JSON.
-export const consultarPanelIA = async ({ instruccion, datos }) => {
+// `estructura` permite pedir solo los campos que redacta la IA (p. ej. el dictamen por control).
+export const consultarPanelIA = async ({ instruccion, datos, estructura = ESTRUCTURA_PANEL }) => {
   const res = await apiService.consultarAuditor({
-    prompt: `${instruccion}\n\n${ESTRUCTURA_PANEL}`,
+    prompt: `${instruccion}\n\n${estructura}`,
     datosContexto: datos,
     formato: 'json',
   });

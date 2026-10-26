@@ -30,7 +30,7 @@ prueba('la instrucción general incluye las reglas del Manual E-GE-MAN-001', () 
   assert.ok(audit.includes('No inventes numerales ni secciones'), 'citas exactas del manual');
   assert.ok(audit.includes('Solo llama "obligatorio"'), 'sin obligaciones inventadas');
   assert.ok(audit.includes('propongas 100 % de mitigación') && audit.includes('nunca inventes una meta'), 'metas alcanzables');
-  assert.ok(leer('../src/components/Riesgos.jsx').includes('sobre ESTE control'), 'mejoras del propio control auditado');
+  assert.ok(leer('../src/components/Riesgos.jsx').includes('planDelControl({'), 'el plan del control lo arma el sistema (dictamenControlIA.js)');
   assert.equal(audit.includes('HALLAZGO grave'), false, 'la sugerencia de hallazgo no debe pedir exagerar la gravedad');
 });
 

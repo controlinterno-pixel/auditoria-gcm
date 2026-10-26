@@ -6,11 +6,11 @@ import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, zonaPorNiveles } from
 import { estaAnulado } from './anulacion.js';
 
 const ORDEN_ZONA = { Bajo: 1, Moderado: 2, Alto: 3, Extremo: 4 };
-const numero = valor => Number(valor).toLocaleString('es-CO', { maximumFractionDigits: 1 });
+export const numero = valor => Number(valor).toLocaleString('es-CO', { maximumFractionDigits: 1 });
 const nivelP = valor => nivelEscala(Math.max(valor, 0.01), true);
 const nivelI = valor => nivelEscala(Math.max(valor, 0.01), true);
-const etiquetaP = valor => `${ESCALA_PROBABILIDAD[nivelP(valor) - 1]}`;
-const etiquetaI = valor => `${ESCALA_IMPACTO[nivelI(valor) - 1]}`;
+export const etiquetaP = valor => `${ESCALA_PROBABILIDAD[nivelP(valor) - 1]}`;
+export const etiquetaI = valor => `${ESCALA_IMPACTO[nivelI(valor) - 1]}`;
 const zonaDe = (p, i) => zonaPorNiveles(nivelP(p), nivelI(i));
 
 // Por qué la zona es la que es, según la regla de la Tabla 4 que aplica.
@@ -266,7 +266,8 @@ export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = 
   };
   const texto = opcion => `${opcion.accion}: probabilidad ${numero(opcion.p)} % (${etiquetaP(opcion.p)}), impacto ${numero(opcion.i)} % (${etiquetaI(opcion.i)}) → zona ${opcion.zona}.`;
   const bajaZona = opcion => ORDEN_ZONA[opcion.zona] < ORDEN_ZONA[actual.zona];
-  const accionesQueCambianLaZona = opciones.map(opcion => evaluar(opcion.accion, opcion.controles)).filter(bajaZona).map(texto);
+  const opcionesQueCambianLaZona = opciones.map(opcion => evaluar(opcion.accion, opcion.controles)).filter(bajaZona);
+  const accionesQueCambianLaZona = opcionesQueCambianLaZona.map(texto);
   // Si ningún paso único cambia la zona, se prueban combinaciones de dos pasos (automatizar y/o agregar).
   const pasosAplicables = [
     ...vigentes.filter(({ item }) => desglosarEficaciaControl(item).implementacion !== 'Automático').map(({ indice }) => ({ accion: `automatizar ${codigoControl(indice, riesgo.id)}`, automatizar: indice })),
@@ -279,17 +280,19 @@ export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = 
     ...vigentes.map(({ item, indice }) => (pasos.some(paso => paso.automatizar === indice) ? { ...item, implementacion: 'Automático', ejecucion: 'Automático' } : item)),
     ...pasos.filter(paso => paso.agregar).map(paso => paso.agregar),
   ];
-  const combinacionesDeDosPasos = accionesQueCambianLaZona.length ? [] : pasosAplicables
+  const opcionesDeDosPasos = accionesQueCambianLaZona.length ? [] : pasosAplicables
     .flatMap((primero, i) => pasosAplicables.slice(i + 1).map(segundo => evaluar(`${primero.accion.replace(/^./, l => l.toUpperCase())} + ${segundo.accion}`, aplicar([primero, segundo]))))
     .filter(bajaZona)
     .sort((a, b) => ORDEN_ZONA[a.zona] - ORDEN_ZONA[b.zona] || (/automatizar.*automatizar/i.test(b.accion) - /automatizar.*automatizar/i.test(a.accion)))
-    .slice(0, 4)
-    .map(texto);
+    .slice(0, 4);
+  const combinacionesDeDosPasos = opcionesDeDosPasos.map(texto);
+  const residualActual = calcularResiduales(pInh, iInh, base);
   const controlesPorTipo = ['Preventivo', 'Detectivo', 'Correctivo'].map(tipo => {
     const codigos = vigentes.filter(({ item }) => desglosarEficaciaControl(item).tipo === tipo).map(({ indice }) => codigoControl(indice, riesgo.id));
     return `${tipo}s: ${codigos.length ? codigos.join(', ') : 'ninguno'}`;
   }).join(' · ');
   const describe = (titulo, r) => `${titulo}: ${eje} ${numero(r.valor)} % (${r.nivel}) → zona ${r.zona}${r.zona === actual.zona ? ' (la zona no cambia)' : ` (cambia desde ${actual.zona})`}.`;
+  const prueba = pruebasCampo.get(indiceControl) || null;
   return {
     control: codigo,
     reduce: eje,
@@ -299,7 +302,6 @@ export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = 
     siSeAutomatiza: automatizado ? describe(`Si ${codigo} se automatiza (${d.total} % → ${d.total + 10} %)`, automatizado) : `${codigo} ya es automático.`,
     // Última prueba de Trabajo de Campo de este control (null si nunca se probó).
     pruebaTrabajoDeCampo: (() => {
-      const prueba = pruebasCampo.get(indiceControl);
       if (!prueba) return 'Aún no tiene pruebas de Trabajo de Campo: no es una falla del control; falta confirmar en campo que opera como está diseñado.';
       return prueba.calificacion < 100
         ? `ALERTA: ${codigo} fue REPROBADO en Trabajo de Campo${prueba.fecha ? ` el ${prueba.fecha}` : ''} con ${prueba.calificacion} % (diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}).${prueba.comentarios ? ` Observación del auditor: «${prueba.comentarios}».` : ''} Su eficacia de diseño sigue contando en el cálculo, pero en la práctica puede no estar operando: la mitigación que aporta no está demostrada.`
@@ -314,5 +316,15 @@ export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = 
     documentarlo: d.informativos.some(i => !i.cumple)
       ? `Documentarlo, darle frecuencia continua y registro (${d.informativos.filter(i => !i.cumple).map(i => i.valor.toLowerCase()).join(', ')}) no cambia su eficacia según la Tabla 6, pero lo formaliza y da evidencia para auditoría.`
       : 'Está formalizado: documentado, con frecuencia continua y con registro.',
+    // Mismo cálculo en forma estructurada, para que el código arme el plan y los indicadores (no se envía a la IA).
+    simulacion: {
+      codigo, eje, tipo: d.tipo, implementacion: d.implementacion, eficacia: d.total, eficaciaMaxima: d.maximoPosible,
+      actual: { probabilidad: residualActual.probabilidadResidual, impacto: residualActual.impactoResidual, valor: actual.valor, nivel: actual.nivel, zona: actual.zona },
+      siFalla, automatizado,
+      cambianLaZona: opcionesQueCambianLaZona,
+      dosPasos: opcionesDeDosPasos,
+      prueba,
+      faltas: d.informativos.filter(i => !i.cumple).map(i => i.atributo),
+    },
   };
 }
