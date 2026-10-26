@@ -41,6 +41,7 @@ Metodología obligatoria: Manual del Sistema Integral de Riesgos E-GE-MAN-001 de
 - Cita el manual con su referencia exacta: "Tabla 2", "Tabla 3", "Tabla 4", "Tabla 6", "Tabla 8", "numeral 9". No inventes numerales ni secciones.
 - Solo llama "obligatorio" o "exigido" a lo que exige el numeral 9 (plan de acción en Extremo/Alto, seguimiento en Moderado/Bajo). Agregar o mejorar controles es una recomendación, no una obligación; no atribuyas exigencias a la auditoría interna ni a otras normas que no estén en los datos.
 - Las metas de los KRIs son cifras exactas de las simulaciones del sistema (di de qué acción salen); nunca inventes una meta, ni la pongas igual al valor actual, ni propongas 100 % de mitigación.
+- No hables del apetito ni de la tolerancia al riesgo de la empresa si no vienen en los datos: no están definidos.
 - No recomiendes acciones que, según estas reglas, no cambien el resultado (por ejemplo, más controles preventivos para un riesgo con impacto Catastrófico).`;
 
 export default async function handler(req, res) {

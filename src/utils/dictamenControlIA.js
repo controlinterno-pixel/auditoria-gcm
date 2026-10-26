@@ -296,6 +296,11 @@ export function planDeLaMatriz(datos) {
 const NOMBRES_INTERNOS = /\b(analisisSistema|analisisDelControl|DATOS_GRC|controlAuditado|metricas|pruebasTrabajoDeCampo|accionesQueCambianLaZona|combinacionesDeDosPasos|controlesDelRiesgoPorTipo|faltasDeFormalizacion|responsableSegunManual|planDelSistema)\b/;
 const ESCALA_DEL_MANUAL = /(escala|categor[ií]a|calificaci[oó]n)[^.]{0,60}(del|seg[uú]n el)\s+manual|(excelente|bueno|moderado|malo)[^.]{0,40}(seg[uú]n|del)\s+(el\s+)?manual/i;
 const AUSENCIA_PRUEBAS = /(corregir|subsanar|falla)[^.]{0,40}ausencia de pruebas/i;
+// Conceptos que la IA suele afirmar sin que estén en los datos: solo se aceptan si los datos los traen.
+const CONCEPTOS_CON_RESPALDO = [
+  { patron: /apetito/i, clave: 'apetito', detalle: 'menciona el apetito de riesgo, que no está definido en los datos' },
+  { patron: /tolerancia (al|de) riesgo/i, clave: 'tolerancia', detalle: 'menciona la tolerancia al riesgo, que no está definida en los datos' },
+];
 // Cifras que el manual o la Tabla 6 usan siempre (pesos, máximos, niveles de 20 %) y no salen de los datos.
 const CIFRAS_FIJAS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 80, 100];
 
@@ -303,7 +308,7 @@ const numerosDe = valor => new Set((JSON.stringify(valor ?? '').match(/\d+(?:[.,
   .map(n => Number(n.replace(',', '.'))));
 
 /** Problemas de un texto de la IA: [{ tipo, detalle }]. */
-export function revisarTextoIA(texto, { codigosValidos = [], numerosValidos = new Set() } = {}) {
+export function revisarTextoIA(texto, { codigosValidos = [], numerosValidos = new Set(), textoDatos = '' } = {}) {
   const problemas = [];
   const contenido = String(texto || '');
   const validos = new Set(codigosValidos.map(c => c.toUpperCase()));
@@ -316,6 +321,9 @@ export function revisarTextoIA(texto, { codigosValidos = [], numerosValidos = ne
   });
   if (ESCALA_DEL_MANUAL.test(contenido)) problemas.push({ tipo: 'escala-atribuida-al-manual', detalle: 'La escala de eficacia promedio es interna de la app, no del manual.' });
   if (AUSENCIA_PRUEBAS.test(contenido)) problemas.push({ tipo: 'ausencia-de-pruebas-como-falla', detalle: 'No tener pruebas de Trabajo de Campo no es una falla.' });
+  CONCEPTOS_CON_RESPALDO.forEach(({ patron, clave, detalle }) => {
+    if (patron.test(contenido) && !textoDatos.includes(clave)) problemas.push({ tipo: 'concepto-sin-respaldo', detalle });
+  });
   const interno = NOMBRES_INTERNOS.exec(contenido);
   if (interno) problemas.push({ tipo: 'nombre-interno', detalle: interno[0] });
   return problemas;
@@ -324,20 +332,24 @@ export function revisarTextoIA(texto, { codigosValidos = [], numerosValidos = ne
 const CAMPOS_TEXTO = ['analisisEjecutivo', 'dictamenDirector', 'observacionCausaRaiz', 'iso31000', 'cosoErm'];
 
 /** Revisa todos los campos redactados por la IA. Devuelve la lista de problemas (vacía si está bien). */
+const textoDe = datos => JSON.stringify(datos ?? '').toLowerCase();
+
 export function revisarRespuestaIA(respuesta, { datos, codigosValidos }) {
   const numerosValidos = numerosDe(datos);
-  return CAMPOS_TEXTO.flatMap(campo => revisarTextoIA(respuesta?.[campo], { codigosValidos, numerosValidos })
+  const textoDatos = textoDe(datos);
+  return CAMPOS_TEXTO.flatMap(campo => revisarTextoIA(respuesta?.[campo], { codigosValidos, numerosValidos, textoDatos })
     .map(problema => ({ ...problema, campo })));
 }
 
 /** Quita de cada campo las oraciones con problemas (último recurso si el reintento también falla). */
 export function limpiarRespuestaIA(respuesta, { datos, codigosValidos }) {
   const numerosValidos = numerosDe(datos);
+  const textoDatos = textoDe(datos);
   const limpia = { ...respuesta };
   CAMPOS_TEXTO.forEach(campo => {
     if (typeof limpia[campo] !== 'string') return;
     limpia[campo] = limpia[campo].split(/\n\n/).map(parrafo => (parrafo.match(/[^.!?]+(?:[.!?]+(?=\s|$)|$)/g) || [])
-      .filter(oracion => revisarTextoIA(oracion, { codigosValidos, numerosValidos }).length === 0)
+      .filter(oracion => revisarTextoIA(oracion, { codigosValidos, numerosValidos, textoDatos }).length === 0)
       .join('').trim()).filter(Boolean).join('\n\n');
   });
   return limpia;
@@ -363,6 +375,7 @@ const QUE_CORREGIR = {
   'cifra-sin-respaldo': 'trae una cifra que no está en los datos',
   'escala-atribuida-al-manual': 'atribuye al manual la escala de eficacia promedio, que es interna de la app',
   'ausencia-de-pruebas-como-falla': 'presenta la falta de pruebas de Trabajo de Campo como una falla',
+  'concepto-sin-respaldo': 'afirma algo que no está en los datos',
   'nombre-interno': 'usa un nombre interno de los datos en lugar de explicarlo con palabras',
 };
 

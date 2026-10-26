@@ -85,6 +85,9 @@ test('revisor: detecta códigos y cifras inventadas, la escala atribuida al manu
   }, { datos, codigosValidos }).map(p => p.tipo).sort();
   assert.deepEqual(tipos, ['ausencia-de-pruebas-como-falla', 'cifra-sin-respaldo', 'codigo-inexistente', 'escala-atribuida-al-manual', 'nombre-interno']);
   assert.deepEqual(revisarRespuestaIA({ analisisEjecutivo: 'CTL-49-2 deja la probabilidad en 28,8 % y la Tabla 6 le da 40 %.' }, { datos, codigosValidos }), []);
+  const apetito = revisarRespuestaIA({ cosoErm: 'RSK-49 supera el apetito de riesgo de la organización.' }, { datos, codigosValidos });
+  assert.deepEqual(apetito.map(p => p.tipo), ['concepto-sin-respaldo'], 'apetito no definido en los datos');
+  assert.deepEqual(revisarRespuestaIA({ cosoErm: 'Supera el apetito.' }, { datos: { apetito: 'Bajo' }, codigosValidos }), [], 'con apetito en los datos sí se acepta');
   const limpia = limpiarRespuestaIA({ analisisEjecutivo: 'CTL-49-1 baja la probabilidad a 29 %. CTL-49-9 aporta 33 %.' }, { datos, codigosValidos });
   assert.equal(limpia.analisisEjecutivo, 'CTL-49-1 baja la probabilidad a 29 %.');
 });
