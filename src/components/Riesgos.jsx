@@ -195,14 +195,19 @@ const EXPLICACIONES_CAMPOS = {
 };
 
 // 🚀 COMPONENTE DONUT GAUGE PARA EFICACIA DE CONTROLES (ESTILO ENTERPRISE)
-const EficaciaGauge = ({ porcentaje = 75 }) => {
+// El color sigue la zona residual del riesgo (Tabla 4), no solo el porcentaje: un riesgo de impacto bajo
+// puede tener poca mitigación y ya estar en zona Bajo (verde); uno con 64 % puede seguir en Extremo (rojo).
+const COLOR_ZONA_GAUGE = { Bajo: 'stroke-emerald-500', Moderado: 'stroke-amber-500', Alto: 'stroke-orange-500', Extremo: 'stroke-red-500' };
+const EficaciaGauge = ({ porcentaje = 75, zona }) => {
   const radius = 14;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (porcentaje / 100) * circumference;
+  const valor = Number.isFinite(Number(porcentaje)) ? Number(porcentaje) : 0;
+  const strokeDashoffset = circumference - (valor / 100) * circumference;
 
   let colorClass = "stroke-emerald-500";
-  if (porcentaje < 50) colorClass = "stroke-red-500";
-  else if (porcentaje < 75) colorClass = "stroke-amber-500";
+  if (zona) colorClass = COLOR_ZONA_GAUGE[zona] || 'stroke-slate-300';
+  else if (valor < 50) colorClass = "stroke-red-500";
+  else if (valor < 75) colorClass = "stroke-amber-500";
 
   return (
     <div className="relative inline-flex items-center justify-center w-10 h-10">
@@ -2146,12 +2151,16 @@ const renderMatriz = () => {
 {(() => {
   const abierta = String(mitigacionAbierta) === String(r.id);
   const datosMitigacion = leerMitigacionRiesgo(r);
+  // Zona residual registrada: la misma del recuadro de nivel de la fila.
+  const zonaResidualFila = datoRiesgo(r.probabilidadResidual) === null || datoRiesgo(r.impactoResidual) === null
+    ? 'Sin dato'
+    : zonaSeveridad(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r)).label;
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') setMitigacionAbierta(null); }}>
       <button type="button" onClick={() => setMitigacionAbierta(abierta ? null : r.id)} aria-expanded={abierta}
         aria-label={`Mitigación ${datosMitigacion.mitigacion}%: ver qué significa`} title="Ver qué significa este porcentaje"
         className="block cursor-pointer rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-        <EficaciaGauge porcentaje={datosMitigacion.mitigacion} />
+        <EficaciaGauge porcentaje={datosMitigacion.mitigacion} zona={zonaResidualFila} />
       </button>
       {abierta && (
         <div role="dialog" aria-label={`Mitigación de RSK-${r.id}`} className="absolute right-0 top-full z-30 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-3 text-left text-[11px] leading-snug text-slate-700 shadow-xl">
@@ -2162,6 +2171,9 @@ const renderMatriz = () => {
           <p><span className="text-slate-500">Exposición sin controles:</span> <strong>{datosMitigacion.inherente}</strong></p>
           <p><span className="text-slate-500">Exposición con controles:</span> <strong>{datosMitigacion.residual}</strong></p>
           <p className="mt-1.5 border-t border-slate-100 pt-1.5">{datosMitigacion.lectura}</p>
+          <p className="mt-1.5 border-t border-slate-100 pt-1.5 text-slate-500">
+            Color del círculo: zona residual <strong className="text-slate-700">{zonaResidualFila}</strong> (verde Bajo · ámbar Moderado · naranja Alto · rojo Extremo).
+          </p>
         </div>
       )}
     </div>
