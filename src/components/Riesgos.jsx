@@ -848,7 +848,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         dictamen: armarPanelIA(respuesta, {
           badges: { inherente: ficha.nivelInherente.toUpperCase(), residual: ficha.nivelResidual.toUpperCase() },
           kpis: {
-            scoreRiesgo: `${ficha.puntajeResidual}/25`,
+            scoreRiesgo: ficha.puntajeResidual === null ? 'Sin dato' : `${ficha.puntajeResidual}/25`,
             scoreMadurez: metricas.eficaciaPromedioControles ?? 'Sin controles',
             totalControles: metricas.totalControles,
             coberturaControles: metricas.mitigacionLograda,
@@ -879,7 +879,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         frecuencia: c.frecuencia || 'Sin dato', evidencia: c.evidencia || 'Sin dato', eficacia: calcularEficaciaControl(c),
       };
       const respuesta = await consultarPanelIA({
-        instruccion: `Audita el control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. No lo describas: evalúa su diseño (tipo, ejecución, documentación, frecuencia y evidencia) con la Tabla 6, su dependencia manual, su trazabilidad y si ataca la causa raíz del riesgo, comparándolo con los demás controles del mismo riesgo. Si "analisisDelControl.pruebaTrabajoDeCampo" empieza con "ALERTA", es el hallazgo principal: menciónalo primero en el análisis, en el dictamen y como acción ALTA del plan (verificar en campo que el control opere y corregir la falla). Empieza por "analisisDelControl", que trae el cálculo exacto: di con sus cifras qué pasa si el control falla y si se automatiza, y si la zona cambia o no (si no cambia, no lo presentes como crítico). Si automatizarlo cambia la zona, esa es la recomendación prioritaria; si ni su falla ni su automatización cambian la zona, dilo e incluye en recomendaciones y en el plan las acciones de "analisisDelControl.accionesQueCambianLaZona" (cálculo exacto del sistema; pueden ser de otro control), empezando por la primera; si ninguna acción de un solo paso cambia la zona, dilo y propone las de "analisisDelControl.combinacionesDeDosPasos" explicando que hay que bajar a la vez probabilidad e impacto. Usa "analisisDelControl.controlesDelRiesgoPorTipo" para nombrar el tipo de cada control (no lo deduzcas). Si al control auditado le falta documentación, frecuencia continua, evidencia o responsable (ver controlAuditado), incluye al menos una recomendación y una acción del plan sobre ese mismo control. Redacta las acciones del plan como tareas (qué hacer y para qué), sin copiar el cálculo literal. Si aparece en "pruebasTrabajoDeCampo" con calificación menor a 100 %, trátalo como alerta principal. El responsable del control está en controlAuditado.responsable.`,
+        instruccion: `Audita el control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. No lo describas: evalúa su diseño (tipo, ejecución, documentación, frecuencia y evidencia) con la Tabla 6, su dependencia manual, su trazabilidad y si ataca la causa raíz del riesgo, comparándolo con los demás controles del mismo riesgo. Si "analisisDelControl.pruebaTrabajoDeCampo" empieza con "ALERTA", es el hallazgo principal: menciónalo primero en el análisis, en el dictamen y como acción ALTA del plan (verificar en campo que el control opere y corregir la falla). Empieza por "analisisDelControl", que trae el cálculo exacto: di con sus cifras qué pasa si el control falla y si se automatiza, y si la zona cambia o no (si no cambia, no lo presentes como crítico). Si automatizarlo cambia la zona, esa es la recomendación prioritaria; si ni su falla ni su automatización cambian la zona, dilo e incluye en recomendaciones y en el plan las acciones de "analisisDelControl.accionesQueCambianLaZona" (cálculo exacto del sistema; pueden ser de otro control), empezando por la primera; si ninguna acción de un solo paso cambia la zona, dilo y propone las de "analisisDelControl.combinacionesDeDosPasos" explicando que hay que bajar a la vez probabilidad e impacto. Usa "analisisDelControl.controlesDelRiesgoPorTipo" para nombrar el tipo de cada control (no lo deduzcas). Si al control auditado le falta documentación, frecuencia continua, evidencia o responsable (ver controlAuditado), incluye al menos una recomendación y una acción del plan sobre ese mismo control. Redacta las acciones del plan como tareas (qué hacer y para qué), sin copiar el cálculo literal. Si la alerta trae "Observación del auditor", cítala como la evidencia concreta de la falla y basa en ella la acción ALTA (qué corregir, no solo "verificar"). El responsable del control está en controlAuditado.responsable.`,
         datos: { controlAuditado: control, analisisDelControl: analizarControlEnRiesgo(r, indice, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, r.id) }), ...datosRiesgo },
       });
       setDictamenIA({
@@ -887,16 +887,16 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         dictamen: armarPanelIA(respuesta, {
           badges: { inherente: datosRiesgo.riesgo.nivelInherente.toUpperCase(), residual: datosRiesgo.riesgo.nivelResidual.toUpperCase() },
           kpis: {
-            scoreRiesgo: `${datosRiesgo.riesgo.puntajeResidual}/25`,
+            scoreRiesgo: datosRiesgo.riesgo.puntajeResidual === null ? 'Sin dato' : `${datosRiesgo.riesgo.puntajeResidual}/25`,
             scoreMadurez: control.eficacia,
             totalControles: datosRiesgo.metricas.totalControles,
             coberturaControles: datosRiesgo.metricas.mitigacionLograda,
           },
           indicadores: [
-            { etiqueta: 'Puntaje residual', valor: `${datosRiesgo.riesgo.puntajeResidual}/25` },
-            { etiqueta: 'Eficacia del control', valor: `${control.eficacia}%` },
+            { etiqueta: 'Puntaje residual', valor: datosRiesgo.riesgo.puntajeResidual === null ? 'Sin dato' : `${datosRiesgo.riesgo.puntajeResidual}/25` },
+            { etiqueta: 'Eficacia del control', valor: Number.isFinite(Number(control.eficacia)) ? `${control.eficacia}%` : 'Sin dato' },
             { etiqueta: 'Controles del riesgo', valor: datosRiesgo.metricas.totalControles },
-            { etiqueta: 'Mitigación del riesgo', valor: `${datosRiesgo.metricas.mitigacionLograda}%` },
+            { etiqueta: 'Mitigación del riesgo', valor: textoPorcentaje(datosRiesgo.metricas.mitigacionLograda) },
           ],
         }),
       });

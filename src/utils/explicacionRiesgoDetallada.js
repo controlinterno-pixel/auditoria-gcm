@@ -64,9 +64,12 @@ export function pruebasDeCampoDelRiesgo(evaluaciones, idRiesgo) {
       pruebas.set(indice, {
         marca,
         calificacion: Number(ev.calificacion),
-        fecha: marca ? new Date(marca).toISOString().slice(0, 10) : [ev.mes, ev.anio].filter(Boolean).join(' '),
+        fecha: marca ? new Date(marca).toISOString().slice(0, 10)
+          : (String(ev.fecha || '').slice(0, 10) || [ev.mes, ev.anio].filter(Boolean).join(' ')),
         diseno: ev.diseno || 'No evaluado',
         ejecucion: ev.ejecucion || 'No evaluado',
+        // Lo que observó el auditor en campo: es la evidencia concreta de por qué falló.
+        comentarios: String(ev.comentarios || '').replace(/\s+/g, ' ').trim().slice(0, 300),
       });
     });
   return pruebas;
@@ -172,7 +175,7 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
         const eje = desglosarEficaciaControl(control).tipo === 'Correctivo' ? 'el impacto' : 'la probabilidad';
         const actual = eje === 'el impacto' ? iRes : pRes;
         const sinControl = eje === 'el impacto' ? sinEl.impactoResidual : sinEl.probabilidadResidual;
-        return `${codigoControl(indice, riesgo.id)} fue reprobado en Trabajo de Campo el ${prueba.fecha} (calificación ${prueba.calificacion} %; diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}). El cálculo lo sigue contando porque el manual valora la eficacia por diseño (Tabla 6); si en la práctica no opera, ${eje} quedaría en ${numero(sinControl)} % en lugar de ${numero(actual)} % (zona ${zonaDe(sinEl.probabilidadResidual, sinEl.impactoResidual)}).`;
+        return `${codigoControl(indice, riesgo.id)} fue reprobado en Trabajo de Campo${prueba.fecha ? ` el ${prueba.fecha}` : ''} (calificación ${prueba.calificacion} %; diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}). El cálculo lo sigue contando porque el manual valora la eficacia por diseño (Tabla 6); si en la práctica no opera, ${eje} quedaría en ${numero(sinControl)} % en lugar de ${numero(actual)} % (zona ${zonaDe(sinEl.probabilidadResidual, sinEl.impactoResidual)}).`;
       }),
     anulados.length ? `${anulados.map(({ indice }) => codigoControl(indice, riesgo.id)).join(', ')} ${anulados.length === 1 ? 'está anulado y no cuenta' : 'están anulados y no cuentan'} en el cálculo.` : '',
   ].filter(Boolean);
@@ -299,8 +302,8 @@ export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = 
       const prueba = pruebasCampo.get(indiceControl);
       if (!prueba) return 'Este control no tiene pruebas de Trabajo de Campo registradas.';
       return prueba.calificacion < 100
-        ? `ALERTA: ${codigo} fue REPROBADO en Trabajo de Campo el ${prueba.fecha} con ${prueba.calificacion} % (diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}). Su eficacia de diseño sigue contando en el cálculo, pero en la práctica puede no estar operando: la mitigación que aporta no está demostrada.`
-        : `${codigo} aprobó su última prueba de Trabajo de Campo (${prueba.fecha}, 100 %).`;
+        ? `ALERTA: ${codigo} fue REPROBADO en Trabajo de Campo${prueba.fecha ? ` el ${prueba.fecha}` : ''} con ${prueba.calificacion} % (diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}).${prueba.comentarios ? ` Observación del auditor: «${prueba.comentarios}».` : ''} Su eficacia de diseño sigue contando en el cálculo, pero en la práctica puede no estar operando: la mitigación que aporta no está demostrada.`
+        : `${codigo} aprobó su última prueba de Trabajo de Campo (${prueba.fecha ? `${prueba.fecha}, ` : ''}100 %).`;
     })(),
     controlesDelRiesgoPorTipo: controlesPorTipo,
     accionesQueCambianLaZona: accionesQueCambianLaZona.length ? accionesQueCambianLaZona : [`Ninguna acción de un solo paso saca el riesgo de zona ${actual.zona}.`],

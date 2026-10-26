@@ -13,14 +13,20 @@ const texto = (valor, max = 400) => {
 const lista = valor => (Array.isArray(valor) ? valor.filter(Boolean) : []);
 const promedio = valores => (valores.length ? Math.round(valores.reduce((total, valor) => total + valor, 0) / valores.length) : null);
 
+const tieneDato = valor => valor !== null && valor !== undefined && String(valor).trim() !== '' && Number.isFinite(Number(valor));
+
 export function puntajesRiesgo(riesgo) {
   const porcentaje = riesgoEnPorcentaje(riesgo);
   const zonas = zonasRiesgo(riesgo);
+  // Sin probabilidad o impacto registrados no hay zona ni puntaje: se dice "Sin dato", no se supone uno.
+  const conDatos = (probabilidad, impacto) => tieneDato(probabilidad) && tieneDato(impacto);
+  const inherenteOk = conDatos(riesgo?.probabilidadInherente, riesgo?.impactoInherente);
+  const residualOk = conDatos(riesgo?.probabilidadResidual, riesgo?.impactoResidual);
   return {
-    nivelInherente: zonas.inherente.label,
-    nivelResidual: zonas.residual.label,
-    puntajeInherente: nivelEscala(riesgo?.probabilidadInherente, porcentaje) * nivelEscala(riesgo?.impactoInherente, porcentaje),
-    puntajeResidual: nivelEscala(riesgo?.probabilidadResidual, porcentaje) * nivelEscala(riesgo?.impactoResidual, porcentaje),
+    nivelInherente: inherenteOk ? zonas.inherente.label : 'Sin dato',
+    nivelResidual: residualOk ? zonas.residual.label : 'Sin dato',
+    puntajeInherente: inherenteOk ? nivelEscala(riesgo.probabilidadInherente, porcentaje) * nivelEscala(riesgo.impactoInherente, porcentaje) : null,
+    puntajeResidual: residualOk ? nivelEscala(riesgo.probabilidadResidual, porcentaje) * nivelEscala(riesgo.impactoResidual, porcentaje) : null,
   };
 }
 
@@ -130,7 +136,7 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
     puntajeResidual: item.puntajeResidual,
     controles: lista(item.riesgo.controlesDetallados).length,
   });
-  const ordenados = [...conPuntajes].sort((a, b) => (b.puntajeResidual - a.puntajeResidual) || (b.puntajeInherente - a.puntajeInherente));
+  const ordenados = [...conPuntajes].sort((a, b) => ((b.puntajeResidual ?? -1) - (a.puntajeResidual ?? -1)) || ((b.puntajeInherente ?? -1) - (a.puntajeInherente ?? -1)));
   const sinControl = conPuntajes.filter(item => lista(item.riesgo.controlesDetallados).length === 0 && !item.riesgo.descripcionControl);
   const seguimientosVencidos = registros.filter(riesgo => riesgo.fechaSeguimiento
     && new Date(`${riesgo.fechaSeguimiento}T23:59:59`) < hoy && riesgo.estado !== 'Cerrado');
@@ -147,7 +153,7 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
       eficaciaPromedioControles: promedio(controles.map(control => control.eficacia)),
       mitigacionPromedio: promedio(registros.map(calcularMitigacion).filter(valor => typeof valor === 'number')),
       riesgosSinDatoDeProbabilidadOImpacto: registros.filter(riesgo => calcularMitigacion(riesgo) === null).length,
-      puntajeResidualPromedio: promedio(conPuntajes.map(item => item.puntajeResidual)),
+      puntajeResidualPromedio: promedio(conPuntajes.map(item => item.puntajeResidual).filter(valor => valor !== null)),
       escala: '1-25 (probabilidad x impacto); niveles Bajo, Moderado, Alto, Extremo',
     },
     distribucionInherente: distribucion('nivelInherente'),

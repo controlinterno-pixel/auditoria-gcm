@@ -98,3 +98,26 @@ test('servidor: instrucción de sistema, modo JSON y datos delimitados (cliente 
   assert.equal(llamadas[1].json, false);
   assert.equal(read('../api/_grc/audit.js').includes('gemini-1.5-flash'), false);
 });
+
+test('IA por control: la prueba de campo reprobada trae la observación del auditor y no deja fechas vacías', async () => {
+  const { analizarControlEnRiesgo, pruebasDeCampoDelRiesgo } = await import('../src/utils/explicacionRiesgoDetallada.js');
+  const riesgo = {
+    id: 71, probabilidadInherente: 80, impactoInherente: 60,
+    controlesDetallados: [
+      { tipo: 'Preventivo', implementacion: 'Manual' },
+      { tipo: 'Detectivo', implementacion: 'Manual' },
+    ],
+  };
+  const evaluaciones = [{ idRiesgo: 71, control: 'CTL-71-2', calificacion: 60, ejecucion: 'No opera', comentarios: 'No hay conciliaciones de julio' }];
+  const analisis = analizarControlEnRiesgo(riesgo, 1, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, 71) });
+  assert.match(analisis.pruebaTrabajoDeCampo, /^ALERTA: CTL-71-2 fue REPROBADO en Trabajo de Campo con 60 %/);
+  assert.match(analisis.pruebaTrabajoDeCampo, /Observación del auditor: «No hay conciliaciones de julio»/);
+  assert.equal(/el\s+con/.test(analisis.pruebaTrabajoDeCampo), false);
+});
+
+test('Sin probabilidad o impacto residual, la IA recibe "Sin dato" y no un nivel supuesto', () => {
+  const datos = contextoRiesgo({ id: 9, probabilidadInherente: 80, impactoInherente: 60, controlesDetallados: [] }, { calcularEficacia: eficacia, calcularMitigacion: mitigacion });
+  assert.equal(datos.riesgo.nivelResidual, 'Sin dato');
+  assert.equal(datos.riesgo.puntajeResidual, null);
+  assert.equal(datos.riesgo.nivelInherente === 'Sin dato', false);
+});
