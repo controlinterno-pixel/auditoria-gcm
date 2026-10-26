@@ -175,8 +175,11 @@ export function explicarCalculoResidual(exp, riesgo = {}, { hoy = new Date() } =
  * reducen la probabilidad; correctivos, el impacto. Valores en porcentaje, redondeados a entero.
  */
 export function calcularResiduales(probabilidadInherente, impactoInherente, controles = []) {
-  let probabilidad = Number(probabilidadInherente) || 60;
-  let impacto = Number(impactoInherente) || 60;
+  // Sin probabilidad o impacto inherente registrados no se supone ningún valor: el residual queda sin dato.
+  const sinDato = valor => valor === null || valor === undefined || valor === '' || !Number.isFinite(Number(valor));
+  if (sinDato(probabilidadInherente) || sinDato(impactoInherente)) return { probabilidadResidual: null, impactoResidual: null };
+  let probabilidad = Number(probabilidadInherente);
+  let impacto = Number(impactoInherente);
   // Los controles anulados no mitigan.
   vigentes(controles).forEach(control => {
     const eficacia = calcularEficaciaControl(control) / 100;

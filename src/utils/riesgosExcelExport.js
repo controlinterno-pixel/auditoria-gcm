@@ -120,8 +120,8 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     'Causa Inmediata': riesgo.causaInmediata || 'N/A',
     'Causa Raíz': riesgo.causaRaiz || 'N/A',
     'Escenario del Riesgo': riesgo.descripcion || riesgo.escenarioFinal || 'N/A',
-    'Probabilidad Inherente (%)': riesgo.probabilidadInherente ?? 60,
-    'Impacto Inherente (%)': riesgo.impactoInherente ?? 80,
+    'Probabilidad Inherente (%)': riesgo.probabilidadInherente ?? 'Sin dato',
+    'Impacto Inherente (%)': riesgo.impactoInherente ?? 'Sin dato',
     'Nivel Inherente': zonaInherente.label.toUpperCase(),
     'Probabilidad Inherente (Tabla 2)': nivelManual(riesgo.probabilidadInherente, riesgoEnPorcentaje(riesgo), ESCALA_PROBABILIDAD),
     'Impacto Inherente (Tabla 3)': nivelManual(riesgo.impactoInherente, riesgoEnPorcentaje(riesgo), ESCALA_IMPACTO),
@@ -129,9 +129,9 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     'Controles Estructurados': controles.length,
     'Eficacia Promedio de Controles (%)': eficaciaPromedio,
     'Descripción de Control Legado': controlLegado || 'N/A',
-    'Mitigación Lograda (%)': calculos.calcularMitigacionRiesgo(riesgo),
-    'Probabilidad Residual (%)': riesgo.probabilidadResidual ?? 15,
-    'Impacto Residual (%)': riesgo.impactoResidual ?? 30,
+    'Mitigación Lograda (%)': calculos.calcularMitigacionRiesgo(riesgo) ?? 'Sin dato',
+    'Probabilidad Residual (%)': riesgo.probabilidadResidual ?? 'Sin dato',
+    'Impacto Residual (%)': riesgo.impactoResidual ?? 'Sin dato',
     'Nivel Residual Final': zonaResidual.label.toUpperCase(),
     'Probabilidad Residual (Tabla 2)': nivelManual(riesgo.probabilidadResidual, riesgoEnPorcentaje(riesgo), ESCALA_PROBABILIDAD),
     'Impacto Residual (Tabla 3)': nivelManual(riesgo.impactoResidual, riesgoEnPorcentaje(riesgo), ESCALA_IMPACTO),
@@ -394,7 +394,9 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     return `Calificación: ${calificacion} (${redondeado} % de 50 % posible = ${Math.round((redondeado / 50) * 100)}% del máximo). ${ESCALA_CALIFICACION} ${SIGNIFICADO_CALIFICACION[calificacion]}${subir}`;
   })();
   const riesgosAltosIniciales = matrizRiesgos.filter(riesgo => ['EXTREMO', 'ALTO'].includes(riesgo['Nivel Residual Final'])).length;
-  const mitigacionInicial = matrizRiesgos.reduce((total, riesgo) => total + Number(riesgo['Mitigación Lograda (%)'] || 0), 0) / matrizRiesgos.length;
+  // Los riesgos "Sin dato" no entran al promedio (igual que AVERAGEIFS, que ignora el texto).
+  const mitigacionesConDato = matrizRiesgos.map(riesgo => riesgo['Mitigación Lograda (%)']).filter(valor => typeof valor === 'number');
+  const mitigacionInicial = mitigacionesConDato.length ? mitigacionesConDato.reduce((total, valor) => total + valor, 0) / mitigacionesConDato.length : 0;
   const controlesIniciales = controlesPorRiesgo.filter(control => control['Control Estructurado'] === 'Sí').length;
   const eficaciaInicial = controlesPorRiesgo.filter(control => control['Control Estructurado'] === 'Sí')
     .reduce((total, control, indice, controles) => total + Number(control['Eficacia Calculada (%)'] || 0) / controles.length, 0);

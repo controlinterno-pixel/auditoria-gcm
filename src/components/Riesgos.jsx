@@ -224,11 +224,15 @@ const EficaciaGauge = ({ porcentaje = 75 }) => {
 };
 // 🧮 La eficacia de cada control (Tabla 6 del manual) se calcula en utils/explicacionControles.js.
 // 🧮 CALCULADORA DE PORCENTAJE GLOBAL DE MITIGACIÓN DEL RIESGO (DONUT GAUGE)
+// Valor registrado del riesgo, o null si falta: nunca se supone un porcentaje por defecto.
+const datoRiesgo = valor => (valor === null || valor === undefined || valor === '' || !Number.isFinite(Number(valor)) ? null : Number(valor));
+const faltanDatosRiesgo = r => ['probabilidadInherente', 'impactoInherente', 'probabilidadResidual', 'impactoResidual'].some(campo => datoRiesgo(r?.[campo]) === null);
+const textoPorcentaje = valor => (datoRiesgo(valor) === null ? 'Sin dato' : `${datoRiesgo(valor)}%`);
 const calcularMitigacionRiesgo = (r) => {
-  // Reemplazamos || por ?? para que el 0 se respete matemáticamente
-  const expInh = (r.probabilidadInherente ?? 60) * (r.impactoInherente ?? 60);
-  const expRes = (r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30);
-  
+  // Sin probabilidad o impacto registrados no hay mitigación que calcular (se muestra "Sin dato").
+  if (faltanDatosRiesgo(r)) return null;
+  const expInh = datoRiesgo(r.probabilidadInherente) * datoRiesgo(r.impactoInherente);
+  const expRes = datoRiesgo(r.probabilidadResidual) * datoRiesgo(r.impactoResidual);
   if (expInh === 0) return 0;
   const mitigacion = Math.round(((expInh - expRes) / expInh) * 100);
   return Math.max(0, Math.min(100, mitigacion));
@@ -236,10 +240,13 @@ const calcularMitigacionRiesgo = (r) => {
 // Lectura del % de mitigación con los valores del riesgo: exposición = probabilidad × impacto, antes y después.
 const leerMitigacionRiesgo = (r) => {
   const porcentaje = riesgoEnPorcentaje(r);
-  const pInh = r.probabilidadInherente ?? 60;
-  const iInh = r.impactoInherente ?? 60;
-  const pRes = r.probabilidadResidual ?? 15;
-  const iRes = r.impactoResidual ?? 30;
+  if (faltanDatosRiesgo(r)) {
+    return { mitigacion: null, inherente: 'Sin dato', residual: 'Sin dato', lectura: 'Faltan la probabilidad o el impacto de este riesgo: registra los valores para calcular la mitigación.' };
+  }
+  const pInh = datoRiesgo(r.probabilidadInherente);
+  const iInh = datoRiesgo(r.impactoInherente);
+  const pRes = datoRiesgo(r.probabilidadResidual);
+  const iRes = datoRiesgo(r.impactoResidual);
   const numero = valor => Number(valor).toLocaleString('es-CO', { maximumFractionDigits: 2 });
   const exposicion = (p, i) => (porcentaje ? `${numero(p)}% × ${numero(i)}% = ${numero((p * i) / 100)}%` : `${numero(p)} × ${numero(i)} = ${numero(p * i)} (de 25)`);
   const mitigacion = calcularMitigacionRiesgo(r);
@@ -490,7 +497,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     setCategoria(''); setClasificacionRiesgo(CLASIFICACIONES_MANUAL[0]); setNormativa('');
     setSedeForm([]); setSedeTemp(''); setResponsablesMultiples([]); setResponsableTemp('');
     setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setEscenarioFinal('');
-    setProbInherente(60); setImpInherente(60); setControles([]); setTratamiento('Reducir el riesgo');
+    setProbInherente(''); setImpInherente(''); setControles([]); setTratamiento('Reducir el riesgo');
     setPlanAccionRiesgo(''); setFechaSeguimiento(''); setSeguimientoBitacora(''); setHistorialPendienteFormulario([]);
 
     const maxId = safeRiesgos.reduce((max, r) => {
@@ -561,8 +568,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     setEscenarioFinal(texto);
   };
 
-  const [probInherente, setProbInherente] = useState(60);
-  const [impInherente, setImpInherente] = useState(60);
+  const [probInherente, setProbInherente] = useState('');
+  const [impInherente, setImpInherente] = useState('');
   
   const [controles, setControles] = useState([]);
   const [tratamiento, setTratamiento] = useState('Reducir el riesgo');
@@ -597,8 +604,9 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 
 // 🧮 GENERADOR DE TRAZA DE AUDITORÍA Y EXPLICACIÓN PASO A PASO POR RIESGO
   const obtenerExplicacionCalculo = (r) => {
-    const probInh = Number(r.probabilidadInherente) || 60;
-    const impInh = Number(r.impactoInherente) || 60;
+    // Sin dato se muestra como 0 en los pasos (no se supone un porcentaje); el riesgo aparece "Sin dato" en la matriz.
+    const probInh = datoRiesgo(r.probabilidadInherente) ?? 0;
+    const impInh = datoRiesgo(r.impactoInherente) ?? 0;
     const lista = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
 
     // Pasos de Probabilidad (Preventivos / Detectivos)
@@ -1114,8 +1122,8 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     setCausaInmediata(riesgo.causaInmediata || '');
     setCausaRaiz(riesgo.causaRaiz || '');
     setEscenarioFinal(riesgo.escenarioFinal || riesgo.descripcion || '');
-    setProbInherente(riesgo.probabilidadInherente || 60);
-    setImpInherente(riesgo.impactoInherente || 60);
+    setProbInherente(datoRiesgo(riesgo.probabilidadInherente) ?? '');
+    setImpInherente(datoRiesgo(riesgo.impactoInherente) ?? '');
     setControles(riesgo.controlesDetallados || []);
     
     setTratamiento(riesgo.tratamiento || 'Reducir el riesgo');
@@ -1130,6 +1138,10 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 const handleRiesgoSubmit = async (e) => {
     e.preventDefault();
 
+    if (probInherente === '' || impInherente === '') {
+      showNotification('Selecciona la probabilidad (Tabla 2) y el impacto (Tabla 3) inherentes antes de guardar.', 'error');
+      return;
+    }
     if (!navigator.onLine) {
       alert("❌ ERROR DE RED: No tienes conexión a Internet. El riesgo no se puede guardar en la nube. Revisa tu WiFi o cable de red e intenta de nuevo.");
       showNotification("Sin conexión a internet", "error");
@@ -1331,7 +1343,7 @@ const handleRiesgoSubmit = async (e) => {
     ].filter(Boolean);
     const alcanceDashboard = `${filtroProceso !== 'Todos' ? filtroProceso : 'toda la matriz'}${filtrosAlcance.length ? ` (${filtrosAlcance.join(', ')})` : ''}`;
     const mitigacionPromedio = totalRiesgos > 0
-      ? Math.round(riesgosDashboard.reduce((total, riesgo) => total + calcularMitigacionRiesgo(riesgo), 0) / totalRiesgos)
+      ? (() => { const valores = riesgosDashboard.map(calcularMitigacionRiesgo).filter(valor => valor !== null); return valores.length ? Math.round(valores.reduce((total, valor) => total + valor, 0) / valores.length) : 0; })()
       : 0;
     const riesgosPrioritarios = [...riesgosDashboard].sort((a, b) => {
       const diferenciaScore = scoreRiesgo(b) - scoreRiesgo(a);
@@ -1657,7 +1669,7 @@ const handleRiesgoSubmit = async (e) => {
                     <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
                       <span>{filtroProceso !== 'Todos' ? filtroProceso : riesgo.macroprocesos.join(', ') || 'Sin proceso'}</span>
                       <span>{controles || (riesgo.descripcionControl ? 1 : 0)} controles</span>
-                      <span>Mitigación {calcularMitigacionRiesgo(riesgo)}%</span>
+                      <span>Mitigación {textoPorcentaje(calcularMitigacionRiesgo(riesgo))}</span>
                       {riesgo.fechaSeguimiento && <span>Seguimiento {riesgo.fechaSeguimiento}</span>}
                     </span>
                     <span className="mt-2 inline-flex text-[10px] font-bold text-emerald-800 group-hover:underline">{puedeEditar ? '✏️ Editar' : '👁 Ver detalle'}</span>
@@ -1778,10 +1790,10 @@ const renderMatriz = () => {
     const todosLosControles = riesgosVigentes.flatMap(r => vigentes(r.controlesDetallados));
     const eficaciaPromedioGlobal = todosLosControles.length > 0
       ? Math.round(todosLosControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / todosLosControles.length)
-      : 80;
+      : 0;
 
     const avgResidualScore = totalRiesgosCount > 0
-  ? riesgosVigentes.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgosCount
+  ? (() => { const conDatos = riesgosVigentes.filter(r => datoRiesgo(r.probabilidadResidual) !== null && datoRiesgo(r.impactoResidual) !== null); return conDatos.length ? conDatos.reduce((acc, r) => acc + (datoRiesgo(r.probabilidadResidual) * datoRiesgo(r.impactoResidual) / 100), 0) / conDatos.length : 0; })()
   : 0;
     let nivelPromedioText = 'BAJO';
     let nivelPromedioColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -2074,14 +2086,14 @@ const renderMatriz = () => {
 <div className="col-span-2 flex items-center justify-center space-x-2 text-center">
   <div className="bg-red-50 border border-red-200 rounded-lg px-2 py-1 min-w-[65px]">
     <span className="text-[8px] font-black text-red-600 block uppercase">{zoneInh.label}</span>
-    <span className="text-[8px] font-mono text-slate-600 font-bold">P: {r.probabilidadInherente ?? 60}%</span>
-    <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {r.impactoInherente ?? 80}%</span>
+    <span className="text-[8px] font-mono text-slate-600 font-bold">P: {textoPorcentaje(r.probabilidadInherente)}</span>
+    <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {textoPorcentaje(r.impactoInherente)}</span>
   </div>
   <span className="text-slate-300 font-bold text-xs">→</span>
   <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 min-w-[65px]">
     <span className="text-[8px] font-black text-emerald-700 block uppercase">{zoneRes.label}</span>
-    <span className="text-[8px] font-mono text-slate-600 font-bold">P: {r.probabilidadResidual ?? 15}%</span>
-    <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {r.impactoResidual ?? 30}%</span>
+    <span className="text-[8px] font-mono text-slate-600 font-bold">P: {textoPorcentaje(r.probabilidadResidual)}</span>
+    <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {textoPorcentaje(r.impactoResidual)}</span>
   </div>
 </div>
 
@@ -2125,7 +2137,7 @@ const renderMatriz = () => {
                         >
                           ✨ Dictamen IA
                         </button>
-<span className="text-[8px] text-slate-400 font-bold mt-1 block">Mitigación: <strong className="text-purple-700">{calcularMitigacionRiesgo(r)}%</strong></span>
+<span className="text-[8px] text-slate-400 font-bold mt-1 block">Mitigación: <strong className="text-purple-700">{textoPorcentaje(calcularMitigacionRiesgo(r))}</strong></span>
                       </div>
 
                      {/* GESTIÓN: Todos pueden editar ✏️, pero solo Administradores pueden borrar 🗑️ */}
@@ -3188,7 +3200,8 @@ const renderMatriz = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <LabelConPalomita idCampo="probInh" onAbrirAyuda={setAyudaModal} />
-                <select value={probInherente} onChange={e => setProbInherente(Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
+                <select required value={probInherente} onChange={e => setProbInherente(e.target.value === '' ? '' : Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
+                  <option value="">Sin dato · selecciona (Tabla 2)</option>
                   <option value={20}>Muy Baja (20%)</option>
                   <option value={40}>Baja (40%)</option>
                   <option value={60}>Media (60%)</option>
@@ -3198,7 +3211,8 @@ const renderMatriz = () => {
               </div>
               <div>
                 <LabelConPalomita idCampo="impInh" onAbrirAyuda={setAyudaModal} />
-                <select value={impInherente} onChange={e => setImpInherente(Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
+                <select required value={impInherente} onChange={e => setImpInherente(e.target.value === '' ? '' : Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
+                  <option value="">Sin dato · selecciona (Tabla 3)</option>
                   <option value={20}>Leve (20%)</option>
                   <option value={40}>Menor (40%)</option>
                   <option value={60}>Moderado (60%)</option>
@@ -3355,11 +3369,11 @@ const renderMatriz = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
               <LabelConPalomita idCampo="probRes" dark={true} onAbrirAyuda={setAyudaModal} />
-                <input type="text" value={`${residuales.probabilidad}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
+                <input type="text" value={probInherente === '' ? 'Sin dato' : `${residuales.probabilidad}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
               <div>
               <LabelConPalomita idCampo="impRes" dark={true} onAbrirAyuda={setAyudaModal} />
-                <input type="text" value={`${residuales.impacto}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
+                <input type="text" value={impInherente === '' ? 'Sin dato' : `${residuales.impacto}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
             </div>
 

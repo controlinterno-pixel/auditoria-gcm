@@ -366,6 +366,8 @@ export async function recalcularResidualesMatriz({ ejecutar = false, usuario = '
       const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
       if (controles.length === 0) { omitidos.sinControlesEstructurados += 1; return riesgo; }
       const nuevos = calcularResiduales(riesgo.probabilidadInherente, riesgo.impactoInherente, controles);
+      // Sin inherentes registrados no se recalcula: nunca se sobrescribe el residual con un valor supuesto.
+      if (nuevos.probabilidadResidual === null) { omitidos.sinInherentes = (omitidos.sinInherentes || 0) + 1; return riesgo; }
       if (Number(riesgo.probabilidadResidual) === nuevos.probabilidadResidual && Number(riesgo.impactoResidual) === nuevos.impactoResidual) return riesgo;
       const antes = { probabilidad: riesgo.probabilidadResidual, impacto: riesgo.impactoResidual, zona: zonas(riesgo).residual };
       const actualizado = { ...riesgo, ...nuevos };
@@ -435,7 +437,8 @@ export async function corregirEscalaInherente({ ejecutar = false, usuario = '' }
       const corregido = { ...riesgo, ...cambios };
       const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
       if (controles.length > 0) {
-        Object.assign(corregido, calcularResiduales(corregido.probabilidadInherente, corregido.impactoInherente, controles));
+        const recalculado = calcularResiduales(corregido.probabilidadInherente, corregido.impactoInherente, controles);
+        if (recalculado.probabilidadResidual !== null) Object.assign(corregido, recalculado);
       } else {
         ['probabilidadResidual', 'impactoResidual'].forEach(campo => { if (esNivel(riesgo[campo])) corregido[campo] = Number(riesgo[campo]) * 20; });
       }

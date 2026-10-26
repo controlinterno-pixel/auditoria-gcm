@@ -19,8 +19,10 @@ const dias = (fecha, hoy) => {
 
 // Misma fórmula que la matriz: % de exposición (probabilidad × impacto) que eliminan los controles.
 export const mitigacionRiesgo = riesgo => {
-  const inherente = (riesgo.probabilidadInherente ?? 60) * (riesgo.impactoInherente ?? 60);
-  const residual = (riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30);
+  const valores = [riesgo.probabilidadInherente, riesgo.impactoInherente, riesgo.probabilidadResidual, riesgo.impactoResidual];
+  if (valores.some(valor => valor === null || valor === undefined || valor === '' || !Number.isFinite(Number(valor)))) return null;
+  const inherente = Number(riesgo.probabilidadInherente) * Number(riesgo.impactoInherente);
+  const residual = Number(riesgo.probabilidadResidual) * Number(riesgo.impactoResidual);
   return inherente ? Math.max(0, Math.min(100, Math.round(((inherente - residual) / inherente) * 100))) : 0;
 };
 

@@ -65,8 +65,9 @@ function calcularResidualesServidor(probInh, impInh, controles = []) {
     probabilidadResidual: probResidual,
     impactoResidual: impResidual,
     // Tabla 4 del manual con rangos: un residual de 25 % es probabilidad Baja (antes no encontraba fila y quedaba "Bajo").
-    nivelInherente: zonaSeveridad(probInh, impInh, true).label,
-    nivelResidual: zonaSeveridad(probResidual, impResidual, true).label,
+    // Sin probabilidad o impacto registrados la zona queda "Sin dato" (no se asume un nivel).
+    nivelInherente: probResidual === null ? 'Sin dato' : zonaSeveridad(probInh, impInh, true).label,
+    nivelResidual: probResidual === null ? 'Sin dato' : zonaSeveridad(probResidual, impResidual, true).label,
   };
 }
 

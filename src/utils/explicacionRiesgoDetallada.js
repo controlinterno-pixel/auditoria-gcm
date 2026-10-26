@@ -83,9 +83,22 @@ const CONTROLES_SIMULADOS = [
 /**
  * @param {{ probabilidadInherente:number, impactoInherente:number, controlesDetallados:object[], planAccionRiesgo?:string, fechaSeguimiento?:string }} riesgo
  */
+const sinDatoInherente = riesgo => [riesgo?.probabilidadInherente, riesgo?.impactoInherente]
+  .some(valor => valor === null || valor === undefined || valor === '' || !Number.isFinite(Number(valor)));
+
 export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo = new Map() } = {}) {
-  const pInh = Number(riesgo.probabilidadInherente) || 60;
-  const iInh = Number(riesgo.impactoInherente) || 60;
+  // Sin probabilidad o impacto inherente no se calcula nada con valores supuestos.
+  if (sinDatoInherente(riesgo)) {
+    return {
+      zonaInherente: 'Sin dato', zonaResidual: 'Sin dato', probabilidadResidual: null, impactoResidual: null,
+      probabilidad: ['Sin dato: el riesgo no tiene registrada la probabilidad o el impacto inherente.'],
+      impacto: [], zona: [],
+      pendientes: ['Registrar la probabilidad (Tabla 2) y el impacto (Tabla 3) inherentes del Manual E-GE-MAN-001 para poder calcular el riesgo.'],
+      mejoras: [], notaMejoras: 'Sin dato para simular mejoras.',
+    };
+  }
+  const pInh = Number(riesgo.probabilidadInherente);
+  const iInh = Number(riesgo.impactoInherente);
   const todos = (Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [])
     .map((control, indice) => ({ control, indice })).filter(({ control }) => control);
   const vigentesConIndice = todos.filter(({ control }) => !estaAnulado(control));
@@ -212,8 +225,9 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
  * falla (no opera) y si se automatiza. Lo usa la auditoría de control con IA para no deducirlo.
  */
 export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = new Map() } = {}) {
-  const pInh = Number(riesgo.probabilidadInherente) || 60;
-  const iInh = Number(riesgo.impactoInherente) || 60;
+  if (sinDatoInherente(riesgo)) return null;
+  const pInh = Number(riesgo.probabilidadInherente);
+  const iInh = Number(riesgo.impactoInherente);
   const todos = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
   const control = todos[indiceControl];
   if (!control) return null;

@@ -92,8 +92,9 @@ const exposicion = (riesgo, momento) => {
 /** Mitigación promedio: cuánto reducen los controles la exposición (probabilidad × impacto) de cada riesgo. */
 export function explicarMitigacionPromedio({ riesgos, alcance, calcularMitigacion }) {
   if (riesgos.length === 0) return { titulo: 'Mitigación promedio', valor: '0%', lineas: [`No hay riesgos en ${alcance}.`] };
-  const conMitigacion = riesgos.map(riesgo => ({ riesgo, mitigacion: calcularMitigacion(riesgo) }))
+  const conMitigacion = riesgos.map(riesgo => ({ riesgo, mitigacion: calcularMitigacion(riesgo) })).filter(item => item.mitigacion !== null)
     .sort((a, b) => b.mitigacion - a.mitigacion);
+  if (conMitigacion.length === 0) return { titulo: 'Mitigación promedio', valor: 'Sin dato', lineas: [`Los riesgos de ${alcance} no tienen registrada la probabilidad o el impacto: no se puede calcular la mitigación.`] };
   const promedio = Math.round(conMitigacion.reduce((suma, item) => suma + item.mitigacion, 0) / conMitigacion.length);
   const mayor = conMitigacion[0];
   const menor = conMitigacion[conMitigacion.length - 1];
