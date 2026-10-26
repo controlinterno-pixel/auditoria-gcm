@@ -372,6 +372,9 @@ export default function App() {
   const puedeVerFuentesMejora = verSubmodulo('sub_fuentes_mejora');
   const puedeVerIncidentes = verSubmodulo('sub_incidentes');
   const puedeVerTableroPlanes = verSubmodulo('sub_seguimiento_planes');
+  // Sin la casilla del módulo "Planes de Acción" el usuario no ve el módulo, ni siquiera sus tareas (lo decide
+  // el administrador). Con el módulo y sin "Seguimiento de Planes", solo ve sus tareas asignadas.
+  const puedeVerModuloPlanes = isAdmin || esAuditorConsulta || permisosUsuario.includes('planes');
   const puedeVerCronograma = verSubmodulo('sub_cronograma');
   // Auditorías y Gobernanza solo con permiso explícito (el servidor tampoco entrega esos datos sin él).
   const puedeVerProgramas = verSubmodulo('sub_programas');
@@ -811,10 +814,10 @@ return (
         setSubTabPlanes={setSubTabPlanes}
         subTabGobernanza={subTabGobernanza}
         setSubTabGobernanza={setSubTabGobernanza}
-        misTareasEjecucion={misTareasEjecucion} 
-        misTareasCorreccion={misTareasCorreccion}
-        misTareasRevision={misTareasRevision}   
-        misTareasAprobacion={misTareasAprobacion} 
+        misTareasEjecucion={puedeVerModuloPlanes ? misTareasEjecucion : 0}
+        misTareasCorreccion={puedeVerModuloPlanes ? misTareasCorreccion : 0}
+        misTareasRevision={puedeVerModuloPlanes ? misTareasRevision : 0}   
+        misTareasAprobacion={puedeVerModuloPlanes ? misTareasAprobacion : 0} 
         onSelectExecutionTasks={() => seleccionarTareasPlanes('ejecucion')}
         onSelectRevisionTasks={() => seleccionarTareasPlanes('revision')}
         onSelectAprobacionTasks={() => seleccionarTareasPlanes('aprobacion')}
@@ -827,7 +830,7 @@ return (
         puedeVerHallazgos={puedeVerHallazgos}
         puedeVerIncidentes={puedeVerIncidentes}
         puedeVerTableroPlanes={puedeVerTableroPlanes}
-        tienePlanesPropios={planesDelModulo.length > 0}
+        tienePlanesPropios={puedeVerModuloPlanes && planesDelModulo.length > 0}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
         puedeVerCronograma={puedeVerCronograma}
         puedeVerProgramas={puedeVerProgramas}
@@ -849,9 +852,9 @@ return (
           setIsPresentationMode={setIsPresentationMode}
           onToggleNavigation={() => setMobileNavOpen(true)}
           mobileNavOpen={mobileNavOpen}
-          misTareasEjecucion={misPlanesEjecucion.length}
-          misTareasRevision={misTareasRevision}
-          misTareasAprobacion={misTareasAprobacion}
+          misTareasEjecucion={puedeVerModuloPlanes ? misPlanesEjecucion.length : 0}
+          misTareasRevision={puedeVerModuloPlanes ? misTareasRevision : 0}
+          misTareasAprobacion={puedeVerModuloPlanes ? misTareasAprobacion : 0}
           onSelectTasks={tipo => guardNavigation(() => {
             setEditPlan(null);
             setSubTabPlanes('planes');
@@ -1211,7 +1214,7 @@ return (
             {activeTab === 'planes_tab' && (
               <div className="space-y-6">
                 
-                {subTabPlanes === 'planes' && (
+                {subTabPlanes === 'planes' && puedeVerModuloPlanes && (
                   <Planes 
                     key={`planes-tareas-${solicitudTareasPlanes}`}
                     riesgosMatriz={riesgosVigentes}
@@ -1325,7 +1328,7 @@ return (
               (activeTab === 'dashboard_riesgos' && !puedeVerDashboard) ||
               (activeTab === 'plan_anual_tab' && ((subTabPlanificar === 'riesgos' && !puedeVerMatriz) || (subTabPlanificar === 'apetito' && !puedeVerApetito))) ||
               (activeTab === 'resultados_tab' && ((subTabResultados === 'informes' && !puedeVerInformes) || (subTabResultados === 'hallazgos' && !puedeVerHallazgos) || (subTabResultados === 'fuentes_mejora' && !puedeVerFuentesMejora))) ||
-              (activeTab === 'planes_tab' && ((subTabPlanes === 'reporte360' && !puedeVerTableroPlanes) || (subTabPlanes === 'incidentes' && !puedeVerIncidentes))) ||
+              (activeTab === 'planes_tab' && ((subTabPlanes === 'planes' && !puedeVerModuloPlanes) || (subTabPlanes === 'reporte360' && !puedeVerTableroPlanes) || (subTabPlanes === 'incidentes' && !puedeVerIncidentes))) ||
               (activeTab === 'plan_anual_tab' && ((subTabPlanificar === 'plan_anual' && !puedeVerCronograma) || (subTabPlanificar === 'programas' && !puedeVerProgramas))) ||
               (activeTab === 'gobernanza_tab' && !((subTabGobernanza === 'comites' && puedeVerComites) || (subTabGobernanza === 'trazabilidad' && puedeVerTrazabilidad) || (subTabGobernanza === 'auditoria_auto' && isAdmin)))) && (
               <div role="status" className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">

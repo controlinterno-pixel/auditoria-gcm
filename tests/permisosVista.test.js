@@ -82,3 +82,11 @@ test('matriz de riesgos: el líder ve solo sus macroprocesos salvo la casilla "V
   assert.ok(leer('sync.js').includes('riesgos: riesgosVisiblesPara(data.riesgos'), 'sync filtra la matriz');
   assert.ok(leer('riesgos.js').includes('riesgosVisiblesPara('), 'GET /api/grc/riesgos filtra la matriz');
 });
+
+test('sin la casilla del módulo "Planes de Acción" no se ve el módulo, ni siquiera las tareas propias', () => {
+  const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  assert.ok(app.includes("const puedeVerModuloPlanes = isAdmin || esAuditorConsulta || permisosUsuario.includes('planes');"));
+  assert.ok(app.includes('tienePlanesPropios={puedeVerModuloPlanes && planesDelModulo.length > 0}'), 'el menú no aparece por tener tareas');
+  assert.ok(app.includes("{subTabPlanes === 'planes' && puedeVerModuloPlanes && ("), 'la pantalla no se dibuja');
+  assert.ok(app.includes('misTareasAprobacion={puedeVerModuloPlanes ? misTareasAprobacion : 0}'), 'sin avisos de tareas');
+});
