@@ -1,4 +1,4 @@
-import { riesgoEnPorcentaje } from './nivelRiesgo.js';
+import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles } from './nivelRiesgo.js';
 import { normalizarClasificacion } from './clasificacionRiesgo.js';
 import { codigoControl, desglosarEficaciaControl } from './explicacionControles.js';
 const COLORES = {
@@ -23,35 +23,9 @@ const colorNivel = nivel => ({
 }[nivel] || COLORES.borde);
 
 const textoLista = valor => Array.isArray(valor) ? valor.join(', ') : (valor || '');
-const normalizarTexto = valor => String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-const nivelNumerico = (valor, etiquetas, fallback) => {
-  const texto = normalizarTexto(valor);
-  if (etiquetas[texto]) return etiquetas[texto];
-  const numeroEncontrado = texto.match(/-?\d+(?:[.,]\d+)?/);
-  const numero = numeroEncontrado ? Number(numeroEncontrado[0].replace(',', '.')) : NaN;
-  if (!Number.isFinite(numero) || numero <= 0) return fallback;
-  return Math.min(5, Math.max(1, Math.ceil(numero > 5 ? numero / 20 : numero)));
-};
-
-const nivelProbabilidadGrc = valor => {
-  const nivel = nivelNumerico(valor, { rara: 1, posible: 3, frecuente: 5 }, 3);
-  return nivel <= 2 ? 'Rara' : nivel <= 4 ? 'Posible' : 'Frecuente';
-};
-
-const nivelImpactoGrc = valor => {
-  const nivel = nivelNumerico(valor, { bajo: 1, leve: 1, medio: 2, menor: 2, moderado: 3, alto: 4, critico: 5 }, 2);
-  return nivel <= 1 ? 'Bajo' : nivel <= 3 ? 'Medio' : nivel === 4 ? 'Alto' : 'Crítico';
-};
-
-const puntajeGrc = (probabilidad, impacto) => (
-  { Rara: 1, Posible: 3, Frecuente: 5 }[probabilidad]
-  * { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 }[impacto]
-);
-
-const colorPuntajeGrc = puntaje => (
-  puntaje <= 4 ? COLORES.bajo : puntaje <= 9 ? COLORES.moderado : puntaje <= 16 ? COLORES.alto : COLORES.extremo
-);
+// Nivel del manual (Tablas 2 y 3: 20 % por nivel) con su nombre, para los mapas de calor 5 × 5.
+const nivelManual = (valor, porcentaje, escala) => escala[nivelEscala(valor, porcentaje) - 1];
 
 const configurarTitulo = (hoja, ultimaColumna, titulo, subtitulo) => {
   hoja.mergeCells(1, 1, 1, ultimaColumna);
@@ -149,8 +123,8 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     'Probabilidad Inherente (%)': riesgo.probabilidadInherente ?? 60,
     'Impacto Inherente (%)': riesgo.impactoInherente ?? 80,
     'Nivel Inherente': zonaInherente.label.toUpperCase(),
-    'Probabilidad Inherente GRC': nivelProbabilidadGrc(riesgo.probabilidadInherente),
-    'Impacto Inherente GRC': nivelImpactoGrc(riesgo.impactoInherente),
+    'Probabilidad Inherente (Tabla 2)': nivelManual(riesgo.probabilidadInherente, riesgoEnPorcentaje(riesgo), ESCALA_PROBABILIDAD),
+    'Impacto Inherente (Tabla 3)': nivelManual(riesgo.impactoInherente, riesgoEnPorcentaje(riesgo), ESCALA_IMPACTO),
     'Total Controles': controles.length || (controlLegado ? 1 : 0),
     'Controles Estructurados': controles.length,
     'Eficacia Promedio de Controles (%)': eficaciaPromedio,
@@ -159,8 +133,8 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     'Probabilidad Residual (%)': riesgo.probabilidadResidual ?? 15,
     'Impacto Residual (%)': riesgo.impactoResidual ?? 30,
     'Nivel Residual Final': zonaResidual.label.toUpperCase(),
-    'Probabilidad Residual GRC': nivelProbabilidadGrc(riesgo.probabilidadResidual),
-    'Impacto Residual GRC': nivelImpactoGrc(riesgo.impactoResidual),
+    'Probabilidad Residual (Tabla 2)': nivelManual(riesgo.probabilidadResidual, riesgoEnPorcentaje(riesgo), ESCALA_PROBABILIDAD),
+    'Impacto Residual (Tabla 3)': nivelManual(riesgo.impactoResidual, riesgoEnPorcentaje(riesgo), ESCALA_IMPACTO),
     'Estrategia de Tratamiento': riesgo.tratamiento || 'Reducir el riesgo',
     'Plan de Acción': riesgo.planAccionRiesgo || 'N/A',
     'Fecha de Seguimiento': riesgo.fechaSeguimiento || 'No programada',
@@ -285,21 +259,23 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     views: [{ showGridLines: false }],
   });
   dashboard.columns = [
-    { width: 20 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 3 },
-    { width: 20 }, { width: 15 }, { width: 15 }, { width: 15 },
+    { width: 16 }, { width: 11 }, { width: 11 }, { width: 11 }, { width: 11 }, { width: 11 }, { width: 3 },
+    { width: 16 }, { width: 11 }, { width: 11 }, { width: 11 }, { width: 11 }, { width: 11 },
   ];
-  configurarTitulo(dashboard, 9, 'RIESGOS | PANEL EJECUTIVO', `Termales de Santa Rosa de Cabal  |  ${alcance}  |  Generado: ${new Date().toLocaleString('es-CO')}`);
+  configurarTitulo(dashboard, 13, 'RIESGOS | PANEL EJECUTIVO', `Termales de Santa Rosa de Cabal  |  ${alcance}  |  Generado: ${new Date().toLocaleString('es-CO')}`);
   dashboard.getRow(4).height = 28;
   dashboard.getCell('A4').value = 'PROCESO';
   dashboard.getCell('B4').value = 'Todos';
-  dashboard.getCell('F4').value = 'NIVEL RESIDUAL';
-  dashboard.getCell('G4').value = 'Todos';
+  dashboard.getCell('H4').value = 'NIVEL RESIDUAL';
+  dashboard.getCell('I4').value = 'Todos';
+  dashboard.mergeCells('B4:F4');
+  dashboard.mergeCells('I4:M4');
   dashboard.getCell('B4').dataValidation = { type: 'list', allowBlank: false, formulae: ['ListaProcesos'] };
-  dashboard.getCell('G4').dataValidation = { type: 'list', allowBlank: false, formulae: ['ListaNiveles'] };
-  ['A4', 'F4'].forEach(referencia => {
+  dashboard.getCell('I4').dataValidation = { type: 'list', allowBlank: false, formulae: ['ListaNiveles'] };
+  ['A4', 'H4'].forEach(referencia => {
     dashboard.getCell(referencia).font = { name: 'Aptos', size: 9, bold: true, color: { argb: COLORES.tinta } };
   });
-  ['B4', 'G4'].forEach(referencia => {
+  ['B4', 'I4'].forEach(referencia => {
     const celda = dashboard.getCell(referencia);
     celda.font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORES.verde } };
     celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF4D6' } };
@@ -319,15 +295,15 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   const rangoNivelControl = rango('Controles por Riesgo', columnaControles('Nivel Residual'), 5, controlesFin);
   const rangoEstructurado = rango('Controles por Riesgo', columnaControles('Control Estructurado'), 5, controlesFin);
   const rangoEficaciaControl = rango('Controles por Riesgo', columnaControles('Eficacia Calculada (%)'), 5, controlesFin);
-  const rangoProbInherenteGrc = rango('Matriz Corporativa', columnaMatriz('Probabilidad Inherente GRC'), matrizInicio, matrizFin);
-  const rangoImpactoInherenteGrc = rango('Matriz Corporativa', columnaMatriz('Impacto Inherente GRC'), matrizInicio, matrizFin);
-  const rangoProbResidualGrc = rango('Matriz Corporativa', columnaMatriz('Probabilidad Residual GRC'), matrizInicio, matrizFin);
-  const rangoImpactoResidualGrc = rango('Matriz Corporativa', columnaMatriz('Impacto Residual GRC'), matrizInicio, matrizFin);
+  const rangoProbInherenteGrc = rango('Matriz Corporativa', columnaMatriz('Probabilidad Inherente (Tabla 2)'), matrizInicio, matrizFin);
+  const rangoImpactoInherenteGrc = rango('Matriz Corporativa', columnaMatriz('Impacto Inherente (Tabla 3)'), matrizInicio, matrizFin);
+  const rangoProbResidualGrc = rango('Matriz Corporativa', columnaMatriz('Probabilidad Residual (Tabla 2)'), matrizInicio, matrizFin);
+  const rangoImpactoResidualGrc = rango('Matriz Corporativa', columnaMatriz('Impacto Residual (Tabla 3)'), matrizInicio, matrizFin);
   const criterioProceso = 'IF($B$4="Todos","*",$B$4)';
-  const criterioNivel = 'IF($G$4="Todos","*",$G$4)';
+  const criterioNivel = 'IF($I$4="Todos","*",$I$4)';
   const formulaTotalRiesgos = `COUNTIFS(${rangoProceso},${criterioProceso},${rangoNivel},${criterioNivel})`;
   const conteoNivel = nivel => `COUNTIFS(${rangoProceso},${criterioProceso},${rangoNivel},"${nivel}")`;
-  const riesgosAltos = `IF(OR($G$4="Todos",$G$4="EXTREMO"),${conteoNivel('EXTREMO')},0)+IF(OR($G$4="Todos",$G$4="ALTO"),${conteoNivel('ALTO')},0)`;
+  const riesgosAltos = `IF(OR($I$4="Todos",$I$4="EXTREMO"),${conteoNivel('EXTREMO')},0)+IF(OR($I$4="Todos",$I$4="ALTO"),${conteoNivel('ALTO')},0)`;
   const controlesFiltrados = `COUNTIFS(${rangoProcesoControl},${criterioProceso},${rangoNivelControl},${criterioNivel},${rangoEstructurado},"Sí")`;
   const formulaMitigacion = `IFERROR(AVERAGEIFS(${rangoMitigacion},${rangoProceso},${criterioProceso},${rangoNivel},${criterioNivel}),0)`;
   const formulaEficacia = `IFERROR(AVERAGEIFS(${rangoEficaciaControl},${rangoProcesoControl},${criterioProceso},${rangoNivelControl},${criterioNivel},${rangoEstructurado},"Sí"),0)`;
@@ -347,7 +323,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   const contarCombinacion = (tipo, implementacion) => `COUNTIFS(${filtroControles},${rangoTipoControl},"${tipo}",${rangoImplementacionControl},"${implementacion}")`;
   const contarTipo = tipo => `COUNTIFS(${filtroControles},${rangoTipoControl},"${tipo}")`;
   const manualesFiltro = `COUNTIFS(${filtroControles},${rangoImplementacionControl},"Manual")`;
-  // Conteos en celdas auxiliares (columna K, oculta): la explicación las referencia y no supera el límite de largo de fórmula de Excel.
+  // Conteos en celdas auxiliares (columna P, oculta): la explicación las referencia y no supera el límite de largo de fórmula de Excel.
   const auxiliares = [
     ...COMBINACIONES_TABLA_6.map(([tipo, implementacion]) => contarCombinacion(tipo, implementacion)),
     controlesFiltrados,
@@ -355,7 +331,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     `IFERROR((${Object.entries(MAXIMO_POR_TIPO).map(([tipo, maximo]) => `${contarTipo(tipo)}*${maximo}`).join('+')})/${controlesFiltrados},0)`,
     manualesFiltro,
   ];
-  const celdaAux = indice => `$K$${22 + indice}`;
+  const celdaAux = indice => `$P$${22 + indice}`;
   const [totalAux, promedioAux, maximoAux, manualesAux] = [6, 7, 8, 9].map(celdaAux);
   // Calificación sobre el máximo de la Tabla 6 (50 %, preventivo automático), con los rangos de color de la app:
   // verde ≥ 80 % del máximo (Excelente ≥ 90 %), ámbar 60–79 %, rojo < 60 %.
@@ -425,12 +401,12 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
 
   const tarjetas = [
     { inicio: 1, titulo: 'RIESGOS EN FILTRO', formula: formulaTotalRiesgos, resultado: matrizRiesgos.length, formato: '#,##0' },
-    { inicio: 3, titulo: 'ALTOS / EXTREMOS', formula: riesgosAltos, resultado: riesgosAltosIniciales, formato: '#,##0' },
-    { inicio: 6, titulo: 'CONTROLES ESTRUCTURADOS', formula: controlesFiltrados, resultado: controlesIniciales, formato: '#,##0' },
-    { inicio: 8, titulo: 'MITIGACIÓN PROMEDIO', formula: formulaMitigacion, resultado: mitigacionInicial, formato: '0"%"' },
+    { inicio: 4, titulo: 'ALTOS / EXTREMOS', formula: riesgosAltos, resultado: riesgosAltosIniciales, formato: '#,##0' },
+    { inicio: 8, titulo: 'CONTROLES ESTRUCTURADOS', formula: controlesFiltrados, resultado: controlesIniciales, formato: '#,##0' },
+    { inicio: 11, titulo: 'MITIGACIÓN PROMEDIO', formula: formulaMitigacion, resultado: mitigacionInicial, formato: '0"%"' },
   ];
   tarjetas.forEach(({ inicio, titulo, formula, resultado, formato }) => {
-    const fin = inicio + 1;
+    const fin = inicio + 2;
     dashboard.mergeCells(7, inicio, 7, fin);
     dashboard.mergeCells(8, inicio, 9, fin);
     const celdaTitulo = dashboard.getCell(7, inicio);
@@ -449,10 +425,11 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
   dashboard.getRow(8).height = 28;
   dashboard.getRow(9).height = 18;
 
-  const probabilidadesGrc = ['Rara', 'Posible', 'Frecuente'];
-  const impactosGrc = ['Crítico', 'Alto', 'Medio', 'Bajo'];
+  // Escalas del manual: probabilidad (Tabla 2) de izquierda a derecha, impacto (Tabla 3) de mayor a menor.
+  const probabilidadesGrc = [...ESCALA_PROBABILIDAD];
+  const impactosGrc = [...ESCALA_IMPACTO].reverse();
   const agregarMatrizGrc = (columnaInicio, titulo, rangoProbabilidad, rangoImpacto, campoProbabilidad, campoImpacto) => {
-    dashboard.mergeCells(12, columnaInicio, 12, columnaInicio + 3);
+    dashboard.mergeCells(12, columnaInicio, 12, columnaInicio + 5);
     const encabezado = dashboard.getCell(12, columnaInicio);
     encabezado.value = titulo;
     encabezado.font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORES.blanco } };
@@ -481,20 +458,23 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
       probabilidadesGrc.forEach((probabilidad, indiceProbabilidad) => {
         const columna = columnaInicio + indiceProbabilidad + 1;
         const celda = dashboard.getCell(fila, columna);
-        const puntaje = puntajeGrc(probabilidad, impacto);
+        const nivelP = indiceProbabilidad + 1;
+        const nivelI = ESCALA_IMPACTO.indexOf(impacto) + 1;
+        const puntaje = nivelP * nivelI;
+        const zona = zonaPorNiveles(nivelP, nivelI).toUpperCase();
         const registrosCelda = matrizRiesgos.filter(riesgo => (
           riesgo[campoProbabilidad] === probabilidad
           && riesgo[campoImpacto] === impacto
           && (riesgo.Proceso === dashboard.getCell('B4').value || dashboard.getCell('B4').value === 'Todos')
-          && (riesgo['Nivel Residual Final'] === dashboard.getCell('G4').value || dashboard.getCell('G4').value === 'Todos')
+          && (riesgo['Nivel Residual Final'] === dashboard.getCell('I4').value || dashboard.getCell('I4').value === 'Todos')
         ));
         const rangoProbabilidadCell = dashboard.getCell(13, columna).address;
         const rangoImpactoCell = dashboard.getCell(fila, columnaInicio).address;
         const formula = `COUNTIFS(${rangoProceso},${criterioProceso},${rangoNivel},${criterioNivel},${rangoProbabilidad},${rangoProbabilidadCell},${rangoImpacto},${rangoImpactoCell})`;
         const conteo = registrosCelda.length;
         escribirFormula(celda, `IF(${formula}=0,"",${formula}&CHAR(10)&"S: ${puntaje}")`, conteo ? `${conteo}\nS: ${puntaje}` : '');
-        celda.font = { name: 'Aptos', size: 10, bold: true, color: { argb: puntaje > 4 && puntaje <= 9 ? COLORES.texto : COLORES.blanco } };
-        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colorPuntajeGrc(puntaje) } };
+        celda.font = { name: 'Aptos', size: 10, bold: true, color: { argb: zona === 'MODERADO' ? COLORES.texto : COLORES.blanco } };
+        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colorNivel(zona) } };
         celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
         celda.border = {
           top: { style: 'thin', color: { argb: COLORES.blanco } },
@@ -503,21 +483,21 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
           right: { style: 'thin', color: { argb: COLORES.blanco } },
         };
       });
-      dashboard.getRow(fila).height = 36;
+      dashboard.getRow(fila).height = 32;
     });
   };
 
-  agregarMatrizGrc(1, 'MATRIZ INHERENTE · ANTES DE CONTROLES', rangoProbInherenteGrc, rangoImpactoInherenteGrc, 'Probabilidad Inherente GRC', 'Impacto Inherente GRC');
-  agregarMatrizGrc(6, 'MATRIZ RESIDUAL · DESPUÉS DE CONTROLES', rangoProbResidualGrc, rangoImpactoResidualGrc, 'Probabilidad Residual GRC', 'Impacto Residual GRC');
+  agregarMatrizGrc(1, 'MATRIZ INHERENTE · ANTES DE CONTROLES', rangoProbInherenteGrc, rangoImpactoInherenteGrc, 'Probabilidad Inherente (Tabla 2)', 'Impacto Inherente (Tabla 3)');
+  agregarMatrizGrc(8, 'MATRIZ RESIDUAL · DESPUÉS DE CONTROLES', rangoProbResidualGrc, rangoImpactoResidualGrc, 'Probabilidad Residual (Tabla 2)', 'Impacto Residual (Tabla 3)');
 
-  dashboard.mergeCells('A20:D20');
+  dashboard.mergeCells('A20:F20');
   dashboard.getCell('A20').value = 'DISTRIBUCIÓN DEL RIESGO RESIDUAL';
   dashboard.getCell('A20').font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORES.blanco } };
   dashboard.getCell('A20').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.tinta } };
   dashboard.getCell('A21').value = 'Nivel';
   dashboard.getCell('B21').value = 'Riesgos';
   dashboard.getCell('C21').value = 'Distribución';
-  dashboard.mergeCells('C21:D21');
+  dashboard.mergeCells('C21:F21');
   ['A21', 'B21', 'C21'].forEach(referencia => {
     dashboard.getCell(referencia).font = { name: 'Aptos', size: 9, bold: true, color: { argb: COLORES.tinta } };
     dashboard.getCell(referencia).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondo } };
@@ -533,7 +513,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     escribirFormula(conteo, `COUNTIFS(${rangoProceso},${criterioProceso},${rangoNivel},${criterioNivel},${rangoNivel},"${nivel}")`, resultado);
     conteo.font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORES.texto } };
     const barra = dashboard.getCell(fila, 3);
-    dashboard.mergeCells(fila, 3, fila, 4);
+    dashboard.mergeCells(fila, 3, fila, 6);
     const cantidadBarra = matrizRiesgos.length > 0 ? Math.round(resultado / Math.max(...niveles.map(n => matrizRiesgos.filter(r => r['Nivel Residual Final'] === n).length), 1) * 24) : 0;
     escribirFormula(barra, `REPT("■",IF(MAX($B$22:$B$25)=0,0,ROUND(B${fila}/MAX($B$22:$B$25)*24,0)))`, '■'.repeat(cantidadBarra));
     barra.font = { name: 'Aptos', size: 12, color: { argb: colorNivel(nivel) } };
@@ -541,46 +521,51 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     dashboard.getRow(fila).height = 24;
   });
 
-  dashboard.mergeCells('F20:I20');
-  dashboard.getCell('F20').value = 'SEMÁFORO DE EXPOSICIÓN GRC';
-  dashboard.getCell('F20').font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORES.blanco } };
-  dashboard.getCell('F20').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.tinta } };
-  dashboard.getCell('F21').value = 'Nivel';
-  dashboard.getCell('G21').value = 'Puntaje';
-  dashboard.getCell('H21').value = 'Respuesta';
-  dashboard.mergeCells('H21:I21');
-  const leyendaGrc = [
-    ['BAJO', '≤ 4', 'Aceptar / monitorear', 4],
-    ['MODERADO', '5–9', 'Monitorear periódicamente', 9],
-    ['ALTO', '10–16', 'Mitigar / ajustar controles', 16],
-    ['EXTREMO', '> 16', 'Evitar / transferir', 25],
+  // Regla real del manual: la zona sale de la Tabla 4 (no de rangos de puntaje) y la respuesta del numeral 9.
+  dashboard.mergeCells('H20:M20');
+  dashboard.getCell('H20').value = 'ZONAS DE RIESGO · TABLA 4 Y NUMERAL 9 DEL MANUAL E-GE-MAN-001';
+  dashboard.getCell('H20').font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORES.blanco } };
+  dashboard.getCell('H20').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.tinta } };
+  dashboard.getCell('H21').value = 'Zona';
+  dashboard.getCell('I21').value = 'Cuándo (Tabla 4)';
+  dashboard.mergeCells('I21:K21');
+  dashboard.getCell('L21').value = 'Respuesta (numeral 9)';
+  dashboard.mergeCells('L21:M21');
+  const zonasTabla4 = [
+    ['EXTREMO', 'Impacto Catastrófico, con cualquier probabilidad.', 'Plan de acción obligatorio.'],
+    ['ALTO', 'Impacto Mayor con cualquier probabilidad; probabilidad Muy alta; o Alta con impacto Moderado.', 'Plan de acción obligatorio.'],
+    ['MODERADO', 'Combinaciones intermedias que no son Extremo, Alto ni Bajo.', 'Seguimiento con fecha programada.'],
+    ['BAJO', 'Probabilidad Muy baja con impacto Leve o Menor; o Baja con impacto Leve.', 'Seguimiento con fecha programada.'],
   ];
-  leyendaGrc.forEach(([nivel, rangoPuntaje, respuesta, puntaje], indice) => {
+  zonasTabla4.forEach(([zona, regla, respuesta], indice) => {
     const fila = 22 + indice;
-    dashboard.getCell(fila, 6).value = nivel;
-    dashboard.getCell(fila, 7).value = rangoPuntaje;
-    dashboard.mergeCells(fila, 8, fila, 9);
-    dashboard.getCell(fila, 8).value = respuesta;
-    dashboard.getCell(fila, 6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colorPuntajeGrc(puntaje) } };
-    dashboard.getCell(fila, 6).font = { name: 'Aptos', size: 9, bold: true, color: { argb: puntaje > 4 && puntaje <= 9 ? COLORES.texto : COLORES.blanco } };
-    dashboard.getCell(fila, 7).font = { name: 'Aptos', size: 9, bold: true, color: { argb: COLORES.texto } };
-    dashboard.getCell(fila, 8).font = { name: 'Aptos', size: 9, color: { argb: COLORES.texto } };
-    dashboard.getCell(fila, 8).alignment = { wrapText: true, vertical: 'middle' };
+    const celdaZona = dashboard.getCell(fila, 8);
+    celdaZona.value = zona;
+    celdaZona.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colorNivel(zona) } };
+    celdaZona.font = { name: 'Aptos', size: 9, bold: true, color: { argb: zona === 'MODERADO' ? COLORES.texto : COLORES.blanco } };
+    dashboard.mergeCells(fila, 9, fila, 11);
+    dashboard.getCell(fila, 9).value = regla;
+    dashboard.mergeCells(fila, 12, fila, 13);
+    dashboard.getCell(fila, 12).value = respuesta;
+    [9, 12].forEach(columna => {
+      dashboard.getCell(fila, columna).font = { name: 'Aptos', size: 9, color: { argb: COLORES.texto } };
+      dashboard.getCell(fila, columna).alignment = { wrapText: true, vertical: 'middle' };
+    });
   });
-  ['F21', 'G21', 'H21'].forEach(referencia => {
+  ['H21', 'I21', 'L21'].forEach(referencia => {
     dashboard.getCell(referencia).font = { name: 'Aptos', size: 9, bold: true, color: { argb: COLORES.tinta } };
     dashboard.getCell(referencia).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondo } };
   });
 
-  dashboard.mergeCells('F27:H27');
-  dashboard.getCell('F27').value = 'EFICACIA PROMEDIO DE CONTROLES';
-  dashboard.getCell('F27').font = { name: 'Aptos', size: 9, bold: true, color: { argb: COLORES.verde } };
-  dashboard.getCell('F27').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.verdeClaro } };
-  escribirFormula(dashboard.getCell('I27'), formulaEficacia, eficaciaInicial, '0"%"');
-  dashboard.getCell('I27').font = { name: 'Aptos', size: 11, bold: true, color: { argb: COLORES.tinta } };
-  dashboard.getCell('I27').alignment = { horizontal: 'center', vertical: 'middle' };
+  dashboard.mergeCells('H27:L27');
+  dashboard.getCell('H27').value = 'EFICACIA PROMEDIO DE CONTROLES';
+  dashboard.getCell('H27').font = { name: 'Aptos', size: 9, bold: true, color: { argb: COLORES.verde } };
+  dashboard.getCell('H27').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.verdeClaro } };
+  escribirFormula(dashboard.getCell('M27'), formulaEficacia, eficaciaInicial, '0"%"');
+  dashboard.getCell('M27').font = { name: 'Aptos', size: 11, bold: true, color: { argb: COLORES.tinta } };
+  dashboard.getCell('M27').alignment = { horizontal: 'center', vertical: 'middle' };
   dashboard.getRow(27).height = 26;
-  dashboard.mergeCells('A28:I28');
+  dashboard.mergeCells('A28:M28');
   dashboard.getCell('A28').value = { formula: formulaExplicacionEficacia, result: explicacionEficaciaInicial };
   dashboard.getCell('A28').font = { name: 'Aptos', size: 9, color: { argb: COLORES.texto } };
   dashboard.getCell('A28').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.verdeClaro } };
@@ -602,8 +587,8 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     return [...combos, total, promedio, maximo, manuales, calificacion, meta, faltan, total ? Math.ceil((faltan * total) / 10) : 0];
   })();
   auxiliares.forEach((formula, indice) => { dashboard.getCell(celdaAux(indice).replace(/\$/g, '')).value = { formula, result: resultadosAux[indice] }; });
-  dashboard.getColumn('K').hidden = true;
-  dashboard.mergeCells('A29:I29');
+  dashboard.getColumn('P').hidden = true;
+  dashboard.mergeCells('A29:M29');
   dashboard.getCell('A29').value = { formula: formulaCalificacionEficacia, result: calificacionEficaciaInicial };
   dashboard.getCell('A29').font = { name: 'Aptos', size: 9, bold: true, color: { argb: COLORES.texto } };
   dashboard.getCell('A29').alignment = { wrapText: true, vertical: 'top' };
@@ -614,15 +599,15 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     [`${calificacionAux}="MODERADO"`, COLORES.moderado, COLORES.texto],
     [`${calificacionAux}="MALO"`, COLORES.extremo, COLORES.blanco],
   ];
-  ['I27', 'A29:I29'].forEach(ref => dashboard.addConditionalFormatting({
+  ['M27', 'A29:M29'].forEach(ref => dashboard.addConditionalFormatting({
     ref,
     rules: colorCalificacion.map(([formula, fondo, letra], indice) => ({
       type: 'expression', priority: indice + 1, formulae: [formula],
       style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: fondo } }, font: { color: { argb: letra }, bold: true } },
     })),
   }));
-  dashboard.mergeCells('A30:I30');
-  dashboard.getCell('A30').value = 'Los filtros de proceso y nivel residual actualizan los indicadores y ambos mapas. Probabilidad e impacto se agrupan en la misma escala categórica del Dashboard GRC.';
+  dashboard.mergeCells('A30:M30');
+  dashboard.getCell('A30').value = 'Los filtros de proceso y nivel residual actualizan los indicadores y ambos mapas. Mapas de calor con las escalas de las Tablas 2 (probabilidad) y 3 (impacto) y el color de zona de la Tabla 4 del Manual del Sistema Integral de Riesgos E-GE-MAN-001. S = nivel de probabilidad × nivel de impacto (1 a 25), solo como referencia: la zona la define la Tabla 4.';
   dashboard.getCell('A30').font = { name: 'Aptos', size: 9, italic: true, color: { argb: 'FF64746C' } };
   dashboard.getCell('A30').alignment = { wrapText: true };
   dashboard.getRow(30).height = 28;
