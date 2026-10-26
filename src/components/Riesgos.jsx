@@ -22,6 +22,7 @@ import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { analizarControlEnRiesgo, explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../utils/explicacionRiesgoDetallada.js';
 import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '../utils/cumplimientoManual.js';
 import { planesVinculadosAlRiesgo } from '../utils/planesDelRiesgo.js';
+import { sinProcesoDelCatalogo } from '../utils/ubicacionCatalogo.js';
 import { PERMISO_VER_TODOS_RIESGOS, permisosEfectivos } from '../utils/permisosVista.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, eficaciaSobreMaximo, explicarCalculoResidual, explicarControl, promedioEficacia, tonoDiseno } from '../utils/explicacionControles.js';
@@ -46,6 +47,16 @@ const resolverNombreCatalogo = (valor, opciones) => {
 const obtenerClaveNormalizada = (objeto, clave) => Object.keys(objeto || {}).find(nombre => (
   normalizarTextoProceso(nombre) === normalizarTextoProceso(clave)
 ));
+
+// 🗂️ Filtros de proceso: solo el catálogo de "Cargos y Procesos", más una opción para encontrar los riesgos
+// cuyo macroproceso o subproceso no está en el catálogo (quedaron en blanco o mal escritos).
+const SIN_PROCESO = '__sin_proceso__';
+const SIN_SUBPROCESO = '__sin_subproceso__';
+const OpcionesSinCatalogo = ({ tipo }) => (
+  <option value={tipo === 'proceso' ? SIN_PROCESO : SIN_SUBPROCESO}>
+    {tipo === 'proceso' ? '⚠ Sin macroproceso del catálogo (por corregir)' : '⚠ Sin subproceso del catálogo (por corregir)'}
+  </option>
+);
 
 const normalizarUbicacionRiesgo = (riesgo, mapaProcesos) => {
   const partesProcesoLegado = String(riesgo.proceso || '').split('/').map(parte => parte.trim()).filter(Boolean);
@@ -1317,19 +1328,17 @@ const handleRiesgoSubmit = async (e) => {
     const impactos = ESCALA_IMPACTO.map((etiqueta, indice) => ({ nivel: indice + 1, etiqueta })).reverse();
     const mapaProcesosDashboard = Object.keys(MAPA_PROCESOS).length > 0 ? MAPA_PROCESOS : MAPA_PROCESOS_PREDETERMINADO;
     const riesgosNormalizados = riesgosVigentes.map(riesgo => normalizarUbicacionRiesgo(riesgo, mapaProcesosDashboard));
-    const procesosUnicos = [...new Set([...Object.keys(mapaProcesosDashboard), ...riesgosNormalizados.flatMap(riesgo => riesgo.macroprocesos)])]
-      .sort((a, b) => a.localeCompare(b, 'es'));
-    const macroprocesoSeleccionado = filtroProceso === 'Todos'
+    // Solo el catálogo de "Cargos y Procesos" (los valores escritos en los riesgos que no están en él no se listan).
+    const procesosUnicos = Object.keys(mapaProcesosDashboard).sort((a, b) => a.localeCompare(b, 'es'));
+    const todosLosProcesos = filtroProceso === 'Todos' || filtroProceso === SIN_PROCESO;
+    const macroprocesoSeleccionado = todosLosProcesos
       ? null
       : obtenerClaveNormalizada(mapaProcesosDashboard, filtroProceso) || filtroProceso;
-    const subprocesosCatalogoDashboard = filtroProceso === 'Todos'
+    const subprocesosCatalogoDashboard = todosLosProcesos
       ? Object.values(mapaProcesosDashboard).flat()
       : mapaProcesosDashboard[macroprocesoSeleccionado] || [];
-    const subprocesosUnicos = [...new Set([...subprocesosCatalogoDashboard, ...riesgosNormalizados.flatMap(riesgo => (
-      filtroProceso === 'Todos'
-        ? riesgo.subprocesos
-        : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || []
-    ))])].sort((a, b) => a.localeCompare(b, 'es'));
+    const subprocesosUnicos = [...new Set(subprocesosCatalogoDashboard)].sort((a, b) => a.localeCompare(b, 'es'));
+    const subprocesoEnCatalogo = subproceso => subprocesosCatalogoDashboard.some(item => normalizarTextoProceso(item) === normalizarTextoProceso(subproceso));
     // Cada variante escrita (mayúsculas, tildes, errores) se agrupa en su clasificación del manual (Tabla 5).
     const clasificacionesUnicas = [...new Set(riesgosNormalizados.map(clasificacionDeRiesgo))].sort((a, b) => a.localeCompare(b, 'es'));
     // Todo el panorama (tarjetas, mapa, filtro y listas) usa el momento elegido: inherente o residual.
@@ -1347,17 +1356,19 @@ const handleRiesgoSubmit = async (e) => {
     const nivelRiesgo = riesgo => zonaPorNiveles(obtenerCoordenada(riesgo, 'probabilidad'), obtenerCoordenada(riesgo, 'impacto'));
     const riesgosBaseDashboard = riesgosNormalizados.filter(riesgo => {
       const macroprocesos = riesgo.macroprocesos.length > 0 ? riesgo.macroprocesos : ['Sin proceso'];
-      const subprocesos = filtroProceso === 'Todos'
+      const subprocesos = todosLosProcesos
         ? riesgo.subprocesos
         : riesgo.subprocesosPorMacroproceso[obtenerClaveNormalizada(riesgo.subprocesosPorMacroproceso, macroprocesoSeleccionado)] || [];
       const clasificacion = clasificacionDeRiesgo(riesgo);
       const textoBusqueda = `${riesgo.id} ${riesgo.descripcion || riesgo.escenarioFinal || ''} ${macroprocesos.join(' ')} ${subprocesos.join(' ')} ${clasificacion}`.toLowerCase();
-      return (filtroProceso === 'Todos' || macroprocesos.some(macroproceso => (
-        normalizarTextoProceso(macroproceso) === normalizarTextoProceso(macroprocesoSeleccionado)
-      )))
-        && (filtroSubproceso === 'Todos' || subprocesos.some(subproceso => (
-          normalizarTextoProceso(subproceso) === normalizarTextoProceso(filtroSubproceso)
-        )))
+      return (filtroProceso === 'Todos'
+        || (filtroProceso === SIN_PROCESO ? sinProcesoDelCatalogo(riesgo, mapaProcesosDashboard) : macroprocesos.some(macroproceso => (
+          normalizarTextoProceso(macroproceso) === normalizarTextoProceso(macroprocesoSeleccionado)
+        ))))
+        && (filtroSubproceso === 'Todos'
+          || (filtroSubproceso === SIN_SUBPROCESO ? !subprocesos.some(subprocesoEnCatalogo) : subprocesos.some(subproceso => (
+            normalizarTextoProceso(subproceso) === normalizarTextoProceso(filtroSubproceso)
+          ))))
         && (filtroClasificacion === 'Todas' || clasificacion === filtroClasificacion)
         && (!searchTerm || textoBusqueda.includes(searchTerm.toLowerCase()));
     });
@@ -1553,6 +1564,7 @@ const handleRiesgoSubmit = async (e) => {
               <select value={filtroProceso} onChange={event => { setFiltroProceso(event.target.value); setFiltroSubproceso('Todos'); setCuadranteDashboard(null); }} className="min-h-10 min-w-44 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
                 <option value="Todos">Todos los procesos</option>
                 {procesosUnicos.map(proceso => <option key={proceso} value={proceso}>{proceso}</option>)}
+                <OpcionesSinCatalogo tipo="proceso" />
               </select>
             </label>
             <label className="grid gap-1 text-[10px] font-bold text-slate-500">
@@ -1560,6 +1572,7 @@ const handleRiesgoSubmit = async (e) => {
               <select value={filtroSubproceso} onChange={event => setFiltroSubproceso(event.target.value)} className="min-h-10 min-w-40 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
                 <option value="Todos">Todos</option>
                 {subprocesosUnicos.map(subproceso => <option key={subproceso} value={subproceso}>{subproceso}</option>)}
+                <OpcionesSinCatalogo tipo="subproceso" />
               </select>
             </label>
             <label className="grid gap-1 text-[10px] font-bold text-slate-500">
@@ -1865,11 +1878,16 @@ const renderMatriz = () => {
                           r.macroprocesos.join(' ').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           r.subprocesos.join(' ').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           String(r.id).includes(searchTerm);
-      const matchProceso = filtroProceso === 'Todos' || r.macroprocesos.includes(filtroProceso);
-      const subprocesosDelProceso = filtroProceso === 'Todos'
+      const matchProceso = filtroProceso === 'Todos'
+        || (filtroProceso === SIN_PROCESO ? sinProcesoDelCatalogo(r, MAPA_PROCESOS) : r.macroprocesos.includes(filtroProceso));
+      const subprocesosDelProceso = filtroProceso === 'Todos' || filtroProceso === SIN_PROCESO
         ? r.subprocesos
         : r.subprocesosPorMacroproceso[filtroProceso] || [];
-      const matchSubproceso = filtroSubproceso === 'Todos' || subprocesosDelProceso.includes(filtroSubproceso);
+      const catalogoSubprocesos = filtroProceso === 'Todos' || filtroProceso === SIN_PROCESO
+        ? Object.values(MAPA_PROCESOS).flat()
+        : MAPA_PROCESOS[filtroProceso] || [];
+      const matchSubproceso = filtroSubproceso === 'Todos'
+        || (filtroSubproceso === SIN_SUBPROCESO ? !subprocesosDelProceso.some(sub => catalogoSubprocesos.includes(sub)) : subprocesosDelProceso.includes(filtroSubproceso));
       const matchClasificacion = filtroClasificacion === 'Todas' || clasificacionDeRiesgo(r) === filtroClasificacion;
       // filtroNivel: 'Todos', 'inh:<nivel>' (inherente) o 'res:<nivel>' (residual).
       const [tipoNivel, etiquetaNivel] = filtroNivel.includes(':') ? filtroNivel.split(':') : ['res', filtroNivel];
@@ -1882,19 +1900,14 @@ const renderMatriz = () => {
       return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel && matchEstado && matchCumplimiento;
     });
 
-    const procesosUnicos = [...new Set([...Object.keys(MAPA_PROCESOS), ...riesgosNormalizados.flatMap(r => r.macroprocesos)])]
-      .sort((a, b) => a.localeCompare(b, 'es'));
+    // Solo el catálogo de "Cargos y Procesos" (Configuración); los riesgos fuera de él se ven con "Sin … del catálogo".
+    const procesosUnicos = Object.keys(MAPA_PROCESOS).sort((a, b) => a.localeCompare(b, 'es'));
     
     // ✨ Derivamos los subprocesos dinámicamente basados en el proceso seleccionado
-    const subprocesosCatalogoMatriz = filtroProceso === 'Todos'
+    const subprocesosCatalogoMatriz = filtroProceso === 'Todos' || filtroProceso === SIN_PROCESO
       ? Object.values(MAPA_PROCESOS).flat()
       : MAPA_PROCESOS[filtroProceso] || [];
-    const subprocesosUnicos = [...new Set([
-      ...subprocesosCatalogoMatriz,
-      ...riesgosNormalizados.flatMap(r => (filtroProceso === 'Todos'
-        ? r.subprocesos
-        : r.subprocesosPorMacroproceso[filtroProceso] || [])),
-    ])].sort((a, b) => a.localeCompare(b, 'es'));
+    const subprocesosUnicos = [...new Set(subprocesosCatalogoMatriz)].sort((a, b) => a.localeCompare(b, 'es'));
 
     return (
       <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-300">
@@ -1976,6 +1989,7 @@ const renderMatriz = () => {
             >
               <option value="Todos">Todos los procesos</option>
               {procesosUnicos.map(proc => <option key={proc} value={proc}>{proc}</option>)}
+              <OpcionesSinCatalogo tipo="proceso" />
             </select>
 
             {/* ✨ NUEVO FILTRO DE SUBPROCESOS */}
@@ -1986,6 +2000,7 @@ const renderMatriz = () => {
             >
               <option value="Todos">Todos los subprocesos</option>
               {subprocesosUnicos.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+              <OpcionesSinCatalogo tipo="subproceso" />
             </select>
 
             <select

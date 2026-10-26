@@ -6,6 +6,7 @@ import { calcularResiduales } from '../../src/utils/explicacionControles.js';
 import { riesgoEnPorcentaje, zonaSeveridad } from '../../src/utils/nivelRiesgo.js';
 import { normalizarClasificacion } from '../../src/utils/clasificacionRiesgo.js';
 import { CLASIFICACIONES_MANUAL } from '../../src/constants/diccionariosGRC.js';
+import { revisarUbicacionRiesgo } from '../../src/utils/ubicacionCatalogo.js';
 
 // 📊 Cada documento devuelto por Firestore cuenta como una lectura facturable (incluye Admin SDK).
 const registrarLecturas = (origen, documentos, inicio, transaccion = false) => {
@@ -498,6 +499,73 @@ export async function corregirEscalaInherente({ ejecutar = false, usuario = '' }
  * - Los textos que no se reconocen se reportan y no se tocan.
  * - Deja una entrada en el historial de cada riesgo. `ejecutar: false` (por defecto) solo simula. Idempotente.
  */
+/**
+ * Ajusta la ubicación de cada riesgo al catálogo de "Cargos y Procesos" (mapaProcesos). Lo que coincide sin
+ * importar mayúsculas o tildes toma el nombre del catálogo; el macroproceso o subproceso que no existe en el
+ * catálogo queda en blanco para corregirlo a mano. Nada se pierde: el valor anterior queda en
+ * `ubicacionAnterior` y en el historial del riesgo. Por defecto SIMULA.
+ */
+export async function limpiarUbicacionesRiesgos({ ejecutar = false, usuario = '' } = {}) {
+  return adminDb.runTransaction(async transaction => {
+    const matriz = await leerMatrizRiesgosTx(transaction);
+    if (!matriz) throw new Error('Los riesgos no están migrados.');
+    const snapshot = await transaction.get(workspaceRef());
+    const mapaProcesos = snapshot.exists ? snapshot.data()?.mapaProcesos || {} : {};
+    if (!Object.keys(mapaProcesos).length) throw new Error('El catálogo de Cargos y Procesos está vacío: no se puede comparar.');
+    const ahora = new Date();
+    const cambios = [];
+    const resultado = matriz.riesgos.map(riesgo => {
+      if (!riesgo || riesgo.estado === 'Anulado') return riesgo;
+      const revision = revisarUbicacionRiesgo(riesgo, mapaProcesos);
+      if (!revision.cambia) return riesgo;
+      const enBlanco = revision.fueraDeCatalogo.macroprocesos.length > 0 || revision.fueraDeCatalogo.subprocesos.length > 0;
+      cambios.push({
+        id: String(riesgo.id),
+        quedaSinMacroproceso: revision.ubicacion.macroprocesos.length === 0,
+        macroprocesosEnBlanco: revision.fueraDeCatalogo.macroprocesos,
+        subprocesosEnBlanco: revision.fueraDeCatalogo.subprocesos,
+        renombrados: revision.renombrados,
+      });
+      const anterior = {
+        proceso: riesgo.proceso ?? '', macroproceso: riesgo.macroproceso ?? '', macroprocesos: riesgo.macroprocesos ?? [],
+        subproceso: riesgo.subproceso ?? '', subprocesos: riesgo.subprocesos ?? [], subprocesosPorMacroproceso: riesgo.subprocesosPorMacroproceso ?? {},
+      };
+      return {
+        ...riesgo,
+        ...revision.ubicacion,
+        ...(enBlanco ? { ubicacionAnterior: anterior } : {}),
+        historialCambios: [...(Array.isArray(riesgo.historialCambios) ? riesgo.historialCambios : []), {
+          fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
+          timestamp: ahora.toISOString(),
+          usuario,
+          accion: enBlanco
+            ? 'Ubicación ajustada al catálogo de Cargos y Procesos: lo que no existe en el catálogo quedó en blanco para corregirlo'
+            : 'Nombres de macroproceso o subproceso unificados con el catálogo de Cargos y Procesos',
+          cambios: [
+            ...revision.fueraDeCatalogo.macroprocesos.map(valor => ({ campo: 'Macroproceso', antes: valor, despues: '' })),
+            ...revision.fueraDeCatalogo.subprocesos.map(valor => ({ campo: 'Subproceso', antes: valor, despues: '' })),
+            ...revision.renombrados.map(valor => ({ campo: 'Nombre unificado', antes: valor.split(' → ')[0], despues: valor.split(' → ')[1] })),
+          ],
+        }],
+      };
+    });
+    const contar = lista => lista.reduce((conteo, valor) => ({ ...conteo, [valor]: (conteo[valor] || 0) + 1 }), {});
+    const reporte = {
+      estado: ejecutar ? 'limpiado' : 'simulacion',
+      riesgosRevisados: matriz.riesgos.length,
+      riesgosConCambios: cambios.length,
+      riesgosQueQuedanSinMacroproceso: cambios.filter(cambio => cambio.quedaSinMacroproceso).length,
+      macroprocesosFueraDelCatalogo: contar(cambios.flatMap(cambio => cambio.macroprocesosEnBlanco)),
+      subprocesosFueraDelCatalogo: contar(cambios.flatMap(cambio => cambio.subprocesosEnBlanco)),
+      nombresUnificados: contar(cambios.flatMap(cambio => cambio.renombrados)),
+      cambios,
+    };
+    if (ejecutar && cambios.length > 0) escribirRiesgosTx(transaction, resultado, matriz.indice);
+    if (ejecutar && cambios.length === 0) reporte.estado = 'sin-cambios';
+    return reporte;
+  });
+}
+
 export async function normalizarClasificacionesMatriz({ ejecutar = false, usuario = '' } = {}) {
   return adminDb.runTransaction(async transaction => {
     const matriz = await leerMatrizRiesgosTx(transaction);

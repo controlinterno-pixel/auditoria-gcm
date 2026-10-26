@@ -115,6 +115,10 @@ export default async function handler(req, res) {
       const module = await import('./_grc/limpiar-colecciones.js');
       return await module.default(req, res);
     }
+    if (path === '/api/grc/limpiar-ubicaciones') {
+      const module = await import('./_grc/limpiar-ubicaciones.js');
+      return await module.default(req, res);
+    }
     if (path === '/api/grc/normalizar-clasificaciones') {
       const module = await import('./_grc/normalizar-clasificaciones.js');
       return await module.default(req, res);
