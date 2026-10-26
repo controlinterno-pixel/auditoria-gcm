@@ -27,6 +27,25 @@ export const escrituraSinCambios = (nuevo, existente) => Boolean(existente) &&
     Object.hasOwn(existente, llave) && serializarEstable(nuevo[llave]) === serializarEstable(existente[llave])
   ));
 
+/**
+ * set(..., { merge: true }) fusiona los mapas: agrega o actualiza claves, pero nunca borra las que ya no
+ * vienen. Para que un mapa enviado completo (p. ej. mapaProcesos) reemplace al guardado, cada clave que
+ * tenía y ya no tiene se marca con FieldValue.delete(). Sin esto, un macroproceso eliminado (o el nombre
+ * anterior de uno renombrado) volvía a aparecer al recargar.
+ */
+export function conClavesEliminadas(datos, guardados, borrar = () => FieldValue.delete()) {
+  const resultado = { ...datos };
+  const esMapa = valor => Boolean(valor) && typeof valor === 'object' && !Array.isArray(valor)
+    && Object.getPrototypeOf(valor) === Object.prototype;
+  Object.entries(datos || {}).forEach(([campo, valor]) => {
+    const anterior = guardados?.[campo];
+    if (!esMapa(valor) || !esMapa(anterior)) return;
+    const eliminadas = Object.keys(anterior).filter(clave => !Object.hasOwn(valor, clave));
+    if (eliminadas.length) resultado[campo] = { ...valor, ...Object.fromEntries(eliminadas.map(clave => [clave, borrar()])) };
+  });
+  return resultado;
+}
+
 const workspaceRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
 const informesRef = () => adminDb.collection('workspace_compartido').doc('base_de_datos_grc_informes');
 // Tras la limpieza de la agrupación, el documento de informes legados ya no existe: no se lee ni se recrea.
@@ -1054,6 +1073,8 @@ export async function guardarWorkspaceParcial(partialData) {
   // La marca de la importación de Excel nunca se persiste; con riesgos migrados, la lista ya se guardó en partes.
   delete datosRestantes.riesgosReemplazoTotal;
   if (riesgosEnPartes) delete datosRestantes.riesgos;
+  // Los mapas enviados (mapaProcesos) reemplazan al guardado: las claves quitadas se borran de verdad.
+  Object.assign(datosRestantes, conClavesEliminadas(datosRestantes, datosWorkspace));
 
   const operaciones = [];
 

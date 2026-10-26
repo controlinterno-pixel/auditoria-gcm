@@ -11,8 +11,19 @@ const workspaceText = read('../api/_lib/grcWorkspace.js');
 const comparadorSource = workspaceText.slice(
   workspaceText.indexOf('const serializarEstable'),
   workspaceText.indexOf('const workspaceRef'),
-).replace('export const escrituraSinCambios', 'const escrituraSinCambios');
-const escrituraSinCambios = new Function(`${comparadorSource}\nreturn escrituraSinCambios;`)();
+).replace(/^export /gm, '');
+const { escrituraSinCambios, conClavesEliminadas } = new Function(`${comparadorSource}\nreturn { escrituraSinCambios, conClavesEliminadas };`)();
+
+// Un mapa enviado completo (mapaProcesos) reemplaza al guardado: las claves quitadas se borran.
+{
+  const BORRAR = '__borrar__';
+  const guardadoMapa = { mapaProcesos: { 'Gestión comercial': ['Ventas'], 'Prueba- Macroproceso Prueba': ['X'] }, otro: 1 };
+  const enviado = { mapaProcesos: { 'Gestión comercial': ['Ventas'] }, sedesEmpresa: ['Hotel'] };
+  const listo = conClavesEliminadas(enviado, guardadoMapa, () => BORRAR);
+  assert.deepEqual(listo.mapaProcesos, { 'Gestión comercial': ['Ventas'], 'Prueba- Macroproceso Prueba': BORRAR }, 'el macroproceso eliminado se borra');
+  assert.deepEqual(listo.sedesEmpresa, ['Hotel'], 'las listas no se tocan');
+  assert.deepEqual(conClavesEliminadas({ mapaProcesos: { A: ['1'] } }, {}, () => BORRAR), { mapaProcesos: { A: ['1'] } }, 'sin mapa guardado no se borra nada');
+}
 const guardado = { id: 'P1', progreso: 50, evidencias: [{ url: 'a', nombre: 'x' }], meta: { b: 2, a: 1 }, actualizadoEn: 'srv' };
 assert.equal(escrituraSinCambios({ meta: { a: 1, b: 2 }, progreso: 50, id: 'P1', evidencias: [{ nombre: 'x', url: 'a' }] }, guardado), true,
   'el orden de las llaves no importa y los campos que solo existen en el servidor no fuerzan escritura');
