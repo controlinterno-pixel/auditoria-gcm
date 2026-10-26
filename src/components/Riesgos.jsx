@@ -22,6 +22,7 @@ import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { analizarControlEnRiesgo, explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../utils/explicacionRiesgoDetallada.js';
 import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '../utils/cumplimientoManual.js';
 import { planesVinculadosAlRiesgo } from '../utils/planesDelRiesgo.js';
+import { PERMISO_VER_TODOS_RIESGOS, permisosEfectivos } from '../utils/permisosVista.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, eficaciaSobreMaximo, explicarCalculoResidual, explicarControl, promedioEficacia, tonoDiseno } from '../utils/explicacionControles.js';
 
@@ -374,6 +375,10 @@ export default function Riesgos({
       .map(normalizarTextoProceso);
   const procesosAsignadosUsuario = convertirCampoProcesoEnLista(procesosAsignadosPerfil || procesosAsignadosAuth)
     .map(normalizarTextoProceso);
+  // ¿Ve toda la matriz? Administrador, auditor, casilla "Ver todos los riesgos" o sin macroprocesos asignados
+  // (la misma regla con la que el servidor filtra los riesgos: riesgosVisiblesPara).
+  const veTodaLaMatriz = isAdmin || String(perfilUsuario?.rol || '').trim().toLowerCase() === 'auditor'
+    || permisosEfectivos(perfilUsuario).includes(PERMISO_VER_TODOS_RIESGOS) || procesosAsignadosUsuario.length === 0;
   const puedeModificarRiesgo = riesgo => {
     if (isAdmin) return true;
     const ubicacionRiesgo = normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS);
@@ -996,7 +1001,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     ...ubicacionesVigentes.flatMap(({ ubicacion }) => ubicacion.macroprocesos),
   ])]
     .filter(macroproceso => macroproceso !== 'Sin proceso')
-    .filter(macroproceso => isAdmin || procesosAsignadosUsuario.includes(normalizarTextoProceso(macroproceso)))
+    .filter(macroproceso => veTodaLaMatriz || procesosAsignadosUsuario.includes(normalizarTextoProceso(macroproceso)))
     .sort((a, b) => a.localeCompare(b, 'es'));
   const subprocesosDeMacroproceso = macroproceso => [...new Set([
     ...(Array.isArray(MAPA_PROCESOS[macroproceso]) ? MAPA_PROCESOS[macroproceso] : []),
@@ -1014,7 +1019,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     const disponibles = [...new Set([
       ...Object.keys(MAPA_PROCESOS),
       ...riesgosVigentes.flatMap(riesgo => normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS).macroprocesos),
-    ])].filter(nombre => nombre !== 'Sin proceso' && (isAdmin || procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre))))
+    ])].filter(nombre => nombre !== 'Sin proceso' && (veTodaLaMatriz || procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre))))
       .sort((a, b) => a.localeCompare(b, 'es'));
     const macroproceso = disponibles[0] || '';
     setDescargaExcel({ tipo: isAdmin || !macroproceso ? 'global' : 'proceso', macroproceso, subprocesos: macroproceso ? subprocesosIniciales(macroproceso) : [] });
@@ -1033,7 +1038,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     const lista = riesgosDeDescarga(descargaExcel);
     const todos = descargaExcel.tipo === 'proceso' ? subprocesosDeMacroproceso(descargaExcel.macroproceso) : [];
     const alcance = descargaExcel.tipo === 'global'
-      ? 'Toda la matriz'
+      ? (veTodaLaMatriz ? 'Toda la matriz' : `Riesgos de sus macroprocesos (${macroprocesosDescarga.join(', ')})`)
       : `${descargaExcel.macroproceso} · ${descargaExcel.subprocesos.length === todos.length ? 'todos los subprocesos' : `Subprocesos: ${descargaExcel.subprocesos.join(', ')}`}`;
     const sufijo = descargaExcel.tipo === 'global' ? '' : `_${descargaExcel.macroproceso.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_')}`;
     setGenerandoExcel(true);
@@ -2645,7 +2650,9 @@ const renderMatriz = () => {
               <div className="space-y-3 overflow-y-auto p-6 text-xs text-slate-700">
                 <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${descargaExcel.tipo === 'global' ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'}`}>
                   <input type="radio" name="alcance-excel" checked={descargaExcel.tipo === 'global'} onChange={() => setDescargaExcel(actual => ({ ...actual, tipo: 'global' }))} className="mt-0.5" />
-                  <span><strong className="block text-slate-900">Toda la matriz</strong>{riesgosVigentes.length} riesgos de todos los procesos, con los datos globales.</span>
+                  <span><strong className="block text-slate-900">{veTodaLaMatriz ? 'Toda la matriz' : 'Todos mis riesgos'}</strong>{veTodaLaMatriz
+                    ? `${riesgosVigentes.length} riesgos de todos los procesos, con los datos globales.`
+                    : `${riesgosVigentes.length} riesgos de sus macroprocesos asignados (no incluye otros procesos).`}</span>
                 </label>
                 {macroprocesosDescarga.length > 0 && (
                   <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${descargaExcel.tipo === 'proceso' ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'}`}>
