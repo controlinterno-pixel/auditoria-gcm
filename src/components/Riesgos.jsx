@@ -436,7 +436,25 @@ export default function Riesgos({
  const [expandedRiesgoId, setExpandedRiesgoId] = useState(null);
 // 🔍 ESTADOS DE BÚSQUEDA Y FILTROS ENTERPRISE
   const [searchTerm, setSearchTerm] = useState('');
-  const [filtroProceso, setFiltroProceso] = useState('Todos');
+  const [filtroProcesoElegido, setFiltroProceso] = useState('Todos');
+  // 🔒 Líder restringido (ve solo sus macroprocesos): los filtros solo ofrecen los suyos y, si tiene uno solo,
+  // el macroproceso queda fijo en ese; los subprocesos son los de sus macroprocesos (y los suyos, si tiene).
+  const macroprocesosFiltro = mapa => Object.keys(mapa || {}).filter(macroproceso => (
+    veTodaLaMatriz || procesosAsignadosUsuario.includes(normalizarTextoProceso(macroproceso))
+  ));
+  const subprocesosFiltro = (mapa, macroproceso) => {
+    const macros = macroproceso && macroproceso !== 'Todos' && macroproceso !== SIN_PROCESO
+      ? [obtenerClaveNormalizada(mapa, macroproceso) || macroproceso]
+      : macroprocesosFiltro(mapa);
+    const subprocesos = macros.flatMap(macro => (Array.isArray(mapa?.[macro]) ? mapa[macro] : []));
+    return !veTodaLaMatriz && subprocesosAsignadosUsuario.length > 0
+      ? subprocesos.filter(subproceso => subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso)))
+      : subprocesos;
+  };
+  const macroprocesosPropios = macroprocesosFiltro(MAPA_PROCESOS);
+  const procesoFijo = !veTodaLaMatriz && macroprocesosPropios.length === 1 ? macroprocesosPropios[0] : null;
+  const filtroProceso = procesoFijo || filtroProcesoElegido;
+  const etiquetaTodosLosProcesos = veTodaLaMatriz ? 'Todos los procesos' : 'Todos mis procesos';
   const [filtroSubproceso, setFiltroSubproceso] = useState('Todos');
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas');
   const [filtroNivel, setFiltroNivel] = useState('Todos');
@@ -1329,14 +1347,12 @@ const handleRiesgoSubmit = async (e) => {
     const mapaProcesosDashboard = Object.keys(MAPA_PROCESOS).length > 0 ? MAPA_PROCESOS : MAPA_PROCESOS_PREDETERMINADO;
     const riesgosNormalizados = riesgosVigentes.map(riesgo => normalizarUbicacionRiesgo(riesgo, mapaProcesosDashboard));
     // Solo el catálogo de "Cargos y Procesos" (los valores escritos en los riesgos que no están en él no se listan).
-    const procesosUnicos = Object.keys(mapaProcesosDashboard).sort((a, b) => a.localeCompare(b, 'es'));
+    const procesosUnicos = macroprocesosFiltro(mapaProcesosDashboard).sort((a, b) => a.localeCompare(b, 'es'));
     const todosLosProcesos = filtroProceso === 'Todos' || filtroProceso === SIN_PROCESO;
     const macroprocesoSeleccionado = todosLosProcesos
       ? null
       : obtenerClaveNormalizada(mapaProcesosDashboard, filtroProceso) || filtroProceso;
-    const subprocesosCatalogoDashboard = todosLosProcesos
-      ? Object.values(mapaProcesosDashboard).flat()
-      : mapaProcesosDashboard[macroprocesoSeleccionado] || [];
+    const subprocesosCatalogoDashboard = subprocesosFiltro(mapaProcesosDashboard, todosLosProcesos ? 'Todos' : macroprocesoSeleccionado);
     const subprocesosUnicos = [...new Set(subprocesosCatalogoDashboard)].sort((a, b) => a.localeCompare(b, 'es'));
     const subprocesoEnCatalogo = subproceso => subprocesosCatalogoDashboard.some(item => normalizarTextoProceso(item) === normalizarTextoProceso(subproceso));
     // Cada variante escrita (mayúsculas, tildes, errores) se agrupa en su clasificación del manual (Tabla 5).
@@ -1484,7 +1500,8 @@ const handleRiesgoSubmit = async (e) => {
 
     // Cuántos filtros hay aplicados (se muestra en el botón "Quitar filtros").
     const filtrosActivosDashboard = [
-      searchTerm, filtroProceso !== 'Todos', filtroSubproceso !== 'Todos', filtroClasificacion !== 'Todas',
+      // El macroproceso fijo del líder no cuenta como filtro aplicado (no se puede quitar).
+      searchTerm, !procesoFijo && filtroProceso !== 'Todos', filtroSubproceso !== 'Todos', filtroClasificacion !== 'Todas',
       filtroNivelDashboard !== 'Todos', cuadranteDashboard,
     ].filter(Boolean).length;
     const limpiarFiltrosDashboard = () => {
@@ -1561,10 +1578,10 @@ const handleRiesgoSubmit = async (e) => {
           <div className="flex flex-wrap items-end gap-2">
             <label className="grid gap-1 text-[10px] font-bold text-slate-500">
               Macroproceso
-              <select value={filtroProceso} onChange={event => { setFiltroProceso(event.target.value); setFiltroSubproceso('Todos'); setCuadranteDashboard(null); }} className="min-h-10 min-w-44 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
-                <option value="Todos">Todos los procesos</option>
+              <select value={filtroProceso} disabled={Boolean(procesoFijo)} title={procesoFijo ? 'Solo ves los riesgos de tu macroproceso' : undefined} onChange={event => { setFiltroProceso(event.target.value); setFiltroSubproceso('Todos'); setCuadranteDashboard(null); }} className="min-h-10 min-w-44 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-100">
+                {!procesoFijo && <option value="Todos">{etiquetaTodosLosProcesos}</option>}
                 {procesosUnicos.map(proceso => <option key={proceso} value={proceso}>{proceso}</option>)}
-                <OpcionesSinCatalogo tipo="proceso" />
+                {veTodaLaMatriz && <OpcionesSinCatalogo tipo="proceso" />}
               </select>
             </label>
             <label className="grid gap-1 text-[10px] font-bold text-slate-500">
@@ -1572,7 +1589,7 @@ const handleRiesgoSubmit = async (e) => {
               <select value={filtroSubproceso} onChange={event => setFiltroSubproceso(event.target.value)} className="min-h-10 min-w-40 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
                 <option value="Todos">Todos</option>
                 {subprocesosUnicos.map(subproceso => <option key={subproceso} value={subproceso}>{subproceso}</option>)}
-                <OpcionesSinCatalogo tipo="subproceso" />
+                {veTodaLaMatriz && <OpcionesSinCatalogo tipo="subproceso" />}
               </select>
             </label>
             <label className="grid gap-1 text-[10px] font-bold text-slate-500">
@@ -1901,12 +1918,10 @@ const renderMatriz = () => {
     });
 
     // Solo el catálogo de "Cargos y Procesos" (Configuración); los riesgos fuera de él se ven con "Sin … del catálogo".
-    const procesosUnicos = Object.keys(MAPA_PROCESOS).sort((a, b) => a.localeCompare(b, 'es'));
+    const procesosUnicos = macroprocesosFiltro(MAPA_PROCESOS).sort((a, b) => a.localeCompare(b, 'es'));
     
     // ✨ Derivamos los subprocesos dinámicamente basados en el proceso seleccionado
-    const subprocesosCatalogoMatriz = filtroProceso === 'Todos' || filtroProceso === SIN_PROCESO
-      ? Object.values(MAPA_PROCESOS).flat()
-      : MAPA_PROCESOS[filtroProceso] || [];
+    const subprocesosCatalogoMatriz = subprocesosFiltro(MAPA_PROCESOS, filtroProceso);
     const subprocesosUnicos = [...new Set(subprocesosCatalogoMatriz)].sort((a, b) => a.localeCompare(b, 'es'));
 
     return (
@@ -1981,15 +1996,17 @@ const renderMatriz = () => {
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={filtroProceso}
+              disabled={Boolean(procesoFijo)}
+              title={procesoFijo ? 'Solo ves los riesgos de tu macroproceso' : undefined}
               onChange={(e) => {
                 setFiltroProceso(e.target.value);
                 setFiltroSubproceso('Todos'); // ✨ Resetea el subproceso automáticamente si cambias de proceso
               }}
-              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32] max-w-[160px] truncate"
+              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32] max-w-[160px] truncate disabled:cursor-not-allowed disabled:bg-slate-100"
             >
-              <option value="Todos">Todos los procesos</option>
+              {!procesoFijo && <option value="Todos">{etiquetaTodosLosProcesos}</option>}
               {procesosUnicos.map(proc => <option key={proc} value={proc}>{proc}</option>)}
-              <OpcionesSinCatalogo tipo="proceso" />
+              {veTodaLaMatriz && <OpcionesSinCatalogo tipo="proceso" />}
             </select>
 
             {/* ✨ NUEVO FILTRO DE SUBPROCESOS */}
@@ -2000,7 +2017,7 @@ const renderMatriz = () => {
             >
               <option value="Todos">Todos los subprocesos</option>
               {subprocesosUnicos.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-              <OpcionesSinCatalogo tipo="subproceso" />
+              {veTodaLaMatriz && <OpcionesSinCatalogo tipo="subproceso" />}
             </select>
 
             <select

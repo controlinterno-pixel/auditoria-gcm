@@ -98,3 +98,12 @@ test('sin la casilla del módulo "Planes de Acción" no se ve el módulo, ni siq
   assert.ok(app.includes("{subTabPlanes === 'planes' && puedeVerModuloPlanes && ("), 'la pantalla no se dibuja');
   assert.ok(app.includes('misTareasAprobacion={puedeVerModuloPlanes ? misTareasAprobacion : 0}'), 'sin avisos de tareas');
 });
+
+test('filtros de Riesgos del líder restringido: solo sus macroprocesos; con uno solo, fijo', () => {
+  const riesgos = readFileSync(new URL('../src/components/Riesgos.jsx', import.meta.url), 'utf8');
+  assert.ok(riesgos.includes('const procesoFijo = !veTodaLaMatriz && macroprocesosPropios.length === 1 ? macroprocesosPropios[0] : null;'));
+  assert.ok(riesgos.includes('const filtroProceso = procesoFijo || filtroProcesoElegido;'), 'el filtro queda en su macroproceso');
+  assert.equal((riesgos.match(/disabled=\{Boolean\(procesoFijo\)\}/g) || []).length, 2, 'bloqueado en el panorama y en la matriz');
+  assert.ok(riesgos.includes('veTodaLaMatriz || procesosAsignadosUsuario.includes(normalizarTextoProceso(macroproceso))'), 'solo sus macroprocesos en la lista');
+  assert.ok(riesgos.includes('subprocesosAsignadosUsuario.includes(normalizarTextoProceso(subproceso))'), 'solo sus subprocesos si los tiene asignados');
+});
