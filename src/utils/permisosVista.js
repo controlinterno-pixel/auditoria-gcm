@@ -15,7 +15,10 @@ export const SUBMODULOS_POR_MODULO = {
 // (Configuración → Riesgos → "Ver todos los riesgos") los consulta todos; editar sigue limitado a los suyos.
 export const PERMISO_VER_TODOS_RIESGOS = 'riesgos_ver_todos';
 
-const normalizarProceso = valor => String(valor || '').split('/')[0].trim().toLowerCase();
+// Sin tildes ni mayúsculas, igual que obtenerProcesosAsignados del servidor (que guarda "gestion …"): si una
+// parte comparara con tildes y la otra sin ellas, ningún riesgo coincidiría.
+const normalizarProceso = valor => String(valor || '').split('/')[0]
+  .normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim().toLowerCase();
 const macroprocesosDelRiesgo = riesgo => [
   ...(Array.isArray(riesgo?.macroprocesos) ? riesgo.macroprocesos : []),
   riesgo?.macroproceso,

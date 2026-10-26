@@ -68,6 +68,11 @@ test('matriz de riesgos: el líder ve solo sus macroprocesos salvo la casilla "V
   const ids = lista => lista.map(riesgo => riesgo.id);
   const lider = { permisos: ['riesgos', 'sub_matriz_riesgos'], procesosAsignados: ['gestión administrativa y financiera'] };
   assert.deepEqual(ids(riesgosVisiblesPara(riesgos, lider)), [1, 3], 'solo los de su macroproceso (sin importar mayúsculas)');
+  // Como los entrega el servidor (obtenerProcesosAsignados): en minúsculas y SIN tildes.
+  const { obtenerProcesosAsignados } = await import('../api/_lib/assignmentScope.js');
+  const procesosServidor = obtenerProcesosAsignados({ procesosAsignados: ['Gestión Administrativa y Financiera'] });
+  assert.deepEqual(procesosServidor, ['gestion administrativa y financiera']);
+  assert.deepEqual(ids(riesgosVisiblesPara(riesgos, { permisos: [], procesosAsignados: procesosServidor })), [1, 3], 'coincide aunque el servidor quite las tildes');
   assert.deepEqual(ids(riesgosVisiblesPara(riesgos, { ...lider, procesosAsignados: ['Gestión de la cadena de abastecimiento'] })), [2], 'proceso escrito como "Macro / Sub"');
   assert.deepEqual(ids(riesgosVisiblesPara(riesgos, { ...lider, permisos: [...lider.permisos, PERMISO_VER_TODOS_RIESGOS] })), [1, 2, 3, 4], 'con la casilla ve todos');
   assert.deepEqual(ids(riesgosVisiblesPara(riesgos, { veTodo: true })), [1, 2, 3, 4], 'administrador o auditor');
