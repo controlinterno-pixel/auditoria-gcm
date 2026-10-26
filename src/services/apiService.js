@@ -482,6 +482,12 @@ export const apiService = {
     body: { listaBases }
   }),
 
+  // 🔗 Vincular o desvincular un riesgo de la matriz a una acción de Planes (numeral 9).
+  vincularRiesgoPlan: (idPlan, idRiesgo, accion = 'vincular') => request('/api/grc/vincular-riesgo', {
+    method: 'POST',
+    body: { idPlan, idRiesgo, accion },
+  }),
+
   // 📧 NOTIFICACIONES POR CORREO (se envían con Gmail desde el navegador; el servidor solo prepara adjuntos)
   prepararAdjuntoCorreo: (adjuntoEvaluacion) => request('/api/notifications/email', {
     method: 'POST',

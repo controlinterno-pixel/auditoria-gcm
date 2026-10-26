@@ -139,6 +139,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const migrarHandler = load('../api/_grc/migrar-riesgos.js');
   const limpiarHandler = load('../api/_grc/limpiar-riesgos.js');
   const noAplicaHandler = load('../api/_grc/no-aplica.js');
+  const vincularHandler = load('../api/_grc/vincular-riesgo.js');
   const call = async (target, method, body, url, query = {}) => {
     const res = {};
     // Igual que la app: los parámetros viajan en la URL (el servidor ya no usa req.query).
@@ -157,6 +158,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
     migrar: body => call(migrarHandler, 'POST', body, '/api/grc/migrar-riesgos'),
     limpiar: body => call(limpiarHandler, 'POST', body, '/api/grc/limpiar-riesgos'),
     noAplica: body => call(noAplicaHandler, 'POST', body, '/api/grc/no-aplica'),
+    vincular: body => call(vincularHandler, 'POST', body, '/api/grc/vincular-riesgo'),
   };
 }
 
@@ -936,4 +938,33 @@ return modificaAccionesNoAplica;`)();
   assert.equal(modificaAccionesNoAplica([{ ...guardado, progreso: 100 }], workspace), true, 'cambiar avance');
   assert.equal(modificaAccionesNoAplica([{ ...guardado, estadoWorkflow: 'En Ejecución' }], workspace), true, 'reabrir');
   assert.equal(modificaAccionesNoAplica([{ id: 8 }], workspace), true, 'eliminarla');
+});
+
+test('vincular riesgo: el auditor de una acción en revisión la vincula sin cambiar su estado', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { estadoWorkflow: 'En Revisión (100%)' }));
+  fixture.sesion.usuario = { uid: 'u1', email: 'auditor@example.test', rol: 'auditor' };
+  const vinculo = await fixture.vincular({ idPlan: 1, idRiesgo: '49', accion: 'vincular' });
+  assert.equal(vinculo.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(vinculo));
+  const guardado = fixture.documents.get(`${ROOT}/planes_accion/1`);
+  assert.deepEqual(guardado.riesgosVinculados, ['49']);
+  assert.equal(guardado.matrizRiesgos, 'Sí aplica');
+  assert.equal(guardado.estadoWorkflow, 'En Revisión (100%)', 'el vínculo no toca el flujo de aprobación');
+  assert.match(guardado.historialCambios.at(-1).accion, /Vinculada al riesgo RSK-49/);
+  const quitar = await fixture.vincular({ idPlan: 1, idRiesgo: '49', accion: 'desvincular' });
+  assert.equal(quitar.code, 200);
+  assert.deepEqual(fixture.documents.get(`${ROOT}/planes_accion/1`).riesgosVinculados, []);
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).matrizRiesgos, 'No aplica');
+});
+
+test('vincular riesgo: alguien ajeno no puede, ni se vincula una acción No aplica', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { estadoWorkflow: 'En Ejecución' }));
+  fixture.documents.set(`${ROOT}/planes_accion/2`, action(2, { estadoWorkflow: 'No aplica', noAplica: true }));
+  fixture.sesion.usuario = { uid: 'u3', email: 'otro@example.test', rol: 'lider', procesosAsignados: ['Otro proceso'] };
+  assert.equal((await fixture.vincular({ idPlan: 1, idRiesgo: '49', accion: 'vincular' })).code, 403);
+  fixture.sesion.usuario = { uid: 'u9', email: 'admin@example.test', rol: 'admin' };
+  assert.equal((await fixture.vincular({ idPlan: 2, idRiesgo: '49', accion: 'vincular' })).code, 409);
+  assert.equal((await fixture.vincular({ idPlan: 1, idRiesgo: '<x>', accion: 'vincular' })).code, 400);
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).riesgosVinculados, undefined, 'nada se escribió');
 });

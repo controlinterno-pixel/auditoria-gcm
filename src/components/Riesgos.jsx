@@ -576,6 +576,10 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   const [controles, setControles] = useState([]);
   const [tratamiento, setTratamiento] = useState('Reducir el riesgo');
   const [planAccionRiesgo, setPlanAccionRiesgo] = useState('');
+  // 🔗 Vínculo directo con acciones del módulo de Planes (se guarda al instante, no con el formulario).
+  const [planParaVincular, setPlanParaVincular] = useState('');
+  const [verTodasLasAcciones, setVerTodasLasAcciones] = useState(false);
+  const [guardandoVinculo, setGuardandoVinculo] = useState(false);
   const [fechaSeguimiento, setFechaSeguimiento] = useState('');
   const [seguimientoBitacora, setSeguimientoBitacora] = useState('');
 
@@ -2989,7 +2993,7 @@ const renderMatriz = () => {
       {vistaActiva === 'matriz' && renderMatriz()}
 
       {vistaActiva === 'nuevo' && (
-        <form onChangeCapture={() => { if (!soloLecturaRiesgo) setFormularioModificado(true); }} onSubmit={e => { if (soloLecturaRiesgo) { e.preventDefault(); return; } handleRiesgoSubmit(e); }} className="space-y-6">
+        <form onChangeCapture={e => { if (!soloLecturaRiesgo && !e.target.closest?.('[data-sin-cambios]')) setFormularioModificado(true); }} onSubmit={e => { if (soloLecturaRiesgo) { e.preventDefault(); return; } handleRiesgoSubmit(e); }} className="space-y-6">
           {soloLecturaRiesgo && (
             <div role="status" className="sticky top-2 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-300 bg-sky-50/95 px-5 py-3 shadow-md backdrop-blur">
               <p className="text-xs font-semibold text-sky-900">
@@ -3390,14 +3394,54 @@ const renderMatriz = () => {
                 {/* Acciones del módulo de Planes que eligieron este riesgo ("Matriz de riesgos: Sí aplica"): cuentan para el numeral 9. */}
                 {editRiesgo && (() => {
                   const vinculados = planesVinculadosAlRiesgo(editRiesgo, planesDeAccion);
-                  return vinculados.length > 0 ? (
-                    <ul className="mt-1 space-y-0.5 text-[10px] text-emerald-800">
-                      {vinculados.map(plan => (
-                        <li key={plan.id}>🔗 <b>PLA-{String(plan.id).slice(-4)}</b> · {String(plan.accion || '').slice(0, 90)} <span className="text-slate-500">({plan.estadoWorkflow || plan.estado || 'Sin estado'})</span></li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-1 text-[10px] text-slate-500">Ninguna acción del módulo de Planes está vinculada a este riesgo.</p>
+                  const idsVinculados = new Set(vinculados.map(plan => String(plan.id)));
+                  const procesoDe = valor => String(valor || '').split('/')[0].trim().toLowerCase();
+                  const procesosRiesgo = (Array.isArray(editRiesgo.macroprocesos) && editRiesgo.macroprocesos.length ? editRiesgo.macroprocesos : [editRiesgo.proceso]).map(procesoDe).filter(Boolean);
+                  const procesoAccion = plan => procesoDe(plan.proceso || hallazgos.find(h => String(h.id) === String(plan.idHallazgo))?.proceso);
+                  const disponibles = planesDeAccion.filter(plan => plan && plan.estadoWorkflow !== 'No aplica' && plan.noAplica !== true && !idsVinculados.has(String(plan.id)));
+                  const delProceso = disponibles.filter(plan => procesosRiesgo.includes(procesoAccion(plan)));
+                  const opciones = verTodasLasAcciones || delProceso.length === 0 ? disponibles : delProceso;
+                  const cambiarVinculo = async (idPlan, accion) => {
+                    setGuardandoVinculo(true);
+                    try {
+                      await apiService.vincularRiesgoPlan(idPlan, editRiesgo.id, accion);
+                      showNotification(accion === 'vincular' ? `Acción vinculada a RSK-${editRiesgo.id}: ya cuenta para el numeral 9.` : 'Vínculo quitado.', 'success');
+                      setPlanParaVincular('');
+                    } catch (error) {
+                      showNotification(error.message || 'No se pudo guardar el vínculo.', 'error');
+                    } finally {
+                      setGuardandoVinculo(false);
+                    }
+                  };
+                  return (
+                    <div className="mt-1 space-y-1" data-sin-cambios>
+                      {vinculados.length > 0 ? (
+                        <ul className="space-y-0.5 text-[10px] text-emerald-800">
+                          {vinculados.map(plan => (
+                            <li key={plan.id} className="flex items-start gap-1">
+                              <span>🔗 <b>PLA-{String(plan.id).slice(-4)}</b> · {String(plan.accion || '').slice(0, 90)} <span className="text-slate-500">({plan.estadoWorkflow || plan.estado || 'Sin estado'})</span></span>
+                              <button type="button" disabled={guardandoVinculo} onClick={() => cambiarVinculo(plan.id, 'desvincular')} className="ml-auto shrink-0 text-[10px] font-bold text-red-600 hover:underline disabled:opacity-50">Quitar</button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[10px] text-slate-500">Ninguna acción del módulo de Planes está vinculada a este riesgo.</p>
+                      )}
+                      <div className="flex gap-1">
+                        <select value={planParaVincular} onChange={e => setPlanParaVincular(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-slate-300 p-1.5 text-[10px]">
+                          <option value="">Vincular una acción de Planes{delProceso.length && !verTodasLasAcciones ? ' (de su proceso)' : ''}…</option>
+                          {opciones.map(plan => (
+                            <option key={plan.id} value={plan.id}>PLA-{String(plan.id).slice(-4)} · {String(plan.accion || '').slice(0, 70)} ({plan.estadoWorkflow || plan.estado || 'Sin estado'})</option>
+                          ))}
+                        </select>
+                        <button type="button" disabled={!planParaVincular || guardandoVinculo} onClick={() => cambiarVinculo(planParaVincular, 'vincular')} className="shrink-0 rounded-lg bg-[#0A3B32] px-2 text-[10px] font-bold text-white disabled:opacity-40">{guardandoVinculo ? 'Guardando…' : 'Vincular'}</button>
+                      </div>
+                      {delProceso.length > 0 && delProceso.length < disponibles.length && (
+                        <button type="button" onClick={() => setVerTodasLasAcciones(valor => !valor)} className="text-[10px] font-bold text-emerald-700 hover:underline">
+                          {verTodasLasAcciones ? 'Ver solo acciones del proceso del riesgo' : 'Ver acciones de otros procesos'}
+                        </button>
+                      )}
+                    </div>
                   );
                 })()}
               </div>

@@ -91,6 +91,10 @@ export default async function handler(req, res) {
       const module = await import('./_grc/no-aplica.js');
       return await module.default(req, res);
     }
+    if (path === '/api/grc/vincular-riesgo') {
+      const module = await import('./_grc/vincular-riesgo.js');
+      return await module.default(req, res);
+    }
     if (path === '/api/grc/review-plans') {
       const module = await import('./_grc/review-plans.js');
       return await module.default(req, res);
