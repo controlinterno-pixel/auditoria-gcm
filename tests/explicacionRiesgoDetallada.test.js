@@ -98,7 +98,7 @@ prueba('auditoría de control: la prueba de campo del propio control llega como 
   const r = { id: 2, probabilidadInherente: 20, impactoInherente: 60, controlesDetallados: [P(), P(), { tipo: 'Correctivo', implementacion: 'Manual' }] };
   const pruebasCampo = pruebasDeCampoDelRiesgo([{ id: Date.parse('2026-08-05T15:00:00Z'), idRiesgo: '2', control: 'CTL-2-1', calificacion: 50, diseno: 'Adecuado', ejecucion: 'Inefectiva' }], 2);
   assert.match(analizarControlEnRiesgo(r, 0, { pruebasCampo }).pruebaTrabajoDeCampo, /^ALERTA: CTL-2-1 fue REPROBADO en Trabajo de Campo el 2026-08-05 con 50 %/);
-  assert.equal(analizarControlEnRiesgo(r, 1, { pruebasCampo }).pruebaTrabajoDeCampo, 'Este control no tiene pruebas de Trabajo de Campo registradas.');
+  assert.match(analizarControlEnRiesgo(r, 1, { pruebasCampo }).pruebaTrabajoDeCampo, /^Aún no tiene pruebas de Trabajo de Campo: no es una falla/);
 });
 
 console.log(`explicacionRiesgoDetallada.test.js: ${pruebas} pruebas OK`);

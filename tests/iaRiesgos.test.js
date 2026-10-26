@@ -121,3 +121,20 @@ test('Sin probabilidad o impacto residual, la IA recibe "Sin dato" y no un nivel
   assert.equal(datos.riesgo.puntajeResidual, null);
   assert.equal(datos.riesgo.nivelInherente === 'Sin dato', false);
 });
+
+test('IA por control: faltas de formalización, responsable según el manual y "sin pruebas" no es una falla', async () => {
+  const { analizarControlEnRiesgo, pruebasDeCampoDelRiesgo } = await import('../src/utils/explicacionRiesgoDetallada.js');
+  const riesgo = {
+    id: 62, proceso: 'Gestión del Talento Humano', probabilidadInherente: 40, impactoInherente: 40, responsable: 'Sin Asignar',
+    controlesDetallados: [{ tipo: 'Correctivo', implementacion: 'Manual', documentacion: 'No documentado', frecuencia: 'Aleatoria', evidencia: 'Sin registro', responsable: 'Sin Asignar' }],
+  };
+  const control = contextoRiesgo(riesgo, { calcularEficacia: eficacia, calcularMitigacion: mitigacion }).controles[0];
+  assert.equal(control.responsable, 'Sin asignar', '"Sin Asignar" guardado como texto no es un responsable');
+  assert.equal(control.responsableSegunManual, 'Líder de Gestión del Talento Humano');
+  const analisis = analizarControlEnRiesgo(riesgo, 0, { pruebasCampo: pruebasDeCampoDelRiesgo([], 62) });
+  assert.deepEqual(analisis.faltasDeFormalizacion, ['Documentación: sin documentar', 'Frecuencia: aleatoria', 'Evidencia: sin registro']);
+  assert.match(analisis.pruebaTrabajoDeCampo, /no es una falla/);
+  const reglas = read('../api/_grc/audit.js');
+  assert.ok(reglas.includes('NO es del manual'), 'la escala de eficacia promedio es interna');
+  assert.ok(reglas.includes('programar su primera prueba, con prioridad MEDIA'));
+});

@@ -300,7 +300,7 @@ export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = 
     // Última prueba de Trabajo de Campo de este control (null si nunca se probó).
     pruebaTrabajoDeCampo: (() => {
       const prueba = pruebasCampo.get(indiceControl);
-      if (!prueba) return 'Este control no tiene pruebas de Trabajo de Campo registradas.';
+      if (!prueba) return 'Aún no tiene pruebas de Trabajo de Campo: no es una falla del control; falta confirmar en campo que opera como está diseñado.';
       return prueba.calificacion < 100
         ? `ALERTA: ${codigo} fue REPROBADO en Trabajo de Campo${prueba.fecha ? ` el ${prueba.fecha}` : ''} con ${prueba.calificacion} % (diseño: ${prueba.diseno}, ejecución: ${prueba.ejecucion}).${prueba.comentarios ? ` Observación del auditor: «${prueba.comentarios}».` : ''} Su eficacia de diseño sigue contando en el cálculo, pero en la práctica puede no estar operando: la mitigación que aporta no está demostrada.`
         : `${codigo} aprobó su última prueba de Trabajo de Campo (${prueba.fecha ? `${prueba.fecha}, ` : ''}100 %).`;
@@ -309,6 +309,8 @@ export function analizarControlEnRiesgo(riesgo, indiceControl, { pruebasCampo = 
     accionesQueCambianLaZona: accionesQueCambianLaZona.length ? accionesQueCambianLaZona : [`Ninguna acción de un solo paso saca el riesgo de zona ${actual.zona}.`],
     combinacionesDeDosPasos: combinacionesDeDosPasos.length ? combinacionesDeDosPasos
       : (accionesQueCambianLaZona.length ? [] : [`Tampoco hay combinaciones de dos pasos que saquen el riesgo de zona ${actual.zona}.`]),
+    // Atributos que le faltan a ESTE control para estar formalizado (cada uno pide su propia acción).
+    faltasDeFormalizacion: d.informativos.filter(i => !i.cumple).map(i => `${i.atributo}: ${i.valor.toLowerCase()}`),
     documentarlo: d.informativos.some(i => !i.cumple)
       ? `Documentarlo, darle frecuencia continua y registro (${d.informativos.filter(i => !i.cumple).map(i => i.valor.toLowerCase()).join(', ')}) no cambia su eficacia según la Tabla 6, pero lo formaliza y da evidencia para auditoría.`
       : 'Está formalizado: documentado, con frecuencia continua y con registro.',

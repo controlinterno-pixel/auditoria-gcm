@@ -30,7 +30,20 @@ export function puntajesRiesgo(riesgo) {
   };
 }
 
+const procesosDe = riesgo => {
+  const macros = lista(riesgo?.macroprocesos);
+  if (macros.length) return macros;
+  return riesgo?.proceso ? [String(riesgo.proceso)] : [];
+};
+
+// "Sin Asignar", "Por asignar", "N/A"… guardados como texto no son un responsable.
+const responsableReal = valor => {
+  const textoValor = (Array.isArray(valor) ? valor.join(', ') : String(valor ?? '')).trim();
+  return /^(sin asignar|por asignar|sin dato|sin responsable|n\/?a|-)?$/i.test(textoValor) ? '' : textoValor;
+};
+
 export function controlesDeRiesgo(riesgo, calcularEficacia) {
+  const procesos = procesosDe(riesgo);
   // Los controles anulados no se envían a la IA (conservan su código por posición).
   return lista(riesgo?.controlesDetallados).map((control, indice) => ({ control, indice })).filter(({ control }) => control?.estado !== 'Anulado').map(({ control, indice }) => ({
     codigo: codigoControl(indice, riesgo?.id),
@@ -41,18 +54,15 @@ export function controlesDeRiesgo(riesgo, calcularEficacia) {
     frecuencia: control.frecuencia || 'Sin dato',
     evidencia: control.evidencia || 'Sin dato',
     // Los controles no tienen responsable propio: la matriz y el Excel muestran el del riesgo.
-    responsable: control.responsable || control.responsableControl
-      || (Array.isArray(riesgo?.responsable) ? riesgo.responsable.join(', ') : riesgo?.responsable)
-      || 'Sin asignar',
+    responsable: responsableReal(control.responsable) || responsableReal(control.responsableControl)
+      || responsableReal(riesgo?.responsable) || 'Sin asignar',
+    // Numeral 8.3.2: los responsables de los controles son los líderes de proceso.
+    responsableSegunManual: responsableReal(control.responsable) || responsableReal(control.responsableControl)
+      || responsableReal(riesgo?.responsable) || (procesos.length ? `Líder de ${procesos.join(' / ')}` : 'Por asignar'),
     eficacia: calcularEficacia(control),
   }));
 }
 
-const procesosDe = riesgo => {
-  const macros = lista(riesgo?.macroprocesos);
-  if (macros.length) return macros;
-  return riesgo?.proceso ? [String(riesgo.proceso)] : [];
-};
 
 // Ficha de un riesgo para el dictamen individual.
 export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion, evaluaciones = [] }) {
