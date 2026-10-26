@@ -94,13 +94,15 @@ const normalizarUbicacionRiesgo = (riesgo, mapaProcesos) => {
 const EXPLICACIONES_CAMPOS = {
   categoria: {
     titulo: "Categoría de Riesgo",
+    referencia: "Este campo no está definido en el Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2); agrupa el riesgo por el tipo de objetivo afectado (referencia ISO 31000). La clasificación oficial del manual es la de la Tabla 5 (numeral 8.2.3).",
     que: "Es el tipo de objetivo de la organización que el riesgo puede afectar: Estratégico, Operativo, Cumplimiento, Financiero, Tecnológico o Ambiental.",
     porQue: "Permite ver en el Dashboard y en los informes a la Junta en qué frente se concentra la exposición de Termales y asignar el seguimiento al área que corresponde.",
     ejemplo: "Riesgo: 'Caída del sistema de reservas en temporada alta'. Afecta la operación por una falla de tecnología → Categoría: Tecnológico. Riesgo: 'Sanción por no reportar información exógena a la DIAN' → Categoría: Cumplimiento."
   },
   clasificacion: {
     titulo: "Clasificación de riesgo (Tabla 5)",
-    que: "Es la clase de evento de pérdida según la Tabla 5 del manual. Cada riesgo se ubica en una sola de las 7 clasificaciones.",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 8.2.3 “”, Tabla 5: siete clases de evento de pérdida.",
+    que: "Es la clase de evento de pérdida según la Tabla 5 del Manual E-GE-MAN-001. Cada riesgo se ubica en una sola de las 7 clasificaciones.",
     porQue: "Unifica cómo se agrupan los riesgos de todos los procesos: así se puede filtrar y comparar la matriz, por ejemplo cuántos riesgos de fraude interno tiene la empresa.",
     ejemplo: () => (
       <div className="overflow-x-auto mt-1">
@@ -120,62 +122,72 @@ const EXPLICACIONES_CAMPOS = {
   },
   normativa: {
     titulo: "Normativa Asociada",
+    referencia: "No es un campo del Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2). Sirve para identificar exigencias legales del proceso; el manual se fundamenta en la NTC-ISO 31000:2018 y en la Guía para la administración del riesgo y el diseño de controles en entidades públicas V5 (numeral 3.2).",
     que: "Es la ley, decreto, resolución o norma técnica que regula la actividad donde está el riesgo. Si no aplica ninguna, se escribe 'Ninguna'.",
     porQue: "Cuando el riesgo tiene norma asociada, materializarlo puede traer sanciones, multas o cierres; esto ayuda a valorar el impacto y a priorizar los controles de cumplimiento.",
     ejemplo: "Riesgo de accidente laboral en mantenimiento de piscinas → 'Decreto 1072 de 2015 (SG-SST)'. Riesgo de manejo indebido de datos de huéspedes → 'Ley 1581 de 2012 (Habeas Data)'."
   },
   responsable: {
     titulo: "Líder Dueño del Proceso",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 8.3.2: los responsables de implementar y monitorear los controles son los líderes de proceso; numeral 9: el dueño define plan de acción en zona Extremo o Alto y hace seguimiento en Moderado o Bajo; numeral 10: revisa el riesgo como mínimo una vez al año.",
     que: "Es el cargo que responde por el riesgo: vigila que los controles se ejecuten, define los planes de acción y rinde cuentas en las auditorías.",
-    porQue: "Sin un dueño asignado nadie responde por el riesgo. Según el numeral 9 del manual, el dueño debe definir plan de acción cuando el riesgo queda Extremo o Alto, y hacer seguimiento cuando queda Moderado o Bajo.",
+    porQue: "Sin un dueño asignado nadie responde por el riesgo. Según el numeral 9 del Manual E-GE-MAN-001, el dueño debe definir plan de acción cuando el riesgo queda Extremo o Alto, y hacer seguimiento cuando queda Moderado o Bajo.",
     ejemplo: "Riesgo: 'Pérdida de activos fijos por falta de conciliación'. Dueño: 'Líder Administrativa', porque su proceso administra el inventario de activos. Se registra el cargo, no el nombre de la persona."
   },
   afectacion: {
     titulo: "Tipo de Afectación",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 8.1.3 “”: el manual solo reconoce afectación económica (o presupuestal) y reputacional, que se valoran con la Tabla 3 (numeral 7.2.3.2).",
     que: "Es la consecuencia principal que tendría el riesgo si ocurre: pérdida de dinero, afectación de la operación, de la imagen, legal o en la salud de las personas.",
-    porQue: "Orienta la valoración del impacto: la Tabla 3 del manual mide el impacto en SMLMV (afectación económica) o en el alcance de la afectación de imagen (reputacional).",
+    porQue: "Orienta la valoración del impacto: la Tabla 3 del Manual E-GE-MAN-001 mide el impacto en SMLMV (afectación económica) o en el alcance de la afectación de imagen (reputacional).",
     ejemplo: "Accidente de un huésped en un tobogán: hay indemnización (dinero) y difusión en medios (imagen) → 'Económico-Reputacional'. Error en una conciliación bancaria sin efecto externo → 'Económico'."
   },
   causaInmediata: {
-    titulo: "Causa Inmediata (¿Qué pasa?)",
-    que: "Es la circunstancia visible que se presenta cuando el riesgo ocurre. Responde a la pregunta: ¿qué pasa?",
-    porQue: "Es la primera parte de la redacción del riesgo que pide el manual. Describe el hecho, sin explicar todavía por qué ocurre.",
-    ejemplo: "'Inconsistencia en la información de activos fijos', 'Descuadre de caja al cierre del turno', 'Ingreso de visitantes sin pago del pasadía'."
+    titulo: "Causa Inmediata (¿Cómo?)",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 8.2.2 “”, Gráfica 5: Riesgo = Impacto (¿qué?) + Causa inmediata (¿cómo?) + Causa raíz (¿por qué?), iniciando con “”.",
+    que: "Son las circunstancias o situaciones más evidentes sobre las cuales se presenta el riesgo (¿cómo ocurre?). No son la causa principal o base del riesgo.",
+    porQue: "Junto con el impacto (¿qué?) describe lo que puede ocurrir. El manual pide redactar el riesgo como: Posibilidad de + impacto + causa inmediata + causa raíz, y evitar describir como riesgo omisiones del control, causas o la negación de un control.",
+    ejemplo: "Ejemplo del manual (Gráfica 6): Posibilidad de afectación económica (¿qué?) por multa y sanción del ente regulador (¿cómo? → causa inmediata) debido a adquisición de bienes y servicios fuera de los requerimientos normativos (¿por qué? → causa raíz)."
   },
   causaRaiz: {
-    titulo: "Causa Raíz (¿Por qué pasa?)",
+    titulo: "Causa Raíz (¿Por qué?)",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 8.2.2, Gráfica 5: la causa raíz responde ¿por qué? y es la base para definir los controles (los controles entran a atacar estas causas).",
     que: "Es la falla de fondo que origina la causa inmediata. Responde a la pregunta: ¿por qué pasa? Puede ser falta de procedimiento, de control, de capacitación o de herramienta.",
     porQue: "Los controles deben atacar la causa raíz. Si se identifica mal, el control puede quedar bien diseñado y aun así el riesgo se sigue presentando.",
     ejemplo: "Causa inmediata: 'Inconsistencia en la información de activos fijos'. Causa raíz: 'Bases de datos de inventario desactualizadas en ubicación y responsables, sin conciliación periódica contra el registro contable'."
   },
   probInh: {
     titulo: "Probabilidad Inherente",
-    que: "Es la posibilidad de que el riesgo ocurra sin tener en cuenta ningún control. Según la Tabla 2 del manual, se mide por cuántas veces al año se ejecuta la actividad que expone al riesgo.",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 7.2.3.1 “”, Tabla 2: se mide por la exposición, es decir, cuántas veces al año se pasa por el punto de riesgo (no por eventos ocurridos en el pasado).",
+    que: "Es la posibilidad de que el riesgo ocurra sin tener en cuenta ningún control. Según la Tabla 2 del Manual E-GE-MAN-001, se mide por cuántas veces al año se ejecuta la actividad que expone al riesgo.",
     porQue: "Es el punto de partida del cálculo: los controles preventivos y detectivos reducen este valor para obtener la probabilidad residual.",
     ejemplo: "Escala Tabla 2: hasta 2 veces/año = Muy baja (20 %); 3 a 24 = Baja (40 %); 24 a 500 = Media (60 %); 500 a 5.000 = Alta (80 %); más de 5.000 = Muy alta (100 %). Ejemplo: la recepción registra unas 40 facturas al día → 40 × 365 = 14.600 veces al año → Muy alta (100 %)."
   },
   impInh: {
     titulo: "Impacto Inherente",
-    que: "Es la magnitud del daño si el riesgo ocurre, sin tener en cuenta los controles. Según la Tabla 3 del manual, se mide en SMLMV o por el alcance de la afectación de imagen.",
-    porQue: "Junto con la probabilidad ubica el riesgo en la matriz de calor (Tabla 4). Con impacto Catastrófico el riesgo es Extremo y con impacto Mayor es Alto, cualquiera sea la probabilidad.",
-    ejemplo: "Escala Tabla 3: menos de 10 SMLMV = Leve (20 %); 10 a 50 = Menor (40 %); 50 a 100 = Moderado (60 %); 100 a 500 = Mayor (80 %); más de 500 SMLMV o afectación de imagen a nivel nacional = Catastrófico (100 %). Ejemplo: pérdida estimada de 120 SMLMV por hurto de activos → Mayor (80 %)."
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 7.2.3.2 “”, Tabla 3 (económico y reputacional: se toma el nivel más alto), y numeral 7.2.3.3 / 8.3.1, Tabla 4 “”: define la zona del riesgo.",
+    que: "Es la magnitud del daño si el riesgo ocurre, sin tener en cuenta los controles. Según la Tabla 3 del Manual E-GE-MAN-001, se mide en SMLMV o por el alcance de la afectación de imagen.",
+    porQue: "Junto con la probabilidad ubica el riesgo en la matriz de calor (Tabla 4 del Manual E-GE-MAN-001). Con impacto Catastrófico el riesgo es Extremo y con impacto Mayor es Alto, cualquiera sea la probabilidad.",
+    ejemplo: "Escala Tabla 3: menos de 10 SMLMV = Leve (20 %); 10 a 50 = Menor (40 %); 50 a 100 = Moderado (60 %); 100 a 500 = Mayor (80 %); más de 500 SMLMV o afectación de imagen a nivel nacional = Catastrófico (100 %). Si el impacto económico y el reputacional dan niveles distintos, se toma el más alto (numeral 7.2.3.2). Ejemplo: pérdida estimada de 120 SMLMV por hurto de activos → Mayor (80 %), aunque la afectación de imagen solo sea interna (Menor)."
   },
   controlDesc: {
     titulo: "Descripción de la Tarea del Control",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 8.3.3 “” (responsable + acción + complemento) y numeral 8.3.4, Tabla 6 “”.",
     que: "Es la actividad concreta que una persona o un sistema ejecuta para evitar que el riesgo ocurra, detectarlo a tiempo o reducir su daño.",
-    porQue: "Según la Tabla 6, la eficacia del control depende de su tipo (Preventivo 25 %, Detectivo 15 %, Correctivo 10 %) y de su implementación (Automático 25 %, Manual 15 %). La descripción debe dejar claro quién, qué, cada cuánto y con qué evidencia.",
+    porQue: "Según la Tabla 6 del Manual E-GE-MAN-001 (numeral 8.3.4), la eficacia del control depende de su tipo (Preventivo 25 %, Detectivo 15 %, Correctivo 10 %) y de su implementación (Automático 25 %, Manual 15 %). La descripción debe dejar claro quién, qué, cada cuánto y con qué evidencia.",
     ejemplo: "Estructura: responsable + acción + qué verifica + frecuencia + evidencia. 'El Auxiliar Contable concilia mensualmente el módulo de activos fijos contra el inventario físico por sede, investiga las diferencias y deja el acta de conciliación firmada por la Líder Administrativa.' → Preventivo manual = 25 % + 15 % = 40 %."
   },
   probRes: {
     titulo: "Probabilidad Residual Final",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 8.3.5 “”, Tabla 8: los controles mitigan de forma acumulativa; preventivos y detectivos atacan la probabilidad (Figura 9).",
     que: "Es la probabilidad que queda después de aplicar los controles preventivos y detectivos. La app la calcula sola; no se digita.",
-    porQue: "Según la Tabla 8, los controles mitigan de forma acumulativa: cada control reduce lo que quedó después del control anterior, no el valor inicial. Los controles correctivos no reducen la probabilidad.",
-    ejemplo: "Probabilidad inherente 80 %. Control 1, preventivo manual (40 %): 80 − 80 × 0,40 = 48 %. Control 2, detectivo automático (15 % + 25 % = 40 %): 48 − 48 × 0,40 = 28,8 % → 29 % → Baja (21 % a 40 %)."
+    porQue: "Según la Tabla 8 del Manual E-GE-MAN-001 (numeral 8.3.5), los controles mitigan de forma acumulativa: cada control reduce lo que quedó después del control anterior, no el valor inicial. Los controles correctivos no reducen la probabilidad.",
+    ejemplo: "Ejemplo del manual (Tabla 8): probabilidad inherente 60 %. Control 1 preventivo manual (40 %): 60 % − 60 % × 40 % = 36 %. Control 2 detectivo manual (30 %): 36 % − 36 % × 30 % = 25,2 % → Baja. El impacto se queda en 80 % porque no hay controles correctivos."
   },
   impRes: {
     titulo: "Impacto Residual Final",
+    referencia: "Manual del Sistema Integral de Riesgos de Termales Santa Rosa de Cabal (código E-GE-MAN-001, versión 2) · numeral 8.3.5, Tabla 8 y Figura 9: solo los controles correctivos atacan el impacto, también de forma acumulativa.",
     que: "Es el impacto que queda después de aplicar los controles correctivos. La app lo calcula sola; no se digita.",
-    porQue: "Según la Tabla 8, solo los controles correctivos (pólizas, planes de contingencia, copias de seguridad) reducen el impacto, también de forma acumulativa. Los preventivos y detectivos no lo reducen.",
+    porQue: "Según la Tabla 8 del Manual E-GE-MAN-001 (numeral 8.3.5), solo los controles correctivos (pólizas, planes de contingencia, copias de seguridad) reducen el impacto, también de forma acumulativa. Los preventivos y detectivos no lo reducen.",
     ejemplo: "Impacto inherente 80 %. Control correctivo manual (10 % + 15 % = 25 %): 80 − 80 × 0,25 = 60 % → Moderado. Si el riesgo solo tiene controles preventivos, el impacto residual sigue en 80 %."
   }
 };
@@ -2802,7 +2814,7 @@ const renderMatriz = () => {
       {/* 🔮 EL POPUP MODAL SUTIL Y ELEGANTE CON BASE EN LA MAQUETA DE FORMATO */}
       {ayudaModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div role="dialog" aria-modal="true" aria-label={`Ayuda: ${ayudaModal.titulo}`} className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 relative animate-in zoom-in-95 duration-300">
+          <div role="dialog" aria-modal="true" aria-label={`Ayuda: ${ayudaModal.titulo}`} className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden break-words p-6 relative animate-in zoom-in-95 duration-300">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60"></div>
             
             <div className="flex items-center space-x-2 border-b pb-3 relative z-10">
@@ -2826,7 +2838,13 @@ const renderMatriz = () => {
                 <div className="text-emerald-950 font-semibold leading-relaxed bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
                   {typeof ayudaModal.ejemplo === 'function' ? ayudaModal.ejemplo() : ayudaModal.ejemplo}
                 </div>
-              </div>             
+              </div>
+              {ayudaModal.referencia && (
+                <div>
+                  <h5 className="font-black text-[10px] text-slate-500 uppercase tracking-widest mb-1">📘 Referencia en el manual</h5>
+                  <p className="text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/60">{ayudaModal.referencia}</p>
+                </div>
+              )}             
             </div>
 
 <div className="mt-6 flex justify-end relative z-10">
