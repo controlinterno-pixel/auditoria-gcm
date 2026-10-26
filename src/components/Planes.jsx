@@ -340,7 +340,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
         setEditPlan(null);
         setFormInformeId(''); // Limpiamos la matriz
         setMatrixState({});
-        setModoRevisionMatriz(false);
+        setModoRevisionMatriz(false); setModoConsultaPlan(false);
         setVistaActiva(nuevaVista); // Permitimos la salida
       });
     } else {
@@ -348,7 +348,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       setEditPlan(null);
       setFormInformeId('');
       setMatrixState({});
-      setModoRevisionMatriz(false);
+      setModoRevisionMatriz(false); setModoConsultaPlan(false);
       setMatrixDirty(false);
       setVistaActiva(nuevaVista);
     }
@@ -371,6 +371,8 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   const [uploadingCell, setUploadingCell] = useState(null);
   const [, setUploadProgress] = useState(0);
   const [modoRevisionMatriz, setModoRevisionMatriz] = useState(false); // ✨ NUEVO ESTADO
+  // 👁️ Consulta de un plan cerrado: misma vista de solo lectura, sin botones de decisión; solo ver y abrir soportes.
+  const [modoConsultaPlan, setModoConsultaPlan] = useState(false);
   const guardNavigationPlanes = useUnsavedChangesGuard(
     matrixDirty && vistaActiva === 'nuevo' && Boolean(formInformeId) && !modoRevisionMatriz,
     'la matriz de planes'
@@ -1369,7 +1371,7 @@ const handleNotificarPlan = async (planId) => {
     setEditPlan(null);
     setFormInformeId('');
     setMatrixState({});
-    setModoRevisionMatriz(false);
+    setModoRevisionMatriz(false); setModoConsultaPlan(false);
     setVistaActiva('historial');
     showNotification('Matriz guardada correctamente. Las notificaciones se están procesando.', 'success');
 
@@ -1955,7 +1957,7 @@ if (existingActivities.length > 0) {
     setFormInformeId('');
     setMatrixState({});
     setMatrixDirty(false);
-    setModoRevisionMatriz(false);
+    setModoRevisionMatriz(false); setModoConsultaPlan(false);
     setInformePlanesExpandido(String(idInforme));
     setVistaActiva('historial');
   };
@@ -2306,7 +2308,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     }
   };
 
-  const puedeDecidirRevision = modoRevisionMatriz && planesEnriquecidos.some(plan => (
+  const puedeDecidirRevision = modoRevisionMatriz && !modoConsultaPlan && planesEnriquecidos.some(plan => (
     String(plan.idInforme) === String(revisionInformeId) &&
     ['Pendiente Revisión Jefatura', ESTADO_PENDIENTE_VALIDACION_REVISOR].includes(plan.estadoWorkflow) &&
     !(esPlanProgramaAuditoria(plan) && plan.estadoWorkflow === 'Pendiente Revisión Jefatura') &&
@@ -2314,7 +2316,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     String(plan.correoRevisor || '').trim().toLowerCase() === correoUsuarioActual
   ));
 
-  const modoValidacionFinalRevisor = modoRevisionMatriz && planesEnriquecidos.some(plan => (
+  const modoValidacionFinalRevisor = modoRevisionMatriz && !modoConsultaPlan && planesEnriquecidos.some(plan => (
     String(plan.idInforme) === String(revisionInformeId)
     && plan.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR
   ));
@@ -2333,7 +2335,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const abrirRevisionPlan = plan => {
     setDevolucionAccion(null);
     setEditPlan(null);
-    setModoRevisionMatriz(true);
+    setModoRevisionMatriz(true); setModoConsultaPlan(false);
     setRevisionInformeId(plan.idInforme);
     setMostrarMotivoCorreccion(false);
     setMotivoCorreccion('');
@@ -2404,7 +2406,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
         showNotification(`${decision === 'aprobar' ? 'Aprobada' : 'Devuelta'}: ${planesActualizados.length === 1 ? '1 acción' : `${planesActualizados.length} acciones`}. Te quedan ${restantes} por revisar.`, 'success');
       } else {
         setRevisionInformeId(null);
-        setModoRevisionMatriz(false);
+        setModoRevisionMatriz(false); setModoConsultaPlan(false);
         setEditPlan(null);
         setFormInformeId('');
         setMatrixState({});
@@ -2719,7 +2721,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     else if (etapa.clave === 'revision') abrirRevisionPlan(plan);
                     else {
                       setMatrixDirty(false);
-                      setModoRevisionMatriz(false);
+                      setModoRevisionMatriz(false); setModoConsultaPlan(false);
                       setEditPlan(plan);
                       setVistaActiva('nuevo');
                       if (typeof scrollToForm === 'function') scrollToForm();
@@ -3295,9 +3297,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   <span className="text-amber-500 text-lg">👁️</span>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-black text-amber-800 uppercase tracking-widest">{modoValidacionFinalRevisor ? 'Validación de ejecución al 100% (Solo Lectura)' : 'Modo Revisión de Diseño (Solo Lectura)'}</h3>
+                  <h3 className="text-sm font-black text-amber-800 uppercase tracking-widest">{modoConsultaPlan ? 'Consulta del plan (Solo Lectura)' : modoValidacionFinalRevisor ? 'Validación de ejecución al 100% (Solo Lectura)' : 'Modo Revisión de Diseño (Solo Lectura)'}</h3>
                   <div className="mt-1 text-xs text-amber-700 font-medium">
-                    {modoValidacionFinalRevisor
+                    {modoConsultaPlan
+                      ? 'Estás viendo el plan completo tal como quedó. Todo está bloqueado: solo puedes consultarlo y abrir o descargar los soportes cargados.'
+                      : modoValidacionFinalRevisor
                       ? 'Verifica las evidencias y el resultado de la ejecución. Si está conforme, envía la acción al aprobador final; si no, devuélvela al ejecutor para ajuste.'
                       : 'Estás visualizando el diseño del plan en modo de solo lectura. Revisa la acción y utiliza los botones al final para aprobarla o solicitar correcciones.'}
                   </div>
@@ -3396,7 +3400,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const cerradaParaEjecutor = enviadaARevision && accionCerrada(planOriginal);
   const soloConsultaRevisorAuditor = !actividadNueva && bloqueadaParaRevisorOAuditor(planOriginal, user?.email, correoAuditorOriginal);
   // Revisión acción por acción: pendiente de mi decisión o ya decidida por mí.
-  const pendienteDeMiRevision = modoRevisionMatriz && !actividadNueva &&
+  const pendienteDeMiRevision = modoRevisionMatriz && !modoConsultaPlan && !actividadNueva &&
     obtenerPendientesRevision(revisionInformeId).some(plan => String(plan.id) === String(act.id));
   const esValidacionFinalAccion = planOriginal?.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR;
   const ultimaDecisionMia = modoRevisionMatriz && !pendienteDeMiRevision && planOriginal &&
@@ -3948,7 +3952,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             setEditPlan(null);
                             setFormInformeId('');
                             setMatrixState({});
-                            setModoRevisionMatriz(false);
+                            setModoRevisionMatriz(false); setModoConsultaPlan(false);
                             setVistaActiva('historial');
                             setDevolucionAccion(null);
                          }} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Cerrar Vista</button>
@@ -4397,7 +4401,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                                       return;
                                                     }
                                                     setEditPlan(null);
-                                                    setModoRevisionMatriz(true);
+                                                    setModoRevisionMatriz(true); setModoConsultaPlan(false);
                                                     setRevisionInformeId(p.idInforme);
                                                     handleInformeChange(String(p.idInforme));
                                                     setVistaActiva('nuevo');
@@ -4410,6 +4414,26 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                                 </button>
                                               )}
                                             </>
+                                          )}
+
+                                          {/* 👁️ Plan cerrado: consulta completa en solo lectura (ver y descargar soportes). */}
+                                          {(p.estadoWorkflow === 'Cerrado' || p.estado === 'Cerrado' || p.estadoWorkflow === 'No aplica') && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setEditPlan(null);
+                                                setModoRevisionMatriz(true);
+                                                setModoConsultaPlan(true);
+                                                setRevisionInformeId(p.idInforme);
+                                                handleInformeChange(String(p.idInforme));
+                                                setVistaActiva('nuevo');
+                                                scrollToForm();
+                                              }}
+                                              className="bg-slate-50 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-100 transition-colors shadow-sm flex items-center justify-center gap-1"
+                                              title="Ver el plan completo en solo lectura y descargar sus soportes"
+                                            >
+                                              <span>👁️</span> Ver plan completo
+                                            </button>
                                           )}
 
                                           {/* 👉 BOTÓN HISTORIAL (Visible para todos) */}

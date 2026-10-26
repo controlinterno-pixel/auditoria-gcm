@@ -675,7 +675,7 @@ for (const decision of ['aprobar', 'corregir']) {
       prepararEnvioGmail: async () => true,
       apiService: { decidirRevisionPlanes: async () => ({ planes: [after] }) },
       setPlanes() {}, setRevisionInformeId() {}, setMostrarMotivoCorreccion() {}, setMotivoCorreccion() {},
-      setModoRevisionMatriz() {}, setEditPlan() {}, setFormInformeId() {}, setMatrixState() {}, setVistaActiva() {},
+      setModoRevisionMatriz() {}, setModoConsultaPlan() {}, setEditPlan() {}, setFormInformeId() {}, setMatrixState() {}, setVistaActiva() {},
       setGuardandoDecisionRevision() {}, showNotification() {},
       obtenerPendientesRevision: () => [before], setDevolucionAccion() {}, setDecidiendoRevisionId() {},
       informesAuditoria: [{ id: 'i1', tipoFuente: 'Programa de Auditoría' }],
