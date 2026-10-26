@@ -10,8 +10,8 @@ import {
 import { useCatalogos } from '../context/useCatalogos';
 import { leerPuente, retirarDelPuente } from '../services/navigationBridge.js';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
-import { consultarPanelIA, ESTRUCTURA_DICTAMEN_CONTROL } from '../services/aiEngine';
-import { generarDictamenControl, planDelControl } from '../utils/dictamenControlIA.js';
+import { consultarPanelIA, ESTRUCTURA_DICTAMEN_CONTROL, ESTRUCTURA_DICTAMEN_MATRIZ, ESTRUCTURA_DICTAMEN_RIESGO } from '../services/aiEngine';
+import { generarDictamenIA, planDeLaMatriz, planDelControl, planDelRiesgo } from '../utils/dictamenControlIA.js';
 import { armarPanelIA, contextoMatriz, contextoRiesgo } from '../utils/contextoIARiesgos.js';
 import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
@@ -840,9 +840,17 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       // Cifras calculadas por el sistema; la IA solo las interpreta.
       const datos = contextoRiesgo(riesgo, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo, evaluaciones });
       const { riesgo: ficha, metricas } = datos;
-      const respuesta = await consultarPanelIA({
-        instruccion: `Emite el dictamen del riesgo ${ficha.codigo} (inherente ${ficha.nivelInherente}, residual ${ficha.nivelResidual}). Parte de "analisisSistema", que ya trae el cálculo exacto, por qué queda en su zona, los pendientes y la simulación de mejoras: no lo repitas literalmente, interprétalo. 1) Di si la reducción a ${ficha.nivelResidual} es creíble contrastando el diseño de cada CTL con la bitácora, el plan de acción y "pruebasTrabajoDeCampo" (un control reprobado en campo debilita la credibilidad). 2) Señala por código los controles de los que depende la mitigación y su punto débil. 3) Recomienda primero las acciones que la simulación muestra que sí cambian la zona; si ninguna la cambia, dilo. 4) Incluye los pendientes del numeral 9 como acciones del plan.`,
-        datos,
+      // El plan, las recomendaciones y los KRIs salen del mismo cálculo de "Explícame este riesgo";
+      // la IA solo redacta y su texto pasa por el revisor (dictamenControlIA.js).
+      const { simulacion } = explicarRiesgoDetallado(riesgo, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, riesgo.id) });
+      const plan = planDelRiesgo({ riesgo, simulacion, ficha, controles: datos.controles, evaluaciones });
+      const respuesta = await generarDictamenIA({
+        consultar: consulta => consultarPanelIA({ ...consulta, estructura: ESTRUCTURA_DICTAMEN_RIESGO }),
+        instruccion: `Redacta el dictamen del riesgo ${ficha.codigo} (inherente ${ficha.nivelInherente}, residual ${ficha.nivelResidual}). El plan de acción, sus prioridades, las recomendaciones y los indicadores ya los calculó el sistema ("planDelSistema"): no los repitas como lista ni propongas acciones distintas; tu texto debe ser coherente con ellos. Parte de "analisisSistema", que trae el cálculo exacto y por qué queda en su zona: interprétalo, no lo copies. Di si la reducción a ${ficha.nivelResidual} es creíble contrastando el diseño de cada control con la bitácora, el plan de acción y las pruebas de Trabajo de Campo (un control reprobado debilita la credibilidad), y de qué controles depende la mitigación.`,
+        datos: { ...datos, planDelSistema: plan.planAccion },
+        codigosValidos: [ficha.codigo, ...datos.controles.map(control => control.codigo)],
+        plan,
+        respaldo: [...datos.analisisSistema.porQueQuedaEnSuZona, ...datos.analisisSistema.probabilidad, ...datos.analisisSistema.impacto].join(' '),
       });
       setDictamenIA({
         titulo: `Panel Ejecutivo Inteligente — ${ficha.codigo}`,
@@ -886,7 +894,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       const respaldo = simulacion
         ? [analisisDelControl.eficacia, analisisDelControl.situacionActual, analisisDelControl.siElControlFalla, analisisDelControl.siSeAutomatiza, analisisDelControl.pruebaTrabajoDeCampo].join(' ')
         : 'Faltan la probabilidad o el impacto inherente del riesgo: registra los valores para analizar este control.';
-      const respuesta = await generarDictamenControl({
+      const respuesta = await generarDictamenIA({
         consultar: consulta => consultarPanelIA({ ...consulta, estructura: ESTRUCTURA_DICTAMEN_CONTROL }),
         instruccion: `Redacta el dictamen del control ${control.codigo} del riesgo ${datosRiesgo.riesgo.codigo}. El plan de acción, sus prioridades, las recomendaciones y los indicadores ya los calculó el sistema ("planDelSistema"): no los repitas como lista ni propongas acciones distintas; tu texto debe ser coherente con ellos. Parte de "analisisDelControl", que trae el cálculo exacto: di con sus cifras la eficacia del control frente al máximo de su tipo, qué pasa si falla y si se automatiza, y si la zona cambia o no (si no cambia, no lo presentes como crítico). Si "analisisDelControl.pruebaTrabajoDeCampo" empieza con "ALERTA", es el hallazgo principal: menciónalo primero y cita la observación del auditor si existe. Compara lo que hace este control (su descripción) con la causa inmediata y la causa raíz del riesgo y con los demás controles.`,
         datos: { controlAuditado: control, analisisDelControl, planDelSistema: plan.planAccion, ...datosRiesgo },
@@ -1025,6 +1033,21 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 // =========================================================================
   // 🤖 INFORME GLOBAL IA: MATRIZ DE RIESGOS (VERSIÓN DEFINITIVA BLINDADA)
   // =========================================================================
+  // Matriz completa o vista filtrada: el plan y los KRIs salen de cumplimientoNumeral9 y de los vacíos de
+  // datos; la IA solo redacta el análisis y su texto pasa por el revisor.
+  const dictamenDeConjunto = ({ datos, lista, instruccion }) => {
+    const plan = planDeLaMatriz(datos);
+    const { metricas: m, distribucionResidual: d } = datos;
+    return generarDictamenIA({
+      consultar: consulta => consultarPanelIA({ ...consulta, estructura: ESTRUCTURA_DICTAMEN_MATRIZ }),
+      instruccion: `${instruccion} El plan de acción, sus prioridades, las recomendaciones y los indicadores ya los calculó el sistema ("planDelSistema"): no los repitas como lista ni propongas acciones distintas; tu texto debe ser coherente con ellos. Aplica la Tabla 4: no propongas bajar la probabilidad cuando el impacto es Mayor o Catastrófico.`,
+      datos: { ...datos, planDelSistema: plan.planAccion },
+      codigosValidos: lista.flatMap(riesgo => [`RSK-${riesgo.id}`, ...(Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : []).map((_, indice) => codigoControl(indice, riesgo.id))]),
+      plan,
+      respaldo: `${m.totalRiesgos} riesgos y ${m.totalControles} controles en el alcance; en zona residual: ${d.Extremo} Extremo, ${d.Alto} Alto, ${d.Moderado} Moderado y ${d.Bajo} Bajo.`,
+    });
+  };
+
   const solicitarAnalisisGlobalIA = async () => {
     setProcesandoIA(true);
     setDictamenIA(null);
@@ -1043,9 +1066,10 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         evaluaciones,
       });
       const { metricas, distribucionInherente, distribucionResidual } = datos;
-      const respuesta = await consultarPanelIA({
-        instruccion: `Redacta el informe estratégico de la matriz corporativa de riesgos (${metricas.totalRiesgos} riesgos, ${metricas.totalControles} controles) para la Junta Directiva. Compara la distribución inherente con la residual y evalúa si la reducción es creíble según la calidad real de los controles (manuales, no documentados, sin evidencia, de baja eficacia) y el estado de hallazgos y planes vencidos. Identifica los procesos y riesgos (por RSK) que concentran la exposición, los riesgos sin controles y los seguimientos vencidos. Prioriza los incumplimientos de "cumplimientoNumeral9" (Extremo o Alto sin plan de acción primero) y los controles reprobados en Trabajo de Campo, y propón prioridades aplicando las reglas de la Tabla 4 (no propongas bajar la probabilidad cuando el impacto es Mayor o Catastrófico).`,
+      const respuesta = await dictamenDeConjunto({
         datos,
+        lista: riesgosVigentes,
+        instruccion: `Redacta el informe estratégico de la matriz corporativa de riesgos (${metricas.totalRiesgos} riesgos, ${metricas.totalControles} controles) para la Junta Directiva. Compara la distribución inherente con la residual y evalúa si la reducción es creíble según la calidad real de los controles (manuales, no documentados, sin evidencia, de baja eficacia) y el estado de hallazgos y planes vencidos. Identifica los procesos y riesgos (por RSK) que concentran la exposición.`,
       });
       const altosExtremos = distribucion => distribucion.Extremo + distribucion.Alto;
       setDictamenIA({
@@ -1473,9 +1497,10 @@ const handleRiesgoSubmit = async (e) => {
             evaluaciones,
           }),
         };
-        const respuesta = await consultarPanelIA({
-          instruccion: `Analiza la vista actual del panorama de riesgos (filtros en "vista"; momento evaluado: ${nivelActivo.toLowerCase()}). Explica dónde se concentra la exposición, qué procesos y riesgos (por RSK) requieren atención primero, si los controles sostienen la reducción de inherente a residual, y qué incumplimientos de "cumplimientoNumeral9" hay en esta vista.`,
+        const respuesta = await dictamenDeConjunto({
           datos,
+          lista: riesgosDashboard,
+          instruccion: `Analiza la vista actual del panorama de riesgos (filtros en "vista"; momento evaluado: ${nivelActivo.toLowerCase()}). Explica dónde se concentra la exposición, qué procesos y riesgos (por RSK) requieren atención primero y si los controles sostienen la reducción de inherente a residual.`,
         });
         const altosExtremos = distribucion => distribucion.Extremo + distribucion.Alto;
         setDictamenIA({

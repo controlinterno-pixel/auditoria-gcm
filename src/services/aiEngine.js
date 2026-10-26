@@ -25,6 +25,26 @@ export const ESTRUCTURA_DICTAMEN_CONTROL = `Responde SOLO con un objeto JSON con
 }
 Usa solo cifras que estén en DATOS_GRC. Prefiere una cadena vacía antes que una frase genérica.`;
 
+// Dictamen de un riesgo y de la matriz: igual que el del control, el plan y los KRIs los arma el código.
+export const ESTRUCTURA_DICTAMEN_RIESGO = `Responde SOLO con un objeto JSON con exactamente estas claves:
+{
+  "analisisEjecutivo": "dos párrafos separados por \\n\\n: 1) si la reducción de inherente a residual es creíble según el diseño, la formalización y las pruebas de campo de cada control, y de cuáles controles (por código) depende; 2) por qué importa para el negocio",
+  "observacionCausaRaiz": "1 o 2 frases: si los controles atacan la causa inmediata y la causa raíz del riesgo, y qué queda sin cubrir; cadena vacía si faltan las causas o las descripciones",
+  "dictamenDirector": "conclusión de 1 a 2 frases para la Dirección, coherente con el plan del sistema",
+  "iso31000": "solo si aporta algo específico de este riesgo (cítalo); si no, cadena vacía",
+  "cosoErm": "solo si aporta algo específico de este riesgo (cítalo); si no, cadena vacía"
+}
+Usa solo cifras que estén en DATOS_GRC; no calcules porcentajes nuevos. Prefiere una cadena vacía antes que una frase genérica.`;
+
+export const ESTRUCTURA_DICTAMEN_MATRIZ = `Responde SOLO con un objeto JSON con exactamente estas claves:
+{
+  "analisisEjecutivo": "dos párrafos separados por \\n\\n: 1) dónde se concentra la exposición (procesos y riesgos por código) y si la reducción de inherente a residual es creíble según la calidad real de los controles; 2) por qué importa para el negocio",
+  "dictamenDirector": "conclusión de 1 a 2 frases para la Junta Directiva, coherente con el plan del sistema",
+  "iso31000": "solo si aporta algo específico de estos datos (cita RSK); si no, cadena vacía",
+  "cosoErm": "solo si aporta algo específico de estos datos (cita RSK); si no, cadena vacía"
+}
+Usa solo cifras que estén en DATOS_GRC; no calcules porcentajes nuevos. Prefiere una cadena vacía antes que una frase genérica.`;
+
 // Análisis con datos separados de la instrucción y respuesta en JSON.
 // `estructura` permite pedir solo los campos que redacta la IA (p. ej. el dictamen por control).
 export const consultarPanelIA = async ({ instruccion, datos, estructura = ESTRUCTURA_PANEL }) => {

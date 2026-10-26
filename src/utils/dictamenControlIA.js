@@ -21,6 +21,8 @@ const ACCION_FALTA = {
   }),
 };
 
+const ORDEN_ZONA = { Bajo: 1, Moderado: 2, Alto: 3, Extremo: 4 };
+
 const sinResponsable = valor => !valor || /^(sin asignar|sin dato|por asignar)$/i.test(String(valor).trim());
 
 // Describe el efecto de una acción simulada: qué eje cambia, a cuánto y a qué zona lleva el riesgo.
@@ -70,7 +72,10 @@ export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaci
   }
   // Acción que cambia la zona: automatizar este control si basta; si no, la primera de un paso; si no, dos pasos.
   const automatizarCambia = s.automatizado && s.automatizado.zona !== s.actual.zona;
-  const primera = s.cambianLaZona.find(o => o.accion === `Automatizar ${s.codigo}`) || s.cambianLaZona[0] || null;
+  // Automatizar este control si basta; si no, la que deja la zona más baja (la misma que propone el
+  // dictamen del riesgo, para que ambos paneles coincidan).
+  const primera = s.cambianLaZona.find(o => o.accion === `Automatizar ${s.codigo}`)
+    || [...s.cambianLaZona].sort((a, b) => ORDEN_ZONA[a.zona] - ORDEN_ZONA[b.zona])[0] || null;
   const combinada = !primera && s.dosPasos.length ? s.dosPasos[0] : null;
   const prioridadZona = zonaAlta ? 'ALTA' : 'MEDIA';
   if (s.actual.zona !== 'Bajo') {
@@ -134,6 +139,153 @@ export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaci
   return {
     planAccion: plan.map(({ prioridad, accion, responsable }) => ({ prioridad, accion, responsable })),
     recomendaciones: plan.map(({ recomendacion }) => `${recomendacion}.`),
+    kris: kris.join('\n'),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plan del dictamen de un riesgo (botón "Dictamen IA" de la fila)
+// ---------------------------------------------------------------------------------------------
+const listaCodigos = codigos => (codigos.length > 1 ? `${codigos.slice(0, -1).join(', ')} y ${codigos[codigos.length - 1]}` : codigos[0] || '');
+const mitigacion = (inh, p, i) => (inh.probabilidad * inh.impacto
+  ? Math.max(0, Math.round(((inh.probabilidad * inh.impacto - p * i) / (inh.probabilidad * inh.impacto)) * 100))
+  : 0);
+const sinResponsableRiesgo = valor => sinResponsable(valor) || valor === 'Sin dato';
+
+/**
+ * Mismas prioridades que el plan del control, aplicadas al riesgo completo (Explícame este riesgo):
+ * ALTA = controles reprobados en campo, plan obligatorio del numeral 9 y la primera acción que cambia la
+ * zona en Extremo/Alto; MEDIA = esa acción en Moderado, seguimiento (numeral 9), primera prueba de campo,
+ * formalización y responsable; BAJA = automatizar cuando no cambia la zona.
+ */
+export function planDelRiesgo({ riesgo, simulacion: s, ficha, controles = [], evaluaciones = [] }) {
+  if (!s) return { planAccion: [], recomendaciones: [], kris: '' };
+  const codigoRiesgo = ficha?.codigo || `RSK-${riesgo?.id}`;
+  const lider = controles.find(c => c.responsableSegunManual)?.responsableSegunManual || 'Por asignar';
+  const resp = sinResponsableRiesgo(ficha?.responsable) ? lider : ficha.responsable;
+  const zonaRegistrada = ficha?.nivelResidual && ficha.nivelResidual !== 'Sin dato' ? ficha.nivelResidual : s.actual.zona;
+  const zonaAlta = ['Extremo', 'Alto'].includes(s.actual.zona);
+  const items = [];
+  const agregar = (prioridad, accion, recomendacion) => items.push({ prioridad, accion, recomendacion, responsable: resp });
+
+  s.reprobados.forEach(r => agregar('ALTA', `Corregir la operación de ${r.codigo} y volver a probarlo en Trabajo de Campo.`,
+    `Corregir ${r.codigo}, porque fue reprobado en Trabajo de Campo con ${r.calificacion} %${r.comentarios ? ` («${r.comentarios}»)` : ''}; si no opera, el ${r.eje} quedaría en ${numero(r.sinElControl)} % (zona ${r.zonaSinElControl})`));
+  if (incumpleCriterio(riesgo, 'sin-plan', evaluaciones)) {
+    agregar('ALTA', `Formular y registrar el plan de acción de ${codigoRiesgo}.`,
+      `Formular el plan de acción de ${codigoRiesgo}, porque está en zona residual ${zonaRegistrada} sin plan registrado y el numeral 9 del manual lo exige`);
+  }
+  const primera = s.bajanZona[0] || null;
+  if (primera && s.actual.zona !== 'Bajo') {
+    const accion = primera.accion.startsWith('automatizar')
+      ? primera.accion.replace(/^./, letra => letra.toUpperCase())
+      : `Agregar ${primera.accion} a ${codigoRiesgo}`;
+    agregar(zonaAlta ? 'ALTA' : 'MEDIA', `${accion}.`, `${accion}, porque según la simulación del sistema (Tabla 8) ${efecto(primera, s.actual)}`);
+  }
+  if (incumpleCriterio(riesgo, 'sin-seguimiento', evaluaciones)) {
+    agregar('MEDIA', `Programar la fecha de seguimiento de ${codigoRiesgo}.`,
+      `Programar el seguimiento de ${codigoRiesgo}, porque está en zona residual ${zonaRegistrada} sin fecha y el numeral 9 del manual exige seguimiento`);
+  } else if (zonaAlta && !s.fecha) {
+    agregar('MEDIA', `Programar la fecha de seguimiento del plan de acción de ${codigoRiesgo}.`,
+      `Programar cuándo se revisa el avance del plan de ${codigoRiesgo}, porque no tiene fecha de seguimiento`);
+  }
+  if (s.vencido) {
+    agregar('MEDIA', `Hacer el seguimiento de ${codigoRiesgo} programado para el ${s.fecha}.`,
+      `Hacer el seguimiento de ${codigoRiesgo}, porque el programado para el ${s.fecha} ya venció`);
+  }
+  if (s.sinPruebaDeCampo.length) {
+    const uno = s.sinPruebaDeCampo.length === 1;
+    agregar('MEDIA', `Programar la primera prueba de Trabajo de Campo de ${listaCodigos(s.sinPruebaDeCampo)}.`,
+      `Probar en campo ${listaCodigos(s.sinPruebaDeCampo)}, porque aún no ${uno ? 'tiene' : 'tienen'} pruebas: no es una falla, pero falta confirmar que ${uno ? 'opera' : 'operan'} como se diseñó`);
+  }
+  s.faltantesPorControl.forEach(({ codigo, faltantes }) => agregar('MEDIA', `Formalizar ${codigo}: ${faltantes.join(', ').toLowerCase()}.`,
+    `Formalizar ${codigo} (${faltantes.join(', ').toLowerCase()}), porque el manual lo pide para considerarlo formalizado, aunque no cambia su eficacia (Tabla 6)`));
+  if (sinResponsableRiesgo(ficha?.responsable)) {
+    agregar('MEDIA', `Asignar un responsable a ${codigoRiesgo}.`,
+      `Nombrar un responsable para ${codigoRiesgo}, porque no tiene uno en la matriz; según el numeral 8.3.2 del manual le corresponde al líder del proceso`);
+  }
+  const auto = s.automatizarManuales;
+  if (auto && !(primera && primera.accion.startsWith('automatizar')) && auto.zona === s.actual.zona) {
+    agregar('BAJA', `Evaluar automatizar ${listaCodigos(s.manuales)}.`,
+      `Evaluar automatizar ${listaCodigos(s.manuales)}: dejaría la probabilidad en ${numero(auto.p)} % y el impacto en ${numero(auto.i)} %, aunque el riesgo seguiría en zona ${s.actual.zona}`);
+  }
+
+  const orden = { ALTA: 0, MEDIA: 1, BAJA: 2 };
+  const plan = items.sort((a, b) => orden[a.prioridad] - orden[b.prioridad]);
+
+  const kris = [];
+  if (primera) {
+    const ejeImpacto = Math.round(primera.i * 10) !== Math.round(s.actual.impacto * 10);
+    const accionMeta = primera.accion.startsWith('automatizar') ? primera.accion : `agregar ${primera.accion}`;
+    kris.push(`${ejeImpacto ? 'Impacto' : 'Probabilidad'} residual de ${codigoRiesgo}: actual ${numero(ejeImpacto ? s.actual.impacto : s.actual.probabilidad)} % · meta ${numero(ejeImpacto ? primera.i : primera.p)} % (zona ${primera.zona}) si se ejecuta: ${accionMeta}.`);
+    const actualMit = mitigacion(s.inherente, s.actual.probabilidad, s.actual.impacto);
+    const metaMit = mitigacion(s.inherente, primera.p, primera.i);
+    if (metaMit > actualMit) kris.push(`Mitigación de ${codigoRiesgo}: actual ${actualMit} % · meta ${metaMit} % con la misma acción.`);
+  }
+  if (s.reprobados.length) kris.push(`Controles de ${codigoRiesgo} reprobados en Trabajo de Campo: actual ${s.reprobados.length} · meta 0 en la siguiente prueba.`);
+  const totalControles = controles.length;
+  if (totalControles && s.faltantesPorControl.length) {
+    kris.push(`Controles de ${codigoRiesgo} formalizados: actual ${totalControles - s.faltantesPorControl.length} de ${totalControles} · meta ${totalControles} de ${totalControles}.`);
+  }
+  return {
+    planAccion: plan.map(({ prioridad, accion, responsable }) => ({ prioridad, accion, responsable })),
+    recomendaciones: plan.map(({ recomendacion }) => `${recomendacion}.`),
+    kris: kris.join('\n'),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plan del informe de la matriz (o de la vista filtrada)
+// ---------------------------------------------------------------------------------------------
+const esta = total => (total === 1 ? 'está' : 'están');
+const conLista = (total, codigos = []) => `${total} riesgo${total === 1 ? '' : 's'}${codigos.length ? ` (${codigos.slice(0, 8).join(', ')}${total > 8 ? '…' : ''})` : ''}`;
+
+/** Plan de la matriz desde contextoMatriz: incumplimientos del numeral 9 y vacíos de datos, con cifras exactas. */
+export function planDeLaMatriz(datos) {
+  const n9 = datos?.cumplimientoNumeral9 || {};
+  const sinPlan = n9.extremoOAltoSinPlanDeAccion || { total: 0, riesgos: [] };
+  const sinSeg = n9.moderadoOBajoSinFechaDeSeguimiento || { total: 0, riesgos: [] };
+  const reprob = n9.conControlesReprobadosEnTrabajoDeCampo || { total: 0, riesgos: [] };
+  const sinControles = datos?.riesgosSinControles || { total: 0, ejemplos: [] };
+  const vencidos = datos?.seguimientosVencidos || { total: 0, ejemplos: [] };
+  const sinDato = datos?.metricas?.riesgosSinDatoDeProbabilidadOImpacto || 0;
+  const items = [];
+  const agregar = (prioridad, accion, recomendacion) => items.push({ prioridad, accion, recomendacion, responsable: 'Líderes de los procesos' });
+  if (sinPlan.total) {
+    agregar('ALTA', `Registrar el plan de acción de ${conLista(sinPlan.total, sinPlan.riesgos)}.`,
+      `Registrar el plan de acción de ${conLista(sinPlan.total, sinPlan.riesgos)}, porque ${esta(sinPlan.total)} en zona residual Extremo o Alto sin plan y el numeral 9 del manual lo exige`);
+  }
+  if (reprob.total) {
+    agregar('ALTA', `Corregir y volver a probar los controles reprobados en Trabajo de Campo de ${conLista(reprob.total, reprob.riesgos)}.`,
+      `Corregir los controles reprobados de ${conLista(reprob.total, reprob.riesgos)}, porque siguen contando en el residual sin que su mitigación esté demostrada`);
+  }
+  if (sinSeg.total) {
+    agregar('MEDIA', `Programar la fecha de seguimiento de ${conLista(sinSeg.total, sinSeg.riesgos)}.`,
+      `Programar el seguimiento de ${conLista(sinSeg.total, sinSeg.riesgos)}, porque ${esta(sinSeg.total)} en zona Moderado o Bajo sin fecha y el numeral 9 del manual exige seguimiento`);
+  }
+  if (vencidos.total) {
+    agregar('MEDIA', `Hacer los seguimientos vencidos de ${conLista(vencidos.total, vencidos.ejemplos)}.`,
+      `Hacer los seguimientos vencidos de ${conLista(vencidos.total, vencidos.ejemplos)}, porque ${vencidos.total === 1 ? 'su fecha programada ya pasó' : 'sus fechas programadas ya pasaron'}`);
+  }
+  if (sinControles.total) {
+    agregar('MEDIA', `Definir controles para ${conLista(sinControles.total, sinControles.ejemplos)}.`,
+      `Definir controles para ${conLista(sinControles.total, sinControles.ejemplos)}, porque hoy ${sinControles.total === 1 ? 'su residual es igual a su inherente' : 'su residual es igual a su inherente en cada uno'}`);
+  }
+  if (sinDato) {
+    const plural = sinDato === 1 ? '' : 's';
+    agregar('MEDIA', `Registrar la probabilidad y el impacto de ${sinDato} riesgo${plural} que figura${sinDato === 1 ? '' : 'n'} "Sin dato".`,
+      `Completar la probabilidad (Tabla 2) y el impacto (Tabla 3) de ${sinDato} riesgo${plural}, porque sin ellos no se pueden calcular ni ubicar en la matriz`);
+  }
+
+  const total = datos?.metricas?.totalRiesgos || 0;
+  const altos = (datos?.distribucionResidual?.Extremo || 0) + (datos?.distribucionResidual?.Alto || 0);
+  const kris = [];
+  if (altos) kris.push(`Riesgos Extremo o Alto con plan de acción: actual ${altos - sinPlan.total} de ${altos} · meta ${altos} de ${altos} (numeral 9).`);
+  const bajos = total - altos - sinDato;
+  if (bajos > 0 && sinSeg.total) kris.push(`Riesgos Moderado o Bajo con fecha de seguimiento: actual ${bajos - sinSeg.total} de ${bajos} · meta ${bajos} de ${bajos} (numeral 9).`);
+  if (reprob.total) kris.push(`Riesgos con controles reprobados en Trabajo de Campo: actual ${reprob.total} · meta 0.`);
+  return {
+    planAccion: items.map(({ prioridad, accion, responsable }) => ({ prioridad, accion, responsable })),
+    recomendaciones: items.map(({ recomendacion }) => `${recomendacion}.`),
     kris: kris.join('\n'),
   };
 }
@@ -220,7 +372,7 @@ const QUE_CORREGIR = {
  * `consultar({ instruccion, datos })` devuelve la respuesta cruda de la IA. `respaldo` es el texto del
  * sistema que se muestra si la IA no entrega un análisis utilizable.
  */
-export async function generarDictamenControl({ consultar, instruccion, datos, codigosValidos, plan, respaldo }) {
+export async function generarDictamenIA({ consultar, instruccion, datos, codigosValidos, plan, respaldo }) {
   const revisar = respuesta => (respuesta ? revisarRespuestaIA(respuesta, { datos, codigosValidos }) : [{ tipo: 'formato' }]);
   let respuesta = leerJsonIA(await consultar({ instruccion, datos }));
   let problemas = revisar(respuesta);
@@ -251,3 +403,6 @@ export async function generarDictamenControl({ consultar, instruccion, datos, co
     revision: { intentos, oracionesQuitadas: respuesta ? problemas.length : 0 },
   };
 }
+
+// Nombre anterior (dictamen por control).
+export const generarDictamenControl = generarDictamenIA;

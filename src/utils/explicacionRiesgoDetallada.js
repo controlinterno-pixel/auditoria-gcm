@@ -152,6 +152,21 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
   ].filter(Boolean);
 
   // 4. Lo que falta según el numeral 9 y la formalización de los controles
+  const faltantesPorControl = vigentesConIndice
+    .map(({ control, indice }) => ({ codigo: codigoControl(indice, riesgo.id), faltantes: explicarControl(control).faltantes }))
+    .filter(item => item.faltantes.length);
+  const reprobados = vigentesConIndice
+    .filter(({ indice }) => pruebasCampo.get(indice) && pruebasCampo.get(indice).calificacion < 100)
+    .map(({ control, indice }) => {
+      const prueba = pruebasCampo.get(indice);
+      const sinEl = calcularResiduales(pInh, iInh, vigentesConIndice.filter(item => item.indice !== indice).map(item => item.control));
+      const correctivo = desglosarEficaciaControl(control).tipo === 'Correctivo';
+      return {
+        codigo: codigoControl(indice, riesgo.id), calificacion: prueba.calificacion, comentarios: prueba.comentarios || '',
+        eje: correctivo ? 'impacto' : 'probabilidad', sinElControl: correctivo ? sinEl.impactoResidual : sinEl.probabilidadResidual,
+        zonaSinElControl: zonaDe(sinEl.probabilidadResidual, sinEl.impactoResidual),
+      };
+    });
   const plan = String(riesgo.planAccionRiesgo || '').trim();
   const fecha = String(riesgo.fechaSeguimiento || '').trim();
   const vencido = Boolean(fecha) && new Date(`${fecha}T23:59:59`) < hoy;
@@ -161,9 +176,7 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
     !requierePlan && !fecha ? `Seguimiento: en zona ${zonaRes} el numeral 9 del manual exige seguimiento y no hay fecha programada.` : '',
     requierePlan && !fecha ? 'Fecha de seguimiento: no hay una programada para revisar el avance del plan.' : '',
     vencido ? `El seguimiento programado para el ${fecha} ya venció.` : '',
-    ...vigentesConIndice
-      .map(({ control, indice }) => ({ codigo: codigoControl(indice, riesgo.id), faltantes: explicarControl(control).faltantes }))
-      .filter(item => item.faltantes.length)
+    ...faltantesPorControl
       .map(item => `${item.codigo} figura como ${item.faltantes.join(', ').toLowerCase()}: no cambia la eficacia, pero el manual lo pide para considerar el control formalizado.`),
     // Controles reprobados en Trabajo de Campo: el cálculo los cuenta (Tabla 6 valora el diseño), pero se muestra
     // cuánto quedaría el residual si en la práctica no operan.
@@ -220,6 +233,18 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
     pendientes,
     mejoras,
     notaMejoras,
+    // Mismo cálculo en forma estructurada, para que el código arme el plan del dictamen (no va a la IA).
+    simulacion: {
+      inherente: { probabilidad: pInh, impacto: iInh },
+      actual: { probabilidad: pRes, impacto: iRes, zona: zonaRes },
+      bajanZona: bajanZona.map(s => ({ accion: s.nombre, p: s.p, i: s.i, zona: s.zona })),
+      automatizarManuales: manuales.length ? simulaciones.find(s => s.nombre.startsWith('automatizar')) : null,
+      manuales: manuales.map(({ indice }) => codigoControl(indice, riesgo.id)),
+      sinPruebaDeCampo: vigentesConIndice.filter(({ indice }) => !pruebasCampo.get(indice)).map(({ indice }) => codigoControl(indice, riesgo.id)),
+      reprobados,
+      faltantesPorControl,
+      plan, fecha, vencido,
+    },
   };
 }
 

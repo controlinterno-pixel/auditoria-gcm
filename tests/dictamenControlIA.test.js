@@ -4,7 +4,9 @@ import test from 'node:test';
 import { analizarControlEnRiesgo, pruebasDeCampoDelRiesgo } from '../src/utils/explicacionRiesgoDetallada.js';
 import { contextoRiesgo } from '../src/utils/contextoIARiesgos.js';
 import { calcularEficaciaControl, calcularResiduales } from '../src/utils/explicacionControles.js';
-import { generarDictamenControl, limpiarRespuestaIA, planDelControl, revisarRespuestaIA } from '../src/utils/dictamenControlIA.js';
+import { explicarRiesgoDetallado } from '../src/utils/explicacionRiesgoDetallada.js';
+import { contextoMatriz } from '../src/utils/contextoIARiesgos.js';
+import { generarDictamenControl, limpiarRespuestaIA, planDeLaMatriz, planDelControl, planDelRiesgo, revisarRespuestaIA } from '../src/utils/dictamenControlIA.js';
 
 const preparar = (riesgo, indice, evaluaciones = []) => {
   Object.assign(riesgo, calcularResiduales(riesgo.probabilidadInherente, riesgo.impactoInherente, riesgo.controlesDetallados));
@@ -27,13 +29,13 @@ test('Extremo: el plan obligatorio y la acción que cambia la zona son ALTA; la 
   const { plan } = preparar(rsk49(), 0);
   assert.deepEqual(plan.planAccion.map(p => p.prioridad), ['ALTA', 'ALTA', 'MEDIA', 'BAJA']);
   assert.match(plan.planAccion[0].accion, /plan de acción de RSK-49/);
-  assert.match(plan.planAccion[1].accion, /^Agregar 1 control correctivo manual a RSK-49/);
+  assert.match(plan.planAccion[1].accion, /^Agregar 2 controles correctivos manuales a RSK-49/, 'la acción que deja la zona más baja');
   assert.match(plan.planAccion[2].accion, /primera prueba de Trabajo de Campo de CTL-49-1/);
   assert.ok(plan.planAccion.every(p => p.responsable === 'Dirección Comercial'));
   assert.equal(plan.recomendaciones.length, plan.planAccion.length, 'una recomendación por acción');
   assert.match(plan.recomendaciones[0], /porque está en zona residual Extremo sin plan registrado/, 'nombra la zona real, no "Extremo o Alto"');
   assert.ok(plan.recomendaciones.every((rec, i) => rec !== plan.planAccion[i].accion), 'la recomendación no repite la tabla');
-  assert.match(plan.kris, /Impacto residual de RSK-49: actual 100 % · meta 75 % \(zona Alto\)/);
+  assert.match(plan.kris, /Impacto residual de RSK-49: actual 100 % · meta 56 % \(zona Moderado\)/);
 });
 
 test('cada atributo faltante del control auditado tiene su acción; frecuencia aleatoria incluida', () => {
@@ -106,4 +108,37 @@ test('generarDictamenControl: reintenta una vez indicando los errores, luego rec
   assert.equal(siempreMalo.analisisEjecutivo, 'Texto del sistema.', 'si todo se recorta, queda el texto del sistema');
   const noJson = await generarDictamenControl({ consultar: async () => 'no es json', instruccion: 'Redacta', datos, codigosValidos, plan, respaldo: 'Texto del sistema.' });
   assert.equal(noJson.analisisEjecutivo, 'Texto del sistema.');
+});
+
+test('dictamen del riesgo: mismas prioridades y la misma acción que el dictamen del control', () => {
+  const riesgo = rsk49();
+  Object.assign(riesgo, calcularResiduales(riesgo.probabilidadInherente, riesgo.impactoInherente, riesgo.controlesDetallados));
+  const datos = contextoRiesgo(riesgo, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: () => 64 });
+  const { simulacion } = explicarRiesgoDetallado(riesgo);
+  const plan = planDelRiesgo({ riesgo, simulacion, ficha: datos.riesgo, controles: datos.controles });
+  assert.deepEqual(plan.planAccion.slice(0, 2).map(p => p.accion), ['Formular y registrar el plan de acción de RSK-49.', 'Agregar 2 controles correctivos manuales a RSK-49.']);
+  assert.ok(plan.planAccion.slice(0, 2).every(p => p.prioridad === 'ALTA'));
+  assert.ok(plan.planAccion.some(p => p.prioridad === 'MEDIA' && /primera prueba de Trabajo de Campo de CTL-49-1 y CTL-49-2/.test(p.accion)));
+  assert.ok(plan.planAccion.some(p => /Formalizar CTL-49-2: frecuencia aleatoria/.test(p.accion)));
+  assert.equal(plan.planAccion[plan.planAccion.length - 1].prioridad, 'BAJA');
+  assert.match(plan.kris, /Mitigación de RSK-49: actual 64 % · meta 80 %/);
+  assert.match(plan.kris, /formalizados: actual 1 de 2 · meta 2 de 2/);
+  const delControl = preparar(rsk49(), 0).plan.planAccion.map(p => p.accion);
+  assert.ok(delControl.includes('Agregar 2 controles correctivos manuales a RSK-49.'), 'el panel del control propone lo mismo');
+});
+
+test('informe de la matriz: incumplimientos del numeral 9 con sus RSK y metas exigidas por el manual', () => {
+  const extremo = rsk49();
+  const conReprobado = {
+    id: 62, proceso: 'Gestión del Talento Humano', responsable: 'Líder TH', probabilidadInherente: 40, impactoInherente: 40,
+    controlesDetallados: [{ tipo: 'Correctivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro' }],
+  };
+  [extremo, conReprobado].forEach(r => Object.assign(r, calcularResiduales(r.probabilidadInherente, r.impactoInherente, r.controlesDetallados)));
+  const evaluaciones = [{ idRiesgo: 62, control: 'CTL-62-1', calificacion: 50 }];
+  const plan = planDeLaMatriz(contextoMatriz([extremo, conReprobado], { calcularEficacia: calcularEficaciaControl, calcularMitigacion: () => 50, evaluaciones }));
+  assert.deepEqual(plan.planAccion.map(p => p.prioridad), ['ALTA', 'ALTA', 'MEDIA']);
+  assert.match(plan.planAccion[0].accion, /plan de acción de 1 riesgo \(RSK-49\)/);
+  assert.match(plan.recomendaciones[0], /porque está en zona residual/, 'concordancia en singular');
+  assert.match(plan.planAccion[1].accion, /controles reprobados .* \(RSK-62\)/);
+  assert.match(plan.kris, /Riesgos Extremo o Alto con plan de acción: actual 0 de 1 · meta 1 de 1 \(numeral 9\)/);
 });
