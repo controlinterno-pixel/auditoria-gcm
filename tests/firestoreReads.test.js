@@ -9,6 +9,11 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 // 1. Escrituras sin cambios: solo se omiten cuando cada campo enviado es idéntico al guardado.
 const workspaceText = read('../api/_lib/grcWorkspace.js');
+// informeEnProcesos sin importar el módulo (que conecta con Firebase al cargar).
+const textoAgrupadas = read('../api/_lib/coleccionesAgrupadas.js');
+const inicioInforme = textoAgrupadas.indexOf('export const informeEnProcesos');
+const finInforme = textoAgrupadas.indexOf('/**', inicioInforme);
+const informeEnProcesos = new Function(`${textoAgrupadas.slice(inicioInforme, finInforme).replace('export const', 'const')}; return informeEnProcesos;`)();
 const comparadorSource = workspaceText.slice(
   workspaceText.indexOf('const serializarEstable'),
   workspaceText.indexOf('const workspaceRef'),
@@ -133,7 +138,7 @@ enCurso.cleanup();
   const congelado = JSON.stringify(workspaceCompartido);
   const ejecutarGet = async user => {
     const bindings = {
-    esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara,
+    esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara, informeEnProcesos,
       ...workflowModule, ...alcanceModule,
       applyCors: () => false,
       requireAuth: async () => user,
@@ -181,5 +186,33 @@ enCurso.cleanup();
   assert.equal(conPermisos.riesgos.length, 0, 'la matriz de riesgos se entrega completa (aquí vacía)');
 
   assert.equal(JSON.stringify(workspaceCompartido), congelado, 'no se modifica el objeto compartido de la caché');
+
+  // 6. El líder recibe el informe de cada hallazgo que ve aunque sea de otro proceso (antes salía "huérfano"),
+  // sin abrir los demás hallazgos de ese informe.
+  const ajeno = {
+    planes: [{ id: 7, idHallazgo: 'h2', idInforme: 'i2', correoResponsable: 'lider@example.test', proceso: 'Finanzas' }],
+    hallazgos: [{ id: 'h2', idInforme: 'i2', proceso: 'Finanzas' }, { id: 'h3', idInforme: 'i2', proceso: 'Finanzas' }],
+    informesAuditoria: [{ id: 'i2', proceso: 'Finanzas', titulo: 'Informe de Finanzas' }],
+    riesgos: [], catalogoCargos: [],
+  };
+  const bindingsAjeno = {
+    esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara, informeEnProcesos,
+    ...workflowModule, ...alcanceModule,
+    applyCors: () => false,
+    requireAuth: async () => ({ uid: 'l', email: 'lider@example.test', rol: 'lider', procesosAsignados: ['Operaciones'], permisos: [] }),
+    sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
+    sendError: (res, error, code) => Object.assign(res, { code, error }),
+    logger: { info() {}, warn() {}, error() {} },
+    notificarSemaforo: async () => {}, leerRevisionSemaforo: async () => '500', guardarWorkspaceParcial: async () => {},
+    leerWorkspaceGrc: async (_tx, opciones) => {
+      assert.equal(opciones.procesosAsignados, null, 'se leen todos los informes para dar contexto');
+      return { data: ajeno };
+    },
+  };
+  const handlerAjeno = new Function(...Object.keys(bindingsAjeno), `${syncSource}\nreturn handler;`)(...Object.values(bindingsAjeno));
+  const resAjeno = {};
+  await handlerAjeno({ method: 'GET', url: '/api/grc/sync' }, resAjeno);
+  assert.deepEqual(resAjeno.body.informesAuditoria.map(informe => informe.id), ['i2'], 'llega el informe del hallazgo donde participa');
+  assert.deepEqual(resAjeno.body.hallazgos.map(hallazgo => hallazgo.id), ['h2'], 'no se abren los demás hallazgos de ese informe');
 }
 console.log('firestoreReads.test.js: OK (escrituras sin cambios, lectura única del POST, instrumentación, carga inicial sin duplicar, ráfagas, sin duplicado planesAccion)');

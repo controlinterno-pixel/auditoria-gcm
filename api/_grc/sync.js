@@ -8,6 +8,7 @@ import { esAdministradorTotal } from '../_lib/roles.js';
 import { riesgosVisiblesPara } from '../../src/utils/permisosVista.js';
 import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { informeEnProcesos } from '../_lib/coleccionesAgrupadas.js';
 import { sanitizarUrls, validarDatosSync } from '../_lib/validation.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
 import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaRevisorOAuditor, bloqueadaParaEjecutor, ESTADO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
@@ -267,9 +268,12 @@ export default async function handler(req, res) {
         // devuelta y el cliente no repite la descarga cuando su listener del semáforo responde después.
         revision = await leerRevisionSemaforo().catch(() => '');
       }
+      // Se leen todos los informes (con colecciones agrupadas cuesta lo mismo): el líder necesita el informe
+      // de cada hallazgo que puede ver, aunque sea de otro proceso; si faltaba, el hallazgo salía "huérfano".
+      // Qué informes y hallazgos ve se decide abajo con el mismo alcance de siempre (procesosConsulta).
       const { data: workspaceData } = await leerWorkspaceGrc(null, {
         usarCache: consulta.fresh !== '1' || Boolean(revision),
-        procesosAsignados: procesosConsulta,
+        procesosAsignados: null,
         revision,
         origen: 'sync-get',
       });
@@ -296,7 +300,9 @@ export default async function handler(req, res) {
       // de los correos en la asignación de Planes de Acción, sin importar el rol.
       const catalogoCargosSeguro = Array.isArray(data.catalogoCargos) ? data.catalogoCargos : [];
 
-      const informesData = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+      const informesTodos = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+      // Mismo alcance que antes para decidir visibilidad y herencia: solo los informes de sus procesos.
+      const informesData = procesosConsulta ? informesTodos.filter(informe => informeEnProcesos(informe, procesosConsulta)) : informesTodos;
       const hallazgosData = Array.isArray(data.hallazgos) ? data.hallazgos : [];
       const planesData = Array.isArray(data.planes) ? data.planes : [];
       let planesPermitidos;
@@ -340,6 +346,15 @@ export default async function handler(req, res) {
       planesPermitidos = planesData.filter(plan => 
         idsHallazgosFinales.has(String(plan.idHallazgo)) || planesConAccesoDirecto.includes(plan)
       );
+
+      // 6. CONTEXTO: el informe de cada hallazgo visible se entrega aunque sea de otro proceso (solo su
+      // encabezado de contexto; no abre los demás hallazgos de ese informe). Sin él, el hallazgo salía "huérfano".
+      const idsInformesPermitidos = new Set(informesPermitidos.map(informe => String(informe.id)));
+      const idsInformesDeContexto = new Set(hallazgosPermitidos.map(hallazgo => String(hallazgo.idInforme)));
+      const informesDeContexto = informesTodos.filter(informe => (
+        idsInformesDeContexto.has(String(informe.id)) && !idsInformesPermitidos.has(String(informe.id))
+      ));
+      informesPermitidos = [...informesPermitidos, ...informesDeContexto];
 
       // ============================================================================
       // EMPAQUETADO FINAL SEGURO
