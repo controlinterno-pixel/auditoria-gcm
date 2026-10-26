@@ -30,8 +30,21 @@ const CAMPOS_EDITABLES_HALLAZGO = [
 const CAMPOS_EDITABLES_PLAN = [
   'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion', 'progreso',
   'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
-  'correoResponsable', 'correoRevisor', 'correoAuditor',
+  'correoResponsable', 'correoRevisor', 'correoAuditor', 'riesgosVinculados',
 ];
+// Riesgos de la matriz a los que aplica la acción ("Matriz de riesgos: Sí aplica"). Es un dato informativo
+// (cuenta para el numeral 9 del riesgo): vincular o desvincular no es un cambio de diseño ni reenvía a revisión.
+const CAMPOS_INFORMATIVOS_PLAN = ['riesgosVinculados'];
+const MAX_RIESGOS_VINCULADOS = 50;
+/** Lista de ids de riesgo limpia, sin duplicados; null si el formato no es válido. */
+function normalizarRiesgosVinculados(valor, matrizRiesgos) {
+  if (matrizRiesgos === 'No aplica') return [];
+  if (valor === undefined || valor === null) return [];
+  if (!Array.isArray(valor) || valor.length > MAX_RIESGOS_VINCULADOS) return null;
+  const ids = valor.map(id => String(id ?? '').trim());
+  if (ids.some(id => !/^[A-Za-z0-9_-]{1,40}$/.test(id))) return null;
+  return [...new Set(ids)];
+}
 // El auditor edita como un líder (su proceso y sus tareas asignadas); solo el administrador edita todo.
 const ROLES_ADMIN = ['admin', 'administrador'];
 const normalizar = valor => String(valor || '').trim().toLowerCase();
@@ -215,6 +228,11 @@ export default async function handler(req, res) {
               .map(campo => [campo, peticion[campo]])
           );
           if (Object.hasOwn(cambios, 'accion') && !normalizar(cambios.accion)) return { error: 'invalid-action' };
+          if (Object.hasOwn(cambios, 'riesgosVinculados') || cambios.matrizRiesgos === 'No aplica') {
+            const vinculados = normalizarRiesgosVinculados(cambios.riesgosVinculados, cambios.matrizRiesgos ?? anterior.matrizRiesgos);
+            if (vinculados === null) return { error: 'invalid-linked-risks' };
+            cambios.riesgosVinculados = vinculados;
+          }
           if (Object.hasOwn(cambios, 'progreso')) {
             const progreso = Number(cambios.progreso);
             if (!Number.isInteger(progreso) || progreso < 0 || progreso > 100) return { error: 'invalid-progress' };
@@ -226,13 +244,28 @@ export default async function handler(req, res) {
           ));
           const atascadoAlCien = anterior.estadoWorkflow === 'En Ejecución' && Number(anterior.progreso) === 100;
           if (camposCambiados.length === 0 && !atascadoAlCien) continue;
+          // Solo cambió el vínculo con la matriz de riesgos: se guarda sin tocar el flujo de aprobación.
+          if (!atascadoAlCien && camposCambiados.every(campo => CAMPOS_INFORMATIVOS_PLAN.includes(campo))) {
+            const historialPrevio = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
+            planesActualizados.push({
+              ...anterior,
+              riesgosVinculados: cambios.riesgosVinculados,
+              historialCambios: [...historialPrevio, {
+                fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
+                usuario: user.email,
+                accion: 'Riesgos vinculados actualizados',
+                detalleCambios: [{ campo: 'riesgosVinculados', antes: anterior.riesgosVinculados ?? [], despues: cambios.riesgosVinculados }],
+              }],
+            });
+            continue;
+          }
           // Aplica también al administrador que es ejecutor: no puede alterar lo que ya envió a revisión.
           if (camposCambiados.length > 0 && bloqueadaParaEjecutor(anterior, user.email)) {
             return { error: 'executor-locked-review' };
           }
           const cambioProgreso = camposCambiados.includes('progreso');
           // Subir evidencia es ejecución, no una corrección del diseño aprobado.
-          const cambioDiseno = camposCambiados.some(campo => !['progreso', 'evidenciaUrl'].includes(campo));
+          const cambioDiseno = camposCambiados.some(campo => !['progreso', 'evidenciaUrl', ...CAMPOS_INFORMATIVOS_PLAN].includes(campo));
           const corrigeDisenoInicial = esPrograma && disenoInicialBloqueado(anterior);
           // Diseño devuelto por el revisor ("Borrador"): el ejecutor lo corrige y vuelve a revisión. Aún no ejecuta.
           const corrigeDisenoDevuelto = !esPrograma && anterior.estadoWorkflow === 'Borrador';
@@ -339,9 +372,12 @@ export default async function handler(req, res) {
             correoAuditor,
           })) return { error: 'duplicate-plan-roles' };
 
+          const riesgosVinculados = normalizarRiesgosVinculados(item.riesgosVinculados, item.matrizRiesgos);
+          if (riesgosVinculados === null) return { error: 'invalid-linked-risks' };
           const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
           planesNuevos.push({
             ...datosPlan,
+            riesgosVinculados,
             revisorNoAplica: sinRevisor,
             motivoRevisorNoAplica: sinRevisor ? String(item.motivoRevisorNoAplica).trim() : '',
             ...(sinRevisor ? { revisor: 'No aplica', correoRevisor: '' } : {}),
@@ -379,6 +415,7 @@ export default async function handler(req, res) {
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
         'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
         'design-correction-progress': ['Primero corrige el diseño de la acción y guárdalo: vuelve al revisor. El avance se habilita cuando lo apruebe.', 409],
+        'invalid-linked-risks': ['La lista de riesgos vinculados no es válida.', 400],
         'no-aplica-hallazgo': ['Este hallazgo se declaró No aplica (o está en decisión del auditor): no admite acciones nuevas.', 409],
         'no-aplica-locked': ['Esta acción quedó cerrada porque el hallazgo se declaró No aplica (decisión definitiva). No se puede modificar.', 409],
         'reviewer-read-only': ['Con el diseño aprobado, solo el ejecutor puede trabajar esta acción. El revisor y el auditor aprobador solo pueden consultarla.', 403],

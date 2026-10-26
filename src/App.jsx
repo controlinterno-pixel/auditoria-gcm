@@ -1214,6 +1214,7 @@ return (
                 {subTabPlanes === 'planes' && (
                   <Planes 
                     key={`planes-tareas-${solicitudTareasPlanes}`}
+                    riesgosMatriz={riesgosVigentes}
                     reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} misPlanesRevision={misPlanesRevision} misPlanesAprobacion={misPlanesAprobacion} misNoAplicaPorAprobar={misNoAplicaPorAprobar} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} encolarReintentoNotificacion={encolarReintentoNotificacion} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user} perfilUsuario={perfilUsuario}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}

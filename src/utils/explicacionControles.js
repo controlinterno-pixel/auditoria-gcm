@@ -6,6 +6,7 @@
 // Documentación, Frecuencia y Evidencia son ATRIBUTOS INFORMATIVOS: no suman (peso "--" en el manual).
 // Ejemplo del manual (Tabla 7): preventivo manual = 40 %; detectivo manual = 30 %.
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaSeveridad } from './nivelRiesgo.js';
+import { textoPlanDeAccion } from './planesDelRiesgo.js';
 import { vigentes } from './anulacion.js';
 
 // Código del control: CTL-{riesgo}-{n}, el mismo que usa Trabajo de Campo (Evaluaciones). Sin riesgo: CTL-{n}.
@@ -111,7 +112,7 @@ const dependencia = (pasos, inicial, unidad) => {
  * controles tienen fallas de formalización y si tiene el plan de acción o el seguimiento que su zona exige.
  * `exp` es el resultado de obtenerExplicacionCalculo; `riesgo` aporta controles, plan y fecha de seguimiento.
  */
-export function explicarCalculoResidual(exp, riesgo = {}, { hoy = new Date() } = {}) {
+export function explicarCalculoResidual(exp, riesgo = {}, { hoy = new Date(), planes = [] } = {}) {
   const pasosP = exp.pasosP || [];
   const pasosI = exp.pasosI || [];
   const codigos = pasos => pasos.map(paso => paso.codigo).join(', ');
@@ -140,7 +141,7 @@ export function explicarCalculoResidual(exp, riesgo = {}, { hoy = new Date() } =
   const zonaInherente = zonaSeveridad(exp.probInh, exp.impInh, true).label;
   const zonaResidual = zonaSeveridad(Math.max(exp.probFinal, 0.01), Math.max(exp.impFinal, 0.01), true).label;
   const requierePlan = ['Alto', 'Extremo'].includes(zonaResidual);
-  const plan = String(riesgo.planAccionRiesgo || '').trim();
+  const plan = textoPlanDeAccion(riesgo, planes);
   const fecha = String(riesgo.fechaSeguimiento || '').trim();
   const vencido = Boolean(fecha) && new Date(`${fecha}T23:59:59`) < hoy;
 

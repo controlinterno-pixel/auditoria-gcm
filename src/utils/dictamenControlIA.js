@@ -46,7 +46,7 @@ const enMinuscula = texto => texto.replace(/^./, letra => letra.toLowerCase());
  *   BAJA  = automatizar el control cuando no cambia la zona.
  * Devuelve { planAccion, recomendaciones, kris } con cifras tomadas solo de la simulación.
  */
-export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaciones = [] }) {
+export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaciones = [], planes = [] }) {
   if (!s) return { planAccion: [], recomendaciones: [], kris: '' };
   const codigoRiesgo = ficha?.codigo || `RSK-${riesgo?.id}`;
   const respControl = sinResponsable(control?.responsable) ? (control?.responsableSegunManual || 'Por asignar') : control.responsable;
@@ -65,7 +65,7 @@ export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaci
       respControl);
   }
   // ALTA: obligación del numeral 9 en Extremo o Alto.
-  if (incumpleCriterio(riesgo, 'sin-plan', evaluaciones)) {
+  if (incumpleCriterio(riesgo, 'sin-plan', evaluaciones, planes)) {
     agregar('ALTA', `Formular y registrar el plan de acción de ${codigoRiesgo}.`,
       `Formular el plan de acción de ${codigoRiesgo}, porque está en zona residual ${zonaRegistrada} sin plan registrado y el numeral 9 del manual lo exige`,
       respRiesgo);
@@ -105,7 +105,7 @@ export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaci
       control?.responsableSegunManual || 'Por asignar');
   }
   // MEDIA: seguimiento obligatorio en Moderado o Bajo (nunca BAJA).
-  if (incumpleCriterio(riesgo, 'sin-seguimiento', evaluaciones)) {
+  if (incumpleCriterio(riesgo, 'sin-seguimiento', evaluaciones, planes)) {
     agregar('MEDIA', `Programar la fecha de seguimiento de ${codigoRiesgo}.`,
       `Programar el seguimiento de ${codigoRiesgo}, porque está en zona residual ${zonaRegistrada} sin fecha y el numeral 9 del manual exige seguimiento`,
       respRiesgo);
@@ -158,7 +158,7 @@ const sinResponsableRiesgo = valor => sinResponsable(valor) || valor === 'Sin da
  * zona en Extremo/Alto; MEDIA = esa acción en Moderado, seguimiento (numeral 9), primera prueba de campo,
  * formalización y responsable; BAJA = automatizar cuando no cambia la zona.
  */
-export function planDelRiesgo({ riesgo, simulacion: s, ficha, controles = [], evaluaciones = [] }) {
+export function planDelRiesgo({ riesgo, simulacion: s, ficha, controles = [], evaluaciones = [], planes = [] }) {
   if (!s) return { planAccion: [], recomendaciones: [], kris: '' };
   const codigoRiesgo = ficha?.codigo || `RSK-${riesgo?.id}`;
   const lider = controles.find(c => c.responsableSegunManual)?.responsableSegunManual || 'Por asignar';
@@ -170,7 +170,7 @@ export function planDelRiesgo({ riesgo, simulacion: s, ficha, controles = [], ev
 
   s.reprobados.forEach(r => agregar('ALTA', `Corregir la operación de ${r.codigo} y volver a probarlo en Trabajo de Campo.`,
     `Corregir ${r.codigo}, porque fue reprobado en Trabajo de Campo con ${r.calificacion} %${r.comentarios ? ` («${r.comentarios}»)` : ''}; si no opera, el ${r.eje} quedaría en ${numero(r.sinElControl)} % (zona ${r.zonaSinElControl})`));
-  if (incumpleCriterio(riesgo, 'sin-plan', evaluaciones)) {
+  if (incumpleCriterio(riesgo, 'sin-plan', evaluaciones, planes)) {
     agregar('ALTA', `Formular y registrar el plan de acción de ${codigoRiesgo}.`,
       `Formular el plan de acción de ${codigoRiesgo}, porque está en zona residual ${zonaRegistrada} sin plan registrado y el numeral 9 del manual lo exige`);
   }
@@ -181,7 +181,7 @@ export function planDelRiesgo({ riesgo, simulacion: s, ficha, controles = [], ev
       : `Agregar ${primera.accion} a ${codigoRiesgo}`;
     agregar(zonaAlta ? 'ALTA' : 'MEDIA', `${accion}.`, `${accion}, porque según la simulación del sistema (Tabla 8) ${efecto(primera, s.actual)}`);
   }
-  if (incumpleCriterio(riesgo, 'sin-seguimiento', evaluaciones)) {
+  if (incumpleCriterio(riesgo, 'sin-seguimiento', evaluaciones, planes)) {
     agregar('MEDIA', `Programar la fecha de seguimiento de ${codigoRiesgo}.`,
       `Programar el seguimiento de ${codigoRiesgo}, porque está en zona residual ${zonaRegistrada} sin fecha y el numeral 9 del manual exige seguimiento`);
   } else if (zonaAlta && !s.fecha) {

@@ -5,6 +5,7 @@
 import { riesgoEnPorcentaje, zonaSeveridad } from './nivelRiesgo.js';
 import { estaAnulado } from './anulacion.js';
 import { pruebasDeCampoDelRiesgo } from './explicacionRiesgoDetallada.js';
+import { tienePlanDeAccion } from './planesDelRiesgo.js';
 
 export const CRITERIOS_CUMPLIMIENTO = {
   'sin-plan': {
@@ -24,10 +25,11 @@ export const CRITERIOS_CUMPLIMIENTO = {
 const zonaResidual = riesgo => zonaSeveridad(riesgo.probabilidadResidual, riesgo.impactoResidual, riesgoEnPorcentaje(riesgo)).label;
 
 /** ¿El riesgo incumple el criterio? */
-export function incumpleCriterio(riesgo, criterio, evaluaciones = []) {
+export function incumpleCriterio(riesgo, criterio, evaluaciones = [], planes = []) {
   if (!riesgo || estaAnulado(riesgo)) return false;
   const zona = zonaResidual(riesgo);
-  if (criterio === 'sin-plan') return ['Extremo', 'Alto'].includes(zona) && !String(riesgo.planAccionRiesgo || '').trim();
+  // El plan puede estar escrito en el riesgo o ser una acción del módulo de Planes que lo vincula.
+  if (criterio === 'sin-plan') return ['Extremo', 'Alto'].includes(zona) && !tienePlanDeAccion(riesgo, planes);
   if (criterio === 'sin-seguimiento') return ['Moderado', 'Bajo'].includes(zona) && !String(riesgo.fechaSeguimiento || '').trim();
   if (criterio === 'reprobados') {
     const controles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
@@ -38,9 +40,9 @@ export function incumpleCriterio(riesgo, criterio, evaluaciones = []) {
 }
 
 /** Riesgos que incumplen cada criterio. */
-export function cumplimientoNumeral9(riesgos = [], evaluaciones = []) {
+export function cumplimientoNumeral9(riesgos = [], evaluaciones = [], planes = []) {
   return Object.fromEntries(Object.keys(CRITERIOS_CUMPLIMIENTO).map(criterio => [
     criterio,
-    riesgos.filter(riesgo => incumpleCriterio(riesgo, criterio, evaluaciones)),
+    riesgos.filter(riesgo => incumpleCriterio(riesgo, criterio, evaluaciones, planes)),
   ]));
 }

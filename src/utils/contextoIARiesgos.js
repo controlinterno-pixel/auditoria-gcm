@@ -5,6 +5,7 @@ import { nivelEscala, riesgoEnPorcentaje, zonasRiesgo } from './nivelRiesgo.js';
 import { normalizarClasificacion } from './clasificacionRiesgo.js';
 import { explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from './explicacionRiesgoDetallada.js';
 import { cumplimientoNumeral9 } from './cumplimientoManual.js';
+import { textoPlanDeAccion } from './planesDelRiesgo.js';
 
 const texto = (valor, max = 400) => {
   const limpio = String(valor ?? '').replace(/\s+/g, ' ').trim();
@@ -65,12 +66,12 @@ export function controlesDeRiesgo(riesgo, calcularEficacia) {
 
 
 // Ficha de un riesgo para el dictamen individual.
-export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion, evaluaciones = [] }) {
+export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion, evaluaciones = [], planes = [] }) {
   const controles = controlesDeRiesgo(riesgo, calcularEficacia);
   const puntajes = puntajesRiesgo(riesgo);
   // Conclusiones exactas del sistema (las mismas de "Explícame este riesgo"): la IA las interpreta, no las recalcula.
   const pruebasCampo = pruebasDeCampoDelRiesgo(evaluaciones, riesgo.id);
-  const detalle = explicarRiesgoDetallado(riesgo, { pruebasCampo });
+  const detalle = explicarRiesgoDetallado(riesgo, { pruebasCampo, planes });
   return {
     riesgo: {
       codigo: `RSK-${riesgo.id}`,
@@ -83,7 +84,7 @@ export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion, e
       responsable: Array.isArray(riesgo.responsable) ? riesgo.responsable.join(', ') : (riesgo.responsable || 'Sin dato'),
       ...puntajes,
       tratamiento: riesgo.tratamiento || 'Sin dato',
-      planAccion: texto(riesgo.planAccionRiesgo) || 'Sin plan registrado',
+      planAccion: texto(textoPlanDeAccion(riesgo, planes), 600) || 'Sin plan registrado',
       fechaSeguimiento: riesgo.fechaSeguimiento || 'Sin fecha',
       bitacora: texto(riesgo.seguimientoBitacora, 800) || 'Sin registros en bitácora',
     },
@@ -152,7 +153,7 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
     && new Date(`${riesgo.fechaSeguimiento}T23:59:59`) < hoy && riesgo.estado !== 'Cerrado');
   const listaHallazgos = lista(hallazgos);
   const listaPlanes = lista(planes);
-  const cumplimiento = cumplimientoNumeral9(registros, evaluaciones);
+  const cumplimiento = cumplimientoNumeral9(registros, evaluaciones, listaPlanes);
   const resumenCumplimiento = criterio => ({ total: cumplimiento[criterio].length, riesgos: cumplimiento[criterio].slice(0, 20).map(riesgo => `RSK-${riesgo.id}`) });
 
   return {

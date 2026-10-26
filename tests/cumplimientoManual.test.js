@@ -24,3 +24,19 @@ assert.deepEqual(ids(resultado.reprobados), [2], 'Reprobado en campo: RSK-2 (RSK
 assert.equal(incumpleCriterio(riesgos[0], 'criterio-inexistente'), false);
 
 console.log('cumplimientoManual.test.js: 4 comprobaciones OK');
+
+// Numeral 9: el plan puede ser una acción del módulo de Planes que vincula el riesgo.
+{
+  const { planesVinculadosAlRiesgo, tienePlanDeAccion, textoPlanDeAccion } = await import('../src/utils/planesDelRiesgo.js');
+  const extremoSinTexto = { id: 49, probabilidadInherente: 80, impactoInherente: 100, probabilidadResidual: 29, impactoResidual: 100, controlesDetallados: [] };
+  const vinculado = { id: 1234567, accion: 'Campaña de marca', matrizRiesgos: 'Sí aplica', riesgosVinculados: ['49'], estadoWorkflow: 'En Ejecución' };
+  const noAplica = { ...vinculado, id: 2, estadoWorkflow: 'No aplica' };
+  const sinMarcar = { ...vinculado, id: 3, matrizRiesgos: 'No aplica' };
+  const { incumpleCriterio: incumple } = await import('../src/utils/cumplimientoManual.js');
+  assert.equal(incumple(extremoSinTexto, 'sin-plan', [], []), true, 'sin texto ni acción vinculada: incumple');
+  assert.equal(incumple(extremoSinTexto, 'sin-plan', [], [vinculado]), false, 'con una acción vinculada: cumple');
+  assert.equal(incumple(extremoSinTexto, 'sin-plan', [], [noAplica, sinMarcar]), true, 'No aplica o sin "Sí aplica" no cuentan');
+  assert.deepEqual(planesVinculadosAlRiesgo(extremoSinTexto, [vinculado, noAplica, sinMarcar]).map(plan => plan.id), [1234567]);
+  assert.equal(tienePlanDeAccion({ id: 9, planAccionRiesgo: 'Póliza' }, []), true, 'el texto del riesgo sigue contando');
+  assert.match(textoPlanDeAccion(extremoSinTexto, [vinculado]), /PLA-4567: Campaña de marca \(En Ejecución\)/);
+}

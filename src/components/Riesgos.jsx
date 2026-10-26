@@ -21,6 +21,7 @@ import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasifi
 import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { analizarControlEnRiesgo, explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../utils/explicacionRiesgoDetallada.js';
 import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '../utils/cumplimientoManual.js';
+import { planesVinculadosAlRiesgo } from '../utils/planesDelRiesgo.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
 
@@ -298,8 +299,8 @@ const BotonExplicacion = ({ etiqueta, onClick }) => (
 );
 // 📖 "Explícame este riesgo": panel desplegable con la explicación completa, calculada con los datos del riesgo.
 // Es un <details> (no un botón) para que funcione también dentro del formulario en modo consulta.
-const ExplicacionRiesgoDetallada = ({ riesgo, evaluaciones = [] }) => {
-  const detalle = explicarRiesgoDetallado(riesgo, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, riesgo.id) });
+const ExplicacionRiesgoDetallada = ({ riesgo, evaluaciones = [], planes = [] }) => {
+  const detalle = explicarRiesgoDetallado(riesgo, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, riesgo.id), planes });
   const bloques = [
     ['1. Probabilidad', detalle.probabilidad],
     ['2. Impacto', detalle.impacto],
@@ -838,12 +839,12 @@ const [editRiesgo, setEditRiesgo] = useState(null);
 
     try {
       // Cifras calculadas por el sistema; la IA solo las interpreta.
-      const datos = contextoRiesgo(riesgo, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo, evaluaciones });
+      const datos = contextoRiesgo(riesgo, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo, evaluaciones, planes: planesDeAccion });
       const { riesgo: ficha, metricas } = datos;
       // El plan, las recomendaciones y los KRIs salen del mismo cálculo de "Explícame este riesgo";
       // la IA solo redacta y su texto pasa por el revisor (dictamenControlIA.js).
-      const { simulacion } = explicarRiesgoDetallado(riesgo, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, riesgo.id) });
-      const plan = planDelRiesgo({ riesgo, simulacion, ficha, controles: datos.controles, evaluaciones });
+      const { simulacion } = explicarRiesgoDetallado(riesgo, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, riesgo.id), planes: planesDeAccion });
+      const plan = planDelRiesgo({ riesgo, simulacion, ficha, controles: datos.controles, evaluaciones, planes: planesDeAccion });
       const respuesta = await generarDictamenIA({
         consultar: consulta => consultarPanelIA({ ...consulta, estructura: ESTRUCTURA_DICTAMEN_RIESGO }),
         instruccion: `Redacta el dictamen del riesgo ${ficha.codigo} (inherente ${ficha.nivelInherente}, residual ${ficha.nivelResidual}). El plan de acción, sus prioridades, las recomendaciones y los indicadores ya los calculó el sistema ("planDelSistema"): no los repitas como lista ni propongas acciones distintas; tu texto debe ser coherente con ellos. Parte de "analisisSistema", que trae el cálculo exacto y por qué queda en su zona: interprétalo, no lo copies. Di si la reducción a ${ficha.nivelResidual} es creíble contrastando el diseño de cada control con la bitácora, el plan de acción y las pruebas de Trabajo de Campo (un control reprobado debilita la credibilidad), y de qué controles depende la mitigación.`,
@@ -880,7 +881,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     setDictamenIA(null);
 
     try {
-      const datosRiesgo = contextoRiesgo(r, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo, evaluaciones });
+      const datosRiesgo = contextoRiesgo(r, { calcularEficacia: calcularEficaciaControl, calcularMitigacion: calcularMitigacionRiesgo, evaluaciones, planes: planesDeAccion });
       const indice = (Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []).indexOf(c);
       const control = datosRiesgo.controles[indice] || {
         codigo: 'CTL', descripcion: c.descripcion || 'Sin dato', tipo: c.tipo || 'Sin dato',
@@ -890,7 +891,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
       // Paso 1: el plan, las recomendaciones y los KRIs salen del cálculo exacto (dictamenControlIA.js).
       // Paso 2: la IA solo redacta; su texto se revisa y, si trae errores, se corrige o se recorta.
       const { simulacion, ...analisisDelControl } = analizarControlEnRiesgo(r, indice, { pruebasCampo: pruebasDeCampoDelRiesgo(evaluaciones, r.id) }) || {};
-      const plan = planDelControl({ riesgo: r, simulacion, control, ficha: datosRiesgo.riesgo, evaluaciones });
+      const plan = planDelControl({ riesgo: r, simulacion, control, ficha: datosRiesgo.riesgo, evaluaciones, planes: planesDeAccion });
       const respaldo = simulacion
         ? [analisisDelControl.eficacia, analisisDelControl.situacionActual, analisisDelControl.siElControlFalla, analisisDelControl.siSeAutomatiza, analisisDelControl.pruebaTrabajoDeCampo].join(' ')
         : 'Faltan la probabilidad o el impacto inherente del riesgo: registra los valores para analizar este control.';
@@ -947,6 +948,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
           calcularMitigacionRiesgo,
           calcularEficaciaControl,
           alcance,
+          planes: planesDeAccion,
         });
       });
       const buffer = await libro.xlsx.writeBuffer({
@@ -1411,7 +1413,7 @@ const handleRiesgoSubmit = async (e) => {
       setVistaActiva('matriz');
     };
     // Cumplimiento del numeral 9 con los filtros del dashboard (sin el nivel elegido: el criterio ya define la zona).
-    const cumplimiento = cumplimientoNumeral9(riesgosBaseDashboard, evaluaciones);
+    const cumplimiento = cumplimientoNumeral9(riesgosBaseDashboard, evaluaciones, planesDeAccion);
     const abrirMatrizCumplimiento = criterio => {
       setFiltroCumplimiento(criterio);
       setFiltroNivel('Todos');
@@ -1865,7 +1867,7 @@ const renderMatriz = () => {
         : getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
       const matchNivel = filtroNivel === 'Todos' || zonaFiltro.label === etiquetaNivel;
       const matchEstado = filtroEstadoRiesgo === 'Todos' || (filtroEstadoRiesgo === 'Anulados' ? estaAnulado(r) : !estaAnulado(r));
-      const matchCumplimiento = !filtroCumplimiento || incumpleCriterio(r, filtroCumplimiento, evaluaciones);
+      const matchCumplimiento = !filtroCumplimiento || incumpleCriterio(r, filtroCumplimiento, evaluaciones, planesDeAccion);
       return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel && matchEstado && matchCumplimiento;
     });
 
@@ -2475,7 +2477,7 @@ const renderMatriz = () => {
     </ul>
 {(() => {
       const exp = obtenerExplicacionCalculo(r);
-      const lectura = explicarCalculoResidual(exp, r);
+      const lectura = explicarCalculoResidual(exp, r, { planes: planesDeAccion });
       return (
         <div className="bg-[#0A3B32] text-white p-5 rounded-2xl border border-emerald-900 shadow-md space-y-4 mt-4">
           <div className="flex justify-between items-center border-b border-emerald-800/80 pb-3">
@@ -2565,7 +2567,7 @@ const renderMatriz = () => {
           </div>
 
           {/* 📖 Explicación completa de este riesgo (la misma del formulario) */}
-          <ExplicacionRiesgoDetallada riesgo={r} evaluaciones={evaluaciones} />
+          <ExplicacionRiesgoDetallada riesgo={r} evaluaciones={evaluaciones} planes={planesDeAccion} />
         </div>
       );
     })()}
@@ -3388,6 +3390,19 @@ const renderMatriz = () => {
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Plan de Acción de Control Interno</label>
                 <input type="text" value={planAccionRiesgo} onChange={e => setPlanAccionRiesgo(e.target.value)} placeholder="Ej: Implementar póliza de cumplimiento..." className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" />
+                {/* Acciones del módulo de Planes que eligieron este riesgo ("Matriz de riesgos: Sí aplica"): cuentan para el numeral 9. */}
+                {editRiesgo && (() => {
+                  const vinculados = planesVinculadosAlRiesgo(editRiesgo, planesDeAccion);
+                  return vinculados.length > 0 ? (
+                    <ul className="mt-1 space-y-0.5 text-[10px] text-emerald-800">
+                      {vinculados.map(plan => (
+                        <li key={plan.id}>🔗 <b>PLA-{String(plan.id).slice(-4)}</b> · {String(plan.accion || '').slice(0, 90)} <span className="text-slate-500">({plan.estadoWorkflow || plan.estado || 'Sin estado'})</span></li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-slate-500">Ninguna acción del módulo de Planes está vinculada a este riesgo.</p>
+                  );
+                })()}
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Próxima Fecha de Seguimiento</label>
@@ -3417,7 +3432,7 @@ const renderMatriz = () => {
             {/* 💡 Qué significan estos porcentajes para este riesgo: se actualiza mientras se editan los controles */}
             {(() => {
               const exp = obtenerExplicacionCalculo({ id: editRiesgo?.id ?? customId, probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles });
-              const lectura = explicarCalculoResidual(exp, { id: editRiesgo?.id ?? customId, controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento });
+              const lectura = explicarCalculoResidual(exp, { id: editRiesgo?.id ?? customId, controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento }, { planes: planesDeAccion });
               const tonoZona = {
                 Extremo: 'bg-red-600 text-white', Alto: 'bg-orange-500 text-white', Moderado: 'bg-amber-400 text-slate-900', Bajo: 'bg-emerald-500 text-white',
               };
@@ -3441,7 +3456,7 @@ const renderMatriz = () => {
                   </div>
                   <p className="border-t border-emerald-800/60 pt-2"><strong className="text-emerald-300">📌 En resumen:</strong> {lectura.conclusion}</p>
                   {/* 📖 Explicación completa de este riesgo */}
-                  <ExplicacionRiesgoDetallada riesgo={{ id: editRiesgo?.id ?? customId, probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento }} evaluaciones={evaluaciones} />
+                  <ExplicacionRiesgoDetallada riesgo={{ id: editRiesgo?.id ?? customId, probabilidadInherente: probInherente, impactoInherente: impInherente, controlesDetallados: controles, planAccionRiesgo, fechaSeguimiento }} evaluaciones={evaluaciones} planes={planesDeAccion} />
                 </div>
               );
             })()}

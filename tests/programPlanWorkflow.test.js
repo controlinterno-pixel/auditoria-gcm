@@ -815,3 +815,19 @@ test('evaluación inicial: un solo correo por ejecutor con todas sus acciones', 
   assert.deepEqual(payloads[0].adjuntosCorreo, [soporte]);
   assert.equal(payloads[1].destinatarios, 'otro.ejecutor@example.test');
 });
+
+test('vincular riesgos a una acción ("Matriz de riesgos: Sí aplica") no la reenvía a revisión ni cambia su estado', async () => {
+  for (const estadoWorkflow of [workflow.ESTADO_EVALUACION_INICIAL, 'En Ejecución', 'Pendiente Revisión Jefatura']) {
+    const h = harness({ email: 'ejecutor@example.test', planes: [plan({ estadoWorkflow, matrizRiesgos: 'Sí aplica' })] });
+    const res = await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, matrizRiesgos: 'Sí aplica', riesgosVinculados: ['49', 62, '49'] }] });
+    assert.equal(res.code, 200, JSON.stringify({ estadoWorkflow, res }));
+    const guardado = h.data().planes[0];
+    assert.deepEqual(guardado.riesgosVinculados, ['49', '62'], 'ids como texto y sin duplicados');
+    assert.equal(guardado.estadoWorkflow, estadoWorkflow, 'el vínculo es informativo: no cambia el flujo');
+    assert.equal(guardado.historialCambios.at(-1).accion, 'Riesgos vinculados actualizados');
+  }
+  const invalido = harness({ email: 'ejecutor@example.test', planes: [plan({ estadoWorkflow: 'En Ejecución', matrizRiesgos: 'Sí aplica' })] });
+  const res = await invalido.update({ idInforme: 'i1', actualizaciones: [{ id: 1, riesgosVinculados: ['<script>'] }] });
+  assert.equal(res.code, 400);
+  assert.equal(invalido.writes.length, 0);
+});

@@ -98,6 +98,46 @@ const esAuditorAsignado = (plan, correo, perfil) => {
   return Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
 };
 
+// 🔗 Riesgos de la matriz a los que aplica la acción ("Matriz de riesgos: Sí aplica"). Muestra los riesgos del
+// proceso del hallazgo; si no hay, o si se pide, todos los visibles. Cuenta para el numeral 9 del riesgo.
+const normalizarProceso = valor => String(valor || '').split('/')[0].trim().toLowerCase();
+const procesosDelRiesgo = riesgo => (Array.isArray(riesgo?.macroprocesos) && riesgo.macroprocesos.length
+  ? riesgo.macroprocesos : [riesgo?.proceso]).map(normalizarProceso).filter(Boolean);
+const SelectorRiesgosPlan = ({ riesgos = [], proceso, seleccionados = [], onChange }) => {
+  const [verTodos, setVerTodos] = useState(false);
+  const procesoHallazgo = normalizarProceso(proceso);
+  const delProceso = riesgos.filter(riesgo => procesosDelRiesgo(riesgo).includes(procesoHallazgo));
+  const lista = verTodos || delProceso.length === 0 ? riesgos : delProceso;
+  const elegidos = new Set(seleccionados.map(String));
+  const alternar = id => {
+    const clave = String(id);
+    onChange(elegidos.has(clave) ? seleccionados.map(String).filter(item => item !== clave) : [...seleccionados.map(String), clave]);
+  };
+  return (
+    <div className="mt-2 rounded-lg border border-emerald-200 bg-white p-2">
+      <p className="mb-1 text-[10px] font-black text-[#0A3B32]">
+        ¿A qué riesgo(s) aplica? <span className="font-medium text-slate-500">({elegidos.size} elegido{elegidos.size === 1 ? '' : 's'})</span>
+      </p>
+      {elegidos.size === 0 && <p className="mb-1 text-[10px] font-bold text-red-600">Elige al menos un riesgo.</p>}
+      <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+        {lista.length === 0 && <p className="text-[10px] text-slate-500">No hay riesgos visibles en la matriz.</p>}
+        {lista.map(riesgo => (
+          <label key={riesgo.id} className="flex cursor-pointer items-start gap-1.5 text-[10px] leading-snug text-slate-700">
+            <input type="checkbox" checked={elegidos.has(String(riesgo.id))} onChange={() => alternar(riesgo.id)} className="mt-0.5" />
+            <span><b>RSK-{riesgo.id}</b> · {String(riesgo.descripcion || riesgo.escenarioFinal || 'Sin descripción').slice(0, 110)}</span>
+          </label>
+        ))}
+      </div>
+      {delProceso.length > 0 && delProceso.length < riesgos.length && (
+        <button type="button" onClick={() => setVerTodos(valor => !valor)} className="mt-1 text-[10px] font-bold text-emerald-700 hover:underline">
+          {verTodos ? 'Ver solo los riesgos del proceso' : 'Ver riesgos de otros procesos'}
+        </button>
+      )}
+      {delProceso.length === 0 && riesgos.length > 0 && <p className="mt-1 text-[10px] text-slate-500">El proceso del hallazgo no tiene riesgos en la matriz: se muestran todos.</p>}
+    </div>
+  );
+};
+
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
   let color = "bg-red-500";
@@ -127,6 +167,7 @@ export default function Planes({
   misPlanesRevision = [],
   misPlanesAprobacion = [],
   misNoAplicaPorAprobar = [],
+  riesgosMatriz = [],
   encolarReintentoNotificacion = () => {},
   user = null,
   perfilUsuario = null,
@@ -863,6 +904,7 @@ const handleNotificarPlan = async (planId) => {
     let errorMotivoRevisor = false;
     let errorCorreoAuditor = false;
     let errorRolesDuplicados = false;
+    let errorRiesgosVinculados = false;
     const normalizarCorreo = valor => String(valor || '').trim().toLowerCase();
 
     Object.keys(matrixState).forEach(hallazgoId => {
@@ -888,6 +930,11 @@ const handleNotificarPlan = async (planId) => {
               normalizarCorreo(act.correoRevisor) !== normalizarCorreo(planOriginal?.correoRevisor) ||
               normalizarCorreo(act.correoAuditor || correoAuditorOriginal) !== normalizarCorreo(correoAuditorOriginal);
             if (conflictoRoles && cambiaAsignacionRoles) errorRolesDuplicados = true;
+            // "Matriz de riesgos: Sí aplica" exige elegir el riesgo (al crear la acción o al cambiar el vínculo).
+            const vinculados = Array.isArray(act.riesgosVinculados) ? act.riesgosVinculados : [];
+            const cambiaVinculo = actividadNueva || act.matrizRiesgos !== planOriginal?.matrizRiesgos ||
+              JSON.stringify(vinculados) !== JSON.stringify(planOriginal?.riesgosVinculados || []);
+            if (act.matrizRiesgos === 'Sí aplica' && vinculados.length === 0 && cambiaVinculo) errorRiesgosVinculados = true;
             const cambioCorreoEjecutor = planOriginal && (
               normalizarCorreo(act.correoResponsable) !== normalizarCorreo(planOriginal.correoResponsable) ||
               normalizarCorreo(act.correoConfirmacion) !== normalizarCorreo(planOriginal.correoResponsable)
@@ -937,6 +984,11 @@ const handleNotificarPlan = async (planId) => {
       return;
     }
 
+    if (errorRiesgosVinculados) {
+      showNotification('Marcaste "Matriz de riesgos: Sí aplica": elige a qué riesgo(s) aplica la acción antes de guardar.', 'error');
+      return;
+    }
+
     if (errorRolesDuplicados) {
       showNotification('No se puede guardar: el mismo correo está asignado como ejecutor, revisor y/o auditor. Asigna personas distintas; el auditor se hereda del informe.', 'error');
       return;
@@ -966,6 +1018,7 @@ const handleNotificarPlan = async (planId) => {
               evidenciaUrl: act.evidenciaUrl || '',
               tipoAccion: act.tipoAccion || 'Acción Correctiva',
               matrizRiesgos: act.matrizRiesgos || 'No aplica',
+              riesgosVinculados: act.matrizRiesgos === 'Sí aplica' && Array.isArray(act.riesgosVinculados) ? act.riesgosVinculados : [],
               matrizAspectos: act.matrizAspectos || 'No aplica',
               matrizPeligros: act.matrizPeligros || 'No aplica',
               matrizLegal: act.matrizLegal || 'No aplica',
@@ -1007,6 +1060,7 @@ const handleNotificarPlan = async (planId) => {
                 evidenciaUrl: act.evidenciaUrl || '',
                 tipoAccion: act.tipoAccion || 'Acción Correctiva',
                 matrizRiesgos: act.matrizRiesgos || 'No aplica',
+                riesgosVinculados: act.matrizRiesgos === 'Sí aplica' && Array.isArray(act.riesgosVinculados) ? act.riesgosVinculados : [],
                 matrizAspectos: act.matrizAspectos || 'No aplica',
                 matrizPeligros: act.matrizPeligros || 'No aplica',
                 matrizLegal: act.matrizLegal || 'No aplica',
@@ -1231,6 +1285,7 @@ const handleNotificarPlan = async (planId) => {
           mes: act.fecha ? act.fecha.split('-')[1] : String(new Date().getMonth() + 1).padStart(2, '0'),
           tipoAccion: act.tipoAccion || 'Acción Correctiva',
           matrizRiesgos: act.matrizRiesgos || 'No aplica',
+          riesgosVinculados: act.matrizRiesgos === 'Sí aplica' && Array.isArray(act.riesgosVinculados) ? act.riesgosVinculados : [],
           matrizAspectos: act.matrizAspectos || 'No aplica',
           matrizPeligros: act.matrizPeligros || 'No aplica',
           matrizLegal: act.matrizLegal || 'No aplica'
@@ -1635,6 +1690,7 @@ if (existingActivities.length > 0) {
             estadoWorkflow: esInformePrograma(informeBase, fuentesMejora) ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
             tipoAccion: 'Acción Correctiva',
             matrizRiesgos: 'No aplica',
+            riesgosVinculados: [],
             matrizAspectos: 'No aplica',
             matrizPeligros: 'No aplica',
             matrizLegal: 'No aplica'
@@ -1821,6 +1877,7 @@ if (existingActivities.length > 0) {
           estadoWorkflow: esFuenteProgramaAuditoria(informeBase) ? ESTADO_EVALUACION_INICIAL : 'Pendiente Revisión Jefatura',
           tipoAccion: 'Acción Correctiva',
           matrizRiesgos: 'No aplica',
+          riesgosVinculados: [],
           matrizAspectos: 'No aplica',
           matrizPeligros: 'No aplica',
           matrizLegal: 'No aplica'
@@ -1852,6 +1909,7 @@ if (existingActivities.length > 0) {
       const currentActividades = prev[hallazgoId].actividades.map((act, idx) => {
         if (idx !== index) return act;
         const actualizado = { ...act, [field]: value };
+        if (field === 'matrizRiesgos' && value !== 'Sí aplica') actualizado.riesgosVinculados = [];
         if (field === 'revisorNoAplica') {
           return value
             ? { ...actualizado, revisor: 'No aplica', correoRevisor: '', correoRevisorConfirmacion: '' }
@@ -1969,7 +2027,7 @@ if (existingActivities.length > 0) {
 
     const camposGuardables = [
       'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion', 'progreso',
-      'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
+      'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal', 'riesgosVinculados',
     ];
     const cambios = {
       id: actividad.id,
@@ -1981,11 +2039,13 @@ if (existingActivities.length > 0) {
       tipoAccion: actividad.tipoAccion || 'Acción Correctiva',
       progreso,
       matrizRiesgos: actividad.matrizRiesgos || 'No aplica',
+      riesgosVinculados: actividad.matrizRiesgos === 'Sí aplica' && Array.isArray(actividad.riesgosVinculados) ? actividad.riesgosVinculados : [],
       matrizAspectos: actividad.matrizAspectos || 'No aplica',
       matrizPeligros: actividad.matrizPeligros || 'No aplica',
       matrizLegal: actividad.matrizLegal || 'No aplica',
     };
-    const camposDiseno = camposGuardables.filter(campo => !['progreso', 'evidenciaUrl'].includes(campo));
+    // El vínculo con la matriz de riesgos es informativo: no es un cambio de diseño.
+    const camposDiseno = camposGuardables.filter(campo => !['progreso', 'evidenciaUrl', 'riesgosVinculados'].includes(campo));
     const cambioDiseno = Boolean(planOriginal && camposDiseno.some(campo => (
       JSON.stringify(planOriginal[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
     ))) || Boolean(planOriginal && (
@@ -3718,6 +3778,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       <option value="No aplica">No aplica</option>
                                       <option value="Sí aplica">Sí aplica</option>
                                     </select>
+                                    {act.matrizRiesgos === 'Sí aplica' && (
+                                      <SelectorRiesgosPlan
+                                        riesgos={riesgosMatriz}
+                                        proceso={h.macroproceso || h.proceso}
+                                        seleccionados={Array.isArray(act.riesgosVinculados) ? act.riesgosVinculados : []}
+                                        onChange={ids => handleUpdateActivityField(h.id, index, 'riesgosVinculados', ids)}
+                                      />
+                                    )}
                                   </div>
                                   <div>
                                     <label className="font-bold text-slate-500 block mb-1 text-[10px]">Aspectos e impactos (ISO 14001)</label>

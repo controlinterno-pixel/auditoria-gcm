@@ -4,6 +4,7 @@
 import { calcularResiduales, codigoControl, desglosarEficaciaControl, explicarControl } from './explicacionControles.js';
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, zonaPorNiveles } from './nivelRiesgo.js';
 import { estaAnulado } from './anulacion.js';
+import { textoPlanDeAccion } from './planesDelRiesgo.js';
 
 const ORDEN_ZONA = { Bajo: 1, Moderado: 2, Alto: 3, Extremo: 4 };
 export const numero = valor => Number(valor).toLocaleString('es-CO', { maximumFractionDigits: 1 });
@@ -89,7 +90,7 @@ const CONTROLES_SIMULADOS = [
 const sinDatoInherente = riesgo => [riesgo?.probabilidadInherente, riesgo?.impactoInherente]
   .some(valor => valor === null || valor === undefined || valor === '' || !Number.isFinite(Number(valor)));
 
-export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo = new Map() } = {}) {
+export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo = new Map(), planes = [] } = {}) {
   // Sin probabilidad o impacto inherente no se calcula nada con valores supuestos.
   if (sinDatoInherente(riesgo)) {
     return {
@@ -167,7 +168,7 @@ export function explicarRiesgoDetallado(riesgo, { hoy = new Date(), pruebasCampo
         zonaSinElControl: zonaDe(sinEl.probabilidadResidual, sinEl.impactoResidual),
       };
     });
-  const plan = String(riesgo.planAccionRiesgo || '').trim();
+  const plan = textoPlanDeAccion(riesgo, planes);
   const fecha = String(riesgo.fechaSeguimiento || '').trim();
   const vencido = Boolean(fecha) && new Date(`${fecha}T23:59:59`) < hoy;
   const requierePlan = ['Alto', 'Extremo'].includes(zonaRes);

@@ -1,4 +1,5 @@
 import { ESCALA_IMPACTO, ESCALA_PROBABILIDAD, nivelEscala, riesgoEnPorcentaje, zonaPorNiveles } from './nivelRiesgo.js';
+import { textoPlanDeAccion } from './planesDelRiesgo.js';
 import { normalizarClasificacion } from './clasificacionRiesgo.js';
 import { codigoControl, desglosarEficaciaControl } from './explicacionControles.js';
 const COLORES = {
@@ -136,7 +137,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
     'Probabilidad Residual (Tabla 2)': nivelManual(riesgo.probabilidadResidual, riesgoEnPorcentaje(riesgo), ESCALA_PROBABILIDAD),
     'Impacto Residual (Tabla 3)': nivelManual(riesgo.impactoResidual, riesgoEnPorcentaje(riesgo), ESCALA_IMPACTO),
     'Estrategia de Tratamiento': riesgo.tratamiento || 'Reducir el riesgo',
-    'Plan de Acción': riesgo.planAccionRiesgo || 'N/A',
+    'Plan de Acción': textoPlanDeAccion(riesgo, calculos.planes) || 'N/A',
     'Fecha de Seguimiento': riesgo.fechaSeguimiento || 'No programada',
     'Bitácora de Seguimiento': riesgo.seguimientoBitacora || 'N/A',
     'Fecha de Registro': riesgo.fecha || 'N/A',
@@ -159,7 +160,7 @@ export const crearLibroMatrizRiesgosExcel = async (riesgos, calculos) => {
       'Nivel Inherente': zonaInherente.label.toUpperCase(),
       'Nivel Residual': zonaResidual.label.toUpperCase(),
       'Estrategia de Tratamiento': riesgo.tratamiento || 'N/A',
-      'Plan de Acción': riesgo.planAccionRiesgo || 'N/A',
+      'Plan de Acción': textoPlanDeAccion(riesgo, calculos.planes) || 'N/A',
     };
     if (controles.length === 0) {
       return [{
