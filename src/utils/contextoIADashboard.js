@@ -175,7 +175,7 @@ export function contextoTarjetaDashboard(tarjeta, { riesgos = [], hallazgos = []
     indicadores: [
       { etiqueta: 'Riesgos', valor: datos.metricas.totalRiesgos },
       { etiqueta: 'Altos/Extremos', valor: altosExtremos(datos.distribucionResidual) },
-      { etiqueta: 'Eficacia prom.', valor: datos.metricas.eficaciaPromedioControles === null ? 'Sin controles' : `${datos.metricas.eficaciaPromedioControles}%` },
+      { etiqueta: 'Eficacia prom. (del máximo)', valor: datos.metricas.eficaciaPromedioSobreMaximo === null ? 'Sin controles' : `${datos.metricas.eficaciaPromedioSobreMaximo}%` },
       { etiqueta: 'Mitigación', valor: datos.metricas.mitigacionPromedio === null ? 'Sin datos' : `${datos.metricas.mitigacionPromedio}%` },
     ],
     insignias: [

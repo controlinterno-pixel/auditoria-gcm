@@ -65,16 +65,18 @@ export function explicarEficaciaPromedio({ riesgos, alcance }) {
   }).filter(Boolean).join(', ');
   const manuales = desgloses.filter(d => d.implementacion === 'Manual').length;
   const maximoAlcanzable = desgloses.reduce((suma, d) => suma + d.maximoPosible, 0) / desgloses.length;
+  const sobreMaximo = desgloses.reduce((suma, d) => suma + (d.maximoPosible ? (d.total / d.maximoPosible) * 100 : 0), 0) / desgloses.length;
   const { calificacion, meta } = calificarEficacia(promedio);
   const faltan = meta ? Math.max(0, meta.valor - promedio) : 0;
   const porAutomatizar = Math.ceil((faltan * desgloses.length) / 10);
   return {
     titulo: 'Eficacia promedio',
-    valor: `${Math.round(promedio)}%`,
+    valor: `${Math.round(sobreMaximo)}%`,
     lineas: [
+      `Se muestra ${Math.round(sobreMaximo)} %: qué tan cerca está cada control del máximo posible para su tipo (como la tarjeta "Diseño" de cada control; un preventivo manual, 40 de 50, está al 80 %). En la Tabla 6 el promedio es ${numero(promedio)} % y ese es el valor que usa el cálculo del residual.`,
       `Cada control vale su tipo (Preventivo 25, Detectivo 15, Correctivo 10) más su implementación (Automático 25, Manual 15), según la Tabla 6 del manual. El máximo es 50 % (preventivo automático).`,
       `En ${alcance} hay ${desgloses.length} controles vigentes: ${detalle}. El promedio es ${numero(promedio)} %.`,
-      `Calificación: ${calificacion} (${Math.round((promedio / 50) * 100)} % del máximo). Escala: Excelente ≥ 45 % · Bueno 40–44 % · Moderado 30–39 % · Malo < 30 %.`,
+      `Calificación interna de la app: ${calificacion} (con el promedio de la Tabla 6: Excelente ≥ 45 % · Bueno 40–44 % · Moderado 30–39 % · Malo < 30 %).`,
       `Con el tipo de estos controles, lo máximo alcanzable automatizándolos todos sería ${numero(maximoAlcanzable)} %.`,
     ],
     accion: meta

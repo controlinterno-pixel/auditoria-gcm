@@ -53,6 +53,26 @@ export function desglosarEficaciaControl(control) {
 // Sin control estructurado se asume el caso más común del manual: preventivo manual (40 %).
 export const calcularEficaciaControl = control => (control ? desglosarEficaciaControl(control).total : 40);
 
+/**
+ * Eficacia de un control frente al máximo de su tipo (Preventivo 50, Detectivo 40, Correctivo 35): un
+ * preventivo manual (40 de 50) está al 80 %. Es la misma cifra de la tarjeta "DISEÑO" del control y es la
+ * que se muestra; el cálculo del residual sigue usando el valor de la Tabla 6.
+ */
+export const eficaciaSobreMaximo = control => {
+  const { total, maximoPosible } = desglosarEficaciaControl(control);
+  return maximoPosible ? (total / maximoPosible) * 100 : 0;
+};
+
+/** Promedio de varios controles: { tabla6, sobreMaximo } redondeados, o null si no hay controles. */
+export const promedioEficacia = (controles = []) => {
+  const lista = (Array.isArray(controles) ? controles : []).filter(Boolean);
+  if (!lista.length) return null;
+  return {
+    tabla6: Math.round(lista.reduce((suma, control) => suma + desglosarEficaciaControl(control).total, 0) / lista.length),
+    sobreMaximo: Math.round(lista.reduce((suma, control) => suma + eficaciaSobreMaximo(control), 0) / lista.length),
+  };
+};
+
 // Qué implica, para este control, cada atributo informativo que no cumple.
 const CONSECUENCIA_FALTANTE = {
   Documentación: 'No está documentado: si cambia el responsable, nada garantiza que se siga haciendo.',

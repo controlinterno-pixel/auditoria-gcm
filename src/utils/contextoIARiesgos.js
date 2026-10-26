@@ -1,6 +1,6 @@
 // Datos reales que se envían a la IA en los análisis de Riesgos.
 // Todo número sale de los registros; si algo no existe se reporta como 0 o "sin datos", nunca con un valor de relleno.
-import { codigoControl } from './explicacionControles.js';
+import { codigoControl, promedioEficacia } from './explicacionControles.js';
 import { nivelEscala, riesgoEnPorcentaje, zonasRiesgo } from './nivelRiesgo.js';
 import { normalizarClasificacion } from './clasificacionRiesgo.js';
 import { explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from './explicacionRiesgoDetallada.js';
@@ -106,6 +106,8 @@ export function contextoRiesgo(riesgo, { calcularEficacia, calcularMitigacion, e
       alcance: `Solo el riesgo RSK-${riesgo.id} (no toda la matriz)`,
       totalControles: controles.length || (riesgo.descripcionControl ? 1 : 0),
       eficaciaPromedioControles: promedio(controles.map(control => control.eficacia)),
+      // La que ve el usuario: frente al máximo de cada control (un preventivo manual 40 de 50 = 80 %).
+      eficaciaPromedioSobreMaximo: promedioEficacia(lista(riesgo?.controlesDetallados).filter(control => control?.estado !== 'Anulado'))?.sobreMaximo ?? null,
       mitigacionLograda: calcularMitigacion(riesgo),
       escala: '1-25 (probabilidad x impacto); niveles Bajo, Moderado, Alto, Extremo',
     },
@@ -162,6 +164,7 @@ export function contextoMatriz(riesgos, { calcularEficacia, calcularMitigacion, 
       totalRiesgos: registros.length,
       totalControles: controles.length,
       eficaciaPromedioControles: promedio(controles.map(control => control.eficacia)),
+      eficaciaPromedioSobreMaximo: promedioEficacia(registros.flatMap(riesgo => lista(riesgo?.controlesDetallados).filter(control => control?.estado !== 'Anulado')))?.sobreMaximo ?? null,
       mitigacionPromedio: promedio(registros.map(calcularMitigacion).filter(valor => typeof valor === 'number')),
       riesgosSinDatoDeProbabilidadOImpacto: registros.filter(riesgo => calcularMitigacion(riesgo) === null).length,
       puntajeResidualPromedio: promedio(conPuntajes.map(item => item.puntajeResidual).filter(valor => valor !== null)),
@@ -222,7 +225,7 @@ export function armarPanelIA(respuesta, { badges, kpis, indicadores }) {
   const comoPorcentaje = valor => (typeof valor === 'number' ? `${valor}%` : valor ?? '—');
   const porDefecto = kpis && Object.keys(kpis).length ? [
     { etiqueta: 'Puntaje residual', valor: kpis.scoreRiesgo ?? '—' },
-    { etiqueta: 'Eficacia prom.', valor: comoPorcentaje(kpis.scoreMadurez) },
+    { etiqueta: 'Eficacia prom. (del máximo)', valor: comoPorcentaje(kpis.scoreMadurez) },
     { etiqueta: 'Controles', valor: kpis.totalControles ?? '—' },
     { etiqueta: 'Mitigación', valor: comoPorcentaje(kpis.coberturaControles) },
   ] : null;

@@ -23,7 +23,7 @@ import { analizarControlEnRiesgo, explicarRiesgoDetallado, pruebasDeCampoDelRies
 import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '../utils/cumplimientoManual.js';
 import { planesVinculadosAlRiesgo } from '../utils/planesDelRiesgo.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
-import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, explicarCalculoResidual, explicarControl, tonoDiseno } from '../utils/explicacionControles.js';
+import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, eficaciaSobreMaximo, explicarCalculoResidual, explicarControl, promedioEficacia, tonoDiseno } from '../utils/explicacionControles.js';
 
 const normalizarTextoProceso = valor => String(valor || '')
   .normalize('NFD')
@@ -859,7 +859,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
           badges: { inherente: ficha.nivelInherente.toUpperCase(), residual: ficha.nivelResidual.toUpperCase() },
           kpis: {
             scoreRiesgo: ficha.puntajeResidual === null ? 'Sin dato' : `${ficha.puntajeResidual}/25`,
-            scoreMadurez: metricas.eficaciaPromedioControles ?? 'Sin controles',
+            scoreMadurez: metricas.eficaciaPromedioSobreMaximo ?? 'Sin controles',
             totalControles: metricas.totalControles,
             coberturaControles: metricas.mitigacionLograda,
           },
@@ -909,13 +909,13 @@ const [editRiesgo, setEditRiesgo] = useState(null);
           badges: { inherente: datosRiesgo.riesgo.nivelInherente.toUpperCase(), residual: datosRiesgo.riesgo.nivelResidual.toUpperCase() },
           kpis: {
             scoreRiesgo: datosRiesgo.riesgo.puntajeResidual === null ? 'Sin dato' : `${datosRiesgo.riesgo.puntajeResidual}/25`,
-            scoreMadurez: control.eficacia,
+            scoreMadurez: Math.round(eficaciaSobreMaximo(c)),
             totalControles: datosRiesgo.metricas.totalControles,
             coberturaControles: datosRiesgo.metricas.mitigacionLograda,
           },
           indicadores: [
             { etiqueta: 'Puntaje residual', valor: datosRiesgo.riesgo.puntajeResidual === null ? 'Sin dato' : `${datosRiesgo.riesgo.puntajeResidual}/25` },
-            { etiqueta: 'Eficacia del control', valor: Number.isFinite(Number(control.eficacia)) ? `${control.eficacia}%` : 'Sin dato' },
+            { etiqueta: 'Eficacia (del máximo)', valor: Number.isFinite(Number(control.eficacia)) ? `${Math.round(eficaciaSobreMaximo(c))}%` : 'Sin dato' },
             { etiqueta: 'Controles del riesgo', valor: datosRiesgo.metricas.totalControles },
             { etiqueta: 'Mitigación del riesgo', valor: textoPorcentaje(datosRiesgo.metricas.mitigacionLograda) },
           ],
@@ -1083,7 +1083,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
           },
           kpis: {
             scoreRiesgo: metricas.puntajeResidualPromedio === null ? 'Sin datos' : `${metricas.puntajeResidualPromedio}/25`,
-            scoreMadurez: metricas.eficaciaPromedioControles ?? 'Sin controles',
+            scoreMadurez: metricas.eficaciaPromedioSobreMaximo ?? 'Sin controles',
             totalControles: metricas.totalControles,
             coberturaControles: metricas.mitigacionPromedio ?? 'Sin datos',
           },
@@ -1369,9 +1369,8 @@ const handleRiesgoSubmit = async (e) => {
     const riesgosSinControl = riesgosDashboard.filter(r => !Array.isArray(r.controlesDetallados) || r.controlesDetallados.length === 0).length;
     // Los controles anulados no reducen el riesgo: no cuentan en la eficacia promedio.
     const controlesVigentesDashboard = vigentes(controlesEstructurados);
-    const eficaciaPromedio = controlesVigentesDashboard.length > 0
-      ? Math.round(controlesVigentesDashboard.reduce((total, control) => total + calcularEficaciaControl(control), 0) / controlesVigentesDashboard.length)
-      : 0;
+    // Se muestra frente al máximo de cada control (como "DISEÑO 80 %"); el valor de la Tabla 6 va de nota.
+    const eficaciaPromedio = promedioEficacia(controlesVigentesDashboard) || { tabla6: 0, sobreMaximo: 0 };
     // Texto del alcance para las explicaciones: proceso y filtros aplicados.
     const filtrosAlcance = [
       filtroSubproceso !== 'Todos' && `subproceso ${filtroSubproceso}`,
@@ -1514,7 +1513,7 @@ const handleRiesgoSubmit = async (e) => {
             },
             kpis: {
               scoreRiesgo: datos.metricas.puntajeResidualPromedio === null ? 'Sin datos' : `${datos.metricas.puntajeResidualPromedio}/25`,
-              scoreMadurez: datos.metricas.eficaciaPromedioControles ?? 'Sin controles',
+              scoreMadurez: datos.metricas.eficaciaPromedioSobreMaximo ?? 'Sin controles',
               totalControles: datos.metricas.totalControles,
               coberturaControles: datos.metricas.mitigacionPromedio ?? 'Sin datos',
             },
@@ -1756,7 +1755,7 @@ const handleRiesgoSubmit = async (e) => {
         <section aria-label="Indicadores complementarios" className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
           {[
             { titulo: 'Controles registrados', valor: controlesRegistrados, nota: `${controlesEstructurados.length} estructurados`, explicar: () => explicarControlesRegistrados({ riesgos: riesgosDashboard, alcance: alcanceDashboard }) },
-            { titulo: 'Eficacia promedio', valor: `${eficaciaPromedio}%`, nota: 'Según atributos del control', explicar: () => explicarEficaciaPromedio({ riesgos: riesgosDashboard, alcance: alcanceDashboard }) },
+            { titulo: 'Eficacia promedio', valor: `${eficaciaPromedio.sobreMaximo}%`, nota: `Del máximo posible · ${eficaciaPromedio.tabla6} % según Tabla 6`, explicar: () => explicarEficaciaPromedio({ riesgos: riesgosDashboard, alcance: alcanceDashboard }) },
             { titulo: 'Mitigación promedio', valor: `${mitigacionPromedio}%`, nota: 'Reducción frente al riesgo inherente', explicar: () => explicarMitigacionPromedio({ riesgos: riesgosDashboard, alcance: alcanceDashboard, calcularMitigacion: calcularMitigacionRiesgo }) },
             { titulo: 'Seguimientos vencidos', valor: riesgosVencidos, nota: `${riesgosSinControl} riesgos sin controles estructurados`, explicar: () => explicarSeguimientos({ riesgos: riesgosDashboard, alcance: alcanceDashboard }) },
           ].map(indicador => (
@@ -1827,9 +1826,7 @@ const renderMatriz = () => {
 
     // 🧮 CALCULADORAS DINÁMICAS PARA LA BARRA DE KPIs
     const todosLosControles = riesgosVigentes.flatMap(r => vigentes(r.controlesDetallados));
-    const eficaciaPromedioGlobal = todosLosControles.length > 0
-      ? Math.round(todosLosControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / todosLosControles.length)
-      : 0;
+    const eficaciaPromedioGlobal = promedioEficacia(todosLosControles) || { tabla6: 0, sobreMaximo: 0 };
 
     const avgResidualScore = totalRiesgosCount > 0
   ? (() => { const conDatos = riesgosVigentes.filter(r => datoRiesgo(r.probabilidadResidual) !== null && datoRiesgo(r.impactoResidual) !== null); return conDatos.length ? conDatos.reduce((acc, r) => acc + (datoRiesgo(r.probabilidadResidual) * datoRiesgo(r.impactoResidual) / 100), 0) / conDatos.length : 0; })()
@@ -1933,7 +1930,7 @@ const renderMatriz = () => {
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Controles Implementados</p>
               <h3 className="text-3xl font-black text-slate-900 mt-1">{totalControlesCount}</h3>
-              <p className="text-[10px] text-emerald-700 font-extrabold mt-1">Eficacia promedio: {eficaciaPromedioGlobal}%</p>
+              <p className="text-[10px] text-emerald-700 font-extrabold mt-1" title={`${eficaciaPromedioGlobal.tabla6} % según la Tabla 6 del manual`}>Eficacia promedio: {eficaciaPromedioGlobal.sobreMaximo}% del máximo</p>
             </div>
             <span className="p-3 bg-blue-50 text-blue-600 rounded-2xl text-lg shadow-inner">🛡️</span>
           </div>
@@ -2276,9 +2273,9 @@ const renderMatriz = () => {
         </div>
         <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-100">
           <p className="text-[8px] font-black text-indigo-600 uppercase">Eficacia Prom.</p>
-<p className="text-base font-black text-indigo-800">
-  {controlesActivos.length > 0 
-    ? `${Math.round(controlesActivos.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / controlesActivos.length)}%` 
+<p className="text-base font-black text-indigo-800" title={controlesActivos.length > 0 ? `${promedioEficacia(controlesActivos).tabla6} % según la Tabla 6 del manual` : undefined}>
+  {controlesActivos.length > 0
+    ? `${promedioEficacia(controlesActivos).sobreMaximo}%`
     : '—'}
 </p>
         </div>

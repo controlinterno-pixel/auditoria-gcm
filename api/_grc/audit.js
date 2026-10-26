@@ -29,6 +29,7 @@ Metodología obligatoria: Manual del Sistema Integral de Riesgos E-GE-MAN-001 de
 - Numeral 9: residual Extremo o Alto exige plan de acción; residual Moderado o Bajo exige seguimiento (fecha de seguimiento), NO plan de acción. En Moderado o Bajo no presentes la falta de plan de acción como incumplimiento ni como acción obligatoria: el pendiente es programar el seguimiento.
 - Escala interna de la app para el promedio de eficacia (NO es del manual; nunca digas "según el manual" ni "escala del manual" al usarla): Excelente ≥ 45 %, Bueno 40–44 %, Moderado 30–39 %, Malo < 30 %.
   Esa escala se aplica SOLO al promedio de varios controles. Un control individual no se califica con ella: se compara con el máximo de su tipo (Preventivo 50 %, Detectivo 40 %, Correctivo 35 %), p. ej. "40 % de 50 % posible".
+- La pantalla muestra la eficacia promedio frente al máximo posible de cada control (eficacia promedio sobre el máximo, p. ej. 74 %). Al citar la eficacia promedio usa esa cifra y di "del máximo posible"; el promedio de la Tabla 6 solo al explicar el cálculo o la escala interna.
 - Un control reprobado en Trabajo de Campo sigue contando en el cálculo (la Tabla 6 valora el diseño), pero es una alerta de que en la práctica puede no operar.
 - Que un control aún no tenga pruebas de Trabajo de Campo NO es una falla ni una "ausencia a corregir": la acción es programar su primera prueba, con prioridad MEDIA (nunca ALTA).
 - Las obligaciones del numeral 9 (plan de acción en Extremo/Alto, fecha de seguimiento en Moderado/Bajo) nunca van con prioridad BAJA.

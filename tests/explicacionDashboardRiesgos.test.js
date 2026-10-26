@@ -35,9 +35,11 @@ prueba('controles: cuenta tipos, anulados y riesgos sin controles', () => {
 
 prueba('eficacia: excluye anulados, usa la Tabla 6 y dice cuánto falta', () => {
   const r = explicarEficaciaPromedio({ riesgos, alcance });
-  assert.equal(r.valor, '36%'); // (40 + 40 + 25 + 40) / 4
+  // Valor mostrado: cada control frente al máximo real de su tipo: (40/50 + 40/50 + 40/40 + 25/35) / 4 = 83 %.
+  assert.equal(r.valor, '83%');
+  assert.ok(r.lineas.some(l => l.includes('En la Tabla 6 el promedio es 36,3 %')), 'el valor de la Tabla 6 sigue explicado');
   assert.ok(r.lineas.some(l => l.includes('2 preventivos manuales (40 %), 1 detectivo automático (40 %), 1 correctivo manual (25 %)')));
-  assert.ok(r.lineas.some(l => l.startsWith('Calificación: Moderado')));
+  assert.ok(r.lineas.some(l => l.startsWith('Calificación interna de la app: Moderado')));
   assert.match(r.accion, /Bueno \(40 %\) faltan 3,8 puntos/);
 });
 

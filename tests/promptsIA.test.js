@@ -88,7 +88,7 @@ prueba('el copiloto ya no usa la plantilla con niveles y confianza inventados', 
 
 prueba('el panel de riesgos muestra etiquetas que dicen lo que mide cada cifra', () => {
   const panel = JSON.parse(armarPanelIA('{}', { badges: {}, kpis: { scoreRiesgo: '3/25', scoreMadurez: 38, totalControles: 7, coberturaControles: 96 } }));
-  assert.deepEqual(panel.indicadores.map(i => `${i.etiqueta}=${i.valor}`), ['Puntaje residual=3/25', 'Eficacia prom.=38%', 'Controles=7', 'Mitigación=96%']);
+  assert.deepEqual(panel.indicadores.map(i => `${i.etiqueta}=${i.valor}`), ['Puntaje residual=3/25', 'Eficacia prom. (del máximo)=38%', 'Controles=7', 'Mitigación=96%']);
 });
 
 prueba('el responsable del control es el del riesgo cuando el control no tiene uno propio', () => {
