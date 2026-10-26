@@ -3,6 +3,7 @@ import { adminDb } from '../_lib/firebaseAdmin.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { applyCors } from '../_lib/cors.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
+import { parametrosConsulta } from '../_lib/seguridad.js';
 import { logger } from '../_lib/logger.js';
 import { esAdministradorTotal } from '../_lib/roles.js';
 
@@ -38,7 +39,7 @@ export default async function handler(req, res) {
         return sendError(res, 'Permisos insuficientes para consultar históricos de nómina o marcaciones.', 403);
       }
 
-      const { action, periodo, empresa } = req.query;
+      const { action, periodo, empresa } = parametrosConsulta(req);
 
       // 1. Obtener lista de Nóminas
       if (action === 'listaHistoricos') {

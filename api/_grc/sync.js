@@ -2,6 +2,7 @@
 import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
+import { parametrosConsulta } from '../_lib/seguridad.js';
 import { logger } from '../_lib/logger.js';
 import { esAdministradorTotal } from '../_lib/roles.js';
 import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
@@ -258,14 +259,15 @@ export default async function handler(req, res) {
           ? user.procesosAsignados
           : [user.procesoAsignado].filter(Boolean))
         : null;
-      let revision = typeof req.query?.revision === 'string' ? req.query.revision.slice(0, 100) : '';
+      const consulta = parametrosConsulta(req);
+      let revision = typeof consulta.revision === 'string' ? consulta.revision.slice(0, 100) : '';
       if (!revision) {
         // Se lee la revisión ANTES que los datos: así los datos nunca son más antiguos que la revisión
         // devuelta y el cliente no repite la descarga cuando su listener del semáforo responde después.
         revision = await leerRevisionSemaforo().catch(() => '');
       }
       const { data: workspaceData } = await leerWorkspaceGrc(null, {
-        usarCache: req.query?.fresh !== '1' || Boolean(revision),
+        usarCache: consulta.fresh !== '1' || Boolean(revision),
         procesosAsignados: procesosConsulta,
         revision,
         origen: 'sync-get',

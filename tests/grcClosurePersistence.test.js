@@ -11,6 +11,7 @@ import { zonaSeveridad } from '../src/utils/nivelRiesgo.js';
 import { revisarControlesEliminados } from '../src/utils/anulacion.js';
 import { compararRiesgos, entradaDeCambios } from '../src/utils/historialRiesgo.js';
 import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
+import { parametrosConsulta } from '../api/_lib/seguridad.js';
 import * as noAplicaUtil from '../src/utils/noAplicaHallazgo.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
@@ -121,7 +122,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const errors = [];
   const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
-    ...workspace, ...workflow, ...alcance, ...validacion, ...noAplicaUtil, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios, esAdministradorTotal, puedeVerTodo,
+    ...workspace, ...workflow, ...alcance, ...validacion, ...noAplicaUtil, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios, esAdministradorTotal, puedeVerTodo, parametrosConsulta,
     applyCors: () => false,
     requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
@@ -140,7 +141,9 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const noAplicaHandler = load('../api/_grc/no-aplica.js');
   const call = async (target, method, body, url, query = {}) => {
     const res = {};
-    await target({ method, body, url, query }, res);
+    // Igual que la app: los parámetros viajan en la URL (el servidor ya no usa req.query).
+    const consulta = new URLSearchParams(query).toString();
+    await target({ method, body, url: consulta ? `${url}?${consulta}` : url }, res);
     return res;
   };
   return {

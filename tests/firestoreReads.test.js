@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
+import { parametrosConsulta } from '../api/_lib/seguridad.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -120,7 +121,7 @@ enCurso.cleanup();
   const congelado = JSON.stringify(workspaceCompartido);
   const ejecutarGet = async user => {
     const bindings = {
-    esAdministradorTotal, puedeVerTodo,
+    esAdministradorTotal, puedeVerTodo, parametrosConsulta,
       ...workflowModule, ...alcanceModule,
       applyCors: () => false,
       requireAuth: async () => user,

@@ -2,6 +2,7 @@
 import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
+import { parametrosConsulta } from '../_lib/seguridad.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { notificarSemaforo } from '../_lib/semaforo.js';
@@ -187,7 +188,7 @@ export default async function handler(req, res) {
 
     // 🗑️ ELIMINACIÓN (DELETE)
     if (method === 'DELETE') {
-      const { id } = req.query;
+      const { id } = parametrosConsulta(req);
       if (!id) return sendError(res, 'ID de riesgo requerido.', 400);
 
       const puedeEliminarPorRol = esAdministrador;

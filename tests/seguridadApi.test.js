@@ -89,3 +89,11 @@ assert.equal(read('../api/_notifications/email.js').includes('nodemailer'), fals
 
 console.warn = avisoOriginal;
 console.log('seguridadApi.test.js: OK (límites por IP/sesión/ruta, cuerpo JSON, origen, cookie, revocación y errores)');
+
+// 7. Parámetros de la URL sin req.query (Vercel lo calcula con url.parse, obsoleto: DEP0169).
+const { parametrosConsulta } = await import('../api/_lib/seguridad.js');
+assert.deepEqual(parametrosConsulta({ url: '/api/grc/sync?fresh=1&revision=179' }), { fresh: '1', revision: '179' });
+assert.deepEqual(parametrosConsulta({ url: '/api/grc/sync' }), {});
+for (const archivo of ['_grc/sync.js', '_grc/riesgos.js', '_grc/historico.js']) {
+  assert.equal(read(`../api/${archivo}`).includes('req.query'), false, `${archivo} sin req.query`);
+}

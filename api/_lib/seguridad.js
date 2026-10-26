@@ -11,6 +11,14 @@ export function obtenerIpCliente(req) {
   return req.socket?.remoteAddress || 'unknown-ip';
 }
 
+/**
+ * Parámetros de la URL (?clave=valor) con la API estándar WHATWG. No se usa req.query: en Vercel ese
+ * atajo se calcula con url.parse(), obsoleto (aviso DEP0169 en los registros).
+ */
+export function parametrosConsulta(req) {
+  return Object.fromEntries(new URL(String(req.url || '/'), 'http://localhost').searchParams);
+}
+
 /** Identifica la sesión sin verificarla (eso lo hace requireAuth): basta para contar sus solicitudes. */
 export function claveSesion(req) {
   const coincidencia = /(?:^|;\s*)grc_session=([^;]+)/.exec(String(req.headers?.cookie || ''));
