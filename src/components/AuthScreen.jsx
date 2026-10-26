@@ -648,8 +648,8 @@ export default function AuthScreen() {
 
              <button 
                 type="submit" 
-                disabled={loading || !email.trim() || email.trim().toLowerCase() !== emailConfirmacion.trim().toLowerCase() || !password || password !== confirmPassword || !requisitosClave(password).every(requisito => requisito.cumple)}
-                title={email.trim().toLowerCase() !== emailConfirmacion.trim().toLowerCase() ? 'Los correos deben coincidir' : password !== confirmPassword ? 'Las contraseñas deben coincidir' : !requisitosClave(password).every(requisito => requisito.cumple) ? 'La contraseña no cumple los requisitos mínimos' : undefined} 
+                disabled={loading || !email.trim() || email.trim().toLowerCase() !== emailConfirmacion.trim().toLowerCase() || !password || password !== confirmPassword || !requisitosClave(password).every(requisito => requisito.cumple) || !habeasDataAccepted}
+                title={email.trim().toLowerCase() !== emailConfirmacion.trim().toLowerCase() ? 'Los correos deben coincidir' : password !== confirmPassword ? 'Las contraseñas deben coincidir' : !requisitosClave(password).every(requisito => requisito.cumple) ? 'La contraseña no cumple los requisitos mínimos' : !habeasDataAccepted ? 'Acepta el tratamiento de datos' : undefined} 
                 className="w-full bg-gradient-to-r from-[#9b6a38] to-[#784f25] hover:from-[#a87642] hover:to-[#63401d] border border-[#a87642]/50 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-xl transition-all hover:scale-[1.02] disabled:opacity-50 mt-1"
               >
                 <span>{loading ? "Creando cuenta..." : "Crear Cuenta y Enviar Verificación ✉️"}</span>

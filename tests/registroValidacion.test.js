@@ -14,5 +14,6 @@ assert.ok(pantalla.includes('if (cleanEmail !== emailConfirmacion.trim().toLower
 assert.ok(pantalla.includes('if (!requisitosClave(password).every(requisito => requisito.cumple))'), 'no crea la cuenta con contraseña débil');
 assert.ok(/disabled=\{loading \|\| !email\.trim\(\) \|\| email\.trim\(\)\.toLowerCase\(\) !== emailConfirmacion\.trim\(\)\.toLowerCase\(\) \|\| !password \|\| password !== confirmPassword \|\| !requisitosClave\(password\)/.test(pantalla), 'botón bloqueado hasta que todo esté en verde');
 assert.ok(pantalla.includes('Para que sea segura debe tener como mínimo:'), 'explica los requisitos');
+assert.ok(pantalla.includes('|| !habeasDataAccepted}'), 'botón bloqueado sin aceptar el tratamiento de datos');
 
 console.log('registroValidacion.test.js: OK (doble correo, doble contraseña, requisitos visibles y obligatorios)');
