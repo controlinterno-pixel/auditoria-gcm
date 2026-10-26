@@ -21,6 +21,13 @@ const esPro = modelo => /pro/i.test(modelo);
 const ESPERA_PRO_MS = 60000;
 const MAX_TOKENS_SALIDA = 8192;
 const MAX_TOKENS_SALIDA_PRO = 32768;
+// Gemini 2.5 Flash razona antes de responder (la mayor parte de sus ~15 s). Aquí no hace falta: el plan,
+// las prioridades y las metas ya los calcula el sistema y la IA solo redacta. Solo se apaga en los
+// modelos 2.5 Flash, que aceptan thinkingBudget: 0 (los alias -latest pueden apuntar a otra familia).
+const sinRazonamiento = modelo => /2\.5-flash/i.test(modelo);
+// Un modelo saturado en Google (503) se salta durante 10 minutos, compartido entre instancias.
+const SATURADO_SEGUNDOS = 10 * 60;
+const claveSaturado = modelo => `gcm:ia:saturado:${modelo}`;
 const CACHE_SEGUNDOS = 7 * 24 * 60 * 60;
 // Si cambian las reglas, la forma del prompt o los modelos, subir la versión invalida la caché anterior.
 // v3: Pro pasa a ser el primer modelo; las respuestas guardadas de Flash-Lite se regeneran.
@@ -76,6 +83,7 @@ async function llamarModelo({ modelo, clave, instruccionSistema, prompt, json, t
           temperature: temperatura,
           maxOutputTokens: esPro(modelo) ? MAX_TOKENS_SALIDA_PRO : MAX_TOKENS_SALIDA,
           ...(json ? { responseMimeType: 'application/json' } : {}),
+          ...(sinRazonamiento(modelo) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         },
       }),
       signal: controlador.signal,
@@ -110,8 +118,9 @@ async function llamarModelo({ modelo, clave, instruccionSistema, prompt, json, t
 
 /**
  * Genera la respuesta probando los modelos en orden (Pro → Flash → Flash-Lite) y, para cada modelo, cada
- * clave: así se agota la cuota de Pro en todas las claves antes de bajar de modelo. Si un modelo no existe
- * (404) o no responde a tiempo, no se insiste con las demás claves. Devuelve { texto, modelo, desdeCache }.
+ * clave: así se agota la cuota de un modelo en todas las claves antes de bajar. Si un modelo no existe
+ * (404), está saturado (503) o no responde a tiempo, no se insiste con las demás claves; si está saturado,
+ * además se salta durante 10 minutos. Devuelve { texto, modelo, desdeCache }.
  * Lanza el último error si ningún modelo respondió.
  */
 export async function generarConGemini({ instruccionSistema, prompt, json = false }, {
@@ -128,7 +137,12 @@ export async function generarConGemini({ instruccionSistema, prompt, json = fals
 
   const claves = obtenerClaves(entorno);
   if (!claves.length) throw new Error('Falta configurar GEMINI_API_KEYS en el servidor.');
-  const modelos = obtenerModelos(entorno);
+  const todos = obtenerModelos(entorno);
+  const saturados = await redis(todos.map(modelo => ['GET', claveSaturado(modelo)]), { etiqueta: 'IA-SATURADO' }) || [];
+  const disponibles = todos.filter((_, indice) => !saturados[indice]);
+  // Si todos figuran saturados, se prueban igual: la marca es una ayuda, no un bloqueo.
+  const modelos = disponibles.length ? disponibles : todos;
+  if (disponibles.length < todos.length) logger.info('[IA] Modelos saturados que se saltan', { modelos: todos.filter(m => !disponibles.includes(m)) });
   const temperatura = obtenerTemperatura(entorno);
   let ultimoError = null;
   for (const modelo of modelos) {
@@ -145,6 +159,7 @@ export async function generarConGemini({ instruccionSistema, prompt, json = fals
         logger.warn('[IA] Modelo sin respuesta; se prueba el siguiente', { modelo, ms: Date.now() - inicio, estado: error?.estado, motivo: String(error?.message || '').slice(0, 200) });
         // Modelo inexistente (404), saturado en Google (503) o lento: otra clave no lo arregla y solo hace
         // esperar (p. ej. 503 y luego 25 s sin respuesta con la siguiente clave). Cuota agotada (429): sí.
+        if (error?.estado === 503) await redis([['SET', claveSaturado(modelo), '1', 'EX', String(SATURADO_SEGUNDOS)]], { etiqueta: 'IA-SATURADO' });
         if ([404, 503, 'timeout'].includes(error?.estado)) break;
       }
     }

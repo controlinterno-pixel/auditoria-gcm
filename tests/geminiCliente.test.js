@@ -107,4 +107,32 @@ await prueba('cuota agotada (429): prueba el modelo con cada clave antes de baja
   assert.deepEqual(llamadas, ['gemini-flash-latest@clave-1', 'gemini-flash-latest@clave-2', 'gemini-2.5-flash@clave-1', 'gemini-flash-lite-latest@clave-1']);
 });
 
+await prueba('modelo saturado (503): se salta 10 minutos en las siguientes consultas', async () => {
+  const { redis, datos } = redisEnMemoria();
+  const llamadas = [];
+  const fetchImpl = async url => {
+    llamadas.push(url.split('/models/')[1].split(':')[0]);
+    return url.includes('flash-latest') ? respuestaError(503, 'high demand') : respuestaOk('ok');
+  };
+  await generarConGemini({ ...solicitudTexto, prompt: 'saturado 1' }, { entorno, fetchImpl, redis });
+  assert.deepEqual(llamadas, ['gemini-flash-latest', 'gemini-2.5-flash']);
+  assert.ok(datos.has('gcm:ia:saturado:gemini-flash-latest'), 'queda marcado como saturado');
+  llamadas.length = 0;
+  const r = await generarConGemini({ ...solicitudTexto, prompt: 'saturado 2' }, { entorno, fetchImpl, redis });
+  assert.deepEqual(llamadas, ['gemini-2.5-flash'], 'la siguiente consulta no pierde tiempo con el saturado');
+  assert.equal(r.modelo, 'gemini-2.5-flash');
+});
+
+await prueba('2.5 Flash responde sin razonamiento previo (thinkingBudget 0); los alias no lo llevan', async () => {
+  const { redis } = redisEnMemoria();
+  const cuerpos = {};
+  const fetchImpl = async (url, opciones) => {
+    cuerpos[url.split('/models/')[1].split(':')[0]] = JSON.parse(opciones.body).generationConfig;
+    return url.includes('flash-latest') ? respuestaError(404, 'no') : respuestaOk('ok');
+  };
+  await generarConGemini({ ...solicitudTexto, prompt: 'sin razonar' }, { entorno, fetchImpl, redis });
+  assert.equal(cuerpos['gemini-flash-latest'].thinkingConfig, undefined);
+  assert.deepEqual(cuerpos['gemini-2.5-flash'].thinkingConfig, { thinkingBudget: 0 });
+});
+
 console.log(`geminiCliente.test.js: ${pruebas} pruebas OK`);
