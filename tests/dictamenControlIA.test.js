@@ -31,6 +31,8 @@ test('Extremo: el plan obligatorio y la acción que cambia la zona son ALTA; la 
   assert.match(plan.planAccion[2].accion, /primera prueba de Trabajo de Campo de CTL-49-1/);
   assert.ok(plan.planAccion.every(p => p.responsable === 'Dirección Comercial'));
   assert.equal(plan.recomendaciones.length, plan.planAccion.length, 'una recomendación por acción');
+  assert.match(plan.recomendaciones[0], /porque está en zona residual Extremo sin plan registrado/, 'nombra la zona real, no "Extremo o Alto"');
+  assert.ok(plan.recomendaciones.every((rec, i) => rec !== plan.planAccion[i].accion), 'la recomendación no repite la tabla');
   assert.match(plan.kris, /Impacto residual de RSK-49: actual 100 % · meta 75 % \(zona Alto\)/);
 });
 

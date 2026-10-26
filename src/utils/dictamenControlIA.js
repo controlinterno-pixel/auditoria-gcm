@@ -9,15 +9,15 @@ import { etiquetaI, etiquetaP, numero } from './explicacionRiesgoDetallada.js';
 const ACCION_FALTA = {
   Documentación: codigo => ({
     accion: `Documentar ${codigo} en el procedimiento del proceso.`,
-    motivo: `${codigo} no está documentado: si cambia quien lo ejecuta, nada garantiza que se siga haciendo.`,
+    recomendacion: `Documentar ${codigo} en el procedimiento del proceso, porque sin documentar, si cambia quien lo ejecuta, nada garantiza que se siga haciendo`,
   }),
   Frecuencia: codigo => ({
     accion: `Definir una frecuencia continua para ${codigo}: aplicarlo cada vez que se realiza la actividad con riesgo.`,
-    motivo: `${codigo} se aplica de forma aleatoria: las veces que no se aplica, el riesgo queda sin cubrir.`,
+    recomendacion: `Pasar ${codigo} de frecuencia aleatoria a continua, porque las veces que no se aplica el riesgo queda sin cubrir`,
   }),
   Evidencia: codigo => ({
     accion: `Definir el registro que deja ${codigo} en cada ejecución, como evidencia para auditoría.`,
-    motivo: `${codigo} no deja registro: no hay forma de demostrar que se ejecuta.`,
+    recomendacion: `Hacer que ${codigo} deje registro en cada ejecución, porque hoy no hay forma de demostrar que se ejecuta`,
   }),
 };
 
@@ -51,18 +51,21 @@ export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaci
   const respRiesgo = sinResponsable(ficha?.responsable) ? (control?.responsableSegunManual || respControl) : ficha.responsable;
   const zonaAlta = ['Extremo', 'Alto'].includes(s.actual.zona);
   const items = [];
-  const agregar = (prioridad, accion, motivo, responsable) => items.push({ prioridad, accion, motivo, responsable });
+  // Zona residual registrada en la matriz (la que evalúa el numeral 9), dicha con su nombre.
+  const zonaRegistrada = ficha?.nivelResidual && ficha.nivelResidual !== 'Sin dato' ? ficha.nivelResidual : s.actual.zona;
+  // accion: la tarea de la tabla · recomendacion: la misma idea con su porqué (sin repetir la tabla).
+  const agregar = (prioridad, accion, recomendacion, responsable) => items.push({ prioridad, accion, recomendacion, responsable });
 
   // ALTA: falla demostrada en campo.
   if (s.prueba && s.prueba.calificacion < 100) {
     agregar('ALTA', `Corregir la falla de operación de ${s.codigo} detectada en Trabajo de Campo y volver a probarlo para confirmar que opera.`,
-      `${s.codigo} fue reprobado en Trabajo de Campo con ${s.prueba.calificacion} %${s.prueba.comentarios ? ` («${s.prueba.comentarios}»)` : ''}: sigue contando en el cálculo, pero su mitigación no está demostrada; si no opera, la ${s.eje} quedaría en ${numero(s.siFalla.valor)} % (zona ${s.siFalla.zona}).`,
+      `Corregir la operación de ${s.codigo}, porque fue reprobado en Trabajo de Campo con ${s.prueba.calificacion} %${s.prueba.comentarios ? ` («${s.prueba.comentarios}»)` : ''}: sigue contando en el cálculo, pero su mitigación no está demostrada; si no opera, la ${s.eje} quedaría en ${numero(s.siFalla.valor)} % (zona ${s.siFalla.zona})`,
       respControl);
   }
   // ALTA: obligación del numeral 9 en Extremo o Alto.
   if (incumpleCriterio(riesgo, 'sin-plan', evaluaciones)) {
     agregar('ALTA', `Formular y registrar el plan de acción de ${codigoRiesgo}.`,
-      `${codigoRiesgo} está en zona residual Extremo o Alto y no tiene plan de acción registrado: el numeral 9 del manual lo exige.`,
+      `Formular el plan de acción de ${codigoRiesgo}, porque está en zona residual ${zonaRegistrada} sin plan registrado y el numeral 9 del manual lo exige`,
       respRiesgo);
   }
   // Acción que cambia la zona: automatizar este control si basta; si no, la primera de un paso; si no, dos pasos.
@@ -73,39 +76,39 @@ export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaci
   if (s.actual.zona !== 'Bajo') {
     if (primera) {
       agregar(prioridadZona, `${conRiesgo(primera.accion, codigoRiesgo)}.`,
-        `Según la simulación del sistema (Tabla 8), esta acción ${efecto(primera, s.actual)}.`,
+        `${conRiesgo(primera.accion, codigoRiesgo)}, porque según la simulación del sistema (Tabla 8) ${efecto(primera, s.actual)}`,
         primera.accion.startsWith('Automatizar') ? respControl : respRiesgo);
     } else if (combinada) {
       agregar(prioridadZona, `${combinada.accion.replace(/^./, l => l.toUpperCase())} en ${codigoRiesgo}.`,
-        `Ninguna acción de un solo paso cambia la zona; esta combinación ${efecto(combinada, s.actual)}.`,
+        `${combinada.accion.replace(/^./, l => l.toUpperCase())} en ${codigoRiesgo}, porque ninguna acción de un solo paso cambia la zona y esta combinación ${efecto(combinada, s.actual)}`,
         respRiesgo);
     }
   }
   // MEDIA: primera prueba de campo, formalización y responsable de ESTE control.
   if (!s.prueba) {
     agregar('MEDIA', `Programar la primera prueba de Trabajo de Campo de ${s.codigo}.`,
-      `${s.codigo} aún no tiene pruebas de Trabajo de Campo: no es una falla, pero falta confirmar que opera como está diseñado.`,
+      `Probar ${s.codigo} en Trabajo de Campo, porque aún no tiene pruebas: no es una falla, pero falta confirmar que opera como está diseñado`,
       respControl);
   }
   s.faltas.forEach(atributo => {
-    const { accion, motivo } = ACCION_FALTA[atributo](s.codigo);
-    agregar('MEDIA', accion, `${motivo} No cambia su eficacia (Tabla 6), pero lo formaliza.`, respControl);
+    const { accion, recomendacion } = ACCION_FALTA[atributo](s.codigo);
+    agregar('MEDIA', accion, `${recomendacion} (no cambia su eficacia según la Tabla 6, pero lo formaliza)`, respControl);
   });
   if (sinResponsable(control?.responsable)) {
     agregar('MEDIA', `Asignar un responsable a ${s.codigo}.`,
-      `${s.codigo} no tiene responsable en la matriz; según el numeral 8.3.2 del manual le corresponde al líder del proceso.`,
+      `Nombrar un responsable para ${s.codigo}, porque no tiene uno en la matriz; según el numeral 8.3.2 del manual le corresponde al líder del proceso`,
       control?.responsableSegunManual || 'Por asignar');
   }
   // MEDIA: seguimiento obligatorio en Moderado o Bajo (nunca BAJA).
   if (incumpleCriterio(riesgo, 'sin-seguimiento', evaluaciones)) {
     agregar('MEDIA', `Programar la fecha de seguimiento de ${codigoRiesgo}.`,
-      `${codigoRiesgo} está en zona residual Moderado o Bajo sin fecha de seguimiento: el numeral 9 del manual exige seguimiento.`,
+      `Programar el seguimiento de ${codigoRiesgo}, porque está en zona residual ${zonaRegistrada} sin fecha y el numeral 9 del manual exige seguimiento`,
       respRiesgo);
   }
   // BAJA: automatizar cuando no cambia la zona (y no salió ya como acción que la cambia).
   if (s.automatizado && !automatizarCambia && !(primera && primera.accion === `Automatizar ${s.codigo}`)) {
     agregar('BAJA', `Evaluar automatizar ${s.codigo}.`,
-      `Subiría su eficacia de ${s.eficacia} % a ${s.eficacia + 10} % (Tabla 6) y la ${s.eje} a ${numero(s.automatizado.valor)} %, sin cambiar la zona ${s.actual.zona}.`,
+      `Evaluar automatizar ${s.codigo}: subiría su eficacia de ${s.eficacia} % a ${s.eficacia + 10} % (Tabla 6) y la ${s.eje} a ${numero(s.automatizado.valor)} %, aunque el riesgo seguiría en zona ${s.actual.zona}`,
       respControl);
   }
 
@@ -130,7 +133,7 @@ export function planDelControl({ riesgo, simulacion: s, control, ficha, evaluaci
 
   return {
     planAccion: plan.map(({ prioridad, accion, responsable }) => ({ prioridad, accion, responsable })),
-    recomendaciones: plan.map(({ accion, motivo }) => `${accion.replace(/\.$/, '')} — ${motivo}`),
+    recomendaciones: plan.map(({ recomendacion }) => `${recomendacion}.`),
     kris: kris.join('\n'),
   };
 }
