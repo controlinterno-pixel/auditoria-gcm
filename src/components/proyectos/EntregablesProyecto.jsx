@@ -1,5 +1,6 @@
 // src/components/proyectos/EntregablesProyecto.jsx - Entregables con versiones, evidencias y revisión por
 // otra persona. Un archivo adjunto no aprueba nada: la aprobación es una decisión registrada.
+import { ContextoGuia } from './guias.js';
 import { useState } from 'react';
 import { ESTADOS_ENTREGABLE, normalizarCorreo } from '../../utils/proyectos/modelo.js';
 import { fecha, fechaHora, nombreDeCorreo } from '../../utils/proyectos/formato.js';
@@ -12,6 +13,7 @@ function FormularioEntregable({ entregable, tareas, onGuardar, onCerrar, guardan
   return (
     <Modal titulo={entregable ? `Editar ${entregable.codigo}` : 'Nuevo entregable'} onCerrar={onCerrar} pie={<><button type="button" className={botonSecundario} onClick={onCerrar}>Cancelar</button><button type="submit" form="formulario-entregable" className={botonPrimario} disabled={guardando}>Guardar</button></>}>
       <SugerenciasCorreos id="correos-entregable" />
+      <ContextoGuia.Provider value="entregable">
       <form id="formulario-entregable" className="grid gap-3 sm:grid-cols-2" onSubmit={async evento => { evento.preventDefault(); if (await onGuardar({ ...datos, versionBase: entregable?.version })) onCerrar(); }}>
         <Campo etiqueta="Nombre" obligatorio className="sm:col-span-2">{p => <input {...p} className={claseCampo} value={datos.nombre} onChange={cambiar('nombre')} />}</Campo>
         <Campo etiqueta="Responsable" obligatorio>{p => <input {...p} list="correos-entregable" className={claseCampo} value={datos.responsable} onChange={cambiar('responsable')} />}</Campo>
@@ -20,6 +22,7 @@ function FormularioEntregable({ entregable, tareas, onGuardar, onCerrar, guardan
         <Campo etiqueta="Descripción">{p => <textarea {...p} rows={2} className={claseCampo} value={datos.descripcion} onChange={cambiar('descripcion')} />}</Campo>
         <Campo etiqueta="Criterios de aceptación" className="sm:col-span-2">{p => <textarea {...p} rows={3} className={claseCampo} value={datos.criterios} onChange={cambiar('criterios')} />}</Campo>
       </form>
+      </ContextoGuia.Provider>
     </Modal>
   );
 }
@@ -29,12 +32,14 @@ function Presentar({ entregable, usuario, onPresentar, onCerrar, guardando }) {
   const [comentario, setComentario] = useState('');
   return (
     <Modal titulo={`Presentar ${entregable.codigo} · versión ${(entregable.presentaciones || []).length + 1}`} ancho="max-w-lg" onCerrar={onCerrar} pie={<><button type="button" className={botonSecundario} onClick={onCerrar}>Cancelar</button><button type="button" className={botonPrimario} disabled={guardando || !evidencias.length} onClick={async () => { if (await onPresentar({ evidencias, comentario })) onCerrar(); }}>Presentar para revisión</button></>}>
+      <ContextoGuia.Provider value="entregable">
       <div className="space-y-3">
         <ListaEvidencias evidencias={evidencias} onQuitar={indice => setEvidencias(actual => actual.filter((_, i) => i !== indice))} />
         <SubirEvidencia correo={usuario?.email} onSubida={evidencia => setEvidencias(actual => [...actual, evidencia])} />
         <Campo etiqueta="Comentario para el revisor">{p => <textarea {...p} rows={3} className={claseCampo} value={comentario} onChange={evento => setComentario(evento.target.value)} />}</Campo>
         {!evidencias.length && <p className="text-[11px] text-slate-500">Adjunta al menos una evidencia.</p>}
       </div>
+      </ContextoGuia.Provider>
     </Modal>
   );
 }

@@ -1,5 +1,6 @@
 // src/components/proyectos/ResumenProyecto.jsx - Indicadores con su fórmula, semáforo con motivos, flujo de
 // autorización de fases del manual E-ID-MAN-01 y explicación del estado.
+import { ContextoGuia } from './guias.js';
 import { useState } from 'react';
 import { ESTADOS_PROYECTO, NOMBRE_TRANSICION, TRANSICIONES_PROYECTO, normalizarCorreo, requisitosTransicion } from '../../utils/proyectos/modelo.js';
 import { FORMULAS } from '../../utils/proyectos/indicadores.js';
@@ -121,6 +122,7 @@ export default function ResumenProyecto({ proyecto, plan, cap, usuario, operar, 
 
         <Seccion titulo="Explicación del estado" className="lg:col-span-2" descripcion="Causa de la desviación y plan de recuperación: aparece en el tablero junto al semáforo.">
           {cap.gestionar ? (
+            <ContextoGuia.Provider value="estado">
             <form className="grid gap-3 sm:grid-cols-3" onSubmit={evento => { evento.preventDefault(); void operar('explicarEstado', explicacion, 'Explicación registrada.'); }}>
               {[['explicacion', 'Explicación del estado'], ['causa', 'Causa de la desviación'], ['planRecuperacion', 'Plan de recuperación']].map(([campo, etiqueta]) => (
                 <Campo key={campo} etiqueta={etiqueta} obligatorio={campo === 'explicacion'}>
@@ -132,6 +134,7 @@ export default function ResumenProyecto({ proyecto, plan, cap, usuario, operar, 
                 <button type="submit" className={botonPrimario} disabled={guardando || !String(explicacion.explicacion || '').trim()}>Guardar explicación</button>
               </div>
             </form>
+            </ContextoGuia.Provider>
           ) : proyecto.explicacionEstado ? (
             <dl className="grid gap-3 sm:grid-cols-3"><Dato etiqueta="Explicación">{proyecto.explicacionEstado.explicacion}</Dato><Dato etiqueta="Causa">{proyecto.explicacionEstado.causa}</Dato><Dato etiqueta="Plan de recuperación">{proyecto.explicacionEstado.planRecuperacion}</Dato></dl>
           ) : <p className="text-sm text-slate-500">El director aún no registra una explicación.</p>}

@@ -1,10 +1,11 @@
 // src/components/proyectos/FormularioTarea.jsx - Crear, editar, ejecutar, revisar y comentar una tarea.
 // Quien gestiona edita todo; quien ejecuta solo estado, avance, bloqueo, criterios y evidencias (el servidor
 // ignora el resto). La revisión la hace otra persona distinta de quien ejecutó.
+import { ContextoGuia } from './guias.js';
 import { useMemo, useState } from 'react';
 import { ESTADOS_TAREA, PRIORIDADES, TIPOS_CONTENEDOR, TIPOS_TAREA, normalizarCorreo, validarTarea } from '../../utils/proyectos/modelo.js';
 import { fechaHora, nombreDeCorreo } from '../../utils/proyectos/formato.js';
-import { Campo, Insignia, ListaEvidencias, Modal, SubirEvidencia, SugerenciasCorreos, botonPeligro, botonPrimario, botonSecundario, claseCampo } from './ui.jsx';
+import { Campo, GuiaEnLinea, Insignia, ListaEvidencias, Modal, SubirEvidencia, SugerenciasCorreos, botonPeligro, botonPrimario, botonSecundario, claseCampo } from './ui.jsx';
 import { TONO_ESTADO } from './tonos.js';
 
 const VACIA = { titulo: '', descripcion: '', tipo: 'actividad', padreId: '', responsable: '', colaboradores: [], inicio: '', fin: '', prioridad: 'media', estado: 'pendiente', avance: 0, esfuerzoHoras: '', puntos: '', sprintId: '', dependencias: [], restricciones: '', entregablesTexto: '', motivoBloqueo: '', requiereRevision: false, criteriosAceptacion: [], evidencias: [] };
@@ -73,6 +74,7 @@ export default function FormularioTarea({ tarea, proyecto, plan, cap, usuario, o
         {!sololectura && tarea?.estado !== 'en_revision' && <button type="submit" form="formulario-tarea" className={botonPrimario} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar'}</button>}
       </>
     )}>
+      <ContextoGuia.Provider value="tarea">
       <SugerenciasCorreos id="correos-tarea" />
       {tarea?.estado === 'en_revision' && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -156,7 +158,7 @@ export default function FormularioTarea({ tarea, proyecto, plan, cap, usuario, o
               {datos.estado === 'bloqueada' && <Campo etiqueta="¿Qué la bloquea?" obligatorio className="sm:col-span-4">{props => <input {...props} className={claseCampo} value={datos.motivoBloqueo} onChange={cambiar('motivoBloqueo')} />}</Campo>}
             </div>
             <label className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-700">
-              <input type="checkbox" checked={datos.requiereRevision} onChange={cambiar('requiereRevision')} disabled={deshabilitarGestion} /> Requiere revisión y aprobación de otra persona antes de completarse
+              <input type="checkbox" checked={datos.requiereRevision} onChange={cambiar('requiereRevision')} disabled={deshabilitarGestion} /> Requiere revisión y aprobación de otra persona antes de completarse <GuiaEnLinea clave="requiere revision" etiqueta="Requiere revisión" />
             </label>
           </fieldset>
         )}
@@ -191,6 +193,7 @@ export default function FormularioTarea({ tarea, proyecto, plan, cap, usuario, o
         {puedeEditarTodo && <Campo etiqueta="Restricciones" className="sm:col-span-6">{props => <input {...props} className={claseCampo} value={datos.restricciones} onChange={cambiar('restricciones')} />}</Campo>}
       </form>
 
+      </ContextoGuia.Provider>
       {tarea && (
         <section className="mt-5 border-t border-slate-200 pt-4" aria-label="Comentarios y revisiones">
           <h3 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">Seguimiento</h3>

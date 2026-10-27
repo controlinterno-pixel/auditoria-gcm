@@ -1,5 +1,6 @@
 // src/components/proyectos/ReunionesProyecto.jsx - Reuniones, actas, decisiones y compromisos verificables
 // (responsable, fecha límite, seguimiento y evidencia de cumplimiento).
+import { ContextoGuia } from './guias.js';
 import { useState } from 'react';
 import { ESTADOS_COMPROMISO, normalizarCorreo } from '../../utils/proyectos/modelo.js';
 import { fecha, fechaHora, nombreDeCorreo } from '../../utils/proyectos/formato.js';
@@ -23,6 +24,7 @@ function FormularioReunion({ reunion, usuario, onGuardar, onCerrar, guardando })
   return (
     <Modal titulo={reunion ? `Acta ${reunion.codigo}` : 'Registrar reunión'} ancho="max-w-4xl" onCerrar={onCerrar} pie={<><button type="button" className={botonSecundario} onClick={onCerrar}>Cancelar</button><button type="submit" form="formulario-reunion" className={botonPrimario} disabled={guardando}>Guardar acta</button></>}>
       <SugerenciasCorreos id="correos-reunion" />
+      <ContextoGuia.Provider value="reunion">
       <form id="formulario-reunion" onSubmit={guardar} className="grid gap-3 sm:grid-cols-4">
         <Campo etiqueta="Título" obligatorio className="sm:col-span-2">{p => <input {...p} className={claseCampo} value={datos.titulo} onChange={cambiar('titulo')} />}</Campo>
         <Campo etiqueta="Fecha" obligatorio>{p => <input {...p} type="date" className={claseCampo} value={datos.fecha} onChange={cambiar('fecha')} />}</Campo>
@@ -48,6 +50,7 @@ function FormularioReunion({ reunion, usuario, onGuardar, onCerrar, guardando })
           <SubirEvidencia correo={usuario?.email} onSubida={documento => setDatos(actual => ({ ...actual, documentos: [...actual.documentos, documento] }))} />
         </div>
       </form>
+      </ContextoGuia.Provider>
     </Modal>
   );
 }
@@ -60,11 +63,13 @@ function ActualizarCompromiso({ compromiso, usuario, puedeCancelar, onGuardar, o
   return (
     <Modal titulo="Seguimiento del compromiso" ancho="max-w-lg" onCerrar={onCerrar} pie={<><button type="button" className={botonSecundario} onClick={onCerrar}>Cancelar</button><button type="button" className={botonPrimario} disabled={guardando || faltaSoporte} onClick={async () => { if (await onGuardar({ estado, comentario, evidencia: evidencia?.url || '' })) onCerrar(); }}>Guardar</button></>}>
       <p className="mb-3 text-sm font-bold text-slate-800">{compromiso.descripcion}</p>
+      <ContextoGuia.Provider value="reunion">
       <div className="space-y-3">
         <Campo etiqueta="Estado">{p => <select {...p} className={claseCampo} value={estado} onChange={evento => setEstado(evento.target.value)}>{Object.entries(ESTADOS_COMPROMISO).filter(([valor]) => valor !== 'cancelado' || puedeCancelar).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
         <Campo etiqueta="Comentario" ayuda={estado === 'cumplido' ? 'Para darlo por cumplido, explica cómo se cumplió o adjunta la evidencia.' : ''}>{p => <textarea {...p} rows={3} className={claseCampo} value={comentario} onChange={evento => setComentario(evento.target.value)} />}</Campo>
         {evidencia ? <ListaEvidencias evidencias={[evidencia]} onQuitar={() => setEvidencia(null)} /> : <SubirEvidencia correo={usuario?.email} onSubida={setEvidencia} />}
       </div>
+      </ContextoGuia.Provider>
     </Modal>
   );
 }

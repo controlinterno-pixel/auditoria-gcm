@@ -1,8 +1,9 @@
 // src/components/proyectos/FormularioProyecto.jsx - Ficha del proyecto (crear y editar), por secciones.
+import { ContextoGuia } from './guias.js';
 import { useMemo, useState } from 'react';
 import { METODOLOGIAS, MONEDAS, PRIORIDADES, UMBRALES_POR_DEFECTO, validarFicha, validarMiembros } from '../../utils/proyectos/modelo.js';
 import { PILARES, codigoEstrategico } from '../../utils/proyectos/metodologia.js';
-import { Campo, Modal, SugerenciasCorreos, botonPrimario, botonSecundario, claseCampo } from './ui.jsx';
+import { Campo, GuiaEnLinea, Modal, SugerenciasCorreos, botonPrimario, botonSecundario, claseCampo } from './ui.jsx';
 
 const PASOS = [
   { id: 'identificacion', titulo: 'Identificación' },
@@ -76,6 +77,7 @@ export default function FormularioProyecto({ proyecto, usuario, onGuardar, onCer
         <button type="submit" form="formulario-proyecto" className={botonPrimario} disabled={guardando}>{guardando ? 'Guardando…' : esNuevo ? 'Crear proyecto' : 'Guardar ficha'}</button>
       </>
     )}>
+      <ContextoGuia.Provider value="ficha">
       <SugerenciasCorreos id="correos-proyecto" />
       <div role="tablist" aria-label="Secciones de la ficha" className="mb-4 flex gap-1 overflow-x-auto border-b border-slate-200">
         {PASOS.map(item => (
@@ -149,6 +151,7 @@ export default function FormularioProyecto({ proyecto, usuario, onGuardar, onCer
             <label className="flex items-center gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
               <input type="checkbox" checked={ficha.manejaPresupuesto === true} onChange={cambiar('manejaPresupuesto')} disabled={presupuestoBloqueado} />
               Este proyecto maneja presupuesto
+              <GuiaEnLinea clave="maneja presupuesto" etiqueta="Maneja presupuesto" />
             </label>
             {ficha.manejaPresupuesto && (
               <>
@@ -170,6 +173,7 @@ export default function FormularioProyecto({ proyecto, usuario, onGuardar, onCer
               <label className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
                 <input type="checkbox" checked={configuracion.aprobarCambiosEstado} onChange={evento => setConfiguracion(actual => ({ ...actual, aprobarCambiosEstado: evento.target.checked }))} />
                 Los cambios de estado (iniciar, suspender, cerrar…) requieren autorización del patrocinador
+                <GuiaEnLinea clave="aprobar estados" etiqueta="Aprobación de fases" />
               </label>
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
@@ -186,6 +190,7 @@ export default function FormularioProyecto({ proyecto, usuario, onGuardar, onCer
           </>
         )}
       </form>
+      </ContextoGuia.Provider>
       <p className="mt-4 text-[11px] text-slate-500">Paso {PASOS.findIndex(item => item.id === paso) + 1} de {PASOS.length}. Los datos se conservan al cambiar de sección.</p>
     </Modal>
   );

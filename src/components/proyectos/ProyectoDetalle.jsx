@@ -1,4 +1,5 @@
 // src/components/proyectos/ProyectoDetalle.jsx - Ficha integral del proyecto con sus pestañas.
+import { ContextoGuia } from './guias.js';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { ESTADOS_PROYECTO, METODOLOGIAS } from '../../utils/proyectos/modelo.js';
 import { calcularIndicadores, compactarPlan } from '../../utils/proyectos/indicadores.js';
@@ -74,6 +75,7 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
   const props = { proyecto, plan: plan || {}, cap, usuario, operar: ejecutar, guardando, indicadores, pedirTexto, hoy, riesgosMatriz, showNotification };
 
   return (
+    <ContextoGuia.Provider value="detalle">
     <div className="space-y-4">
       {dialogo}
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
@@ -128,5 +130,6 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
           onGuardar={async datos => { if (await ejecutar('editarFicha', datos, 'Ficha actualizada.')) setEditando(false); }} />
       )}
     </div>
+    </ContextoGuia.Provider>
   );
 }

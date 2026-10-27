@@ -1,5 +1,6 @@
 // src/components/proyectos/PresupuestoProyecto.jsx - Presupuesto inicial y vigente, revisiones autorizadas,
 // costos reales y comprometidos (separados), estimación final y desviación. Un costo no registrado no es cero.
+import { ContextoGuia } from './guias.js';
 import { useState } from 'react';
 import { CATEGORIAS_COSTO, TIPOS_COSTO } from '../../utils/proyectos/modelo.js';
 import { FORMULAS } from '../../utils/proyectos/indicadores.js';
@@ -55,6 +56,7 @@ export default function PresupuestoProyecto({ proyecto, plan, cap, usuario, oper
         </Seccion>
         <Seccion titulo="Estimación del costo final" descripcion="Si no la registras, la proyección usa el valor ganado (EAC) cuando hay datos suficientes; si no, la desviación queda sin calcular.">
           {cap.gestionar ? (
+            <ContextoGuia.Provider value="presupuesto">
             <form className="grid gap-3 sm:grid-cols-3" onSubmit={evento => { evento.preventDefault(); void operar('estimarCostoFinal', { monto: estimado.monto === '' ? null : Number(estimado.monto), justificacion: estimado.justificacion }, 'Estimación registrada.'); }}>
               <Campo etiqueta={`Monto (${codigo})`}>{p => <input {...p} type="number" min="0" className={claseCampo} value={estimado.monto} onChange={evento => setEstimado(actual => ({ ...actual, monto: evento.target.value }))} />}</Campo>
               <Campo etiqueta="Justificación de la variación" className="sm:col-span-2">{p => <input {...p} className={claseCampo} value={estimado.justificacion} onChange={evento => setEstimado(actual => ({ ...actual, justificacion: evento.target.value }))} />}</Campo>
@@ -63,6 +65,7 @@ export default function PresupuestoProyecto({ proyecto, plan, cap, usuario, oper
                 <button type="submit" className={botonPrimario} disabled={guardando}>Guardar estimación</button>
               </div>
             </form>
+            </ContextoGuia.Provider>
           ) : <p className="text-sm">{plan.estimadoFinal ? `${moneda(plan.estimadoFinal.monto, codigo)} · ${plan.estimadoFinal.justificacion}` : 'Sin estimación registrada.'}</p>}
         </Seccion>
       </div>
@@ -95,6 +98,7 @@ export default function PresupuestoProyecto({ proyecto, plan, cap, usuario, oper
 
       {registrando && (
         <Modal titulo="Registrar costo" ancho="max-w-2xl" onCerrar={() => setRegistrando(false)} pie={<><button type="button" className={botonSecundario} onClick={() => setRegistrando(false)}>Cancelar</button><button type="submit" form="formulario-costo" className={botonPrimario} disabled={guardando}>Registrar</button></>}>
+          <ContextoGuia.Provider value="costo">
           <form id="formulario-costo" onSubmit={registrar} className="grid gap-3 sm:grid-cols-3">
             <Campo etiqueta="Fecha" obligatorio>{p => <input {...p} type="date" className={claseCampo} value={costo.fecha} onChange={evento => setCosto(actual => ({ ...actual, fecha: evento.target.value }))} />}</Campo>
             <Campo etiqueta="Tipo" obligatorio>{p => <select {...p} className={claseCampo} value={costo.tipo} onChange={evento => setCosto(actual => ({ ...actual, tipo: evento.target.value }))}>{Object.entries(TIPOS_COSTO).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
@@ -104,6 +108,7 @@ export default function PresupuestoProyecto({ proyecto, plan, cap, usuario, oper
             <Campo etiqueta="Tarea asociada" className="sm:col-span-2">{p => <select {...p} className={claseCampo} value={costo.idTarea} onChange={evento => setCosto(actual => ({ ...actual, idTarea: evento.target.value }))}><option value="">Ninguna</option>{(plan.tareas || []).map(t => <option key={t.id} value={t.id}>{t.codigo} · {t.titulo}</option>)}</select>}</Campo>
             <div className="flex items-end">{costo.soporte ? <a href={costo.soporte} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-[#0055ff]">Soporte adjunto ✓</a> : <SubirEvidencia correo={usuario?.email} onSubida={evidencia => setCosto(actual => ({ ...actual, soporte: evidencia.url }))} />}</div>
           </form>
+          </ContextoGuia.Provider>
         </Modal>
       )}
     </div>

@@ -1,5 +1,6 @@
 // src/components/proyectos/RiesgosProyecto.jsx - Riesgos, problemas, incidencias, bloqueos y dependencias
 // externas, con matriz 5×5, acciones de tratamiento, riesgo residual y vínculo opcional a la matriz de la app.
+import { ContextoGuia } from './guias.js';
 import { useMemo, useState } from 'react';
 import { ESTADOS_RIESGO, NATURALEZAS_RIESGO, RESPUESTAS_OPORTUNIDAD, RESPUESTAS_RIESGO, TIPOS_RIESGO, UMBRALES_POR_DEFECTO, nivelRiesgo, prioridadRiesgo } from '../../utils/proyectos/modelo.js';
 import { fecha, moneda, nombreDeCorreo } from '../../utils/proyectos/formato.js';
@@ -17,6 +18,7 @@ function FormularioRiesgo({ riesgo, plan, usuario, riesgosMatriz = [], onGuardar
   return (
     <Modal titulo={riesgo ? `${riesgo.codigo} · ${TIPOS_RIESGO[riesgo.tipo]}` : 'Nuevo riesgo o incidencia'} ancho="max-w-4xl" onCerrar={onCerrar} pie={<><button type="button" className={botonSecundario} onClick={onCerrar}>Cancelar</button><button type="submit" form="formulario-riesgo" className={botonPrimario} disabled={guardando}>Guardar</button></>}>
       <SugerenciasCorreos id="correos-riesgo" />
+      <ContextoGuia.Provider value="riesgo">
       <form id="formulario-riesgo" className="grid gap-3 sm:grid-cols-4" onSubmit={async evento => { evento.preventDefault(); if (await onGuardar({ ...datos, versionBase: riesgo?.version })) onCerrar(); }}>
         <Campo etiqueta="Categoría" obligatorio>{p => <select {...p} className={claseCampo} value={datos.tipo} onChange={cambiar('tipo')} disabled={Boolean(riesgo)}>{Object.entries(TIPOS_RIESGO).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
         <Campo etiqueta="Estado">{p => <select {...p} className={claseCampo} value={datos.estado} onChange={cambiar('estado')}>{Object.entries(ESTADOS_RIESGO).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
@@ -67,6 +69,7 @@ function FormularioRiesgo({ riesgo, plan, usuario, riesgosMatriz = [], onGuardar
           <SubirEvidencia correo={usuario?.email} onSubida={evidencia => setDatos(actual => ({ ...actual, evidencias: [...actual.evidencias, evidencia] }))} />
         </div>
       </form>
+      </ContextoGuia.Provider>
     </Modal>
   );
 }

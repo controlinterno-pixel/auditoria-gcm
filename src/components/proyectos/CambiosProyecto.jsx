@@ -1,5 +1,6 @@
 // src/components/proyectos/CambiosProyecto.jsx - Control formal de cambios: solicitud, análisis, decisión de
 // otra persona e implementación (con revisión presupuestal y versión de línea base registradas).
+import { ContextoGuia } from './guias.js';
 import { useState } from 'react';
 import { ESTADOS_CAMBIO, TRANSICIONES_CAMBIO, normalizarCorreo, rolesEnProyecto } from '../../utils/proyectos/modelo.js';
 import { fecha, fechaHora, moneda, nombreDeCorreo } from '../../utils/proyectos/formato.js';
@@ -13,6 +14,7 @@ function FormularioCambio({ cambio, proyecto, usuario, onGuardar, onCerrar, guar
   const cambiar = campo => evento => setDatos(actual => ({ ...actual, [campo]: evento.target.value }));
   return (
     <Modal titulo={cambio ? `Editar ${cambio.codigo}` : 'Nueva solicitud de cambio'} ancho="max-w-4xl" onCerrar={onCerrar} pie={<><button type="button" className={botonSecundario} onClick={onCerrar}>Cancelar</button><button type="submit" form="formulario-cambio" className={botonPrimario} disabled={guardando}>Enviar solicitud</button></>}>
+      <ContextoGuia.Provider value="cambio">
       <form id="formulario-cambio" className="grid gap-3 sm:grid-cols-2" onSubmit={async evento => { evento.preventDefault(); if (await onGuardar({ ...datos, versionBase: cambio?.version })) onCerrar(); }}>
         <Campo etiqueta="Título" obligatorio className="sm:col-span-2">{p => <input {...p} className={claseCampo} value={datos.titulo} onChange={cambiar('titulo')} />}</Campo>
         <Campo etiqueta="Descripción" obligatorio>{p => <textarea {...p} rows={3} className={claseCampo} value={datos.descripcion} onChange={cambiar('descripcion')} />}</Campo>
@@ -31,6 +33,7 @@ function FormularioCambio({ cambio, proyecto, usuario, onGuardar, onCerrar, guar
           <SubirEvidencia correo={usuario?.email} onSubida={evidencia => setDatos(actual => ({ ...actual, evidencias: [...actual.evidencias, evidencia] }))} />
         </div>
       </form>
+      </ContextoGuia.Provider>
     </Modal>
   );
 }

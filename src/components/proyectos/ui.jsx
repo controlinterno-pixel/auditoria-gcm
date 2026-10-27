@@ -1,5 +1,6 @@
 // src/components/proyectos/ui.jsx - Piezas visuales compartidas del módulo de Gestión de Proyectos.
-import { useEffect, useId, useRef, useState } from 'react';
+import { useContext, useEffect, useId, useRef, useState } from 'react';
+import { ContextoGuia, buscarGuia } from './guias.js';
 import { apiService } from '../../services/apiService';
 import { useCatalogos } from '../../context/useCatalogos';
 
@@ -9,15 +10,65 @@ export const botonPrimario = `${claseBoton} bg-[#0055ff] text-white shadow-sm ho
 export const botonSecundario = `${claseBoton} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`;
 export const botonPeligro = `${claseBoton} border border-red-200 bg-white text-red-700 hover:bg-red-50`;
 
-/** Campo con etiqueta asociada, ayuda y error (accesible con lector de pantalla). */
-export function Campo({ etiqueta, ayuda, error, obligatorio, children, className = '' }) {
+const Pluma = () => (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" /><path d="M16 8 2 22" /><path d="M17.5 15H9" />
+  </svg>
+);
+
+/** Botón de pluma y recuadro con qué es, cómo diligenciarlo, por qué se pide y dónde lo dice el manual. */
+function useGuia(etiqueta, clave) {
+  const contexto = useContext(ContextoGuia);
+  const guia = buscarGuia(contexto, clave || etiqueta);
+  const [abierta, setAbierta] = useState(false);
   const id = useId();
+  useEffect(() => {
+    if (!abierta) return undefined;
+    const alPresionar = evento => { if (evento.key === 'Escape') setAbierta(false); };
+    document.addEventListener('keydown', alPresionar);
+    return () => document.removeEventListener('keydown', alPresionar);
+  }, [abierta]);
+  if (!guia) return { boton: null, panel: null };
+  const nombre = String(etiqueta || '').replace(/\s*\(.*?\)/g, '');
+  return {
+    boton: (
+      <button type="button" onClick={() => setAbierta(actual => !actual)} aria-expanded={abierta} aria-controls={id} aria-label={`Ayuda: ${nombre}`} title="¿Qué es, cómo se diligencia y dónde lo pide el manual?"
+        className={`ml-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition ${abierta ? 'bg-[#0055ff] text-white' : 'text-[#0055ff] hover:bg-blue-50'}`}>
+        <Pluma />
+      </button>
+    ),
+    panel: abierta && (
+      <div id={id} role="note" className="mb-2 space-y-1 rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-[11px] leading-snug text-slate-700">
+        <p><b className="text-slate-900">Qué es:</b> {guia.que}</p>
+        <p><b className="text-slate-900">Cómo diligenciarlo:</b> {guia.como}</p>
+        <p><b className="text-slate-900">Por qué se pide:</b> {guia.porque}</p>
+        <p className="font-bold text-[#0044cc]">📘 {guia.manual}</p>
+      </div>
+    ),
+  };
+}
+
+/** Pluma de ayuda para casillas que no usan Campo (casillas de verificación). */
+export function GuiaEnLinea({ clave, etiqueta }) {
+  const { boton, panel } = useGuia(etiqueta || clave, clave);
+  if (!boton) return null;
+  return <span className="inline-block align-middle">{boton}{panel && <span className="mt-1 block">{panel}</span>}</span>;
+}
+
+/** Campo con etiqueta asociada, ayuda, error y pluma de ayuda del manual (accesible con lector de pantalla). */
+export function Campo({ etiqueta, ayuda, error, obligatorio, children, className = '', guia }) {
+  const id = useId();
+  const { boton, panel } = useGuia(etiqueta, guia);
   const hijo = typeof children === 'function' ? children({ id, 'aria-describedby': ayuda || error ? `${id}-ayuda` : undefined, 'aria-invalid': error ? true : undefined }) : children;
   return (
     <div className={className}>
-      <label htmlFor={id} className="mb-1 block text-xs font-bold text-slate-600">
-        {etiqueta}{obligatorio && <span className="text-red-600" aria-hidden="true"> *</span>}
-      </label>
+      <div className="mb-1 flex items-center">
+        <label htmlFor={id} className="block text-xs font-bold text-slate-600">
+          {etiqueta}{obligatorio && <span className="text-red-600" aria-hidden="true"> *</span>}
+        </label>
+        {boton}
+      </div>
+      {panel}
       {hijo}
       {(ayuda || error) && <p id={`${id}-ayuda`} className={`mt-1 text-[11px] ${error ? 'font-bold text-red-600' : 'text-slate-500'}`}>{error || ayuda}</p>}
     </div>

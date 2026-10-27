@@ -1,5 +1,6 @@
 // src/components/proyectos/GestionProyectos.jsx - Módulo Gestión de Proyectos (Gobernanza & IA).
 // El portafolio y el detalle se leen solo al entrar o al abrir un proyecto; no hay listeners en tiempo real.
+import { ContextoGuia } from './guias.js';
 import { useState } from 'react';
 import { apiService } from '../../services/apiService';
 import { useCatalogos } from '../../context/useCatalogos';
@@ -37,8 +38,8 @@ export default function GestionProyectos({ usuario, puedeCrear, showNotification
         <ProyectoDetalle id={abierto} usuario={usuario} showNotification={showNotification} mapaProcesos={mapaProcesos} riesgosMatriz={riesgosMatriz}
           onVolver={() => { setAbierto(null); void recargar(); }} />
       ) : (
-        <PortafolioProyectos proyectos={proyectos} hoy={hoy} cargando={cargando} error={error} onAbrir={setAbierto} onNuevo={() => setCreando(true)}
-          puedeCrear={puedeCrear} incluirArchivados={incluirArchivados} setIncluirArchivados={setIncluirArchivados} onRecargar={recargar} />
+        <ContextoGuia.Provider value="filtro"><PortafolioProyectos proyectos={proyectos} hoy={hoy} cargando={cargando} error={error} onAbrir={setAbierto} onNuevo={() => setCreando(true)}
+          puedeCrear={puedeCrear} incluirArchivados={incluirArchivados} setIncluirArchivados={setIncluirArchivados} onRecargar={recargar} /></ContextoGuia.Provider>
       )}
       {creando && <FormularioProyecto usuario={usuario} guardando={guardando} mapaProcesos={mapaProcesos} onCerrar={() => setCreando(false)} onGuardar={crear} />}
     </div>

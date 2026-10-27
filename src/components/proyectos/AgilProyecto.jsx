@@ -1,6 +1,7 @@
 // src/components/proyectos/AgilProyecto.jsx - Backlog, sprints, capacidad, velocidad y retrospectivas.
 // Velocidad = puntos de las historias completadas en cada sprint cerrado; con menos de 2 sprints cerrados no
 // se muestra un promedio (no hay datos suficientes).
+import { ContextoGuia } from './guias.js';
 import { useState } from 'react';
 import { ESTADOS_SPRINT, ESTADOS_TAREA, PRIORIDADES } from '../../utils/proyectos/modelo.js';
 import { fecha, nombreDeCorreo } from '../../utils/proyectos/formato.js';
@@ -20,6 +21,7 @@ function FormularioSprint({ sprint, onGuardar, onCerrar, guardando }) {
   };
   return (
     <Modal titulo={sprint ? `Sprint ${sprint.nombre}` : 'Nuevo sprint'} onCerrar={onCerrar} pie={<><button type="button" className={botonSecundario} onClick={onCerrar}>Cancelar</button><button type="submit" form="formulario-sprint" className={botonPrimario} disabled={guardando}>Guardar</button></>}>
+      <ContextoGuia.Provider value="sprint">
       <form id="formulario-sprint" onSubmit={guardar} className="grid gap-3 sm:grid-cols-4">
         <Campo etiqueta="Nombre" obligatorio className="sm:col-span-2">{p => <input {...p} className={claseCampo} value={datos.nombre} onChange={cambiar('nombre')} />}</Campo>
         <Campo etiqueta="Estado">{p => <select {...p} className={claseCampo} value={datos.estado} onChange={cambiar('estado')}>{Object.entries(ESTADOS_SPRINT).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
@@ -31,6 +33,7 @@ function FormularioSprint({ sprint, onGuardar, onCerrar, guardando }) {
         <Campo etiqueta="Retrospectiva" className="sm:col-span-2">{p => <textarea {...p} rows={3} className={claseCampo} value={datos.retrospectiva} onChange={cambiar('retrospectiva')} />}</Campo>
         <Campo etiqueta="Compromisos de mejora (uno por línea)" className="sm:col-span-4">{p => <textarea {...p} rows={2} className={claseCampo} value={datos.mejorasTexto} onChange={cambiar('mejorasTexto')} />}</Campo>
       </form>
+      </ContextoGuia.Provider>
     </Modal>
   );
 }

@@ -1,9 +1,10 @@
 // src/components/proyectos/EditorApartado.jsx - Marco común de cada apartado del manual E-ID-MAN-01:
 // estado (completo / pendiente / no aplica), "No aplica" con justificación y guardado con control de versión.
+import { ContextoGuia } from './guias.js';
 import { useState } from 'react';
 import { APARTADOS, estadoApartado } from '../../utils/proyectos/metodologia.js';
 import { fechaHora, nombreDeCorreo } from '../../utils/proyectos/formato.js';
-import { Campo, Insignia, Seccion, botonPrimario, claseCampo } from './ui.jsx';
+import { Campo, GuiaEnLinea, Insignia, Seccion, botonPrimario, claseCampo } from './ui.jsx';
 
 export function InsigniaApartado({ id, proyecto, plan }) {
   const estado = estadoApartado(id, proyecto, plan);
@@ -34,6 +35,7 @@ export default function EditorApartado({ id, seccion = id, proyecto, plan, cap, 
     <Seccion titulo={`${apartado ? `Apartado ${apartado.numero} · ` : ''}${apartado?.titulo || ''}`} descripcion={descripcion}
       acciones={<InsigniaApartado id={id} proyecto={proyecto} plan={plan} />}>
       {!estado.completo && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">Falta: {estado.faltante}</p>}
+      <ContextoGuia.Provider value={seccion}>
       <form onSubmit={guardar} className="space-y-4">
         {apartado?.admiteNoAplica && (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -41,6 +43,7 @@ export default function EditorApartado({ id, seccion = id, proyecto, plan, cap, 
               <input type="checkbox" checked={noAplica} onChange={evento => setNoAplica(evento.target.checked)} disabled={deshabilitado} />
               Este apartado no aplica al proyecto
             </label>
+            <ContextoGuia.Provider value="apartado"><GuiaEnLinea clave="noAplica" etiqueta="No aplica" /></ContextoGuia.Provider>
             {noAplica && (
               <Campo etiqueta="Justificación" obligatorio className="mt-2" ayuda="Queda en el historial y en el informe de formulación.">
                 {props => <textarea {...props} rows={2} className={claseCampo} value={justificacion} onChange={evento => setJustificacion(evento.target.value)} disabled={deshabilitado} />}
@@ -54,6 +57,7 @@ export default function EditorApartado({ id, seccion = id, proyecto, plan, cap, 
           {cap.gestionar && <button type="submit" className={botonPrimario} disabled={guardando || (noAplica && justificacion.trim().length < 10)}>Guardar apartado</button>}
         </div>
       </form>
+      </ContextoGuia.Provider>
     </Seccion>
   );
 }
