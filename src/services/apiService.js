@@ -367,6 +367,7 @@ export const apiService = {
   // un proyecto recién creado (las ediciones llevan versión y un reintento solo daría aviso de conflicto).
   listarProyectos: (incluirArchivados = false) => request(`/api/grc/proyectos${incluirArchivados ? '?archivados=1' : ''}`),
   obtenerProyecto: id => request(`/api/grc/proyectos?id=${encodeURIComponent(id)}`),
+  leccionesProyectos: () => request('/api/grc/proyectos?lecciones=1'),
   historialProyecto: (id, despuesDe = '') => request(`/api/grc/proyectos?id=${encodeURIComponent(id)}&historial=1${despuesDe ? `&despuesDe=${encodeURIComponent(despuesDe)}` : ''}`),
   operarProyecto: (accion, idProyecto, datos) => request('/api/grc/proyectos', { method: 'POST', body: { accion, idProyecto, datos } }, 1),
 

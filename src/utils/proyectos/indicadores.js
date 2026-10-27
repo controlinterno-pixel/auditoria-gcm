@@ -15,7 +15,7 @@ export const FORMULAS = {
   tasaTareasVencidas: 'Tareas abiertas con fecha de fin anterior a hoy ÷ tareas abiertas con fecha de fin.',
   variacionPresupuestal: '(Proyección del costo final − presupuesto vigente) ÷ presupuesto vigente. Proyección = estimación final registrada por el director; si no hay, el EAC del valor ganado, nunca menor que lo ya gastado más lo comprometido. Sin ninguna de las dos no se calcula (real + comprometido es lo gastado a la fecha, no el costo final).',
   consumoPresupuesto: '(Costo real + comprometido) ÷ presupuesto vigente: cuánto del presupuesto ya está gastado o comprometido.',
-  riesgosCriticos: 'Riesgos abiertos o en tratamiento cuyo nivel (probabilidad × impacto) es mayor o igual al umbral crítico del proyecto.',
+  riesgosCriticos: 'Amenazas (no oportunidades) abiertas o en tratamiento cuyo nivel (probabilidad × impacto) es mayor o igual al umbral crítico del proyecto.',
   cumplimientoCompromisos: 'Compromisos cumplidos dentro del plazo ÷ compromisos evaluables (vencidos o cumplidos).',
   evm: 'PV = presupuesto vigente × avance planificado; EV = presupuesto vigente × avance real; AC = costo real; SPI = EV ÷ PV; CPI = EV ÷ AC; EAC = presupuesto vigente ÷ CPI. Solo se calcula con presupuesto, línea base y costos reales registrados.',
 };
@@ -44,7 +44,7 @@ export function compactarPlan(plan = {}, calendario = 'calendario') {
       };
     }),
     entregables: (plan.entregables || []).map(entregable => ({ f: entregable.fechaComprometida || '', e: entregable.estado })),
-    riesgos: (plan.riesgos || []).map(riesgo => ({ t: riesgo.tipo, e: riesgo.estado, n: nivelRiesgo(riesgo.probabilidad, riesgo.impacto) })),
+    riesgos: (plan.riesgos || []).map(riesgo => ({ t: riesgo.tipo, e: riesgo.estado, n: nivelRiesgo(riesgo.probabilidad, riesgo.impacto), o: riesgo.naturaleza === 'oportunidad' ? 1 : 0 })),
     compromisos: (plan.reuniones || []).flatMap(reunion => reunion.compromisos || [])
       .map(compromiso => ({ f: compromiso.fechaLimite || '', e: compromiso.estado, fc: compromiso.fechaCumplimiento || '' })),
     finanzas: { real: sumar('real'), comprometido: sumar('comprometido'), hayCostosReales: costos.some(costo => costo.tipo === 'real'), estimadoFinal: Number.isFinite(Number(plan.estimadoFinal?.monto)) && plan.estimadoFinal?.monto !== null ? Number(plan.estimadoFinal.monto) : null },
@@ -95,7 +95,7 @@ export function calcularIndicadores(proyecto, hoy, resumen = proyecto?.resumen) 
   const entregablesPendientesAprobacion = (r.entregables || []).filter(entregable => ['presentado', 'en_revision'].includes(entregable.e)).length;
 
   const riesgosAbiertos = (r.riesgos || []).filter(riesgo => ESTADOS_RIESGO_ABIERTOS.includes(riesgo.e));
-  const riesgosCriticos = riesgosAbiertos.filter(riesgo => riesgo.t === 'riesgo' && riesgo.n !== null && riesgo.n >= umbrales.nivelRiesgoCritico).length;
+  const riesgosCriticos = riesgosAbiertos.filter(riesgo => riesgo.t === 'riesgo' && !riesgo.o && riesgo.n !== null && riesgo.n >= umbrales.nivelRiesgoCritico).length;
   const problemasAbiertos = riesgosAbiertos.filter(riesgo => riesgo.t !== 'riesgo').length;
 
   const compromisos = (r.compromisos || []).filter(compromiso => compromiso.e !== 'cancelado');

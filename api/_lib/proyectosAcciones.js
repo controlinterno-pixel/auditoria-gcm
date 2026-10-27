@@ -5,12 +5,13 @@ import { esAdministradorTotal, puedeVerTodo } from './roles.js';
 import { esFecha } from '../../src/utils/proyectos/fechas.js';
 import {
   CATEGORIAS_COSTO, DECISIONES_ENTREGABLE, ESTADOS_COMPROMISO, ESTADOS_ENTREGABLE, ESTADOS_RIESGO,
-  ESTADOS_SPRINT, ESTADOS_TAREA, LIMITES, PRIORIDADES, RESPUESTAS_RIESGO, TIPOS_COSTO, TIPOS_RIESGO, TIPOS_TAREA,
+  ESTADOS_SPRINT, ESTADOS_TAREA, LIMITES, NATURALEZAS_RIESGO, PRIORIDADES, RESPUESTAS_OPORTUNIDAD, RESPUESTAS_RIESGO, TIPOS_COSTO, TIPOS_RIESGO, TIPOS_TAREA,
   TRANSICIONES_CAMBIO, TRANSICIONES_PROYECTO, UMBRALES_POR_DEFECTO, correosConAcceso, nivelRiesgo, normalizarCorreo,
   requisitosTransicion, rolesEnProyecto, validarFicha, validarMiembros, validarTarea, CORREO_VALIDO,
 } from '../../src/utils/proyectos/modelo.js';
 import { crearLineaBase, erroresEstructura, propagarDependencias } from '../../src/utils/proyectos/cronograma.js';
 import { compactarPlan } from '../../src/utils/proyectos/indicadores.js';
+import { APARTADOS, DOCUMENTO, codigoEstrategico, elementosRaci } from '../../src/utils/proyectos/metodologia.js';
 
 export const SUBMODULO_PROYECTOS = 'sub_proyectos';
 export const TAMANO_MAXIMO_PLAN = 900 * 1024; // Firestore admite 1 MiB por documento.
@@ -71,8 +72,8 @@ export function capacidades(usuario, proyecto) {
     ver,
     gestionar,
     aportar: abierto && (gestionar || roles.has('equipo')),
-    decidir: abierto && (admin || roles.has('patrocinador') || roles.has('aprobador') || roles.has('director')),
-    autorizarEstado: abierto && (admin || roles.has('patrocinador')),
+    decidir: abierto && (admin || roles.has('patrocinador') || roles.has('comite') || roles.has('aprobador') || roles.has('director')),
+    autorizarEstado: abierto && (admin || roles.has('patrocinador') || roles.has('comite')),
     comentar: abierto && ver && (admin || roles.size > 0),
     archivar: admin || (roles.has('director') && !abierto && !proyecto?.archivado),
   };
@@ -136,6 +137,7 @@ export function crearProyecto(datos, ctx) {
   if (todos.length) rechazar(todos.join(' '));
   const proyecto = {
     codigo: ctx.codigo,
+    codigoEstrategico: codigoEstrategico(ficha),
     ficha,
     miembros,
     correosAcceso: correosConAcceso(miembros),
@@ -152,7 +154,7 @@ export function crearProyecto(datos, ctx) {
     actualizadoPor: ctx.usuario.email,
     actualizadoEn: ctx.ahora,
   };
-  const plan = { tareas: [], entregables: [], riesgos: [], cambios: [], reuniones: [], costos: [], sprints: [], lineasBase: [], revisionesPresupuesto: [], contadores: {} };
+  const plan = { tareas: [], entregables: [], riesgos: [], cambios: [], reuniones: [], costos: [], sprints: [], lineasBase: [], revisionesPresupuesto: [], secciones: {}, documentos: {}, contadores: {} };
   return { proyecto, plan, eventos: [evento('crear', 'proyecto', ctx.codigo, { despues: { nombre: ficha.nombre, director: miembros.director } })] };
 }
 
@@ -168,13 +170,14 @@ function editarFicha(proyecto, plan, datos, ctx, cap) {
   const admin = esAdministradorTotal(ctx.usuario.rol);
   if (!admin && miembros.director !== normalizarCorreo(proyecto.miembros?.director)) rechazar('Solo un administrador puede cambiar al director del proyecto.');
   if (!admin && miembros.patrocinador !== normalizarCorreo(proyecto.miembros?.patrocinador)) rechazar('Solo un administrador puede cambiar al patrocinador: es quien autoriza las solicitudes del director.');
+  if (!admin && JSON.stringify([...(miembros.comite || [])].sort()) !== JSON.stringify([...(proyecto.miembros?.comite || [])].sort())) rechazar('Solo un administrador puede cambiar los integrantes del Comité I+D+i que aprueban las fases.');
   const presupuestoCambia = ficha.presupuestoAprobado !== (proyecto.ficha?.presupuestoAprobado ?? null) || ficha.manejaPresupuesto !== (proyecto.ficha?.manejaPresupuesto === true);
-  if (presupuestoCambia && !['propuesto', 'planificacion'].includes(proyecto.estado)) {
+  if (presupuestoCambia && !['propuesto', 'factibilidad', 'planificacion'].includes(proyecto.estado)) {
     rechazar('El presupuesto aprobado ya no se edita en la ficha: registra una solicitud de cambio con el nuevo presupuesto.');
   }
   const configuracion = normalizarConfiguracion(datos.configuracion, proyecto.configuracion);
   const nuevo = {
-    ...proyecto, ficha, miembros, correosAcceso: correosConAcceso(miembros), configuracion,
+    ...proyecto, ficha, miembros, correosAcceso: correosConAcceso(miembros), configuracion, codigoEstrategico: codigoEstrategico(ficha),
     presupuestoVigente: presupuestoCambia ? ficha.presupuestoAprobado : proyecto.presupuestoVigente,
   };
   const cambio = diferencias({ ...proyecto.ficha, miembros: proyecto.miembros, configuracion: proyecto.configuracion }, { ...ficha, miembros, configuracion });
@@ -188,7 +191,8 @@ function aplicarEstado(proyecto, plan, destino, ctx) {
   const hoy = ctx.hoy;
   if (destino === 'ejecucion' && !ficha.inicioReal) ficha.inicioReal = hoy;
   if (destino === 'cerrado' && !ficha.finReal) ficha.finReal = hoy;
-  return { ...proyecto, ficha, estado: destino };
+  const estadoAntesSuspension = destino === 'suspendido' ? proyecto.estado : null;
+  return { ...proyecto, ficha, estado: destino, estadoAntesSuspension };
 }
 
 function solicitarEstado(proyecto, plan, datos, ctx, cap) {
@@ -240,15 +244,6 @@ function explicarEstado(proyecto, plan, datos, ctx, cap) {
   return { proyecto: { ...proyecto, explicacionEstado }, plan, eventos: [evento('explicar-estado', 'proyecto', proyecto.codigo, { despues: recortarHistorial(explicacionEstado) })] };
 }
 
-function guardarCierre(proyecto, plan, datos, ctx, cap) {
-  exigir(cap.gestionar, 'Solo el director del proyecto o un administrador registra el cierre.');
-  const cierre = {
-    resultados: textoLargo(datos.resultados), beneficiosLogrados: textoLargo(datos.beneficiosLogrados),
-    leccionesAprendidas: textoLargo(datos.leccionesAprendidas), por: ctx.usuario.email, fecha: ctx.ahora,
-  };
-  const cambio = diferencias(proyecto.cierre || {}, cierre, ['resultados', 'beneficiosLogrados', 'leccionesAprendidas']);
-  return { proyecto: { ...proyecto, cierre }, plan, eventos: cambio ? [evento('guardar-cierre', 'proyecto', proyecto.codigo, recortarHistorial(cambio))] : [] };
-}
 
 function archivar(proyecto, plan, datos, ctx, cap) {
   const archivado = datos.archivado === true;
@@ -504,7 +499,8 @@ function guardarRiesgo(proyecto, plan, datos, ctx, cap) {
   else exigir(cap.aportar, 'Solo el equipo del proyecto registra riesgos e incidencias.');
   const riesgo = {
     ...(anterior || {}),
-    tipo: entrada.tipo, descripcion: textoLargo(entrada.descripcion), causa: textoLargo(entrada.causa), evento: textoLargo(entrada.evento),
+    tipo: entrada.tipo, naturaleza: entrada.tipo === 'riesgo' && entrada.naturaleza === 'oportunidad' ? 'oportunidad' : 'amenaza', descripcion: textoLargo(entrada.descripcion),
+    costoContingencia: numeroONulo(entrada.costoContingencia), disparador: textoLargo(entrada.disparador), indicadorMonitoreo: textoLargo(entrada.indicadorMonitoreo), causa: textoLargo(entrada.causa), evento: textoLargo(entrada.evento),
     consecuencia: textoLargo(entrada.consecuencia), probabilidad: numeroONulo(entrada.probabilidad), impacto: numeroONulo(entrada.impacto),
     responsable: correoOpcional(entrada.responsable, 'responsable'), controles: textoLargo(entrada.controles), respuesta: entrada.respuesta || '',
     fechaLimite: entrada.fechaLimite || '', probabilidadResidual: numeroONulo(entrada.probabilidadResidual), impactoResidual: numeroONulo(entrada.impactoResidual),
@@ -519,7 +515,9 @@ function guardarRiesgo(proyecto, plan, datos, ctx, cap) {
   if (!riesgo.descripcion) rechazar('Describe el riesgo o la incidencia.');
   if (!ESTADOS_RIESGO[riesgo.estado]) rechazar('El estado no es válido.');
   if (riesgo.tipo === 'riesgo' && nivelRiesgo(riesgo.probabilidad, riesgo.impacto) === null) rechazar('Califica probabilidad e impacto de 1 a 5.');
-  if (riesgo.respuesta && !RESPUESTAS_RIESGO[riesgo.respuesta]) rechazar('La respuesta al riesgo no es válida.');
+  if (!NATURALEZAS_RIESGO[riesgo.naturaleza]) rechazar('Indica si es una amenaza o una oportunidad.');
+  if (riesgo.respuesta && !(riesgo.naturaleza === 'oportunidad' ? RESPUESTAS_OPORTUNIDAD : RESPUESTAS_RIESGO)[riesgo.respuesta]) rechazar(riesgo.naturaleza === 'oportunidad' ? 'Para una oportunidad la respuesta es explotar, mejorar, compartir o aceptar.' : 'La respuesta a una amenaza es mitigar, evitar, transferir o aceptar.');
+  if (riesgo.costoContingencia !== null && !(riesgo.costoContingencia >= 0)) rechazar('El costo de contingencia debe ser un número mayor o igual a cero.');
   if ((riesgo.probabilidadResidual !== null || riesgo.impactoResidual !== null) && nivelRiesgo(riesgo.probabilidadResidual, riesgo.impactoResidual) === null) rechazar('El riesgo residual se califica con probabilidad e impacto de 1 a 5.');
   if (riesgo.fechaLimite && !esFecha(riesgo.fechaLimite)) rechazar('La fecha límite no es válida.');
   if (riesgo.estado === 'cerrado' && riesgo.acciones.some(accion => !accion.cumplida)) rechazar('Para cerrarlo, todas sus acciones de tratamiento deben estar cumplidas.');
@@ -527,7 +525,7 @@ function guardarRiesgo(proyecto, plan, datos, ctx, cap) {
   riesgo.nivelResidual = nivelRiesgo(riesgo.probabilidadResidual, riesgo.impactoResidual);
   const prefijo = riesgo.tipo === 'riesgo' ? 'R' : 'I';
   const sellado = sello(anterior ? riesgo : { ...riesgo, id: ctx.generarId(), codigo: siguienteCodigo(plan, prefijo === 'R' ? 'riesgo' : 'incidencia', prefijo), creadoPor: ctx.usuario.email, creadoEn: ctx.ahora }, ctx);
-  const cambio = anterior ? diferencias(anterior, sellado, ['tipo', 'descripcion', 'probabilidad', 'impacto', 'responsable', 'respuesta', 'estado', 'acciones', 'probabilidadResidual', 'impactoResidual', 'fechaLimite'])
+  const cambio = anterior ? diferencias(anterior, sellado, ['tipo', 'naturaleza', 'descripcion', 'probabilidad', 'impacto', 'responsable', 'respuesta', 'estado', 'acciones', 'probabilidadResidual', 'impactoResidual', 'fechaLimite', 'costoContingencia', 'disparador'])
     : { despues: { tipo: sellado.tipo, descripcion: sellado.descripcion.slice(0, 200), nivel: sellado.nivel } };
   return {
     proyecto, plan: { ...plan, riesgos: anterior ? reemplazar(plan.riesgos, sellado) : [...(plan.riesgos || []), sellado] },
@@ -725,9 +723,136 @@ function estimarCostoFinal(proyecto, plan, datos, ctx, cap) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
+// Apartados del manual E-ID-MAN-01 (secciones), documentos por fase y lecciones aprendidas
+// ---------------------------------------------------------------------------------------------------------
+
+// Esquema de cada sección: 'texto', 'largo', 'fecha', 'numero', 'bool', 'id', una lista de opciones, una
+// lista ['multi', ...opciones], un objeto anidado o [esquemaDeElemento] para listas.
+const OPCIONES_1_5 = [1, 2, 3, 4, 5];
+const FASE = ['preinversion', 'inversion', 'operacion'];
+const ESQUEMAS_SECCION = {
+  alternativas: { lista: [{ id: 'id', nombre: 'texto', descripcion: 'largo', tecnica: 'largo', economica: 'largo', ambiental: 'largo', social: 'largo', impactosPositivos: 'largo', impactosNegativos: 'largo', seleccionada: 'bool' }] },
+  entorno: { descripcion: 'largo', ubicacion: 'largo', normativa: 'largo', actores: 'largo' },
+  aspectos: { supuestos: 'largo', estudios: 'largo', normas: 'largo', permisos: 'largo', expertos: 'largo' },
+  cronogramaFases: { preinversion: { inicio: 'fecha', fin: 'fecha' }, inversion: { inicio: 'fecha', fin: 'fecha' }, operacion: { inicio: 'fecha', fin: 'fecha' }, hitos: 'largo' },
+  objetivos: { justificacionExceso: 'largo' },
+  pestel: { factores: [{ id: 'id', letra: ['P', 'E', 'S', 'T', 'EC', 'L'], hecho: 'largo', fuente: 'texto', fechaFuente: 'fecha', tendencia: ['mejor', 'peor', 'estable'], tipo: ['oportunidad', 'amenaza'], importancia: [1, 2, 3], valoracion: OPCIONES_1_5, impacto: ['alto', 'medio', 'bajo'] }] },
+  propuestaValor: { segmento: 'largo', tareas: 'largo', dolores: 'largo', motivadores: 'largo', productos: 'largo', calmantes: 'largo', detonantes: 'largo', encaje: 'largo' },
+  modeloNegocio: { segmentos: 'largo', propuesta: 'largo', canales: 'largo', relaciones: 'largo', recursos: 'largo', aliados: 'largo', actividades: 'largo', costos: 'largo', ingresos: 'largo' },
+  ingresos: { metodo: ['bottom-up', 'top-down'], periodos: [{ id: 'id', periodo: 'texto', clientes: 'numero', precio: 'numero', ajuste: 'numero' }], supuestos: 'largo' },
+  localizacion: { ubicacion: 'largo', criterios: 'largo', superficie: 'texto', capacidad: 'largo', restricciones: 'largo' },
+  ingenieria: { tipos: ['multi', 'infraestructura', 'producto', 'administrativo', 'rse'], proceso: 'largo', layout: 'largo', estudios: 'largo' },
+  organizacional: { preinversion: 'largo', inversion: 'largo', operacion: 'largo' },
+  financiero: { tasaDescuento: 'numero', flujos: [{ id: 'id', periodo: 'numero', descripcion: 'texto', ingresos: 'numero', egresos: 'numero' }], sensibilidad: 'largo' },
+  interesados: { lista: [{ id: 'id', nombre: 'texto', tipo: ['interno', 'externo'], poder: OPCIONES_1_5, interes: OPCIONES_1_5, actitud: ['favor', 'neutral', 'contra'], expectativas: 'largo', mensajes: 'largo', canal: 'texto', frecuencia: 'texto', responsable: 'texto', riesgosAsociados: 'largo' }] },
+  organigrama: { roles: [{ id: 'id', fase: FASE, rol: 'texto', persona: 'texto', reportaA: 'texto', nivel: ['estrategico', 'tactico', 'operativo'], funciones: 'largo' }] },
+  raci: 'raci',
+  transferencia: { areaReceptora: 'texto', responsableOperacion: 'texto', fechaEntrega: 'fecha', capacitaciones: 'largo', manuales: 'largo', ajustesProcesos: 'largo', mantenimiento: 'largo', gestionCambio: 'largo' },
+  lecciones: { lista: [{ id: 'id', categoria: ['tecnica', 'administrativa', 'contractual', 'operativa'], tipo: ['plus', 'delta'], fase: FASE, situacion: 'largo', solucion: 'largo', recomendacion: 'largo' }] },
+  actaCierre: { resultados: 'largo', cumplimientoObjetivos: 'largo', beneficiosLogrados: 'largo', contratos: 'largo', liberacionRecursos: 'largo', evaluacionDesempeno: 'largo', archivo: 'largo' },
+};
+const ADMITE_NO_APLICA = new Set(APARTADOS.filter(apartado => apartado.admiteNoAplica).map(apartado => apartado.id));
+
+function normalizarConEsquema(esquema, valor, ctx, ruta) {
+  if (Array.isArray(esquema) && esquema[0] === 'multi') return [...new Set((Array.isArray(valor) ? valor : []).filter(item => esquema.includes(item) && item !== 'multi'))];
+  if (Array.isArray(esquema) && esquema.length === 1 && typeof esquema[0] === 'object') {
+    return (Array.isArray(valor) ? valor : []).slice(0, 100).map((item, indice) => normalizarConEsquema(esquema[0], item, ctx, `${ruta} #${indice + 1}`));
+  }
+  if (Array.isArray(esquema)) {
+    const opcion = esquema.find(item => String(item) === String(valor));
+    return opcion === undefined ? '' : opcion;
+  }
+  if (esquema && typeof esquema === 'object') {
+    return Object.fromEntries(Object.entries(esquema).map(([campo, tipo]) => [campo, normalizarConEsquema(tipo, valor?.[campo], ctx, `${ruta}.${campo}`)]));
+  }
+  if (esquema === 'id') return texto(valor, 80) || ctx.generarId();
+  if (esquema === 'texto') return texto(valor);
+  if (esquema === 'largo') return textoLargo(valor);
+  if (esquema === 'bool') return valor === true;
+  if (esquema === 'numero') {
+    const numero = numeroONulo(valor);
+    if (numero !== null && !Number.isFinite(numero)) rechazar(`El valor de "${ruta}" debe ser un número.`);
+    return numero;
+  }
+  if (esquema === 'fecha') {
+    if (valor && !esFecha(valor)) rechazar(`La fecha de "${ruta}" no es válida.`);
+    return valor || '';
+  }
+  return null;
+}
+
+/** RACI: roles (cargos) y, por cada entregable o paquete de la EDT, la letra de cada rol. */
+function normalizarRaci(valor, plan) {
+  const roles = [...new Set((Array.isArray(valor?.roles) ? valor.roles : []).map(rol => texto(rol, 80)).filter(Boolean))].slice(0, 30);
+  const elementos = new Set(elementosRaci(plan).map(elemento => elemento.id));
+  const filas = Object.fromEntries(Object.entries(valor?.filas || {}).filter(([id]) => elementos.has(id)).map(([id, fila]) => [id,
+    Object.fromEntries(Object.entries(fila || {}).filter(([rol, letra]) => roles.includes(rol) && ['R', 'A', 'C', 'I'].includes(letra)))]));
+  return { roles, filas };
+}
+
+function guardarSeccion(proyecto, plan, datos, ctx, cap) {
+  const seccion = datos.seccion;
+  const esquema = ESQUEMAS_SECCION[seccion];
+  if (!esquema) rechazar('El apartado no existe.');
+  exigir(cap.gestionar, 'Solo el director del proyecto o un administrador diligencia los apartados de la metodología.');
+  const anterior = plan.secciones?.[seccion] || null;
+  if (anterior?.version && datos.versionBase !== anterior.version) {
+    rechazar(`${anterior.actualizadoPor || 'Otra persona'} modificó este apartado mientras lo editabas. Recarga para ver sus cambios y vuelve a guardar.`, 409);
+  }
+  const contenido = esquema === 'raci' ? normalizarRaci(datos.datos, plan) : normalizarConEsquema(esquema, datos.datos || {}, ctx, seccion);
+  if (ADMITE_NO_APLICA.has(seccion) && datos.datos?.noAplica) {
+    const justificacion = textoLargo(datos.datos.noAplica.justificacion);
+    if (justificacion.length < 10) rechazar('Para marcar el apartado como "No aplica" escribe una justificación (al menos 10 caracteres).');
+    contenido.noAplica = { justificacion, por: ctx.usuario.email, fecha: ctx.ahora };
+  }
+  const nueva = { datos: contenido, version: ctx.generarId(), actualizadoPor: ctx.usuario.email, actualizadoEn: ctx.ahora };
+  const cambio = diferencias({ datos: anterior?.datos || null }, { datos: contenido }, ['datos']);
+  if (!cambio) return { proyecto, plan, eventos: [] };
+  // Las lecciones se copian, resumidas, al documento del proyecto para la base corporativa de consulta.
+  const leccionesBase = seccion === 'lecciones'
+    ? contenido.lista.filter(leccion => leccion.situacion).map(leccion => ({ categoria: leccion.categoria, tipo: leccion.tipo, fase: leccion.fase, situacion: leccion.situacion.slice(0, 400), recomendacion: leccion.recomendacion.slice(0, 400) })).slice(0, 50)
+    : proyecto.leccionesBase;
+  return {
+    proyecto: { ...proyecto, ...(seccion === 'lecciones' ? { leccionesBase } : {}) },
+    plan: { ...plan, secciones: { ...(plan.secciones || {}), [seccion]: nueva } },
+    eventos: [evento('guardar-apartado', 'apartado', seccion, recortarHistorial(cambio))],
+  };
+}
+
+function subirDocumento(proyecto, plan, datos, ctx, cap) {
+  const documento = DOCUMENTO[datos.idDocumento];
+  if (!documento) rechazar('El documento no existe en la metodología.');
+  exigir(cap.aportar, 'Solo el equipo del proyecto carga documentos.');
+  const url = enlace(datos.archivo?.url);
+  if (!url) rechazar('Falta el enlace del archivo cargado en el repositorio de Termales.');
+  const registro = plan.documentos?.[documento.id] || { versiones: [], noAplica: null };
+  const version = { version: registro.versiones.length + 1, url, nombre: texto(datos.archivo?.nombre), por: ctx.usuario.email, fecha: ctx.ahora };
+  return {
+    proyecto,
+    plan: { ...plan, documentos: { ...(plan.documentos || {}), [documento.id]: { ...registro, versiones: [...registro.versiones, version], noAplica: null } } },
+    eventos: [evento('cargar-documento', 'documento', documento.nombre, { despues: { version: version.version, archivo: version.nombre } })],
+  };
+}
+
+function marcarDocumento(proyecto, plan, datos, ctx, cap) {
+  const documento = DOCUMENTO[datos.idDocumento];
+  if (!documento) rechazar('El documento no existe en la metodología.');
+  exigir(cap.gestionar, 'Solo el director del proyecto o un administrador marcan un documento como "No aplica".');
+  const registro = plan.documentos?.[documento.id] || { versiones: [], noAplica: null };
+  const justificacion = textoLargo(datos.justificacion);
+  if (datos.noAplica !== false && justificacion.length < 10) rechazar('Justifica por qué el documento no aplica (al menos 10 caracteres).');
+  const noAplica = datos.noAplica === false ? null : { justificacion, por: ctx.usuario.email, fecha: ctx.ahora };
+  return {
+    proyecto,
+    plan: { ...plan, documentos: { ...(plan.documentos || {}), [documento.id]: { ...registro, noAplica } } },
+    eventos: [evento(noAplica ? 'documento-no-aplica' : 'documento-aplica', 'documento', documento.nombre, { motivo: justificacion })],
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------
 
 const ACCIONES = {
-  editarFicha, solicitarEstado, decidirEstado, explicarEstado, guardarCierre, archivar,
+  editarFicha, solicitarEstado, decidirEstado, explicarEstado, archivar, guardarSeccion, subirDocumento, marcarDocumento,
   guardarTarea, revisarTarea, comentarTarea, establecerLineaBase, guardarSprint,
   guardarEntregable, presentarEntregable, decidirEntregable,
   guardarRiesgo, guardarCambio, decidirCambio,

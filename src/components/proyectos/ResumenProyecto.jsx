@@ -1,8 +1,9 @@
 // src/components/proyectos/ResumenProyecto.jsx - Indicadores con su fórmula, semáforo con motivos, flujo de
-// autorización de estados, explicación del estado e informe de cierre.
+// autorización de fases del manual E-ID-MAN-01 y explicación del estado.
 import { useState } from 'react';
 import { ESTADOS_PROYECTO, NOMBRE_TRANSICION, TRANSICIONES_PROYECTO, normalizarCorreo, requisitosTransicion } from '../../utils/proyectos/modelo.js';
 import { FORMULAS } from '../../utils/proyectos/indicadores.js';
+import { PILARES, aprobacionDe } from '../../utils/proyectos/metodologia.js';
 import { fecha, fechaHora, moneda, nombreDeCorreo, porcentaje, puntos, variacion } from '../../utils/proyectos/formato.js';
 import { Campo, Insignia, Kpi, Seccion, Semaforo, botonPrimario, botonSecundario, botonPeligro, claseCampo } from './ui.jsx';
 
@@ -15,13 +16,16 @@ export default function ResumenProyecto({ proyecto, plan, cap, usuario, operar, 
   const m = proyecto.miembros || {};
   const pendiente = (proyecto.solicitudesEstado || []).find(solicitud => solicitud.estado === 'pendiente');
   const [explicacion, setExplicacion] = useState(() => ({ explicacion: '', causa: '', planRecuperacion: '', ...(proyecto.explicacionEstado || {}) }));
-  const [cierre, setCierre] = useState(() => ({ resultados: '', beneficiosLogrados: '', leccionesAprendidas: '', ...(proyecto.cierre || {}) }));
-  const destinos = Object.entries(TRANSICIONES_PROYECTO).filter(([, origenes]) => origenes.includes(proyecto.estado)).map(([destino]) => destino);
+  // Suspendido: solo se reanuda en la fase en que estaba (o se cancela).
+  const destinos = proyecto.estado === 'suspendido'
+    ? [proyecto.estadoAntesSuspension, 'cancelado'].filter(Boolean)
+    : Object.entries(TRANSICIONES_PROYECTO).filter(([destino, origenes]) => origenes.includes(proyecto.estado) && destino !== 'propuesto').map(([destino]) => destino);
+  const nombreDestino = destino => (proyecto.estado === 'suspendido' && destino !== 'cancelado' ? `Reanudar en ${ESTADOS_PROYECTO[destino]}` : NOMBRE_TRANSICION[destino]);
   const sinAprobacion = proyecto.configuracion?.aprobarCambiosEstado === false;
   const moneda_ = f.moneda || 'COP';
 
   const solicitar = async destino => {
-    const motivo = await pedirTexto({ titulo: `${NOMBRE_TRANSICION[destino]}`, etiqueta: sinAprobacion ? 'Motivo (queda en el historial)' : 'Motivo de la solicitud (lo verá el patrocinador)', confirmar: sinAprobacion ? 'Aplicar' : 'Enviar solicitud', peligro: destino === 'cancelado' });
+    const motivo = await pedirTexto({ titulo: nombreDestino(destino), etiqueta: sinAprobacion ? 'Motivo (queda en el historial)' : 'Motivo de la solicitud (lo verá el patrocinador)', confirmar: sinAprobacion ? 'Aplicar' : 'Enviar solicitud', peligro: destino === 'cancelado' });
     if (motivo) await operar('solicitarEstado', { destino, motivo }, sinAprobacion ? 'Estado actualizado.' : 'Solicitud enviada al patrocinador.');
   };
   const decidir = async decision => {
@@ -31,8 +35,30 @@ export default function ResumenProyecto({ proyecto, plan, cap, usuario, operar, 
   };
   const evmFaltante = !ind.maneja ? 'El proyecto no maneja presupuesto.' : !ind.tieneLineaBase ? 'Falta la línea base del cronograma.' : ind.costoReal === 0 ? 'Faltan costos reales registrados.' : 'Faltan fechas o avances en el cronograma.';
 
+  const etapas = [
+    ['propuesto', 'Prefactibilidad', 'Preinversión'], ['factibilidad', 'Factibilidad', 'Preinversión'], ['planificacion', 'Planificación', 'Inversión'],
+    ['ejecucion', 'Ejecución', 'Inversión'], ['operacion', 'Entrega a operación', 'Operación y cierre'], ['cerrado', 'Cerrado', 'Operación y cierre'],
+  ];
+  const estadoVisible = proyecto.estado === 'suspendido' ? proyecto.estadoAntesSuspension : proyecto.estado;
+  const posicionActual = etapas.findIndex(([clave]) => clave === estadoVisible);
   return (
     <div className="space-y-4">
+      <Seccion titulo="Ciclo de vida (Manual E-ID-MAN-01)" descripcion="Cada paso lo solicita el director y lo aprueba el patrocinador (Gerencia) o el Comité I+D+i; la aprobación queda registrada como la firma del acta.">
+        <ol className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          {etapas.map(([clave, nombre, fase], indice) => {
+            const aprobacion = indice > 0 ? aprobacionDe(proyecto, clave) : null;
+            const actual = indice === posicionActual;
+            return (
+              <li key={clave} className={`rounded-xl border p-2 text-xs ${actual ? 'border-[#0055ff] bg-blue-50' : indice < posicionActual ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200'}`} aria-current={actual ? 'step' : undefined}>
+                <p className="text-[10px] font-black uppercase text-slate-500">{fase}</p>
+                <p className="font-black text-slate-800">{nombre}{actual && proyecto.estado === 'suspendido' ? ' (suspendido)' : ''}</p>
+                {aprobacion && <p className="mt-1 text-[11px] text-slate-600">Aprobó {nombreDeCorreo(aprobacion.decididaPor)} · {fecha(aprobacion.fechaDecision)}</p>}
+              </li>
+            );
+          })}
+        </ol>
+      </Seccion>
+
       <Seccion titulo="Estado de control" descripcion="El semáforo combina atraso, hitos, riesgos, costos, bloqueos y actualización: un avance alto no basta para estar en verde.">
         <div className="flex flex-wrap items-start gap-4">
           <Semaforo semaforo={ind.semaforo} conTexto />
@@ -56,7 +82,7 @@ export default function ResumenProyecto({ proyecto, plan, cap, usuario, operar, 
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Seccion titulo="Ciclo de vida" className="lg:col-span-1" descripcion={sinAprobacion ? 'Este proyecto no exige autorización del patrocinador para cambiar de estado.' : 'Cada cambio de estado lo solicita el director y lo autoriza el patrocinador.'}>
+        <Seccion titulo="Aprobaciones de fase" className="lg:col-span-1" descripcion={sinAprobacion ? 'Este proyecto no exige aprobación para cambiar de fase.' : 'El director solicita; aprueba el patrocinador, el Comité I+D+i o un administrador (nunca quien solicitó).'}>
           <p className="text-sm">Estado actual: <b>{ESTADOS_PROYECTO[proyecto.estado]}</b></p>
           {pendiente && (
             <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs">
@@ -78,8 +104,8 @@ export default function ResumenProyecto({ proyecto, plan, cap, usuario, operar, 
                 const faltan = requisitosTransicion(proyecto, plan, destino);
                 return (
                   <div key={destino}>
-                    <button type="button" className={destino === 'cancelado' ? botonPeligro : botonSecundario} disabled={guardando || faltan.length > 0} onClick={() => solicitar(destino)}>{NOMBRE_TRANSICION[destino]}</button>
-                    {faltan.length > 0 && <p className="mt-0.5 text-[11px] text-slate-500">{faltan.join(' ')}</p>}
+                    <button type="button" className={destino === 'cancelado' ? botonPeligro : botonSecundario} disabled={guardando || faltan.length > 0} onClick={() => solicitar(destino)}>{nombreDestino(destino)}</button>
+                    {faltan.length > 0 && <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-slate-500">{faltan.slice(0, 8).map(faltante => <li key={faltante}>{faltante}</li>)}{faltan.length > 8 && <li>y {faltan.length - 8} más…</li>}</ul>}
                   </div>
                 );
               })}
@@ -127,30 +153,15 @@ export default function ResumenProyecto({ proyecto, plan, cap, usuario, operar, 
           <Dato etiqueta="Presupuesto">{f.manejaPresupuesto ? `Aprobado ${moneda(f.presupuestoAprobado, moneda_)} · Vigente ${moneda(proyecto.presupuestoVigente, moneda_)}` : 'No maneja presupuesto'}</Dato>
           <Dato etiqueta="Área / proceso">{[f.area, f.proceso].filter(Boolean).join(' / ')}</Dato>
           <Dato etiqueta="Director">{m.director}</Dato>
-          <Dato etiqueta="Patrocinador">{m.patrocinador || 'Sin patrocinador: los cambios de estado los autoriza un administrador.'}</Dato>
+          <Dato etiqueta="Código del portafolio">{proyecto.codigoEstrategico ? `${proyecto.codigoEstrategico} · Pilar ${PILARES[f.pilar]}` : 'Sin asignar'}</Dato>
+          <Dato etiqueta="Patrocinador (aprueba las fases)">{m.patrocinador || 'Sin patrocinador: aprueba el Comité o un administrador.'}</Dato>
+          <Dato etiqueta="Comité I+D+i / Estratégico">{(m.comite || []).join('\n')}</Dato>
           <Dato etiqueta="Equipo">{(m.equipo || []).join('\n')}</Dato>
           <Dato etiqueta="Aprobadores">{(m.aprobadores || []).join('\n')}</Dato>
           <Dato etiqueta="Dependencias y restricciones">{f.dependenciasRestricciones}</Dato>
           <Dato etiqueta="Portafolio / programa">{[f.portafolio, f.programa].filter(Boolean).join(' / ')}</Dato>
         </dl>
       </Seccion>
-
-      {(['ejecucion', 'cerrado'].includes(proyecto.estado) || proyecto.cierre) && (
-        <Seccion titulo="Informe de cierre y lecciones aprendidas" descripcion="Las lecciones aprendidas son obligatorias para cerrar el proyecto.">
-          {cap.gestionar ? (
-            <form className="grid gap-3 sm:grid-cols-3" onSubmit={evento => { evento.preventDefault(); void operar('guardarCierre', cierre, 'Informe de cierre guardado.'); }}>
-              {[['resultados', 'Resultados obtenidos'], ['beneficiosLogrados', 'Beneficios logrados'], ['leccionesAprendidas', 'Lecciones aprendidas']].map(([campo, etiqueta]) => (
-                <Campo key={campo} etiqueta={etiqueta} obligatorio={campo === 'leccionesAprendidas'}>
-                  {props => <textarea {...props} rows={4} className={claseCampo} value={cierre[campo] || ''} onChange={evento => setCierre(actual => ({ ...actual, [campo]: evento.target.value }))} />}
-                </Campo>
-              ))}
-              <div className="flex justify-end sm:col-span-3"><button type="submit" className={botonPrimario} disabled={guardando}>Guardar cierre</button></div>
-            </form>
-          ) : (
-            <dl className="grid gap-3 sm:grid-cols-3"><Dato etiqueta="Resultados">{proyecto.cierre?.resultados}</Dato><Dato etiqueta="Beneficios logrados">{proyecto.cierre?.beneficiosLogrados}</Dato><Dato etiqueta="Lecciones aprendidas">{proyecto.cierre?.leccionesAprendidas}</Dato></dl>
-          )}
-        </Seccion>
-      )}
     </div>
   );
 }

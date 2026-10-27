@@ -1,32 +1,40 @@
 // src/utils/proyectos/modelo.js - Catálogos, validaciones y reglas de negocio de Gestión de Proyectos.
 // Lo usan el servidor (que decide) y la pantalla (que solo anticipa los mismos mensajes).
 import { esFecha } from './fechas.js';
+import { PILARES, requisitosMetodologia } from './metodologia.js';
 
 export const METODOLOGIAS = { predictiva: 'Predictiva', agil: 'Ágil', hibrida: 'Híbrida' };
 export const PRIORIDADES = { baja: 'Baja', media: 'Media', alta: 'Alta', critica: 'Crítica' };
 export const MONEDAS = ['COP', 'USD', 'EUR'];
 
+// Ciclo de vida del manual E-ID-MAN-01. "propuesto" se conserva como clave de la Prefactibilidad.
 export const ESTADOS_PROYECTO = {
-  propuesto: 'Propuesto',
-  planificacion: 'En planificación',
-  ejecucion: 'En ejecución',
+  propuesto: 'Preinversión · Prefactibilidad',
+  factibilidad: 'Preinversión · Factibilidad',
+  planificacion: 'Inversión · Planificación',
+  ejecucion: 'Inversión · Ejecución',
+  operacion: 'Operación y cierre',
   suspendido: 'Suspendido',
   cerrado: 'Cerrado',
   cancelado: 'Cancelado',
 };
-// Destino → estados desde los que se puede llegar. Cualquier otro salto se rechaza.
+// Destino → estados desde los que se puede llegar. Cualquier otro salto se rechaza. Desde "suspendido" solo
+// se vuelve al estado en que estaba al suspenderse.
 export const TRANSICIONES_PROYECTO = {
-  planificacion: ['propuesto'],
+  factibilidad: ['propuesto', 'suspendido'],
+  planificacion: ['factibilidad', 'suspendido'],
   ejecucion: ['planificacion', 'suspendido'],
-  suspendido: ['planificacion', 'ejecucion'],
-  cerrado: ['ejecucion'],
-  cancelado: ['propuesto', 'planificacion', 'ejecucion', 'suspendido'],
+  operacion: ['ejecucion', 'suspendido'],
+  cerrado: ['operacion'],
+  propuesto: ['suspendido'],
+  suspendido: ['propuesto', 'factibilidad', 'planificacion', 'ejecucion', 'operacion'],
+  cancelado: ['propuesto', 'factibilidad', 'planificacion', 'ejecucion', 'operacion', 'suspendido'],
 };
 export const NOMBRE_TRANSICION = {
-  planificacion: 'Autorizar el proyecto', ejecucion: 'Iniciar o reanudar la ejecución', suspendido: 'Suspender',
-  cerrado: 'Cerrar', cancelado: 'Cancelar',
+  factibilidad: 'Aprobar la Prefactibilidad', planificacion: 'Aprobar la Factibilidad', ejecucion: 'Firmar el Acta de constitución e iniciar la ejecución',
+  operacion: 'Entregar a la operación', cerrado: 'Firmar el Acta de cierre', suspendido: 'Suspender', cancelado: 'Cancelar', propuesto: 'Reanudar',
 };
-export const ESTADOS_ACTIVOS = ['propuesto', 'planificacion', 'ejecucion', 'suspendido'];
+export const ESTADOS_ACTIVOS = ['propuesto', 'factibilidad', 'planificacion', 'ejecucion', 'operacion', 'suspendido'];
 
 export const TIPOS_TAREA = {
   fase: 'Fase', paquete: 'Paquete de trabajo', actividad: 'Actividad', hito: 'Hito', epica: 'Épica', historia: 'Historia de usuario',
@@ -48,7 +56,12 @@ export const TIPOS_RIESGO = {
   riesgo: 'Riesgo', problema: 'Problema materializado', incidencia: 'Incidencia', bloqueo: 'Bloqueo', dependencia: 'Dependencia externa',
 };
 export const ESTADOS_RIESGO = { abierto: 'Abierto', en_tratamiento: 'En tratamiento', cerrado: 'Cerrado' };
+export const NATURALEZAS_RIESGO = { amenaza: 'Amenaza', oportunidad: 'Oportunidad' };
 export const RESPUESTAS_RIESGO = { mitigar: 'Mitigar', evitar: 'Evitar', transferir: 'Transferir', aceptar: 'Aceptar' };
+// Respuestas a oportunidades (PMBOK); "aceptar" vale para ambas.
+export const RESPUESTAS_OPORTUNIDAD = { explotar: 'Explotar', mejorar: 'Mejorar', compartir: 'Compartir', aceptar: 'Aceptar' };
+/** Prioridad del manual (alto / medio / bajo) según el nivel P × I. */
+export const prioridadRiesgo = (nivel, critico = 15) => (nivel === null || nivel === undefined ? '' : nivel >= critico ? 'alto' : nivel >= 8 ? 'medio' : 'bajo');
 
 export const ESTADOS_CAMBIO = {
   solicitada: 'Solicitada', en_analisis: 'En análisis', aprobada: 'Aprobada', rechazada: 'Rechazada', implementada: 'Implementada', cancelada: 'Cancelada',
@@ -91,6 +104,7 @@ export function rolesEnProyecto(proyecto, correo) {
   if (!email) return roles;
   if (normalizarCorreo(miembros.director) === email) roles.add('director');
   if (normalizarCorreo(miembros.patrocinador) === email) roles.add('patrocinador');
+  (miembros.comite || []).forEach(correoMiembro => normalizarCorreo(correoMiembro) === email && roles.add('comite'));
   if (normalizarCorreo(miembros.responsableArea) === email) roles.add('lector');
   (miembros.equipo || []).forEach(correoMiembro => normalizarCorreo(correoMiembro) === email && roles.add('equipo'));
   (miembros.aprobadores || []).forEach(correoMiembro => normalizarCorreo(correoMiembro) === email && roles.add('aprobador'));
@@ -101,7 +115,7 @@ export function rolesEnProyecto(proyecto, correo) {
 /** Todos los correos con acceso (para la consulta array-contains del portafolio). */
 export const correosConAcceso = miembros => [...new Set([
   miembros?.director, miembros?.patrocinador, miembros?.responsableArea,
-  ...(miembros?.equipo || []), ...(miembros?.aprobadores || []), ...(miembros?.lectores || []),
+  ...(miembros?.equipo || []), ...(miembros?.aprobadores || []), ...(miembros?.lectores || []), ...(miembros?.comite || []),
 ].map(normalizarCorreo).filter(Boolean))];
 
 const listaCorreos = valor => [...new Set((Array.isArray(valor) ? valor : String(valor || '').split(','))
@@ -123,6 +137,10 @@ export function validarFicha(datos = {}) {
     proceso: texto(datos.proceso),
     portafolio: texto(datos.portafolio),
     programa: texto(datos.programa),
+    pilar: PILARES[datos.pilar] ? datos.pilar : '',
+    numPrograma: numeroOpcional(datos.numPrograma),
+    numSubprograma: numeroOpcional(datos.numSubprograma),
+    numProyecto: numeroOpcional(datos.numProyecto),
     metodologia: datos.metodologia,
     prioridad: datos.prioridad,
     fechaSolicitud: datos.fechaSolicitud || '',
@@ -141,6 +159,10 @@ export function validarFicha(datos = {}) {
     calendario: datos.calendario === 'laboral' ? 'laboral' : 'calendario',
   };
   if (!ficha.nombre) errores.push('Escribe el nombre del proyecto.');
+  if (['numPrograma', 'numSubprograma', 'numProyecto'].some(campo => ficha[campo] !== null && !(Number.isInteger(ficha[campo]) && ficha[campo] >= 1 && ficha[campo] <= 99))) {
+    errores.push('Los números de programa, subprograma y proyecto deben ser enteros entre 1 y 99.');
+  }
+  if ((ficha.numPrograma || ficha.numProyecto || ficha.numSubprograma) && !ficha.pilar) errores.push('Elige el pilar estratégico (Económico, Social o Ambiental) del código del portafolio.');
   if (!ficha.objetivoGeneral) errores.push('Escribe el objetivo general.');
   if (!METODOLOGIAS[ficha.metodologia]) errores.push('Elige la metodología (predictiva, ágil o híbrida).');
   if (!PRIORIDADES[ficha.prioridad]) errores.push('Elige la prioridad.');
@@ -170,9 +192,10 @@ export function validarMiembros(datos = {}) {
     equipo: listaCorreos(datos.equipo),
     aprobadores: listaCorreos(datos.aprobadores),
     lectores: listaCorreos(datos.lectores),
+    comite: listaCorreos(datos.comite),
   };
   if (!miembros.director) errores.push('Indica el correo del director del proyecto.');
-  const todos = [miembros.director, miembros.patrocinador, miembros.responsableArea, ...miembros.equipo, ...miembros.aprobadores, ...miembros.lectores].filter(Boolean);
+  const todos = [miembros.director, miembros.patrocinador, miembros.responsableArea, ...miembros.equipo, ...miembros.aprobadores, ...miembros.lectores, ...miembros.comite].filter(Boolean);
   const invalidos = todos.filter(correo => !CORREO_VALIDO.test(correo));
   if (invalidos.length) errores.push(`Estos correos no son de @termales.com.co: ${[...new Set(invalidos)].join(', ')}.`);
   if (miembros.patrocinador && miembros.patrocinador === miembros.director) errores.push('El patrocinador debe ser una persona distinta del director (es quien autoriza sus solicitudes).');
@@ -186,21 +209,22 @@ export function requisitosTransicion(proyecto, plan, destino) {
   if (!(TRANSICIONES_PROYECTO[destino] || []).includes(origen)) {
     return [`No se puede pasar de "${ESTADOS_PROYECTO[origen] || origen}" a "${ESTADOS_PROYECTO[destino] || destino}".`];
   }
-  const tareas = (plan?.tareas || []).filter(tarea => tarea.estado !== 'cancelada');
-  const metodologia = proyecto?.ficha?.metodologia;
-  if (destino === 'ejecucion' && origen === 'planificacion') {
-    if (!tareas.length) faltantes.push('Registra al menos una tarea o historia antes de iniciar la ejecución.');
-    if (metodologia !== 'agil' && !(plan?.lineasBase || []).length) faltantes.push('Establece la línea base del cronograma antes de iniciar la ejecución.');
+  // Un proyecto suspendido se reanuda en el estado que tenía (o se cancela).
+  if (origen === 'suspendido' && destino !== 'cancelado') {
+    return destino === proyecto?.estadoAntesSuspension ? [] : [`El proyecto se suspendió en "${ESTADOS_PROYECTO[proyecto?.estadoAntesSuspension] || 'otro estado'}": solo puede reanudarse ahí.`];
   }
-  if (destino === 'cerrado') {
-    const abiertas = tareas.filter(tarea => !ESTADOS_CERRADOS_TAREA.includes(tarea.estado));
+  const tareas = (plan?.tareas || []).filter(tarea => tarea.estado !== 'cancelada');
+  if (destino === 'operacion') {
+    // Las fases, paquetes y épicas no se ejecutan por sí mismas: cuentan sus actividades.
+    const abiertas = tareas.filter(tarea => !TIPOS_CONTENEDOR.includes(tarea.tipo) && !ESTADOS_CERRADOS_TAREA.includes(tarea.estado));
     if (abiertas.length) faltantes.push(`Hay ${abiertas.length} tarea(s) sin completar ni cancelar.`);
     const entregablesAbiertos = (plan?.entregables || []).filter(entregable => !['aprobado', 'rechazado'].includes(entregable.estado));
     if (entregablesAbiertos.length) faltantes.push(`Hay ${entregablesAbiertos.length} entregable(s) sin decisión final.`);
     const cambiosAbiertos = (plan?.cambios || []).filter(cambio => ['solicitada', 'en_analisis', 'aprobada'].includes(cambio.estado));
     if (cambiosAbiertos.length) faltantes.push(`Hay ${cambiosAbiertos.length} solicitud(es) de cambio sin cerrar.`);
-    if (!String(proyecto?.cierre?.leccionesAprendidas || '').trim()) faltantes.push('Registra las lecciones aprendidas en el informe de cierre.');
   }
+  // Apartados y formatos del manual que exige cada aprobación (sin repetir los mensajes de arriba).
+  requisitosMetodologia(proyecto, plan, destino).forEach(faltante => { if (!faltantes.includes(faltante)) faltantes.push(faltante); });
   return faltantes;
 }
 

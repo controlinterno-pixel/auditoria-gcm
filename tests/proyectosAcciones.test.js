@@ -69,30 +69,46 @@ test('acceso cruzado: un ajeno recibe 404 (no se revela que existe) y el lector 
   assert.throws(() => s.hacer(usuario('sinmodulo', { permisos: [] }), 'guardarTarea', { tarea: tareaBase() }), { status: 403 });
 });
 
-test('cambios de estado: requisitos, solicitud del director y decisión de otra persona', () => {
+/** Diligencia los apartados 1 a 5 del manual (Estructura inicial) y el código del portafolio. */
+function completarPrefactibilidad(s) {
+  s.hacer(DIRECTOR, 'editarFicha', { version: s.proyecto.version, miembros: s.proyecto.miembros,
+    ficha: { ...s.proyecto.ficha, problema: 'Procesos financieros manuales', pilar: 'E', numPrograma: 1, numSubprograma: 1, numProyecto: 1 } });
+  const seccion = (nombre, datos) => s.hacer(DIRECTOR, 'guardarSeccion', { seccion: nombre, datos, versionBase: s.plan.secciones?.[nombre]?.version });
+  seccion('alternativas', { lista: [{ nombre: 'ERP en la nube', descripcion: 'Licencia SaaS' }, { nombre: 'ERP propio', descripcion: 'Desarrollo interno' }] });
+  seccion('entorno', { descripcion: 'Sede principal, 3 áreas usuarias' });
+  seccion('aspectos', { supuestos: 'Disponibilidad del proveedor' });
+  seccion('cronogramaFases', { preinversion: { inicio: '2026-01-01', fin: '2026-02-28' }, inversion: { inicio: '2026-03-01', fin: '2026-06-30' }, operacion: { inicio: '2026-07-01', fin: '2026-07-31' } });
+}
+
+test('cambios de estado: requisitos del manual, solicitud del director y decisión de otra persona', () => {
   const s = sesion();
   assert.throws(() => s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'cerrado', motivo: 'x' }), /No se puede pasar/);
-  s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'planificacion', motivo: 'Aprobado en comité' });
+  assert.throws(() => s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'planificacion', motivo: 'x' }), /No se puede pasar/, 'no se salta la Factibilidad');
+  assert.throws(() => s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'factibilidad', motivo: 'x' }), /código del portafolio[\s\S]*Apartado 2/);
+  completarPrefactibilidad(s);
+  assert.equal(s.proyecto.codigoEstrategico, 'E1_SP1_PY1');
+  s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'factibilidad', motivo: 'Estructura inicial lista' });
   assert.equal(s.proyecto.estado, 'propuesto', 'la solicitud no cambia el estado por sí sola');
   const idSolicitud = s.proyecto.solicitudesEstado[0].id;
   assert.throws(() => s.hacer(EQUIPO, 'decidirEstado', { idSolicitud, decision: 'aprobada' }), { status: 403 });
   assert.throws(() => s.hacer(ADMIN, 'decidirEstado', { idSolicitud, decision: 'rechazada' }), /Explica por qué/);
-  s.hacer(PATROCINADOR, 'decidirEstado', { idSolicitud, decision: 'aprobada', comentario: 'Adelante' });
-  assert.equal(s.proyecto.estado, 'planificacion');
-  // Iniciar la ejecución exige tareas y línea base.
-  assert.throws(() => s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'ejecucion', motivo: 'Inicio' }), /al menos una tarea/);
+  s.hacer(PATROCINADOR, 'decidirEstado', { idSolicitud, decision: 'aprobada', comentario: 'Acta de aprobación de prefactibilidad' });
+  assert.equal(s.proyecto.estado, 'factibilidad');
+  assert.throws(() => s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'planificacion', motivo: 'x' }), /Apartado 7\.1 \(Análisis PESTEL\)/);
 });
 
 test('autoaprobación: quien solicita un cambio de estado no lo decide, aunque sea administrador', () => {
   const s = sesion();
-  s.hacer(ADMIN, 'solicitarEstado', { destino: 'planificacion', motivo: 'Inicio' });
+  completarPrefactibilidad(s);
+  s.hacer(ADMIN, 'solicitarEstado', { destino: 'factibilidad', motivo: 'Inicio' });
   assert.throws(() => s.hacer(ADMIN, 'decidirEstado', { idSolicitud: s.proyecto.solicitudesEstado[0].id, decision: 'aprobada', comentario: 'ok' }), /debe decidirla otra persona/);
 });
 
 test('flujo configurable: sin aprobación de estados el director cambia directamente (queda en el historial)', () => {
   const s = sesion({ configuracion: { aprobarCambiosEstado: false } });
-  s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'planificacion', motivo: 'Proyecto interno' });
-  assert.equal(s.proyecto.estado, 'planificacion');
+  completarPrefactibilidad(s);
+  s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'factibilidad', motivo: 'Proyecto interno' });
+  assert.equal(s.proyecto.estado, 'factibilidad');
   assert.equal(s.eventos.at(-1).accion, 'cambiar-estado');
 });
 

@@ -1,15 +1,15 @@
 // src/components/proyectos/RiesgosProyecto.jsx - Riesgos, problemas, incidencias, bloqueos y dependencias
 // externas, con matriz 5×5, acciones de tratamiento, riesgo residual y vínculo opcional a la matriz de la app.
 import { useMemo, useState } from 'react';
-import { ESTADOS_RIESGO, RESPUESTAS_RIESGO, TIPOS_RIESGO, UMBRALES_POR_DEFECTO, nivelRiesgo } from '../../utils/proyectos/modelo.js';
-import { fecha, nombreDeCorreo } from '../../utils/proyectos/formato.js';
+import { ESTADOS_RIESGO, NATURALEZAS_RIESGO, RESPUESTAS_OPORTUNIDAD, RESPUESTAS_RIESGO, TIPOS_RIESGO, UMBRALES_POR_DEFECTO, nivelRiesgo, prioridadRiesgo } from '../../utils/proyectos/modelo.js';
+import { fecha, moneda, nombreDeCorreo } from '../../utils/proyectos/formato.js';
 import { Campo, EstadoVacio, Insignia, ListaEvidencias, Modal, Seccion, SubirEvidencia, SugerenciasCorreos, botonPrimario, botonSecundario, claseCampo } from './ui.jsx';
 
 const ESCALA = [1, 2, 3, 4, 5];
 const colorNivel = (nivel, critico) => (nivel === null ? 'bg-slate-100' : nivel >= critico ? 'bg-red-500 text-white' : nivel >= 8 ? 'bg-amber-300' : 'bg-emerald-200');
 
 function FormularioRiesgo({ riesgo, plan, usuario, riesgosMatriz = [], onGuardar, onCerrar, guardando }) {
-  const [datos, setDatos] = useState(() => ({ tipo: 'riesgo', descripcion: '', causa: '', evento: '', consecuencia: '', probabilidad: '', impacto: '', responsable: '', controles: '', respuesta: '', fechaLimite: '', probabilidadResidual: '', impactoResidual: '', estado: 'abierto', idRiesgoMatriz: '', idTarea: '', acciones: [], evidencias: [], ...(riesgo || {}) }));
+  const [datos, setDatos] = useState(() => ({ tipo: 'riesgo', descripcion: '', causa: '', evento: '', consecuencia: '', probabilidad: '', impacto: '', responsable: '', controles: '', respuesta: '', fechaLimite: '', probabilidadResidual: '', impactoResidual: '', estado: 'abierto', idRiesgoMatriz: '', idTarea: '', acciones: [], evidencias: [], naturaleza: 'amenaza', costoContingencia: '', disparador: '', indicadorMonitoreo: '', ...(riesgo || {}) }));
   const cambiar = campo => evento => setDatos(actual => ({ ...actual, [campo]: evento.target.value }));
   const nivel = nivelRiesgo(datos.probabilidad, datos.impacto);
   const esRiesgo = datos.tipo === 'riesgo';
@@ -35,8 +35,12 @@ function FormularioRiesgo({ riesgo, plan, usuario, riesgosMatriz = [], onGuardar
           <>
             {escala('probabilidad', 'Probabilidad (1–5)')}
             {escala('impacto', 'Impacto (1–5)')}
-            <div className="flex items-end"><p className="text-sm font-bold">Nivel: <span className={`rounded px-2 py-1 ${colorNivel(nivel, UMBRALES_POR_DEFECTO.nivelRiesgoCritico)}`}>{nivel ?? '—'}</span></p></div>
-            <Campo etiqueta="Respuesta prevista">{p => <select {...p} className={claseCampo} value={datos.respuesta} onChange={cambiar('respuesta')}><option value="">—</option>{Object.entries(RESPUESTAS_RIESGO).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
+            <div className="flex items-end"><p className="text-sm font-bold">Nivel inherente: <span className={`rounded px-2 py-1 ${colorNivel(nivel, UMBRALES_POR_DEFECTO.nivelRiesgoCritico)}`}>{nivel ?? '—'}</span>{nivel !== null && <span className="ml-2 text-xs text-slate-500">Prioridad {prioridadRiesgo(nivel)}</span>}</p></div>
+            <Campo etiqueta="Respuesta prevista">{p => <select {...p} className={claseCampo} value={datos.respuesta} onChange={cambiar('respuesta')}><option value="">—</option>{Object.entries(datos.naturaleza === 'oportunidad' ? RESPUESTAS_OPORTUNIDAD : RESPUESTAS_RIESGO).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
+            <Campo etiqueta="Amenaza u oportunidad">{p => <select {...p} className={claseCampo} value={datos.naturaleza} onChange={evento => setDatos(actual => ({ ...actual, naturaleza: evento.target.value, respuesta: '' }))}>{Object.entries(NATURALEZAS_RIESGO).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
+            <Campo etiqueta="Costo de contingencia">{p => <input {...p} type="number" min="0" className={claseCampo} value={datos.costoContingencia ?? ''} onChange={cambiar('costoContingencia')} />}</Campo>
+            <Campo etiqueta="Disparador (indicador de activación)" className="sm:col-span-2">{p => <input {...p} className={claseCampo} value={datos.disparador || ''} onChange={cambiar('disparador')} />}</Campo>
+            <Campo etiqueta="Indicador de monitoreo (KPI)" className="sm:col-span-2">{p => <input {...p} className={claseCampo} value={datos.indicadorMonitoreo || ''} onChange={cambiar('indicadorMonitoreo')} />}</Campo>
             {escala('probabilidadResidual', 'Probabilidad residual')}
             {escala('impactoResidual', 'Impacto residual')}
             <Campo etiqueta="Vincular a la matriz de riesgos de GCM" className="sm:col-span-2" ayuda="Solo referencia: no copia ni modifica el riesgo de la matriz.">
@@ -77,13 +81,13 @@ export default function RiesgosProyecto({ proyecto, plan, cap, usuario, operar, 
     && (filtro.estado === '' || (filtro.estado === 'abiertos' ? riesgo.estado !== 'cerrado' : riesgo.estado === filtro.estado))
     && (!filtro.celda || (Number(riesgo.probabilidad) === filtro.celda[0] && Number(riesgo.impacto) === filtro.celda[1])))
     .sort((a, b) => (b.nivel ?? -1) - (a.nivel ?? -1)), [riesgos, filtro]);
-  const abiertosRiesgo = riesgos.filter(riesgo => riesgo.tipo === 'riesgo' && riesgo.estado !== 'cerrado');
+  const abiertosRiesgo = riesgos.filter(riesgo => riesgo.tipo === 'riesgo' && riesgo.naturaleza !== 'oportunidad' && riesgo.estado !== 'cerrado');
   const puedeEditar = riesgo => cap.gestionar || (cap.aportar && String(riesgo.responsable).toLowerCase() === correo);
 
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <Seccion titulo="Matriz de riesgos abiertos" descripcion={`Crítico: nivel ≥ ${critico}. Selecciona una celda para filtrar.`}>
+        <Seccion titulo="Matriz de amenazas abiertas" descripcion={`Probabilidad × impacto (1–5). Crítico: nivel ≥ ${critico}. Selecciona una celda para filtrar.`}>
           <div className="grid grid-cols-[auto_repeat(5,1fr)] gap-1 text-[10px]" role="grid" aria-label="Matriz de probabilidad por impacto">
             <span />
             {ESCALA.map(impacto => <span key={impacto} className="text-center font-bold text-slate-500">I{impacto}</span>)}
@@ -116,7 +120,7 @@ export default function RiesgosProyecto({ proyecto, plan, cap, usuario, operar, 
                   <span className={`mt-0.5 w-8 rounded text-center font-black ${colorNivel(riesgo.nivel, critico)}`}>{riesgo.nivel ?? '—'}</span>
                   <div className="min-w-0 flex-1">
                     <button type="button" className="text-left font-bold text-[#0055ff] hover:underline disabled:text-slate-800 disabled:no-underline" disabled={!puedeEditar(riesgo)} onClick={() => setAbierto(riesgo)}>{riesgo.codigo} · {riesgo.descripcion}</button>
-                    <p className="text-slate-500">{TIPOS_RIESGO[riesgo.tipo]} · {nombreDeCorreo(riesgo.responsable)}{riesgo.fechaLimite ? ` · límite ${fecha(riesgo.fechaLimite)}` : ''}{riesgo.nivelResidual ? ` · residual ${riesgo.nivelResidual}` : ''}{riesgo.idRiesgoMatriz ? ' · vinculado a la matriz GCM' : ''}</p>
+                    <p className="text-slate-500">{riesgo.naturaleza === 'oportunidad' ? 'Oportunidad' : TIPOS_RIESGO[riesgo.tipo]}{riesgo.nivel !== null && riesgo.nivel !== undefined ? ` · prioridad ${prioridadRiesgo(riesgo.nivel, critico)}` : ''} · {nombreDeCorreo(riesgo.responsable)}{riesgo.costoContingencia ? ` · contingencia ${moneda(riesgo.costoContingencia, proyecto.ficha?.moneda)}` : ''}{riesgo.fechaLimite ? ` · límite ${fecha(riesgo.fechaLimite)}` : ''}{riesgo.nivelResidual ? ` · residual ${riesgo.nivelResidual}` : ''}{riesgo.idRiesgoMatriz ? ' · vinculado a la matriz GCM' : ''}</p>
                     {(riesgo.acciones || []).length > 0 && <p className="text-slate-600">Acciones: {riesgo.acciones.filter(accion => accion.cumplida).length} de {riesgo.acciones.length} cumplidas</p>}
                   </div>
                   <Insignia tono={riesgo.estado === 'cerrado' ? 'verde' : riesgo.estado === 'en_tratamiento' ? 'amarillo' : 'rojo'}>{ESTADOS_RIESGO[riesgo.estado]}</Insignia>

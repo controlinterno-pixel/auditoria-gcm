@@ -139,10 +139,15 @@ test('finanzas: sin presupuesto no hay cifras; sin costos reales no hay EVM', ()
 test('avance por fase y requisitos para cambiar de estado', () => {
   const tareas = [tarea('f', { tipo: 'fase', inicio: '', fin: '' }), tarea(1, { padreId: 'f', esfuerzoHoras: 10, estado: 'en_curso', avance: 40 }), tarea(2, { padreId: 'f', esfuerzoHoras: 30, estado: 'pendiente', avance: 0 })];
   assert.equal(avancePorContenedor(tareas).get('f'), 10);
-  assert.deepEqual(requisitosTransicion({ estado: 'ejecucion' }, {}, 'planificacion'), ['No se puede pasar de "En ejecución" a "En planificación".']);
+  assert.deepEqual(requisitosTransicion({ estado: 'ejecucion' }, {}, 'planificacion'), ['No se puede pasar de "Inversión · Ejecución" a "Inversión · Planificación".']);
   const faltan = requisitosTransicion({ estado: 'planificacion', ficha: { metodologia: 'predictiva' } }, { tareas }, 'ejecucion');
   assert.ok(faltan.some(texto => /línea base/.test(texto)));
-  assert.deepEqual(requisitosTransicion({ estado: 'planificacion', ficha: { metodologia: 'agil' } }, { tareas }, 'ejecucion'), [], 'un proyecto ágil no exige línea base');
-  const cierre = requisitosTransicion({ estado: 'ejecucion', cierre: {} }, { tareas }, 'cerrado');
-  assert.ok(cierre.some(texto => /lecciones aprendidas/.test(texto)));
+  assert.ok(faltan.some(texto => /Apartado 12 \(Matriz de interesados\)/.test(texto)), 'el Acta de constitución exige los apartados 12 a 17');
+  const agil = requisitosTransicion({ estado: 'planificacion', ficha: { metodologia: 'agil' } }, { tareas }, 'ejecucion');
+  assert.equal(agil.some(texto => /línea base/.test(texto)), false, 'un proyecto ágil no exige línea base');
+  const entrega = requisitosTransicion({ estado: 'ejecucion' }, { tareas }, 'operacion');
+  assert.ok(entrega.some(texto => /tarea\(s\) sin completar/.test(texto)), 'para entregar a la operación el trabajo debe estar cerrado');
+  const cierre = requisitosTransicion({ estado: 'operacion' }, { tareas }, 'cerrado');
+  assert.ok(cierre.some(texto => /Lecciones aprendidas/.test(texto)));
+  assert.ok(cierre.some(texto => /Documentación pendiente/.test(texto)));
 });

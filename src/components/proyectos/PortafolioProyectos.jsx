@@ -7,11 +7,13 @@ import { FORMULAS, calcularIndicadores } from '../../utils/proyectos/indicadores
 import { hoyColombia } from '../../utils/proyectos/fechas.js';
 import { fecha, moneda, nombreDeCorreo, porcentaje, puntos } from '../../utils/proyectos/formato.js';
 import { exportToExcel } from '../../services/grcStorageService';
+import { CATEGORIAS_LECCION, PILARES } from '../../utils/proyectos/metodologia.js';
+import LeccionesAprendidas from './LeccionesAprendidas.jsx';
 import { Campo, EstadoVacio, Insignia, Kpi, Seccion, Semaforo, botonPrimario, botonSecundario, claseCampo } from './ui.jsx';
 import { TONO_ESTADO } from './tonos.js';
 import { usePaginacion } from './useUiProyectos.jsx';
 
-const FILTROS_INICIALES = { texto: '', anio: '', area: '', director: '', metodologia: '', estado: 'activos', semaforo: '' };
+const FILTROS_INICIALES = { texto: '', anio: '', pilar: '', area: '', director: '', metodologia: '', estado: 'activos', semaforo: '' };
 const ORDEN_SEMAFORO = { rojo: 0, amarillo: 1, verde: 2, gris: 3 };
 
 // Cada indicador del tablero lleva a los proyectos que lo componen.
@@ -35,6 +37,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [kpi, setKpi] = useState('');
   const [orden, setOrden] = useState({ campo: 'semaforo', asc: true });
+  const [verLecciones, setVerLecciones] = useState(false);
 
   const conIndicadores = useMemo(() => proyectos.map(proyecto => ({ ...proyecto, ind: calcularIndicadores(proyecto, hoy) })), [proyectos, hoy]);
   const opciones = useMemo(() => ({
@@ -45,8 +48,9 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
 
   const filtrados = useMemo(() => {
     const texto = filtros.texto.trim().toLowerCase();
-    return conIndicadores.filter(p => (!texto || `${p.codigo} ${p.ficha?.nombre} ${p.ficha?.portafolio} ${p.ficha?.programa}`.toLowerCase().includes(texto))
+    return conIndicadores.filter(p => (!texto || `${p.codigo} ${p.codigoEstrategico || ''} ${p.ficha?.nombre} ${p.ficha?.portafolio} ${p.ficha?.programa}`.toLowerCase().includes(texto))
       && traslapa(p, filtros.anio)
+      && (!filtros.pilar || p.ficha?.pilar === filtros.pilar)
       && (!filtros.area || p.ficha?.area === filtros.area)
       && (!filtros.director || p.miembros?.director === filtros.director)
       && (!filtros.metodologia || p.ficha?.metodologia === filtros.metodologia)
@@ -87,7 +91,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
   const tabla = useMemo(() => {
     const lista = kpi ? filtrados.filter(FILTROS_KPI[kpi].cumple) : filtrados;
     const valor = p => ({
-      semaforo: ORDEN_SEMAFORO[p.ind.semaforo.color], codigo: p.codigo, nombre: p.ficha?.nombre || '', estado: p.estado,
+      semaforo: ORDEN_SEMAFORO[p.ind.semaforo.color], codigo: p.codigoEstrategico || p.codigo, nombre: p.ficha?.nombre || '', estado: p.estado,
       avance: p.ind.avanceReal ?? -1, desviacion: p.ind.desviacionAvance ?? 999, fin: p.ind.finVigente || '9999', actualizado: p.actualizadoEn || '',
     }[orden.campo]);
     return [...lista].sort((a, b) => (valor(a) > valor(b) ? 1 : valor(a) < valor(b) ? -1 : 0) * (orden.asc ? 1 : -1));
@@ -109,7 +113,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
   const filtrosActivos = Object.entries(filtros).filter(([clave, valor]) => valor && valor !== FILTROS_INICIALES[clave]);
 
   const exportar = () => exportToExcel(tabla.map(p => ({
-    Código: p.codigo, Proyecto: p.ficha?.nombre, Estado: ESTADOS_PROYECTO[p.estado], Metodología: METODOLOGIAS[p.ficha?.metodologia], Área: p.ficha?.area || '',
+    Código: p.codigo, 'Código portafolio': p.codigoEstrategico || '', Pilar: PILARES[p.ficha?.pilar] || '', Proyecto: p.ficha?.nombre, Estado: ESTADOS_PROYECTO[p.estado], Metodología: METODOLOGIAS[p.ficha?.metodologia], Área: p.ficha?.area || '',
     Director: p.miembros?.director, 'Avance real (%)': p.ind.avanceReal ?? 'Sin datos', 'Avance planificado (%)': p.ind.avancePlanificado ?? 'Sin datos',
     'Desviación (p. p.)': p.ind.desviacionAvance ?? 'Sin datos', Semáforo: p.ind.semaforo.color, Motivos: p.ind.semaforo.motivos.join(' '),
     'Fin vigente': p.ind.finVigente, 'Hitos vencidos': p.ind.hitosVencidos, 'Tareas vencidas': p.ind.tareasVencidas, 'Riesgos críticos': p.ind.riesgosCriticos,
@@ -134,15 +138,17 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" className={botonSecundario} onClick={onRecargar} disabled={cargando}>↻ Actualizar</button>
+          <button type="button" className={botonSecundario} onClick={() => setVerLecciones(true)}>📚 Lecciones aprendidas</button>
           <button type="button" className={botonSecundario} onClick={exportar} disabled={!tabla.length}>⬇ Exportar Excel</button>
           {puedeCrear && <button type="button" className={botonPrimario} onClick={onNuevo}>＋ Nuevo proyecto</button>}
         </div>
       </div>
 
       <Seccion titulo="Filtros" descripcion="Afectan todos los indicadores, gráficos y la tabla.">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-8">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-9">
           <Campo etiqueta="Buscar" className="col-span-2">{props => <input {...props} type="search" className={claseCampo} value={filtros.texto} onChange={cambiarFiltro('texto')} placeholder="Código, nombre, portafolio…" />}</Campo>
           <Campo etiqueta="Año">{props => <select {...props} className={claseCampo} value={filtros.anio} onChange={cambiarFiltro('anio')}><option value="">Todos</option>{opciones.anios.map(a => <option key={a}>{a}</option>)}</select>}</Campo>
+          <Campo etiqueta="Pilar">{props => <select {...props} className={claseCampo} value={filtros.pilar} onChange={cambiarFiltro('pilar')}><option value="">Todos</option>{Object.entries(PILARES).map(([v, tx]) => <option key={v} value={v}>{v} · {tx}</option>)}</select>}</Campo>
           <Campo etiqueta="Área">{props => <select {...props} className={claseCampo} value={filtros.area} onChange={cambiarFiltro('area')}><option value="">Todas</option>{opciones.areas.map(a => <option key={a}>{a}</option>)}</select>}</Campo>
           <Campo etiqueta="Director">{props => <select {...props} className={claseCampo} value={filtros.director} onChange={cambiarFiltro('director')}><option value="">Todos</option>{opciones.directores.map(d => <option key={d} value={d}>{nombreDeCorreo(d)}</option>)}</select>}</Campo>
           <Campo etiqueta="Metodología">{props => <select {...props} className={claseCampo} value={filtros.metodologia} onChange={cambiarFiltro('metodologia')}><option value="">Todas</option>{Object.entries(METODOLOGIAS).map(([v, tx]) => <option key={v} value={v}>{tx}</option>)}</select>}</Campo>
@@ -155,6 +161,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
         </div>
       </Seccion>
 
+      {verLecciones && <LeccionesAprendidas categorias={CATEGORIAS_LECCION} onCerrar={() => setVerLecciones(false)} />}
       {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
       {cargando && !proyectos.length && <p role="status" className="text-sm font-bold text-slate-500">Cargando portafolio…</p>}
 
@@ -164,7 +171,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-            <Kpi titulo="Proyectos" valor={t.total} detalle={`${t.porEstado.planificacion} plan. · ${t.porEstado.ejecucion} ejec. · ${t.porEstado.suspendido} susp. · ${t.porEstado.cerrado} cerr.`} />
+            <Kpi titulo="Proyectos" valor={t.total} detalle={`Preinversión ${t.porEstado.propuesto + t.porEstado.factibilidad} · Inversión ${t.porEstado.planificacion + t.porEstado.ejecucion} · Operación ${t.porEstado.operacion} · Susp. ${t.porEstado.suspendido} · Cerr. ${t.porEstado.cerrado}`} />
             <Kpi titulo="En riesgo crítico" valor={t.enRiesgo} tono={t.enRiesgo ? 'rojo' : 'verde'} onClick={() => alternarKpi('riesgo')} activo={kpi === 'riesgo'} formula="Proyectos con semáforo rojo: atraso crítico, hitos vencidos, riesgos críticos o sobrecosto." />
             <Kpi titulo="Cumplen sus hitos" valor={t.hitosOk === null ? 'Sin datos' : `${t.hitosOk} de ${t.conHitos}`} detalle={t.hitosOk === null ? 'Ningún hito evaluable aún' : `${t.hitosEvaluables} hitos evaluables`} formula={FORMULAS.cumplimientoHitos} />
             <Kpi titulo="Avance real vs. plan" valor={t.avanceReal === null ? 'Sin datos' : `${porcentaje(t.avanceReal)} / ${porcentaje(t.avancePlan)}`} detalle={t.conAvance ? `Promedio de ${t.conAvance} proyecto(s)` : 'Sin cronogramas con fechas'} tono={t.avanceReal !== null && t.avanceReal < t.avancePlan - 5 ? 'amarillo' : 'gris'} formula={`${FORMULAS.avanceReal} ${FORMULAS.avancePlanificado}`} />
@@ -244,7 +251,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
                       {visibles.map(p => (
                         <tr key={p.id} className="hover:bg-slate-50">
                           <td className="p-2"><Semaforo semaforo={p.ind.semaforo} conTexto /></td>
-                          <td className="p-2 font-black text-slate-700">{p.codigo}</td>
+                          <td className="p-2 font-black text-slate-700">{p.codigoEstrategico || '—'}<span className="block text-[10px] font-bold text-slate-500">{p.codigo}</span></td>
                           <td className="p-2">
                             <button type="button" onClick={() => onAbrir(p.id)} className="text-left font-bold text-[#0055ff] hover:underline">{p.ficha?.nombre}</button>
                             <span className="block text-[11px] text-slate-500">{METODOLOGIAS[p.ficha?.metodologia]} · {nombreDeCorreo(p.miembros?.director)}{p.archivado ? ' · Archivado' : ''}</span>

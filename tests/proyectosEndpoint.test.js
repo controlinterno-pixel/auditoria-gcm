@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import * as acciones from '../api/_lib/proyectosAcciones.js';
 import { compactarPlan } from '../src/utils/proyectos/indicadores.js';
 import { hoyColombia } from '../src/utils/proyectos/fechas.js';
+import { codigoEstrategico } from '../src/utils/proyectos/metodologia.js';
 import { puedeVerTodo } from '../api/_lib/roles.js';
 
 // ---- Firestore mínimo en memoria (lo que usa el endpoint) ----
@@ -33,7 +34,7 @@ function crearDb() {
     get: async () => {
       let docs = [...datos.entries()].filter(([clave]) => clave.startsWith(`${ruta}/`) && !clave.slice(ruta.length + 1).includes('/'))
         .map(([clave, valor]) => snapshot(clave, valor))
-        .filter(doc => filtros.every(({ campo, op, valor }) => op === 'array-contains' && (doc.data()[campo] || []).includes(valor)));
+        .filter(doc => filtros.every(({ campo, op, valor }) => (op === 'array-contains' ? (doc.data()[campo] || []).includes(valor) : op === '==' && doc.data()[campo] === valor)));
       if (orden) docs.sort((a, b) => (a.data()[orden.campo].orden - b.data()[orden.campo].orden) * (orden.direccion === 'desc' ? -1 : 1));
       if (despues) docs = docs.slice(docs.findIndex(doc => doc.ruta === despues.ruta) + 1);
       docs = docs.slice(0, limite);
@@ -67,7 +68,7 @@ function cargarHandler(db, usuarios) {
     sendError: (res, mensaje, status = 500) => res.status(status).json({ success: false, error: mensaje }),
     logger: { info() {}, warn() {}, error: (mensaje, error) => { if (process.env.DEPURAR) console.error(mensaje, error); } },
     parametrosConsulta: req => req.query || {},
-    puedeVerTodo, adminDb: db, ...acciones, compactarPlan, hoyColombia,
+    puedeVerTodo, adminDb: db, ...acciones, compactarPlan, hoyColombia, codigoEstrategico,
   };
   // FieldValue también se usa desde el objeto (FieldValue.serverTimestamp()).
   // eslint-disable-next-line no-new-func
@@ -142,4 +143,20 @@ test('crear, listar solo para miembros, consultar detalle e historial, y conflic
 
   // Operación desconocida.
   assert.equal((await llamar(handler, 'director', { method: 'POST', body: { accion: 'borrarTodo', idProyecto: id } })).status, 400);
+});
+
+test('el código del portafolio es único y la base de lecciones reúne las de todos los proyectos', async () => {
+  const db = crearDb();
+  const handler = cargarHandler(db, USUARIOS);
+  const ficha = { nombre: 'Uno', objetivoGeneral: 'x', metodologia: 'predictiva', prioridad: 'media', inicioPlanificado: '2026-02-01', finPlanificado: '2026-03-01', pilar: 'S', numPrograma: 1, numProyecto: 1 };
+  const uno = await llamar(handler, 'director', { method: 'POST', body: { accion: 'crear', datos: { ficha } } });
+  assert.equal(uno.status, 201);
+  const repetido = await llamar(handler, 'director', { method: 'POST', body: { accion: 'crear', datos: { ficha: { ...ficha, nombre: 'Dos' } } } });
+  assert.equal(repetido.status, 409);
+  assert.match(repetido.json.error, /S1_PY1 ya lo usa/);
+  const id = uno.json.proyecto.id;
+  await llamar(handler, 'director', { method: 'POST', body: { accion: 'guardarSeccion', idProyecto: id, datos: { seccion: 'lecciones', datos: { lista: [{ categoria: 'tecnica', tipo: 'plus', situacion: 'Pruebas tempranas', recomendacion: 'Probar con usuarios' }] } } } });
+  const base = await llamar(handler, 'ajeno', { query: { lecciones: '1' } });
+  assert.equal(base.status, 200, 'cualquiera con acceso al módulo consulta la base corporativa');
+  assert.deepEqual(base.json.lecciones.map(leccion => [leccion.codigo, leccion.recomendacion]), [['S1_PY1', 'Probar con usuarios']]);
 });

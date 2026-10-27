@@ -56,3 +56,16 @@ test('navegación: Gestión de Proyectos está en Gobernanza & IA y respeta la c
   const configuracion = readFileSync(new URL('../src/components/Configuracion.jsx', import.meta.url), 'utf8');
   assert.match(configuracion, /\{ id: 'sub_proyectos', label: 'Gestión de Proyectos' \}/);
 });
+
+test('formatos del manual: muestran la aprobación registrada como firma y los apartados que no aplican', () => {
+  const conAprobacion = { ...proyecto, codigoEstrategico: 'E1_SP1_PY1', ficha: { ...proyecto.ficha, pilar: 'E' },
+    solicitudesEstado: [{ destino: 'factibilidad', estado: 'aprobada', decididaPor: 'gerencia@termales.com.co', fechaDecision: '2026-02-01', solicitante: 'd@termales.com.co' }] };
+  const planFormulacion = { ...plan, secciones: { pestel: { datos: { noAplica: { justificacion: 'Proyecto interno sin mercado externo' } } } } };
+  const formato1 = construirReporte('formato1', { proyecto: conAprobacion, plan: planFormulacion, ind, hoy, periodo });
+  assert.match(formato1.secciones.at(-1).texto, /Aprobado electrónicamente por gerencia@termales\.com\.co/);
+  assert.equal(formato1.secciones[0].filas[0][1], 'E1_SP1_PY1 (pilar Económico)');
+  const formato2 = construirReporte('formato2', { proyecto: conAprobacion, plan: planFormulacion, ind, hoy, periodo });
+  assert.match(formato2.secciones.find(s => s.titulo === '7.1 Análisis PESTEL').texto, /No aplica: Proyecto interno/);
+  assert.equal(formato2.secciones.at(-1).texto, 'Pendiente de aprobación.', 'la factibilidad aún no se aprueba');
+  ['formato3', 'formato4'].forEach(tipo => assert.ok(construirReporte(tipo, { proyecto: conAprobacion, plan: planFormulacion, ind, hoy, periodo }).secciones.length > 5, tipo));
+});

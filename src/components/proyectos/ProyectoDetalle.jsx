@@ -10,6 +10,10 @@ import { Insignia, Semaforo, botonSecundario } from './ui.jsx';
 import { TONO_ESTADO } from './tonos.js';
 import { useDialogoTexto } from './useUiProyectos.jsx';
 
+const FormulacionProyecto = lazy(() => import('./FormulacionProyecto.jsx'));
+const PlanificacionProyecto = lazy(() => import('./PlanificacionProyecto.jsx'));
+const CierreProyecto = lazy(() => import('./CierreProyecto.jsx'));
+const DocumentacionProyecto = lazy(() => import('./DocumentacionProyecto.jsx'));
 const CronogramaProyecto = lazy(() => import('./CronogramaProyecto.jsx'));
 const TareasProyecto = lazy(() => import('./TareasProyecto.jsx'));
 const AgilProyecto = lazy(() => import('./AgilProyecto.jsx'));
@@ -30,6 +34,8 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
   const metodologia = proyecto?.ficha?.metodologia;
   const pestanas = useMemo(() => [
     ['resumen', 'Resumen'],
+    ['formulacion', 'Formulación (Preinversión)'],
+    ['planificacion', 'Interesados, organigrama y RACI'],
     ...(metodologia !== 'agil' ? [['cronograma', 'Cronograma y EDT']] : []),
     ['tareas', 'Tareas'],
     ...(metodologia !== 'predictiva' ? [['agil', 'Backlog y sprints']] : []),
@@ -38,6 +44,8 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
     ['cambios', 'Cambios'],
     ['reuniones', 'Reuniones y compromisos'],
     ...(proyecto?.ficha?.manejaPresupuesto ? [['presupuesto', 'Presupuesto']] : []),
+    ['cierre', 'Operación y cierre'],
+    ['documentacion', 'Documentación'],
     ['reportes', 'Reportes'],
     ['historial', 'Historial'],
   ], [metodologia, proyecto?.ficha?.manejaPresupuesto]);
@@ -73,7 +81,7 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
           <button type="button" className="mb-2 text-xs font-bold text-[#0055ff] hover:underline" onClick={onVolver}>← Portafolio de proyectos</button>
           <h2 className="text-xl font-black text-slate-800 sm:text-2xl">{proyecto.ficha?.nombre}</h2>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <span className="font-black">{proyecto.codigo}</span>
+            <span className="font-black">{proyecto.codigoEstrategico ? `${proyecto.codigoEstrategico} · ` : ''}{proyecto.codigo}</span>
             <Insignia tono={TONO_ESTADO[proyecto.estado]}>{ESTADOS_PROYECTO[proyecto.estado]}</Insignia>
             <Insignia tono="azul">{METODOLOGIAS[metodologia]}</Insignia>
             {proyecto.archivado && <Insignia>Archivado</Insignia>}
@@ -98,6 +106,10 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
       <div role="tabpanel">
         <Suspense fallback={<p role="status" className="text-sm text-slate-500">Cargando…</p>}>
           {pestana === 'resumen' && <ResumenProyecto {...props} />}
+          {pestana === 'formulacion' && <FormulacionProyecto {...props} />}
+          {pestana === 'planificacion' && <PlanificacionProyecto {...props} />}
+          {pestana === 'cierre' && <CierreProyecto {...props} />}
+          {pestana === 'documentacion' && <DocumentacionProyecto {...props} />}
           {pestana === 'cronograma' && <CronogramaProyecto {...props} />}
           {pestana === 'tareas' && <TareasProyecto {...props} />}
           {pestana === 'agil' && <AgilProyecto {...props} />}

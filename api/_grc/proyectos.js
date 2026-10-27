@@ -14,13 +14,14 @@ import { adminDb } from '../_lib/firebaseAdmin.js';
 import { ErrorProyecto, NOMBRES_ACCIONES, accesoModulo, aplicarAccion, capacidades, crearProyecto } from '../_lib/proyectosAcciones.js';
 import { compactarPlan } from '../../src/utils/proyectos/indicadores.js';
 import { hoyColombia } from '../../src/utils/proyectos/fechas.js';
+import { codigoEstrategico } from '../../src/utils/proyectos/metodologia.js';
 
 const coleccion = () => adminDb.collection('proyectos');
 const refPlan = idProyecto => coleccion().doc(idProyecto).collection('detalle').doc('plan');
 const refHistorial = idProyecto => coleccion().doc(idProyecto).collection('historial');
 // Campos del portafolio: el tablero no descarga ni el plan ni el historial.
-const CAMPOS_PORTAFOLIO = ['codigo', 'ficha', 'miembros', 'estado', 'presupuestoVigente', 'configuracion', 'resumen', 'explicacionEstado',
-  'solicitudesEstado', 'archivado', 'actualizadoEn', 'actualizadoPor', 'creadoEn'];
+const CAMPOS_PORTAFOLIO = ['codigo', 'codigoEstrategico', 'ficha', 'miembros', 'estado', 'estadoAntesSuspension', 'presupuestoVigente', 'configuracion', 'resumen',
+  'explicacionEstado', 'solicitudesEstado', 'archivado', 'actualizadoEn', 'actualizadoPor', 'creadoEn'];
 const PAGINA_HISTORIAL = 50;
 const ID_VALIDO = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -75,6 +76,25 @@ async function historial(usuario, id, despuesDe) {
   return { eventos, siguiente: snapshot.size === PAGINA_HISTORIAL ? snapshot.docs.at(-1).id : null };
 }
 
+/** Base corporativa de lecciones aprendidas (manual 4.2.2): todas las lecciones de todos los proyectos. */
+async function leccionesAprendidas() {
+  const snapshot = await coleccion().select('codigo', 'codigoEstrategico', 'ficha.nombre', 'ficha.area', 'leccionesBase').get();
+  logger.info('[FS-READS]', { origen: 'proyectos-lecciones', documentos: snapshot.size });
+  return snapshot.docs.flatMap(documento => {
+    const datos = documento.data();
+    return (datos.leccionesBase || []).map(leccion => ({ ...leccion, codigo: datos.codigoEstrategico || datos.codigo, proyecto: datos.ficha?.nombre || '', area: datos.ficha?.area || '' }));
+  });
+}
+
+/** El código del portafolio (E1_SP1_PY1) identifica un solo proyecto. */
+async function verificarCodigoUnico(ficha, idProyecto = '') {
+  const codigo = codigoEstrategico(ficha || {});
+  if (!codigo) return;
+  const snapshot = await coleccion().where('codigoEstrategico', '==', codigo).limit(2).get();
+  const otro = snapshot.docs.find(documento => documento.id !== idProyecto);
+  if (otro) throw new ErrorProyecto(`El código ${codigo} ya lo usa el proyecto ${otro.get('codigo')} (${otro.get('ficha')?.nombre || 'sin nombre'}).`, 409);
+}
+
 async function crear(usuario, datos) {
   const ctx = contexto(usuario);
   const anio = ctx.hoy.slice(0, 4);
@@ -126,15 +146,20 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { id, historial: verHistorial, despuesDe, archivados } = parametrosConsulta(req);
       if (id && !ID_VALIDO.test(String(id))) return sendError(res, 'Identificador de proyecto no válido.', 400);
+      if (parametrosConsulta(req).lecciones === '1') return sendSuccess(res, { lecciones: await leccionesAprendidas() });
       if (id && verHistorial) return sendSuccess(res, await historial(usuario, String(id), String(despuesDe || '')));
       if (id) return sendSuccess(res, await detalle(usuario, String(id)));
       return sendSuccess(res, { proyectos: await listar(usuario, archivados === '1'), hoy: hoyColombia() });
     }
 
     const { accion, idProyecto, datos } = req.body || {};
-    if (accion === 'crear') return sendSuccess(res, await crear(usuario, datos || {}), 201);
+    if (accion === 'crear') {
+      await verificarCodigoUnico(datos?.ficha);
+      return sendSuccess(res, await crear(usuario, datos || {}), 201);
+    }
     if (!NOMBRES_ACCIONES.includes(accion)) return sendError(res, 'Operación no reconocida.', 400);
     if (!ID_VALIDO.test(String(idProyecto || ''))) return sendError(res, 'Identificador de proyecto no válido.', 400);
+    if (accion === 'editarFicha') await verificarCodigoUnico(datos?.ficha, String(idProyecto));
     return sendSuccess(res, await operar(usuario, String(idProyecto), accion, datos || {}));
   } catch (error) {
     if (error instanceof ErrorProyecto) {
