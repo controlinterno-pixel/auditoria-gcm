@@ -6,6 +6,7 @@ import * as alcance from '../api/_lib/assignmentScope.js';
 import * as validacion from '../api/_lib/validation.js';
 import { validarAdjuntoEvaluacion } from '../src/utils/evaluationAttachment.js';
 import { randomUUID } from 'node:crypto';
+import { huellasDeDatos } from '../src/utils/huellaRegistro.js';
 import { calcularResiduales } from '../src/utils/explicacionControles.js';
 import { zonaSeveridad } from '../src/utils/nivelRiesgo.js';
 import { revisarControlesEliminados } from '../src/utils/anulacion.js';
@@ -109,7 +110,8 @@ function storeFixture({ fragmented = false, nearLimit = false } = {}) {
       return result;
     },
   };
-  const workspace = new Function('adminDb', 'FieldValue', 'Filter', 'logger', `${moduleBody('../api/_lib/coleccionesAgrupadas.js')}
+  const workspace = new Function('adminDb', 'FieldValue', 'Filter', 'logger', `${moduleBody('../src/utils/huellaRegistro.js')}
+${moduleBody('../api/_lib/coleccionesAgrupadas.js')}
 ${moduleBody('../api/_lib/grcWorkspace.js')}
     return {
       leerWorkspaceGrc, guardarPlanesGrc, guardarInformesGrc, guardarWorkspaceParcial, guardarRegistrosGrc, leerInformeTx,
@@ -123,7 +125,7 @@ ${moduleBody('../api/_lib/grcWorkspace.js')}
   const errors = [];
   const sesion = { usuario: { uid: 'u1', email: 'auditor@example.test' } };
   const bindings = {
-    ...workspace, ...workflow, ...alcance, ...validacion, ...noAplicaUtil, validarAdjuntoEvaluacion, randomUUID, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios, esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara,
+    ...workspace, ...workflow, ...alcance, ...validacion, ...noAplicaUtil, validarAdjuntoEvaluacion, randomUUID, huellasDeDatos, adminDb, calcularResiduales, zonaSeveridad, revisarControlesEliminados, compararRiesgos, entradaDeCambios, esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara,
     applyCors: () => false,
     requireAuth: async () => sesion.usuario,
     sendSuccess: (res, body) => Object.assign(res, { code: 200, body }),
@@ -248,6 +250,43 @@ test('sync del administrador: lo que crearon otros después de su descarga sobre
   assert.deepEqual(datos.comites.map(comite => comite.id), ['c7']);
   assert.equal('reemplazoTotal' in fixture.documents.get(ROOT), false, 'las marcas no se guardan');
   assert.equal('comitesEliminados' in fixture.documents.get(ROOT), false);
+});
+
+test('sync del administrador: si otra persona cambió el registro desde que lo cargó, no se guarda nada', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  await fixture.workspace.guardarWorkspaceParcial({ comites: [{ id: 'c1', nombre: 'Comité' }] });
+  const cargado = (await fixture.workspace.leerWorkspaceGrc()).data;
+  const huellas = huellasDeDatos(cargado);
+  const hallazgo = cargado.hallazgos.find(item => item.id === 'h1');
+  const comite = cargado.comites.find(item => item.id === 'c1');
+
+  // Sin cambios ajenos: se guarda, la huella no se persiste y la nueva sirve para la siguiente edición.
+  const primero = await fixture.workspace.guardarWorkspaceParcial({
+    hallazgos: [{ ...hallazgo, titulo: 'Primera edición', huellaBase: huellas.hallazgos.h1 }],
+    comites: [{ ...comite, nombre: 'Comité editado', huellaBase: huellas.comites.c1 }],
+  });
+  assert.equal(fixture.documents.get(`${ROOT}/hallazgos/h1`).titulo, 'Primera edición');
+  assert.equal('huellaBase' in fixture.documents.get(`${ROOT}/hallazgos/h1`), false, 'la huella nunca se guarda');
+  assert.equal('huellaBase' in fixture.documents.get(ROOT).comites[0], false);
+  await fixture.workspace.guardarWorkspaceParcial({
+    hallazgos: [{ ...hallazgo, titulo: 'Segunda edición', huellaBase: primero.huellasRegistros.hallazgos.h1 }],
+  });
+  assert.equal(fixture.documents.get(`${ROOT}/hallazgos/h1`).titulo, 'Segunda edición', 'editar dos veces seguidas no da un aviso falso');
+
+  // Un líder cambia el hallazgo y otra persona el comité; el administrador guarda con sus copias viejas.
+  const vigente = (await fixture.workspace.leerWorkspaceGrc()).data;
+  const huellasVigentes = huellasDeDatos(vigente);
+  fixture.documents.set(`${ROOT}/hallazgos/h1`, { ...fixture.documents.get(`${ROOT}/hallazgos/h1`), estado: 'En Proceso' });
+  await assert.rejects(
+    fixture.workspace.guardarWorkspaceParcial({
+      hallazgos: [{ ...vigente.hallazgos.find(item => item.id === 'h1'), titulo: 'Cambio tardío', huellaBase: huellasVigentes.hallazgos.h1 }],
+      comites: [{ id: 'c9', nombre: 'Comité nuevo' }],
+    }),
+    error => error.code === 'conflicto-registros' && /el hallazgo "Segunda edición"/.test(error.message),
+  );
+  assert.equal(fixture.documents.get(`${ROOT}/hallazgos/h1`).titulo, 'Segunda edición', 'el cambio tardío no se guarda');
+  assert.equal(fixture.documents.get(`${ROOT}/hallazgos/h1`).estado, 'En Proceso', 'el cambio del líder se conserva');
+  assert.equal(fixture.documents.get(ROOT).comites.some(item => item.id === 'c9'), false, 'no se guarda nada del lote');
 });
 
 // ============================================================================

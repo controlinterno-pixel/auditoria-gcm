@@ -4,6 +4,7 @@ import { onAuthStateChanged, onIdTokenChanged, signOut } from 'firebase/auth';
 import { doc, getDocFromServer, onSnapshot } from 'firebase/firestore';
 import { apiService, suscribirRevisionPropia } from '../services/apiService';
 import { auth, db } from '../services/firebase';
+import { registrarDatosServidor } from '../services/grcStorageService';
 import {
   consumeSignOutReason, installAuthDiagnostics, markSignOutReason,
   recordAuthEvent, setAuthNotice, SIGN_OUT_NOTICES
@@ -182,6 +183,8 @@ export function useGrcData() {
           if (lastRevision === null) lastRevision = revisionCargada;
         }
 
+        // Versión que queda en pantalla: al guardar se envía solo lo cambiado, con su huella.
+        registrarDatosServidor(data);
         setRiesgos(data.riesgos || defaultRiesgos);
         setHallazgos(data.hallazgos || defaultHallazgos);
         setPlanes(data.planes || defaultPlanes);

@@ -8,6 +8,14 @@ import { esAdministradorTotal } from '../_lib/roles.js';
 import { riesgosVisiblesPara } from '../../src/utils/permisosVista.js';
 import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
+import { huellasDeDatos } from '../../src/utils/huellaRegistro.js';
+
+// La lectura del workspace se comparte desde la caché: la huella de una misma lectura se calcula una vez.
+const huellasPorLectura = new WeakMap();
+const huellasDe = datos => {
+  if (!huellasPorLectura.has(datos)) huellasPorLectura.set(datos, huellasDeDatos(datos));
+  return huellasPorLectura.get(datos);
+};
 import { informeEnProcesos } from '../_lib/coleccionesAgrupadas.js';
 import { sanitizarUrls, validarDatosSync } from '../_lib/validation.js';
 import { obtenerProcesosAsignados, obtenerSubprocesosAsignados, registroDentroDelAlcanceAsignado } from '../_lib/assignmentScope.js';
@@ -289,7 +297,8 @@ export default async function handler(req, res) {
 
       // Administradores y Auditores acceden a la totalidad de la base de datos
       if (isAdmin) {
-        return sendSuccess(res, data);
+        // Huella de cada registro: al guardar, el servidor detecta si otra persona lo cambió mientras tanto.
+        return sendSuccess(res, { ...data, huellasRegistros: huellasDe(workspaceData) });
       }
 
       // Extracción segura del contexto del usuario autenticado
@@ -443,11 +452,21 @@ export default async function handler(req, res) {
         return sendError(res, 'La asignación, transición o evaluación del plan no está autorizada. El ejecutor no puede cambiar los cargos ni correos asignados; las evaluaciones corresponden a la persona asignada.', 403);
       }
 
-      await guardarWorkspaceParcial(partialData);
+      let resultado;
+      try {
+        resultado = await guardarWorkspaceParcial(partialData);
+      } catch (error) {
+        // Otra persona cambió alguno de los registros mientras el administrador los editaba: no se guarda nada.
+        if (error.code === 'conflicto-registros') {
+          logger.warn('Guardado rechazado por cambios de otro usuario', { usuario: user.email, registros: error.registros });
+          return sendError(res, error.message, 409);
+        }
+        throw error;
+      }
       await notificarSemaforo();
 
       logger.info('Estructura GRC actualizada por administrador', { usuario: user.email });
-      return sendSuccess(res, { message: 'Guardado exitoso.' });
+      return sendSuccess(res, { message: 'Guardado exitoso.', huellasRegistros: resultado?.huellasRegistros || {} });
     }
 
   } catch (error) {

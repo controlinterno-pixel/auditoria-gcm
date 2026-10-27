@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
 import { parametrosConsulta } from '../api/_lib/seguridad.js';
+import { huellasDeDatos } from '../src/utils/huellaRegistro.js';
 import { riesgosVisiblesPara, PERMISO_VER_TODOS_RIESGOS } from '../src/utils/permisosVista.js';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
@@ -74,6 +75,7 @@ function harness(getGrcData) {
     getDocFromServer: async () => ({}),
     apiService: { getGrcData },
     suscribirRevisionPropia: () => () => {},
+    registrarDatosServidor: () => {},
     console: { warn() {}, error() {} },
   };
   for (const name of effectSource.matchAll(/\b(set[A-Z]\w*)\(/g)) bindings[name[1]] = () => {};
@@ -149,6 +151,7 @@ enCurso.cleanup();
       leerRevisionSemaforo: async () => '500',
       guardarWorkspaceParcial: async () => {},
       leerWorkspaceGrc: async () => ({ data: workspaceCompartido }),
+      huellasDeDatos,
     };
     const handler = new Function(...Object.keys(bindings), `${syncSource}\nreturn handler;`)(...Object.values(bindings));
     const res = {};

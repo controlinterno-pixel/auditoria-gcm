@@ -7,6 +7,7 @@ import { riesgoEnPorcentaje, zonaSeveridad } from '../../src/utils/nivelRiesgo.j
 import { normalizarClasificacion } from '../../src/utils/clasificacionRiesgo.js';
 import { CLASIFICACIONES_MANUAL } from '../../src/constants/diccionariosGRC.js';
 import { revisarUbicacionRiesgo } from '../../src/utils/ubicacionCatalogo.js';
+import { LISTAS_CON_HUELLA, huellaRegistro } from '../../src/utils/huellaRegistro.js';
 
 // 📊 Cada documento devuelto por Firestore cuenta como una lectura facturable (incluye Admin SDK).
 const registrarLecturas = (origen, documentos, inicio, transaccion = false) => {
@@ -1113,13 +1114,60 @@ const listaIdsEliminados = (partialData, campo) => [...new Set(
   (Array.isArray(partialData[campo]) ? partialData[campo] : []).map(id => String(id ?? '').trim()).filter(Boolean),
 )];
 
+/** Quita de cada registro la huella con que el cliente lo cargó: { datos limpios, bases: lista → (clave → huella) }. */
+function separarHuellasBase(datosRecibidos) {
+  const datos = { ...datosRecibidos };
+  const bases = {};
+  Object.entries(LISTAS_CON_HUELLA).forEach(([lista, obtener]) => {
+    if (!Array.isArray(datos[lista])) return;
+    datos[lista] = datos[lista].map(registro => {
+      if (!registro || typeof registro !== 'object' || !Object.hasOwn(registro, 'huellaBase')) return registro;
+      const { huellaBase, ...limpio } = registro;
+      const clave = claveDe(obtener, limpio);
+      if (clave !== null && typeof huellaBase === 'string' && huellaBase) {
+        if (!bases[lista]) bases[lista] = new Map();
+        bases[lista].set(clave, huellaBase);
+      }
+      return limpio;
+    });
+  });
+  return { datos, bases };
+}
+
+const NOMBRES_REGISTRO = {
+  hallazgos: 'el hallazgo', planes: 'el plan de acción', evaluaciones: 'la evaluación', comites: 'la sesión de comité',
+  incidentes: 'el evento de pérdida', cronograma: 'el proceso del cronograma', monitoreo: 'el indicador',
+  programas: 'el programa de auditoría', fuentesMejora: 'la fuente de mejora',
+};
+
+/** Registros cuya versión guardada ya no es la que el cliente cargó (otra persona los cambió). */
+function buscarConflictos(bases, guardadosPorLista) {
+  return Object.entries(bases).flatMap(([lista, porClave]) => [...porClave].flatMap(([clave, huellaBase]) => {
+    const guardado = guardadosPorLista[lista]?.get(clave);
+    if (!guardado || huellaRegistro(guardado) === huellaBase) return [];
+    const etiqueta = guardado.ref || guardado.codigo || guardado.titulo || guardado.nombre || clave;
+    return [{ lista, clave, descripcion: `${NOMBRES_REGISTRO[lista] || 'el registro'} "${String(etiqueta).slice(0, 80)}"` }];
+  }));
+}
+
+function errorDeConflicto(conflictos) {
+  const detalle = conflictos.slice(0, 3).map(conflicto => conflicto.descripcion).join(', ');
+  const extra = conflictos.length > 3 ? ` y ${conflictos.length - 3} más` : '';
+  const error = new Error(`Otra persona modificó ${detalle}${extra} mientras lo editabas. No se guardó nada: recarga la página para ver sus cambios y vuelve a hacer el tuyo.`);
+  error.code = 'conflicto-registros';
+  error.registros = conflictos.map(({ lista, clave }) => `${lista}:${clave}`);
+  return error;
+}
+
 /**
  * Guarda lo que envía el administrador (POST /api/grc/sync). Guardar una lista nunca borra lo que no
  * viene en ella: se borra solo lo pedido en `<lista>Eliminados` (botón Eliminar). Restaurar un respaldo
  * completo (`reemplazoTotal`) sí reemplaza todo.
  */
-export async function guardarWorkspaceParcial(partialData) {
+export async function guardarWorkspaceParcial(datosRecibidos) {
   const inicio = Date.now();
+  // Cada registro editado trae la huella con que el cliente lo cargó; nunca se guarda.
+  const { datos: partialData, bases: huellasBase } = separarHuellasBase(datosRecibidos);
   const refWorkspace = workspaceRef();
   const refInformes = informesRef();
   const refColeccionInformes = coleccionInformesRef();
@@ -1138,15 +1186,6 @@ export async function guardarWorkspaceParcial(partialData) {
   if (Object.hasOwn(partialData, 'coleccionesAgrupadas')) {
     throw new Error('El índice de colecciones agrupadas solo lo administra la migración.');
   }
-  // Fase 4: con riesgos migrados, la lista se guarda en sus partes (nunca en el campo original, que ya
-  // no se lee). Se hace primero para que, si falla, no se guarde el resto a medias.
-  const riesgosEnPartes = indiceRiesgosValido(datosWorkspace.riesgosFragmentados);
-  if (riesgosEnPartes && Array.isArray(partialData.riesgos)) {
-    await guardarListaRiesgosFragmentada(partialData.riesgos, { reemplazoTotal: partialData.riesgosReemplazoTotal === true });
-  } else if (riesgosEnPartes && Object.hasOwn(partialData, 'riesgos')) {
-    throw new Error('La lista de riesgos enviada no es válida.');
-  }
-
   // Procesamiento Informes
   const informesLegados = Array.isArray(datosWorkspace.informesAuditoria) ? datosWorkspace.informesAuditoria : null;
   const incluyeInformes = Object.hasOwn(partialData, 'informesAuditoria') && Array.isArray(partialData.informesAuditoria);
@@ -1173,6 +1212,28 @@ export async function guardarWorkspaceParcial(partialData) {
   const hallazgosGuardados = incluyeHallazgos ? await leerGuardados('hallazgos', refColeccionHallazgos) : new Map();
   const planesGuardados = incluyePlanes ? await leerGuardados('planes', refColeccionPlanes) : new Map();
   registrarLecturas('sync-post-guardar', (sinInformesLegados ? 1 : 2) + documentosSubcolecciones + grupos.documentos, inicio);
+
+  // Antes de escribir nada: si otra persona cambió un registro desde que el cliente lo cargó, no se guarda.
+  const guardadosPorLista = {
+    hallazgos: hallazgosGuardados,
+    planes: planesGuardados,
+    ...Object.fromEntries(Object.entries(LISTAS_FUSIONABLES).map(([lista, obtener]) => [lista, new Map(
+      (Array.isArray(datosWorkspace[lista]) ? datosWorkspace[lista] : [])
+        .map(registro => [claveDe(obtener, registro), registro])
+        .filter(([clave]) => clave !== null),
+    )])),
+  };
+  const conflictos = buscarConflictos(huellasBase, guardadosPorLista);
+  if (conflictos.length > 0) throw errorDeConflicto(conflictos);
+
+  // Fase 4: con riesgos migrados, la lista se guarda en sus partes (nunca en el campo original, que ya
+  // no se lee). Se hace primero para que, si falla, no se guarde el resto a medias.
+  const riesgosEnPartes = indiceRiesgosValido(datosWorkspace.riesgosFragmentados);
+  if (riesgosEnPartes && Array.isArray(partialData.riesgos)) {
+    await guardarListaRiesgosFragmentada(partialData.riesgos, { reemplazoTotal: partialData.riesgosReemplazoTotal === true });
+  } else if (riesgosEnPartes && Object.hasOwn(partialData, 'riesgos')) {
+    throw new Error('La lista de riesgos enviada no es válida.');
+  }
   let escriturasOmitidas = 0;
   const hallazgosActualizados = incluyeHallazgos ? (Array.isArray(partialData.hallazgos) ? partialData.hallazgos : []) : null;
 
@@ -1209,6 +1270,24 @@ export async function guardarWorkspaceParcial(partialData) {
   if (riesgosEnPartes) delete datosRestantes.riesgos;
   // Los mapas enviados (mapaProcesos) reemplazan al guardado: las claves quitadas se borran de verdad.
   Object.assign(datosRestantes, conClavesEliminadas(datosRestantes, datosWorkspace));
+
+  // Huella de cada registro tal como queda guardado: el cliente la usa en su siguiente edición.
+  const huellasRegistros = {};
+  const anotarHuellas = (lista, registros, guardados = null) => {
+    const obtener = LISTAS_CON_HUELLA[lista];
+    (Array.isArray(registros) ? registros : []).forEach(registro => {
+      const clave = claveDe(obtener, registro);
+      if (clave === null) return;
+      if (!huellasRegistros[lista]) huellasRegistros[lista] = {};
+      huellasRegistros[lista][clave] = huellaRegistro({ ...(guardados?.get(clave) || {}), ...registro });
+    });
+  };
+  if (!reemplazoTotal) {
+    anotarHuellas('hallazgos', (hallazgosActualizados || []).filter(hallazgo => !hallazgosEliminados.includes(String(hallazgo?.id))), hallazgosGuardados);
+    anotarHuellas('planes', (planesActualizados || []).filter(plan => !planesEliminados.includes(String(plan?.id))), planesGuardados);
+    anotarHuellas('informesAuditoria', incluyeInformes ? partialData.informesAuditoria : []);
+    Object.keys(LISTAS_FUSIONABLES).forEach(lista => anotarHuellas(lista, partialData[lista]));
+  }
 
   const operaciones = [];
 
@@ -1322,4 +1401,5 @@ export async function guardarWorkspaceParcial(partialData) {
     batch.set(refWorkspace, datosRestantes, { merge: true });
     await batch.commit();
   }
+  return { huellasRegistros };
 }

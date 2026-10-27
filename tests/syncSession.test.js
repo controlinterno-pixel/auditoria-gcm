@@ -132,6 +132,7 @@ function createSyncHarness() {
     },
     getDocFromServer: async () => { serverReads++; return snapshot(currentRevision); },
     suscribirRevisionPropia: () => () => {},
+    registrarDatosServidor: () => {},
     apiService: { getGrcData: async options => {
       calls.push(options);
       if (fail) throw new Error('Simulated network failure');

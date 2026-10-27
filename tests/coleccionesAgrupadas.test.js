@@ -7,7 +7,8 @@ import { esAdministradorTotal, puedeVerTodo } from '../api/_lib/roles.js';
 
 const fuente = path => readFileSync(new URL(path, import.meta.url), 'utf8')
   .replace(/^import [^;]*;\r?\n/gm, '').replace(/^export /gm, '');
-const codigo = `${fuente('../api/_lib/coleccionesAgrupadas.js')}\n${fuente('../api/_lib/grcWorkspace.js')}
+const codigo = `${fuente('../src/utils/huellaRegistro.js')}
+${fuente('../api/_lib/coleccionesAgrupadas.js')}\n${fuente('../api/_lib/grcWorkspace.js')}
 return { leerWorkspaceGrc, leerWorkspaceGrcLigero, obtenerPlanesTx, obtenerHallazgosTx, obtenerPlanesDeInformeTx,
   obtenerHallazgoTx, obtenerPlanesDeHallazgosTx,
   listarHallazgosTx, reservarIdsPlanesTx, guardarPlanesGrc, guardarInformesGrc, guardarRegistrosGrc, leerInformeTx,
