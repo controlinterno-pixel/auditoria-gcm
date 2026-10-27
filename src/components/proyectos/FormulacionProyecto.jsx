@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { BLOQUES_MODELO_NEGOCIO, BLOQUES_PROPUESTA_VALOR, FASES_CICLO, LETRAS_PESTEL, TIPOS_INGENIERIA, apartadosDeEtapa } from '../../utils/proyectos/metodologia.js';
 import { ingresoPeriodo, resumenFinanciero } from '../../utils/proyectos/financiero.js';
-import { moneda, porcentaje } from '../../utils/proyectos/formato.js';
+import { escribirCifra, leerCifra, moneda, porcentaje, simboloMoneda } from '../../utils/proyectos/formato.js';
 import EditorApartado, { AreaTexto, InsigniaApartado, ListaEditable } from './EditorApartado.jsx';
 import { Campo, Seccion, claseCampo } from './ui.jsx';
 
@@ -11,7 +11,21 @@ const nuevoId = () => (globalThis.crypto?.randomUUID?.() || `n${Date.now()}${Mat
 const Entrada = ({ etiqueta, valor, onCambio, tipo = 'text', ...resto }) => (
   <Campo etiqueta={etiqueta}>{props => <input {...props} {...resto} type={tipo} className={claseCampo} value={valor ?? ''} onChange={evento => onCambio(tipo === 'number' ? (evento.target.value === '' ? '' : Number(evento.target.value)) : evento.target.value)} />}</Campo>
 );
-const Selector = ({ etiqueta, valor, onCambio, opciones }) => (
+// Mientras se escribe la parte decimal se conserva el texto; al salir de la casilla queda con separador de miles.
+function EntradaMoneda({ etiqueta, valor, onCambio, codigo }) {
+  const [texto, setTexto] = useState(null);
+  return (
+    <Campo etiqueta={etiqueta}>{props => (
+      <div className="relative">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-bold text-slate-500">{simboloMoneda(codigo)}</span>
+        <input {...props} type="text" inputMode="decimal" className={`${claseCampo} pl-12`} value={texto ?? escribirCifra(valor)}
+          onChange={evento => { setTexto(/,\d{0,2}$/.test(evento.target.value) ? evento.target.value : null); onCambio(leerCifra(evento.target.value)); }}
+          onBlur={() => setTexto(null)} />
+      </div>
+    )}</Campo>
+  );
+}
+const Selector =({ etiqueta, valor, onCambio, opciones }) => (
   <Campo etiqueta={etiqueta}>{props => <select {...props} className={claseCampo} value={valor ?? ''} onChange={evento => onCambio(evento.target.value)}><option value="">—</option>{Object.entries(opciones).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
 );
 
@@ -153,7 +167,7 @@ function Apartado({ id, props }) {
                   <div className="grid gap-3 sm:grid-cols-5">
                     <Entrada etiqueta="Periodo" valor={periodo.periodo} onCambio={valor => actualizar({ periodo: valor })} />
                     <Entrada etiqueta="Clientes" tipo="number" valor={periodo.clientes} onCambio={valor => actualizar({ clientes: valor })} />
-                    <Entrada etiqueta={`Precio promedio (${f.moneda || 'COP'})`} tipo="number" valor={periodo.precio} onCambio={valor => actualizar({ precio: valor })} />
+                    <EntradaMoneda etiqueta={`Precio promedio (${f.moneda || 'COP'})`} codigo={f.moneda} valor={periodo.precio} onCambio={valor => actualizar({ precio: valor })} />
                     <Entrada etiqueta="Ajuste por estacionalidad (%)" tipo="number" valor={periodo.ajuste} onCambio={valor => actualizar({ ajuste: valor })} />
                     <div className="self-end pb-2 text-sm font-black text-slate-800">{moneda(ingresoPeriodo(periodo), f.moneda)}</div>
                   </div>
@@ -216,8 +230,8 @@ function Apartado({ id, props }) {
                   renderFila={(flujo, actualizar) => (
                     <div className="grid gap-3 sm:grid-cols-4">
                       <Entrada etiqueta="Periodo" tipo="number" min="0" valor={flujo.periodo} onCambio={valor => actualizar({ periodo: valor })} />
-                      <Entrada etiqueta="Ingresos" tipo="number" valor={flujo.ingresos} onCambio={valor => actualizar({ ingresos: valor })} />
-                      <Entrada etiqueta="Egresos" tipo="number" valor={flujo.egresos} onCambio={valor => actualizar({ egresos: valor })} />
+                      <EntradaMoneda etiqueta="Ingresos" codigo={f.moneda} valor={flujo.ingresos} onCambio={valor => actualizar({ ingresos: valor })} />
+                      <EntradaMoneda etiqueta="Egresos" codigo={f.moneda} valor={flujo.egresos} onCambio={valor => actualizar({ egresos: valor })} />
                       <Entrada etiqueta="Descripción" valor={flujo.descripcion} onCambio={valor => actualizar({ descripcion: valor })} />
                     </div>
                   )} />

@@ -5,6 +5,7 @@ import { duracion, sumarDias } from '../src/utils/proyectos/fechas.js';
 import { requisitosTransicion, rolesEnProyecto, validarFicha, validarMiembros, validarTarea } from '../src/utils/proyectos/modelo.js';
 import { compararConLineaBase, crearLineaBase, detectarCiclo, erroresEstructura, holguras, propagarDependencias } from '../src/utils/proyectos/cronograma.js';
 import { avancePorContenedor, calcularIndicadores, compactarPlan } from '../src/utils/proyectos/indicadores.js';
+import { escribirCifra, leerCifra, simboloMoneda } from '../src/utils/proyectos/formato.js';
 
 const tarea = (id, extra = {}) => ({
   id, titulo: `T${id}`, tipo: 'actividad', estado: 'pendiente', prioridad: 'media', avance: 0, inicio: '2026-03-02', fin: '2026-03-06', ...extra,
@@ -150,4 +151,14 @@ test('avance por fase y requisitos para cambiar de estado', () => {
   const cierre = requisitosTransicion({ estado: 'operacion' }, { tareas }, 'cerrado');
   assert.ok(cierre.some(texto => /Lecciones aprendidas/.test(texto)));
   assert.ok(cierre.some(texto => /Documentación pendiente/.test(texto)));
+});
+
+test('las casillas de dinero muestran el símbolo y los miles, y guardan el número', () => {
+  assert.equal(simboloMoneda('COP'), '$');
+  assert.equal(escribirCifra(85000000), '85.000.000');
+  assert.equal(escribirCifra(''), '');
+  assert.equal(leerCifra('$ 85.000.000'), 85000000);
+  assert.equal(leerCifra('1.234,5'), 1234.5);
+  assert.equal(leerCifra('0'), 0);
+  assert.equal(leerCifra(''), '', 'una casilla vacía sigue vacía, no se vuelve 0');
 });

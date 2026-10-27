@@ -7,6 +7,15 @@ export const variacion = valor => (valor === null || valor === undefined ? SIN_D
 export const puntos = valor => (valor === null || valor === undefined ? SIN_DATO : `${valor > 0 ? '+' : ''}${Number(valor).toLocaleString('es-CO', { maximumFractionDigits: 1 })} p. p.`);
 export const moneda = (valor, codigo = 'COP') => (valor === null || valor === undefined || !Number.isFinite(Number(valor)) ? SIN_DATO
   : Number(valor).toLocaleString('es-CO', { style: 'currency', currency: codigo || 'COP', maximumFractionDigits: 0 }));
+// Casilla de dinero: se escribe con separador de miles (85.000.000) y se guarda como número.
+export const simboloMoneda = (codigo = 'COP') => (0).toLocaleString('es-CO', { style: 'currency', currency: codigo || 'COP' }).replace(/[\d.,\s]/g, '');
+export const leerCifra = texto => {
+  const [entero, decimales] = String(texto ?? '').replace(/[^\d,]/g, '').split(',');
+  if (!entero && decimales === undefined) return '';
+  return Number(`${entero || 0}${decimales ? `.${decimales.slice(0, 2)}` : ''}`);
+};
+export const escribirCifra = valor => (valor === '' || valor === null || valor === undefined || !Number.isFinite(Number(valor)) ? ''
+  : Number(valor).toLocaleString('es-CO', { maximumFractionDigits: 2 }));
 export const fecha = valor => {
   if (!valor) return '—';
   const texto = String(valor);
