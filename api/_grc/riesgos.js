@@ -1,4 +1,5 @@
 // api/grc/riesgos.js - Endpoint Serverless para Gestión de Riesgos (ISO 31000 - Termales SR)
+import { randomUUID } from 'node:crypto';
 import { applyCors } from '../_lib/cors.js';
 import { riesgosVisiblesPara } from '../../src/utils/permisosVista.js';
 import { puedeVerTodo } from '../_lib/roles.js';
@@ -129,7 +130,9 @@ export default async function handler(req, res) {
         ...riesgoData,
         ...calculos,
         actualizadoPor: user.email,
-        ultimaActualizacion: new Date().toISOString()
+        ultimaActualizacion: new Date().toISOString(),
+        // Marca única de cada guardado: dos guardados en el mismo milisegundo tienen la misma hora.
+        versionRiesgo: randomUUID(),
       };
 
       // Matriz migrada: se guarda en la misma fuente que lee la aplicación (antes quedaba en una
@@ -137,8 +140,16 @@ export default async function handler(req, res) {
       if (await riesgosMigrados()) {
         const resultado = await guardarRiesgoFragmentado({ ...documentoRiesgo, id }, {
           autorizar: existente => esAdministrador || riesgoDentroDelAlcancePropietario(existente, procesosAsignados, subprocesosAsignados),
-          // Solo un administrador puede borrar controles guardados; los demás los anulan (queda el historial).
-          validar: existente => (esAdministrador ? '' : revisarControlesEliminados(existente, documentoRiesgo)),
+          validar: existente => {
+            // Otra persona guardó este riesgo después de que el usuario lo cargó: no se pisa su cambio.
+            // Riesgos guardados antes de existir la marca: se compara la hora del último guardado.
+            const campoVersion = existente.versionRiesgo ? 'versionRiesgo' : 'ultimaActualizacion';
+            if (existente[campoVersion] && riesgoData[campoVersion] !== existente[campoVersion]) {
+              return `${existente.actualizadoPor || 'Otro usuario'} modificó este riesgo mientras lo editabas. Recarga la página para ver sus cambios y vuelve a guardar.`;
+            }
+            // Solo un administrador puede borrar controles guardados; los demás los anulan (queda el historial).
+            return esAdministrador ? '' : revisarControlesEliminados(existente, documentoRiesgo);
+          },
           // Historial con el detalle de lo que cambió respecto a la versión guardada (quién, cuándo, antes y después).
           completar: (actualizado, existente) => {
             if (!existente) return actualizado;

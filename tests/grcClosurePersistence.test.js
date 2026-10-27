@@ -745,7 +745,9 @@ test('tras migrar: el dueño anula controles (queda el historial) pero no puede 
   await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
   const preventivo = { descripcion: 'Conciliación', tipo: 'Preventivo', implementacion: 'Manual' };
   const base = { ...riesgo(1), proceso: 'Operaciones', probabilidadInherente: 60, impactoInherente: 60 };
-  assert.equal((await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo, preventivo] })).code, 200);
+  const creado = await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo, preventivo] });
+  assert.equal(creado.code, 200);
+  base.versionRiesgo = creado.body.riesgo.versionRiesgo; // la versión que la app tiene en pantalla
 
   fixture.sesion.usuario = { uid: 'u4', email: 'duenio@example.test', rol: 'lider', procesosAsignados: ['Operaciones'] };
   const borrar = await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo] });
@@ -755,6 +757,7 @@ test('tras migrar: el dueño anula controles (queda el historial) pero no puede 
   const anulado = { ...preventivo, estado: 'Anulado', anulacion: { usuario: 'duenio@example.test', tipoMotivo: 'Ya no aplica', motivo: 'Se eliminó la actividad' } };
   const anular = await fixture.riesgos('POST', { ...base, controlesDetallados: [preventivo, anulado] });
   assert.equal(anular.code, 200, JSON.stringify(anular));
+  base.versionRiesgo = anular.body.riesgo.versionRiesgo;
   const { data } = await fixture.workspace.leerWorkspaceGrc();
   const guardado = data.riesgos.find(item => item.id === 1);
   assert.equal(guardado.controlesDetallados.length, 2, 'el control anulado se conserva');
@@ -769,11 +772,14 @@ test('tras migrar: cada edición deja en el historial qué cambió, antes y desp
   await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
   const control = { descripcion: 'Conciliación', tipo: 'Preventivo', implementacion: 'Manual', frecuencia: 'Continua' };
   const base = { ...riesgo(1), proceso: 'Operaciones', probabilidadInherente: 60, impactoInherente: 60, planAccionRiesgo: '' };
-  assert.equal((await fixture.riesgos('POST', { ...base, controlesDetallados: [control] })).code, 200);
+  const creado = await fixture.riesgos('POST', { ...base, controlesDetallados: [control] });
+  assert.equal(creado.code, 200);
+  base.versionRiesgo = creado.body.riesgo.versionRiesgo;
   const editar = await fixture.riesgos('POST', {
     ...base, planAccionRiesgo: 'Conciliación mensual en Zeus', controlesDetallados: [{ ...control, frecuencia: 'Aleatoria' }, { descripcion: 'Revisión del jefe', tipo: 'Detectivo' }],
   });
   assert.equal(editar.code, 200, JSON.stringify(editar));
+  base.versionRiesgo = editar.body.riesgo.versionRiesgo;
   const { data } = await fixture.workspace.leerWorkspaceGrc();
   const ultima = data.riesgos.find(item => item.id === 1).historialCambios.at(-1);
   assert.equal(ultima.usuario, 'controlinterno@example.test');
@@ -784,6 +790,25 @@ test('tras migrar: cada edición deja en el historial qué cambió, antes y desp
   assert.equal(sinCambios.code, 200);
   const despues = (await fixture.workspace.leerWorkspaceGrc()).data.riesgos.find(item => item.id === 1).historialCambios;
   assert.equal(despues.length, data.riesgos.find(item => item.id === 1).historialCambios.length, 'guardar sin cambios no agrega entradas');
+});
+
+test('tras migrar: si otro usuario guardó el riesgo mientras se editaba, no se pisa su cambio', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  const base = { ...riesgo(1), proceso: 'Operaciones', probabilidadInherente: 60, impactoInherente: 60, controlesDetallados: [] };
+  const primero = await fixture.riesgos('POST', { ...base, descripcion: 'Versión cargada por ambos' });
+  assert.equal(primero.code, 200);
+  const cargada = primero.body.riesgo;
+
+  fixture.sesion.usuario = { uid: 'u4', email: 'duenio@example.test', rol: 'lider', procesosAsignados: ['Operaciones'] };
+  assert.equal((await fixture.riesgos('POST', { ...cargada, descripcion: 'Cambio del líder' })).code, 200);
+
+  fixture.sesion.usuario = { uid: 'u1', email: 'auditor@example.test', rol: 'admin' };
+  const tardio = await fixture.riesgos('POST', { ...cargada, descripcion: 'Cambio con la copia vieja' });
+  assert.equal(tardio.code, 409);
+  assert.match(tardio.error, /duenio@example\.test modificó este riesgo/);
+  const { data } = await fixture.workspace.leerWorkspaceGrc();
+  assert.equal(data.riesgos.find(item => item.id === 1).descripcion, 'Cambio del líder', 'el cambio del otro usuario se conserva');
 });
 
 test('sin migrar: el módulo Riesgos mantiene su comportamiento actual', async () => {

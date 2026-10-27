@@ -1,5 +1,6 @@
 // src/handlers/grcFormHandlers.js
 import { buildHistorialDetalle } from '../utils/historialCambios.js';
+import { apiService } from '../services/apiService';
 
 const convertirListaSubprocesos = valores => (
   Array.isArray(valores)
@@ -516,7 +517,8 @@ export const createFormHandlers = ({
     }
     let updatedHallazgos = safeHallazgos;
     let updatedRiesgos = safeRiesgos;
-    
+    let riesgoActualizado = null;
+
     if (calificacion < 100) {
       const generarHallazgo = window.confirm(`⚠️ Alerta de Auditoría: El control evaluado reprobó con una eficacia del ${calificacion}%.\n\n¿Deseas generar automáticamente un HALLAZGO DE AUDITORÍA para este proceso?`);
 
@@ -524,11 +526,10 @@ export const createFormHandlers = ({
         const bitacoraPrevia = riesgoAsociado.seguimientoBitacora ? `\n---\n${riesgoAsociado.seguimientoBitacora}` : '';
         const notaBitacora = `⚠️ [${hoy.toISOString().split('T')[0]}] Auditoría en campo reprobó el control ${noControl} (${calificacion}%). ${generarHallazgo ? 'Se generó hallazgo automático.' : 'No se generó hallazgo.'}`;
         
-        const riesgoActualizado = {
+        riesgoActualizado = {
           ...riesgoAsociado,
           seguimientoBitacora: notaBitacora + bitacoraPrevia
         };
-        updatedRiesgos = safeRiesgos.map(r => String(r.id) === String(riesgoAsociado.id) ? riesgoActualizado : r);
       }
 
       if (generarHallazgo) {
@@ -561,7 +562,19 @@ export const createFormHandlers = ({
       showNotification("Evaluación guardada exitosamente. Control fuerte y eficaz.");
     }
 
-    const guardado = await saveToCloud({ evaluaciones: updated, hallazgos: updatedHallazgos, riesgos: updatedRiesgos });
+    // Solo el riesgo evaluado, y primero: mandar la lista completa en memoria devolvía a su versión
+    // anterior los riesgos que otros usuarios hubieran guardado mientras tanto.
+    if (riesgoActualizado) {
+      try {
+        const respuesta = await apiService.saveRiesgo(riesgoActualizado);
+        const riesgoGuardado = respuesta?.riesgo || riesgoActualizado;
+        updatedRiesgos = safeRiesgos.map(r => String(r.id) === String(riesgoGuardado.id) ? riesgoGuardado : r);
+      } catch (error) {
+        showNotification(error?.message || 'No se pudo actualizar la bitácora del riesgo.', 'error');
+        return false;
+      }
+    }
+    const guardado = await saveToCloud({ evaluaciones: updated, hallazgos: updatedHallazgos });
     if (!guardado) return false;
     setEvaluaciones(updated);
     if (editEvaluacion) setEditEvaluacion(null);
@@ -652,10 +665,15 @@ export const createFormHandlers = ({
       showNotification("Error: Jerarquía incorrecta (Apetito ≤ Tolerancia ≤ Capacidad).", "error"); return false;
     }
     const modificado = { ...editApetito, posturaEstrategica: formData.get('posturaEstrategica'), kriScore: parseInt(formData.get('kriScore')), apetitoFinanciero: apetito, toleranciaFinanciera: tolerancia, capacidadRiesgo: capacidad, impactoOperativo: formData.get('impactoOperativo') || 'No definido', impactoReputacional: formData.get('impactoReputacional') || 'No definido', impactoLegal: formData.get('impactoLegal') || 'No definido', escalamiento: formData.get('escalamiento') || 'Jefe de Área', historialCambios: [...(editApetito.historialCambios || []), { fecha: ts, accion: 'Apetito parametrizado' }] };
-    const updatedList = safeRiesgos.map(r => r.id === editApetito.id ? modificado : r);
-    const guardado = await saveToCloud({ riesgos: updatedList });
-    if (!guardado) return false;
-    setRiesgos(updatedList);
+    // Solo el riesgo editado: la lista completa en memoria pisaba los cambios que otros guardaron mientras tanto.
+    let riesgoGuardado;
+    try {
+      riesgoGuardado = (await apiService.saveRiesgo(modificado))?.riesgo || modificado;
+    } catch (error) {
+      showNotification(error?.message || 'No se pudo guardar el perfil de apetito.', 'error');
+      return false;
+    }
+    setRiesgos(safeRiesgos.map(r => String(r.id) === String(riesgoGuardado.id) ? riesgoGuardado : r));
     setEditApetito(null);
     showNotification("Perfil de Apetito guardado.");
     return true;
