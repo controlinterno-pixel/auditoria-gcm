@@ -5,7 +5,7 @@ import { BLOQUES_MODELO_NEGOCIO, BLOQUES_PROPUESTA_VALOR, FASES_CICLO, LETRAS_PE
 import { UNIDADES_PERIODO, alertasFinancieras, ingresoPeriodo, resumenFinanciero, textoAniosYMeses } from '../../utils/proyectos/financiero.js';
 import { escribirCifra, leerCifra, moneda, porcentaje, simboloMoneda } from '../../utils/proyectos/formato.js';
 import EditorApartado, { AreaTexto, InsigniaApartado, ListaEditable } from './EditorApartado.jsx';
-import { Campo, Seccion, claseCampo } from './ui.jsx';
+import { Campo, GuiaEnLinea, Seccion, claseCampo } from './ui.jsx';
 
 const nuevoId = () => (globalThis.crypto?.randomUUID?.() || `n${Date.now()}${Math.random().toString(36).slice(2, 6)}`);
 const Entrada = ({ etiqueta, valor, onCambio, tipo = 'text', ...resto }) => (
@@ -50,7 +50,7 @@ function MetodologiaFinanciera() {
 function Indicador({ titulo, valor, detalle }) {
   return (
     <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{titulo}</p>
+      <div className="text-[11px] text-slate-500"><span className="font-black uppercase tracking-wide">{titulo}</span> <GuiaEnLinea clave={`Indicador ${titulo}`} etiqueta={titulo} /></div>
       <p className="mt-1 text-lg font-black text-slate-800 [overflow-wrap:anywhere]">{valor}</p>
       {detalle && <p className="mt-1 text-[11px] text-slate-500">{detalle}</p>}
     </div>

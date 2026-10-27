@@ -161,6 +161,13 @@ const G = {
   'financiero|Ingresos': ['Ingresos del periodo.', 'Toma la proyección del apartado 8 (mismos periodos y supuestos). Escribe solo los números: el signo y los miles salen solos.', 'Sin ingresos proyectados no hay VAN, TIR, ROI ni recuperación.', A11],
   'financiero|Egresos': ['Gastos e inversiones del periodo.', 'Periodo 0: la inversión inicial (presupuesto del proyecto). Periodos siguientes: costos de operación (personal, insumos, mantenimiento) y reinversiones previstas.', 'Si se omiten costos de operación, el ROI y la recuperación salen mejores de lo real.', A11],
   'financiero|Descripción': ['Detalle del periodo.', 'Por ejemplo "inversión inicial" o "primer mes de operación".', 'Facilita la revisión.', A11],
+  // Indicadores calculados del apartado 11 (resultado, no casillas): qué miden, cómo se calculan y cómo leerlos.
+  'financiero|Indicador VAN': ['Valor actual neto: lo que vale hoy todo el flujo del proyecto, descontado con la tasa exigida.', 'Σ flujo neto ÷ (1 + tasa)^periodo, desde el periodo 0. Positivo: el proyecto rinde más que la tasa mínima; 0: la iguala justo; negativo: no la alcanza.', 'Es el indicador principal de viabilidad: dice si el proyecto crea valor para la empresa.', A11],
+  'financiero|Indicador TIR': ['Tasa interna de retorno: la rentabilidad propia del proyecto, la tasa que hace el VAN igual a 0.', 'Se compara con la tasa de descuento: si la TIR es mayor, el proyecto es viable. Se muestra por periodo y en efectivo anual para compararla con tasas de referencia. "No existe" si los flujos no tienen inversión y retorno (no cambian de signo).', 'Permite comparar proyectos de distinto tamaño por su rentabilidad.', A11],
+  'financiero|Indicador ROI': ['Retorno sobre la inversión: cuánto gana el proyecto por cada peso que gasta en todo el horizonte.', '(total ingresos − total egresos) ÷ total egresos × 100. Un ROI de 25 % significa que por cada $1 de egresos vuelven $1,25. No tiene en cuenta cuándo llega el dinero; por eso se acompaña del ROI descontado.', 'Es fácil de explicar a la Gerencia y de comparar entre proyectos.', COMPLEMENTO_A11],
+  'financiero|Indicador ROI descontado': ['El mismo ROI con ingresos y egresos llevados a valor presente con la tasa exigida.', '(VP ingresos − VP egresos) ÷ VP egresos × 100. Siempre es menor que el ROI cuando la tasa es positiva. Si es negativo aunque el ROI sea positivo, el proyecto gana dinero pero no alcanza la rentabilidad exigida.', 'Corrige el ROI por el valor del dinero en el tiempo: un peso dentro de 3 años vale menos que hoy.', COMPLEMENTO_A11],
+  'financiero|Indicador Recuperación simple': ['Tiempo en que el flujo neto acumulado, sin descontar, cubre la inversión inicial.', 'Se suman los flujos netos periodo a periodo hasta que el acumulado deja de ser negativo, interpolando dentro del periodo; el mes en que se cruza cuenta completo. Se expresa en años y meses según la duración de cada periodo.', 'Mide la exposición: cuanto más corto, menos tiempo está en riesgo el dinero invertido.', COMPLEMENTO_A11],
+  'financiero|Indicador Recuperación descontada (PRD)': ['Periodo de recuperación descontado: el mismo tiempo, pero con los flujos a valor presente.', 'Igual que la recuperación simple con cada flujo dividido por (1 + tasa)^periodo; siempre es igual o mayor que la simple. "No se recupera en el horizonte" significa que con la tasa exigida la inversión no se cubre en los periodos registrados: amplía el horizonte o revisa la viabilidad.', 'Es el plazo real de recuperación considerando la rentabilidad mínima exigida.', A11],
   'financiero|Análisis de sensibilidad': ['Qué pasa si cambian las variables clave.', 'Por ejemplo "con 20 % menos visitantes la inversión se recupera en 18 meses".', 'Paso 5 del manual: analizar sensibilidad a cambios.', A11],
 
   // Planificación (Inversión)
@@ -327,5 +334,6 @@ export function buscarGuia(contexto, etiqueta) {
   const encontrada = INDICE.get(`${contexto || 'ficha'}|${normalizar(etiqueta)}`);
   if (!encontrada) return null;
   const [que, como, porque, manual] = encontrada;
-  return { que, como, porque, manual };
+  // Los indicadores calculados no se diligencian: su ayuda explica cómo se calculan y para qué sirven.
+  return { que, como, porque, manual, esIndicador: normalizar(etiqueta).startsWith(normalizar('Indicador ')) };
 }

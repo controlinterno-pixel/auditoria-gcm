@@ -54,3 +54,16 @@ test('cada ayuda dice qué, cómo, por qué y dónde (o que el manual no lo exig
   assert.notEqual(buscarGuia('tarea', 'Estado').como, buscarGuia('riesgo', 'Estado').como);
   assert.equal(buscarGuia('filtro', 'Área'), null, 'los filtros no muestran ayudas del manual');
 });
+
+test('cada indicador del análisis financiero tiene su pluma con qué mide, cómo se calcula y para qué sirve', () => {
+  const fuente = readFileSync(new URL('../src/components/proyectos/FormulacionProyecto.jsx', import.meta.url), 'utf8');
+  const indicadores = [...fuente.matchAll(/<Indicador titulo="([^"]+)"/g)].map(coincidencia => coincidencia[1]);
+  assert.equal(indicadores.length, 6);
+  indicadores.forEach(titulo => {
+    const guia = buscarGuia('financiero', `Indicador ${titulo}`);
+    assert.ok(guia?.que && guia.como && guia.porque && guia.manual, `falta la ayuda de ${titulo}`);
+    assert.equal(guia.esIndicador, true);
+  });
+  assert.match(buscarGuia('financiero', 'Indicador ROI').manual, /No lo exige el manual/);
+  assert.equal(buscarGuia('financiero', 'Ingresos').esIndicador, false, 'las casillas conservan "Cómo diligenciarlo"');
+});

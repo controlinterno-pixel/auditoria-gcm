@@ -32,7 +32,7 @@ function useGuia(etiqueta, clave) {
   const nombre = String(etiqueta || '').replace(/\s*\(.*?\)/g, '');
   return {
     boton: (
-      <button type="button" onClick={() => setAbierta(actual => !actual)} aria-expanded={abierta} aria-controls={id} aria-label={`Ayuda: ${nombre}`} title="¿Qué es, cómo se diligencia y dónde lo pide el manual?"
+      <button type="button" onClick={() => setAbierta(actual => !actual)} aria-expanded={abierta} aria-controls={id} aria-label={`Ayuda: ${nombre}`} title={guia.esIndicador ? '¿Qué mide, cómo se calcula y cómo se lee?' : '¿Qué es, cómo se diligencia y dónde lo pide el manual?'}
         className={`ml-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition ${abierta ? 'bg-[#0055ff] text-white' : 'text-[#0055ff] hover:bg-blue-50'}`}>
         <Pluma />
       </button>
@@ -40,8 +40,8 @@ function useGuia(etiqueta, clave) {
     panel: abierta && (
       <div id={id} role="note" className="mb-2 space-y-1 rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-[11px] leading-snug text-slate-700">
         <p><b className="text-slate-900">Qué es:</b> {guia.que}</p>
-        <p><b className="text-slate-900">Cómo diligenciarlo:</b> {guia.como}</p>
-        <p><b className="text-slate-900">Por qué se pide:</b> {guia.porque}</p>
+        <p><b className="text-slate-900">{guia.esIndicador ? 'Cómo se calcula y se lee:' : 'Cómo diligenciarlo:'}</b> {guia.como}</p>
+        <p><b className="text-slate-900">{guia.esIndicador ? 'Para qué sirve:' : 'Por qué se pide:'}</b> {guia.porque}</p>
         <p className="font-bold text-[#0044cc]">📘 {guia.manual}</p>
       </div>
     ),
