@@ -40,3 +40,7 @@ firebase-key.json
 # Configuración local de MCP (puede llevar claves)
 .mcp.json
 testsprite_tests/tmp/
+
+# Llaves de servicio de Firebase y exportaciones con datos reales: nunca al repositorio
+*-firebase-adminsdk-*.json
+gcm_sqlserver_*.sql
