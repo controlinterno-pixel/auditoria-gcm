@@ -39,3 +39,4 @@ firebase-key.json
 
 # Configuración local de MCP (puede llevar claves)
 .mcp.json
+testsprite_tests/tmp/
