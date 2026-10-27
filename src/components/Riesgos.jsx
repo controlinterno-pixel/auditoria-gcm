@@ -1716,7 +1716,8 @@ const handleRiesgoSubmit = async (e) => {
             </div>
           </div>
 
-          <aside className="flex min-h-[390px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" aria-live="polite">
+          {/* La lista no estira la sección: en pantalla ancha mide lo mismo que el mapa y se desplaza por dentro. */}
+          <aside className="flex min-h-[390px] max-h-[70vh] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm xl:h-0 xl:max-h-none xl:min-h-full" aria-live="polite">
             <div className="border-b border-slate-200 px-4 py-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -1734,7 +1735,7 @@ const handleRiesgoSubmit = async (e) => {
                 <span className="pb-1 text-[11px] text-slate-500">{cuadranteDashboard ? 'riesgos en esta coordenada' : 'riesgos para revisar primero'}</span>
               </div>
             </div>
-            <div className="flex-1 space-y-2 overflow-y-auto p-3">
+            <div key={cuadranteDashboard ? `${cuadranteDashboard.probabilidad}-${cuadranteDashboard.impacto}` : 'prioritarios'} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3">
               {riesgosEnCuadrante.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500">No hay riesgos en esta coordenada con los filtros actuales.</p>
               ) : riesgosEnCuadrante.map(riesgo => {
