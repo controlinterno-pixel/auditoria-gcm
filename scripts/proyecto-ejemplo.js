@@ -46,6 +46,7 @@ if (process.argv.includes('--borrar') && !simular) { await borrar(); process.exi
 const correoDirector = String(argumento('director') || '').toLowerCase();
 if (!/@termales\.com\.co$/.test(correoDirector)) { console.error('Falta --director correo@termales.com.co (quien verá y editará el proyecto).'); process.exit(1); }
 if (!simular && !(await coleccion.where(MARCA, '==', true).limit(1).get()).empty) { console.error('Ya existe un proyecto de ejemplo: bórralo primero con --borrar.'); process.exit(1); }
+if (!simular && !(await coleccion.where('codigoEstrategico', '==', 'A9_SP9_PY99').limit(1).get()).empty) { console.error('El código A9_SP9_PY99 ya lo usa otro proyecto: no se crea el ejemplo.'); process.exit(1); }
 
 const persona = nombre => ({ email: nombre.includes('@') ? nombre : `${nombre}.ejemplo@termales.com.co`, rol: 'lider', permisos: ['gobernanza', 'sub_proyectos'], nombreResponsable: nombre });
 const DIRECTOR = persona(correoDirector);
