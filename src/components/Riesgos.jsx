@@ -1682,7 +1682,8 @@ const handleRiesgoSubmit = async (e) => {
 
             <div className="overflow-x-auto pb-2">
               <div className="min-w-[560px]">
-                <div className="grid grid-cols-[100px_repeat(5,minmax(0,1fr))] gap-1.5">
+                {/* data-scroll-focus="ninguno": al elegir una celda la pantalla se queda a la altura del mapa. */}
+                <div data-scroll-focus="ninguno" className="grid grid-cols-[100px_repeat(5,minmax(0,1fr))] gap-1.5">
                   <div className="flex items-end justify-end pb-2 pr-2 text-right text-[9px] font-bold text-slate-400">Impacto ↓<br />Probabilidad →</div>
                   {probabilidades.map(probabilidad => <div key={probabilidad.nivel} className="flex min-h-9 items-end justify-center pb-1 text-center text-[9px] font-semibold text-slate-300">{probabilidad.nivel} · {probabilidad.etiqueta}</div>)}
                   {impactos.map(impacto => (

@@ -207,6 +207,8 @@ export default function App() {
     const elemento = event.target instanceof Element ? event.target : null;
     const control = elemento?.closest('[aria-pressed], [data-scroll-focus="filter"]');
     if (!control || (control.closest('form') && !control.matches('[data-scroll-focus="filter"]'))) return;
+    // Zonas que se quedan quietas al hacer clic (p. ej. las celdas del mapa de riesgos con su lista al lado).
+    if (control.closest('[data-scroll-focus="ninguno"]')) return;
     programarScrollDeEnfoque(control, 0, true);
   }, [programarScrollDeEnfoque]);
 
