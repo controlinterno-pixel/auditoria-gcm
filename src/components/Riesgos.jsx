@@ -20,6 +20,7 @@ import { anular, entradaHistorial, estaAnulado, MOTIVOS_ANULACION, reactivar, va
 import { clasificacionDeRiesgo, normalizarClasificacion } from '../utils/clasificacionRiesgo.js';
 import { fechaEntradaHistorial } from '../utils/fechaHistorial.js';
 import { analizarControlEnRiesgo, explicarRiesgoDetallado, pruebasDeCampoDelRiesgo } from '../utils/explicacionRiesgoDetallada.js';
+import { explicarAltosExtremos, explicarControlesMatriz, explicarResidualPromedio, explicarTotalRiesgos, nivelResidualPromedio } from '../utils/explicacionKpiMatriz.js';
 import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '../utils/cumplimientoManual.js';
 import { planesVinculadosAlRiesgo } from '../utils/planesDelRiesgo.js';
 import { sinProcesoDelCatalogo } from '../utils/ubicacionCatalogo.js';
@@ -1904,21 +1905,26 @@ const renderMatriz = () => {
     const todosLosControles = riesgosKpi.flatMap(r => vigentes(r.controlesDetallados));
     const eficaciaPromedioGlobal = promedioEficacia(todosLosControles) || { tabla6: 0, sobreMaximo: 0 };
 
-    const avgResidualScore = totalRiesgosCount > 0
-  ? (() => { const conDatos = riesgosKpi.filter(r => datoRiesgo(r.probabilidadResidual) !== null && datoRiesgo(r.impactoResidual) !== null); return conDatos.length ? conDatos.reduce((acc, r) => acc + (datoRiesgo(r.probabilidadResidual) * datoRiesgo(r.impactoResidual) / 100), 0) / conDatos.length : 0; })()
-  : 0;
-    let nivelPromedioText = 'BAJO';
-    let nivelPromedioColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    if (avgResidualScore > 40) {
-      nivelPromedioText = 'EXTREMO';
-      nivelPromedioColor = 'bg-red-100 text-red-800 border-red-200';
-    } else if (avgResidualScore > 25) {
-      nivelPromedioText = 'ALTO';
-      nivelPromedioColor = 'bg-orange-100 text-orange-800 border-orange-200';
-    } else if (avgResidualScore > 12) {
-      nivelPromedioText = 'MODERADO';
-      nivelPromedioColor = 'bg-amber-100 text-amber-800 border-amber-200';
-    }
+    // Residual promedio (Tabla 4): promedio de probabilidad e impacto residuales, ubicado en la matriz de calor.
+    const residualPromedio = nivelResidualPromedio(riesgosKpi);
+    const COLOR_NIVEL_PROMEDIO = {
+      Extremo: 'bg-red-100 text-red-800 border-red-200',
+      Alto: 'bg-orange-100 text-orange-800 border-orange-200',
+      Moderado: 'bg-amber-100 text-amber-800 border-amber-200',
+      Bajo: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    };
+    const nivelPromedioText = residualPromedio.zona ? residualPromedio.zona.toUpperCase() : 'SIN DATO';
+    const nivelPromedioColor = COLOR_NIVEL_PROMEDIO[residualPromedio.zona] || 'bg-slate-100 text-slate-600 border-slate-200';
+    // Texto de los filtros activos para las explicaciones de las tarjetas.
+    const alcanceMatriz = [
+      filtroProceso === 'Todos' ? 'toda la matriz' : filtroProceso === SIN_PROCESO ? 'los riesgos sin macroproceso del catálogo' : filtroProceso,
+      filtroSubproceso !== 'Todos' && (filtroSubproceso === SIN_SUBPROCESO ? 'sin subproceso del catálogo' : `subproceso ${filtroSubproceso}`),
+      filtroClasificacion !== 'Todas' && `clasificación ${filtroClasificacion}`,
+      filtroNivel !== 'Todos' && `nivel ${filtroNivel.includes(':') ? `${filtroNivel.split(':')[1]} ${filtroNivel.startsWith('inh') ? 'inherente' : 'residual'}` : filtroNivel}`,
+      searchTerm && `búsqueda "${searchTerm}"`,
+      filtroCumplimiento && CRITERIOS_CUMPLIMIENTO[filtroCumplimiento]?.titulo.toLowerCase(),
+    ].filter(Boolean).join(' · ');
+    const anuladosFiltroMatriz = riesgosFiltrados.length - riesgosKpi.length;
 
     // Solo el catálogo de "Cargos y Procesos" (Configuración); los riesgos fuera de él se ven con "Sin … del catálogo".
     const procesosUnicos = macroprocesosFiltro(MAPA_PROCESOS).sort((a, b) => a.localeCompare(b, 'es'));
@@ -1937,7 +1943,7 @@ const renderMatriz = () => {
           
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex justify-between items-start">
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Riesgos</p>
+              <p className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Riesgos<BotonExplicacion etiqueta="Total de Riesgos" onClick={() => setExplicacionDashboard(explicarTotalRiesgos({ riesgos: riesgosKpi, alcance: alcanceMatriz, totalMatriz: riesgosVigentes.length, anuladosFiltro: anuladosFiltroMatriz, porSubproceso: filtroProceso !== 'Todos' && filtroProceso !== SIN_PROCESO }))} /></p>
               <h3 className="text-3xl font-black text-slate-900 mt-1">{totalRiesgosCount}</h3>
               <p className="text-[10px] text-slate-400 font-bold mt-1">{hayFiltrosMatriz ? `Con los filtros · de ${riesgosVigentes.length} en la matriz` : 'Registrados en la matriz'}</p>
             </div>
@@ -1946,7 +1952,7 @@ const renderMatriz = () => {
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex justify-between items-start">
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgos Altos y Críticos</p>
+              <p className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgos Altos y Críticos<BotonExplicacion etiqueta="Riesgos Altos y Críticos" onClick={() => setExplicacionDashboard(explicarAltosExtremos({ riesgos: riesgosKpi, alcance: alcanceMatriz, planes: planesDeAccion }))} /></p>
               <div className="flex items-baseline space-x-2 mt-1">
                 <h3 className="text-3xl font-black text-red-600">{riesgosAltosCriticosCount}</h3>
                 <span className="text-[9px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
@@ -1960,20 +1966,20 @@ const renderMatriz = () => {
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex justify-between items-start">
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgo Residual Promedio</p>
+              <p className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgo Residual Promedio<BotonExplicacion etiqueta="Riesgo Residual Promedio" onClick={() => setExplicacionDashboard(explicarResidualPromedio({ riesgos: riesgosKpi, alcance: alcanceMatriz }))} /></p>
               <div className="mt-2">
                 <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border shadow-sm ${nivelPromedioColor}`}>
                   {nivelPromedioText}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-bold mt-3">Nivel general de exposición</p>
+              <p className="text-[10px] text-slate-400 font-bold mt-3">{residualPromedio.zona ? `P ${Math.round(residualPromedio.p)} % · I ${Math.round(residualPromedio.i)} % · Tabla 4` : 'Sin datos residuales'}</p>
             </div>
             <span className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl text-lg shadow-inner">📉</span>
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex justify-between items-start">
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Controles Implementados</p>
+              <p className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Controles Implementados<BotonExplicacion etiqueta="Controles Implementados" onClick={() => setExplicacionDashboard(explicarControlesMatriz({ riesgos: riesgosKpi, alcance: alcanceMatriz }))} /></p>
               <h3 className="text-3xl font-black text-slate-900 mt-1">{totalControlesCount}</h3>
               <p className="text-[10px] text-emerald-700 font-extrabold mt-1" title={`${eficaciaPromedioGlobal.tabla6} % según la Tabla 6 del manual`}>Eficacia promedio: {eficaciaPromedioGlobal.sobreMaximo}% del máximo</p>
             </div>
