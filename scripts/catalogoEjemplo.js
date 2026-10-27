@@ -7,7 +7,7 @@ const CARGOS = {
   gerencia: ['GERENTE GENERAL'],
   director: ['JEFE DE CONTROL INTERNO'],
   operaciones: ['COORDINADOR DE OPERACIONES', 'Coordinador Operaciones', 'SUBDIRECCIÓN DE OPERACIONES BALNEARIO'],
-  juridica: ['Gerente Administrativa y Judicial'],
+  juridica: ['Gerente Administrativa y Judicial', 'DIRECTORA ADMINISTRATIVA Y FINANCIERA', 'DIRECTOR ADMINISTRATIVO Y FINANCIERO'],
 };
 // Organizaciones externas del ejemplo: la autoridad ambiental es real; la junta y el contratista son de ejemplo.
 export const ORGANIZACIONES_EJEMPLO = {
