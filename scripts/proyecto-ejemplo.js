@@ -4,8 +4,10 @@
 // aprobación no puede atribuirse a una persona real que no la hizo.
 //   node scripts/proyecto-ejemplo.js --credenciales "C:\llaves-gcm\llave.json" --director correo@termales.com.co
 //   node scripts/proyecto-ejemplo.js --credenciales "C:\llaves-gcm\llave.json" --borrar
-//   node scripts/proyecto-ejemplo.js --credenciales "C:\llaves-gcm\llave.json" --actualizar-financiero
-//     (rehace solo los apartados 8 y 11 del ejemplo que ya existe, con su historial; el resto no se toca)
+//   node scripts/proyecto-ejemplo.js --credenciales "C:\llaves-gcm\llave.json" --actualizar-ejemplo [--crear-organizaciones]
+//     (rehace solo los apartados 8, 11, 12 y 14 del ejemplo que ya existe, con su historial; el resto no se toca.
+//     12 y 14 usan los cargos y organizaciones del catálogo de Cargos y Procesos; --crear-organizaciones agrega
+//     al catálogo las organizaciones del ejemplo que falten)
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
@@ -21,11 +23,13 @@ if (!simular) {
   process.env.FIREBASE_PRIVATE_KEY = llave.private_key;
 }
 const { adminDb } = simular ? { adminDb: null } : await import('../api/_lib/firebaseAdmin.js');
-const { Timestamp } = await import('firebase-admin/firestore');
+const { FieldValue, Timestamp } = await import('firebase-admin/firestore');
 const { aplicarAccion, crearProyecto } = await import('../api/_lib/proyectosAcciones.js');
 const { compactarPlan } = await import('../src/utils/proyectos/indicadores.js');
 const { hoyColombia } = await import('../src/utils/proyectos/fechas.js');
 const { FINANCIERO_EJEMPLO, INGRESOS_EJEMPLO } = await import('./datosFinancierosEjemplo.js');
+const { ORGANIZACIONES_EJEMPLO, ajustarEjemploACatalogo } = await import('./catalogoEjemplo.js');
+const { buscarEnCatalogo } = await import('../src/utils/proyectos/catalogos.js');
 
 const coleccion = simular ? null : adminDb.collection('proyectos');
 const MARCA = 'esEjemplo';
@@ -46,8 +50,24 @@ async function borrar() {
 
 if (process.argv.includes('--borrar') && !simular) { await borrar(); process.exit(0); }
 
-// Actualiza los apartados 8 y 11 con las mismas reglas del servidor, como si el director los guardara.
-async function actualizarFinanciero() {
+// Catálogo de Cargos y Procesos de la plataforma (solo lectura, salvo --crear-organizaciones).
+async function leerCatalogo() {
+  const refWorkspace = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
+  const datos = (await refWorkspace.get()).data() || {};
+  const cargos = [...new Set((datos.catalogoCargos || []).filter(registro => registro?.activo !== false).map(registro => String(registro?.cargo || '').trim()).filter(Boolean))];
+  let organizaciones = Array.isArray(datos.organizacionesExternas) ? datos.organizacionesExternas : [];
+  const nuevas = Object.values(ORGANIZACIONES_EJEMPLO).filter(nombre => !buscarEnCatalogo(nombre, organizaciones));
+  if (process.argv.includes('--crear-organizaciones') && nuevas.length) {
+    await refWorkspace.update({ organizacionesExternas: FieldValue.arrayUnion(...nuevas) });
+    organizaciones = [...organizaciones, ...nuevas];
+    console.log(`Organizaciones agregadas al catálogo: ${nuevas.join('; ')}`);
+  }
+  return { cargos, organizaciones };
+}
+
+// Actualiza los apartados 8, 11, 12 y 14 con las mismas reglas del servidor, como si el director los guardara.
+async function actualizarEjemplo() {
+  const { interesados, organigrama, faltan } = ajustarEjemploACatalogo(await leerCatalogo());
   const snapshot = await coleccion.where(MARCA, '==', true).limit(1).get();
   if (snapshot.empty) { console.error('No hay proyecto de ejemplo: créalo primero.'); process.exit(1); }
   const refProyecto = snapshot.docs[0].ref;
@@ -59,7 +79,7 @@ async function actualizarFinanciero() {
     const director = { email: proyecto.miembros.director, rol: 'lider', permisos: ['gobernanza', 'sub_proyectos'] };
     const contexto = () => { const ahora = new Date(); return { usuario: director, ahora: ahora.toISOString(), hoy: hoyColombia(ahora), generarId: randomUUID, codigo: proyecto.codigo }; };
     const nuevos = [];
-    for (const [nombre, datos] of [['ingresos', INGRESOS_EJEMPLO], ['financiero', FINANCIERO_EJEMPLO]]) {
+    for (const [nombre, datos] of [['ingresos', INGRESOS_EJEMPLO], ['financiero', FINANCIERO_EJEMPLO], ['interesados', interesados], ['organigrama', organigrama]]) {
       const resultado = aplicarAccion(proyecto, plan, 'guardarSeccion', { seccion: nombre, datos, versionBase: plan.secciones?.[nombre]?.version }, contexto());
       ({ proyecto, plan } = resultado);
       nuevos.push(...resultado.eventos);
@@ -72,9 +92,10 @@ async function actualizarFinanciero() {
     }), fecha: Timestamp.now() }));
     return nuevos.length;
   });
-  console.table([{ proyecto: snapshot.docs[0].get('codigo'), apartados: '8 y 11', eventosHistorial: eventos }]);
+  console.table([{ proyecto: snapshot.docs[0].get('codigo'), apartados: '8, 11, 12 y 14', eventosHistorial: eventos }]);
+  if (faltan.length) console.log(`No están en el catálogo (el apartado mostrará el aviso hasta crearlos): ${faltan.join('; ')}`);
 }
-if (process.argv.includes('--actualizar-financiero') && !simular) { await actualizarFinanciero(); process.exit(0); }
+if ((process.argv.includes('--actualizar-ejemplo') || process.argv.includes('--actualizar-financiero')) && !simular) { await actualizarEjemplo(); process.exit(0); }
 
 const correoDirector = String(argumento('director') || '').toLowerCase();
 if (!/@termales\.com\.co$/.test(correoDirector)) { console.error('Falta --director correo@termales.com.co (quien verá y editará el proyecto).'); process.exit(1); }
@@ -181,19 +202,9 @@ hacer(DIRECTOR, 'establecerLineaBase', { motivo: 'Cronograma aprobado en el comi
 hacer(DIRECTOR, 'guardarRiesgo', { riesgo: { tipo: 'riesgo', naturaleza: 'amenaza', descripcion: 'Lluvias intensas retrasan la adecuación del sendero', causa: 'Temporada de lluvias', evento: 'Suspensión de la obra', consecuencia: 'Retraso de la apertura', probabilidad: 4, impacto: 4, responsable: EQUIPO.email, respuesta: 'mitigar', estado: 'en_tratamiento', costoContingencia: 4000000, disparador: 'Más de 3 días seguidos de lluvia', indicadorMonitoreo: 'Días perdidos por lluvia', probabilidadResidual: 3, impactoResidual: 3, acciones: [{ descripcion: 'Programar frentes de trabajo bajo cubierta', responsable: EQUIPO.email, fechaLimite: '2026-11-06' }] } });
 hacer(DIRECTOR, 'guardarRiesgo', { riesgo: { tipo: 'riesgo', naturaleza: 'amenaza', descripcion: 'El permiso de la CAR no llega a tiempo', probabilidad: 2, impacto: 5, responsable: DIRECTOR.email, respuesta: 'evitar', estado: 'cerrado', acciones: [{ descripcion: 'Radicar la solicitud en la prefactibilidad', responsable: DIRECTOR.email, fechaLimite: '2026-09-15', cumplida: true }] } });
 hacer(DIRECTOR, 'guardarRiesgo', { riesgo: { tipo: 'riesgo', naturaleza: 'oportunidad', descripcion: 'Temporada de aves migratorias atrae aviturismo', probabilidad: 4, impacto: 3, responsable: DIRECTOR.email, respuesta: 'explotar', estado: 'abierto', disparador: 'Llegada de las primeras especies migratorias', acciones: [{ descripcion: 'Paquete especial de avistamiento en enero', responsable: DIRECTOR.email, fechaLimite: '2026-12-15' }] } });
-seccion('interesados', { lista: [
-  { nombre: 'Gerencia General', tipo: 'interno', poder: 5, interes: 4, actitud: 'favor', expectativas: 'Retorno y posicionamiento', canal: 'Comité mensual', frecuencia: 'Mensual', responsable: 'Director' },
-  { nombre: 'Junta de acción comunal', tipo: 'externo', poder: 4, interes: 5, actitud: 'neutral', expectativas: 'Empleo local y cuidado del bosque', mensajes: 'Vinculación de guías de la vereda', canal: 'Reunión', frecuencia: 'Mensual', responsable: 'Director', riesgosAsociados: 'Oposición si no hay empleo local' },
-  { nombre: 'Área de Operaciones', tipo: 'interno', poder: 3, interes: 5, actitud: 'favor', expectativas: 'Operación simple y segura', canal: 'Correo', frecuencia: 'Quincenal', responsable: 'Director' },
-  { nombre: 'CAR (autoridad ambiental)', tipo: 'externo', poder: 5, interes: 2, actitud: 'neutral', expectativas: 'Cumplimiento ambiental', canal: 'Oficio', frecuencia: 'Por trámite', responsable: 'Asesor jurídico' },
-] });
-seccion('organigrama', { roles: [
-  { fase: 'preinversion', rol: 'Líder de I+D+i', persona: 'Comité I+D+i', nivel: 'estrategico' },
-  { fase: 'inversion', rol: 'Patrocinador', persona: 'Gerencia', nivel: 'estrategico' },
-  { fase: 'inversion', rol: 'Director del proyecto', persona: 'Control Interno', reportaA: 'Patrocinador', nivel: 'tactico', funciones: 'Planificar, controlar y reportar' },
-  { fase: 'inversion', rol: 'Residente de obra', persona: 'Contratista', reportaA: 'Director del proyecto', nivel: 'operativo' },
-  { fase: 'operacion', rol: 'Coordinador de experiencias', persona: 'Operaciones', nivel: 'tactico' },
-] });
+const catalogoEjemplo = ajustarEjemploACatalogo(simular ? {} : await leerCatalogo());
+seccion('interesados', catalogoEjemplo.interesados);
+seccion('organigrama', catalogoEjemplo.organigrama);
 const filas = {
   [`T:${fase1}`]: { Director: 'A', Contratista: 'C', Operaciones: 'R', Gerencia: 'I' },
   [`T:${fase2}`]: { Director: 'A', Contratista: 'R', Operaciones: 'I', Gerencia: 'I' },

@@ -63,3 +63,17 @@ test('el servidor conserva el contacto del interesado y la organización del rol
   const conRol = aplicarAccion(proyecto, {}, 'guardarSeccion', { seccion: 'organigrama', datos: { roles: [{ fase: 'inversion', rol: 'Contratista', origen: 'externa', organizacion: 'Constructora Andina', persona: 'Residente', nivel: 'operativo' }] } }, ctx);
   assert.deepEqual([conRol.plan.secciones.organigrama.datos.roles[0].origen, conRol.plan.secciones.organigrama.datos.roles[0].organizacion], ['externa', 'Constructora Andina']);
 });
+
+test('el proyecto Ejemplo usa cargos del catálogo base y, con sus organizaciones creadas, no muestra avisos', async () => {
+  const { ajustarEjemploACatalogo, ORGANIZACIONES_EJEMPLO } = await import('../scripts/catalogoEjemplo.js');
+  const { CARGOS_EMPRESA, CARGOS_POR_SEDE } = await import('../src/constants/diccionariosGRC.js');
+  const cargos = [...new Set([...CARGOS_EMPRESA, ...Object.values(CARGOS_POR_SEDE).flat()])];
+  const sinOrganizaciones = ajustarEjemploACatalogo({ cargos, organizaciones: [] });
+  assert.deepEqual(sinOrganizaciones.faltan.filter(item => item.startsWith('cargo')), [], 'todos los cargos existen en el catálogo base');
+  const completo = ajustarEjemploACatalogo({ cargos, organizaciones: Object.values(ORGANIZACIONES_EJEMPLO) });
+  assert.deepEqual(completo.faltan, []);
+  const contexto = { cargos, organizaciones: Object.values(ORGANIZACIONES_EJEMPLO), inicializado: true };
+  assert.deepEqual(faltantesEnCatalogo('interesados', completo.interesados, contexto), []);
+  assert.deepEqual(faltantesEnCatalogo('organigrama', completo.organigrama, contexto), []);
+  assert.equal(completo.organigrama.roles.find(rol => rol.origen === 'externa').organizacion, ORGANIZACIONES_EJEMPLO.contratista);
+});
