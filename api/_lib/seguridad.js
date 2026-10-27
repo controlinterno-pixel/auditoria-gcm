@@ -33,7 +33,7 @@ export const LIMITE_GENERAL_SESION = { maximo: 180, ventanaMs: MINUTO };
 
 // Rutas costosas o expuestas sin sesión: límite compartido entre instancias (Upstash).
 export const LIMITES_POR_RUTA = {
-  '/api/auth/register': { por: 'ip', maximo: 5, ventanaMs: 10 * MINUTO },
+  '/api/auth/register': { por: 'ip', maximo: 40, ventanaMs: 10 * MINUTO },
   '/api/public/catalogos': { por: 'ip', maximo: 30, ventanaMs: MINUTO },
   '/api/grc/audit': { por: 'sesion', maximo: 30, ventanaMs: MINUTO },
   '/api/grc/upload': { por: 'sesion', maximo: 20, ventanaMs: MINUTO },

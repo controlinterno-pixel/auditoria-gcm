@@ -132,8 +132,20 @@ export default function AuthScreen() {
 
    setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-      const user = userCredential.user;
+      let user;
+      try {
+        user = (await createUserWithEmailAndPassword(auth, cleanEmail, password)).user;
+      } catch (err) {
+        if (err?.code !== 'auth/email-already-in-use') throw err;
+        // Un intento anterior creó la cuenta pero no alcanzó a registrar la solicitud (p. ej. sin red o
+        // límite de solicitudes): se retoma con la misma contraseña. El servidor no duplica ni modifica perfiles.
+        try {
+          user = (await signInWithEmailAndPassword(auth, cleanEmail, password)).user;
+        } catch {
+          alert("⚠️ Este correo ya tiene una cuenta. Inicia sesión o usa \"¿Olvidaste tu contraseña?\".");
+          return;
+        }
+      }
 
       await apiService.registrarSolicitudAcceso({
         idToken: await user.getIdToken(),
@@ -142,14 +154,21 @@ export default function AuthScreen() {
         procesosSolicitados: solicitudProcesos.procesos,
         subprocesosSolicitados: solicitudProcesos.subprocesos,
       });
-      await sendEmailVerification(user);
+      const yaVerificado = user.emailVerified;
+      if (!yaVerificado) await sendEmailVerification(user);
       markSignOutReason('registration');
       await signOut(auth);
-      setPendingVerification(true);
+      if (yaVerificado) alert("✅ Este correo ya tiene una cuenta verificada. Inicia sesión.");
+      else setPendingVerification(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       console.error("Error en registro:", errorMessage);
-      alert("❌ Error al crear la cuenta: " + errorMessage);
+      // Sin solicitud registrada no se deja la sesión abierta; al reintentar se retoma la misma cuenta.
+      if (auth.currentUser) {
+        markSignOutReason('registration');
+        await signOut(auth).catch(() => {});
+      }
+      alert("❌ Error al crear la cuenta: " + errorMessage + "\nPuedes intentarlo de nuevo con el mismo correo y contraseña.");
     } finally {
       setLoading(false);
     }

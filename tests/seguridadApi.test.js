@@ -31,8 +31,8 @@ assert.equal(excesoIa.status, 429);
 assert.equal(await revisarLimites(peticion('otra-sesion'), '/api/grc/audit'), null, 'otra sesión no se afecta');
 for (let i = 0; i < LIMITE_GENERAL_SESION.maximo; i++) await revisarLimites(peticion('sesion-general', '10.0.0.2'), '/api/grc/sync');
 assert.equal((await revisarLimites(peticion('sesion-general', '10.0.0.2'), '/api/grc/sync')).status, 429);
-// Registro sin sesión: por IP, 5 cada 10 minutos.
-for (let i = 0; i < 5; i++) assert.equal(await revisarLimites({ headers: { 'x-real-ip': '10.0.0.3' } }, '/api/auth/register'), null);
+// Registro sin sesión: por IP, 40 cada 10 minutos (toda la oficina sale con una sola IP).
+for (let i = 0; i < 40; i++) assert.equal(await revisarLimites({ headers: { 'x-real-ip': '10.0.0.3' } }, '/api/auth/register'), null);
 assert.equal((await revisarLimites({ headers: { 'x-real-ip': '10.0.0.3' } }, '/api/auth/register')).status, 429);
 
 // 3. Cuerpo: solo JSON en escrituras, sin claves que alteren prototipos.
