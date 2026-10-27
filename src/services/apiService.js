@@ -363,6 +363,13 @@ export const apiService = {
     body: { uid, accion }
   }),
 
+  // Gestión de proyectos. Las operaciones van con un solo intento: un reintento automático podría duplicar
+  // un proyecto recién creado (las ediciones llevan versión y un reintento solo daría aviso de conflicto).
+  listarProyectos: (incluirArchivados = false) => request(`/api/grc/proyectos${incluirArchivados ? '?archivados=1' : ''}`),
+  obtenerProyecto: id => request(`/api/grc/proyectos?id=${encodeURIComponent(id)}`),
+  historialProyecto: (id, despuesDe = '') => request(`/api/grc/proyectos?id=${encodeURIComponent(id)}&historial=1${despuesDe ? `&despuesDe=${encodeURIComponent(despuesDe)}` : ''}`),
+  operarProyecto: (accion, idProyecto, datos) => request('/api/grc/proyectos', { method: 'POST', body: { accion, idProyecto, datos } }, 1),
+
  // 📊 SINCRONIZACIÓN GRC Y RLS
   getGrcData: ({ forceFresh = false, revision = '' } = {}) => {
     const params = new URLSearchParams();

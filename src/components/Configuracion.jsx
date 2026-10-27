@@ -464,7 +464,8 @@ export default function Configuracion({
                                 subs: [
                                   { id: 'sub_comites', label: 'Sesiones de Comité' },
                                   { id: 'sub_trazabilidad', label: 'Bitácora Trazabilidad' },
-                                  { id: 'sub_auditoria_auto', label: 'Auditoría Automatizada' }
+                                  { id: 'sub_auditoria_auto', label: 'Auditoría Automatizada' },
+                                  { id: 'sub_proyectos', label: 'Gestión de Proyectos' }
                                 ]
                               }
                             ].map(modulo => {

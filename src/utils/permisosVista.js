@@ -8,7 +8,7 @@ export const SUBMODULOS_POR_MODULO = {
   riesgos: ['sub_matriz_riesgos', 'sub_apetito'],
   hallazgos: ['sub_informes', 'sub_hallazgos', 'sub_fuentes_mejora', 'sub_incidentes'],
   planes: ['sub_seguimiento_planes'],
-  gobernanza: ['sub_comites', 'sub_trazabilidad', 'sub_auditoria_auto'],
+  gobernanza: ['sub_comites', 'sub_trazabilidad', 'sub_auditoria_auto', 'sub_proyectos'],
 };
 
 // 🔐 Matriz de riesgos: por defecto un líder solo ve los riesgos de sus macroprocesos. Con esta casilla

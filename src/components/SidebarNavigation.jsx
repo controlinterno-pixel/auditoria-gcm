@@ -40,6 +40,7 @@ export default function SidebarNavigation({
   puedeVerCronograma = false,
   puedeVerProgramas = false,
   puedeVerComites = false,
+  puedeVerProyectos = false,
   puedeVerTrazabilidad = false,
   user,
   handleLogout
@@ -369,10 +370,10 @@ export default function SidebarNavigation({
         )}
 
         {/* 6. GOBERNANZA E INTELIGENCIA — solo con algún permiso del módulo */}
-        {(isAdmin || puedeVerComites || puedeVerTrazabilidad) && (
+        {(isAdmin || puedeVerComites || puedeVerTrazabilidad || puedeVerProyectos) && (
           <div className="flex flex-col">
             <button
-              onClick={() => toggleMenuAndNavigate('gobernanza', 'gobernanza_tab', () => setSubTabGobernanza(puedeVerComites ? 'comites' : 'trazabilidad'))}
+              onClick={() => toggleMenuAndNavigate('gobernanza', 'gobernanza_tab', () => setSubTabGobernanza(puedeVerComites ? 'comites' : puedeVerTrazabilidad ? 'trazabilidad' : 'proyectos'))}
               type="button"
               aria-label="Gobernanza e inteligencia artificial"
               aria-expanded={menuAbierto === 'gobernanza'}
@@ -390,6 +391,7 @@ export default function SidebarNavigation({
                 {puedeVerComites && <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('comites'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Sesiones de Comité</button>}
                 {puedeVerTrazabilidad && <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('trazabilidad'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Bitácora Trazabilidad</button>}
                 {isAdmin && <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('auditoria_auto'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Auditoría Automatizada</button>}
+                {puedeVerProyectos && <button onClick={() => navigateTo('gobernanza_tab', () => setSubTabGobernanza('proyectos'))} aria-current={activeTab === 'gobernanza_tab' && subTabGobernanza === 'proyectos' ? 'page' : undefined} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'proyectos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Gestión de Proyectos</button>}
               </div>
             </div>
           </div>

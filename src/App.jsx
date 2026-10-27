@@ -42,6 +42,7 @@ const FuentesDeMejora = lazyWithReload(() => import('./components/FuentesDeMejor
 const CargosProcesos = lazyWithReload(() => import('./components/CargosProcesos'));
 const Comites = lazyWithReload(() => import('./components/Comites'));
 const ConceptMapper = lazyWithReload(() => import('./components/AuditoriaAutomatizada/ConceptMapper'));
+const GestionProyectos = lazyWithReload(() => import('./components/proyectos/GestionProyectos'));
 const DashboardEjecutivo = lazyWithReload(() => import('./components/DashboardEjecutivo'));
 const Reporte360 = lazyWithReload(() => import('./components/Reporte360'));
 import MiEspacio from './components/MiEspacio';
@@ -344,6 +345,7 @@ export default function App() {
       comites: 'Sesiones de Comité',
       trazabilidad: 'Trazabilidad',
       auditoria_auto: 'Auditoría Automatizada',
+      proyectos: 'Gestión de Proyectos',
     },
     config: 'Configuración',
     mi_perfil: 'Mi Perfil',
@@ -382,6 +384,9 @@ export default function App() {
   const puedeVerProgramas = verSubmodulo('sub_programas');
   const puedeVerComites = verSubmodulo('sub_comites');
   const puedeVerTrazabilidad = verSubmodulo('sub_trazabilidad');
+  // Gestión de proyectos: el servidor además limita cada proyecto a sus miembros (salvo administrador y auditor).
+  const puedeVerProyectos = verSubmodulo('sub_proyectos');
+  const puedeCrearProyectos = crearEnSubmodulo('sub_proyectos');
   const puedeCrearInformes = crearEnSubmodulo('sub_informes');
   const puedeCrearHallazgos = crearEnSubmodulo('sub_hallazgos');
   const puedeCrearPlanes = crearEnSubmodulo('sub_seguimiento_planes');
@@ -853,6 +858,7 @@ return (
         puedeVerProgramas={puedeVerProgramas}
         puedeVerComites={puedeVerComites}
         puedeVerTrazabilidad={puedeVerTrazabilidad}
+        puedeVerProyectos={puedeVerProyectos}
         user={user}
         handleLogout={handleLogout}
       />
@@ -1316,7 +1322,7 @@ return (
             )}
 
            {/* 5️⃣ FASE DE GOBERNANZA, COMITÉS Y CIERRE */}
-            {(isAdmin || puedeVerComites || puedeVerTrazabilidad) && activeTab === 'gobernanza_tab' && (
+            {(isAdmin || puedeVerComites || puedeVerTrazabilidad || puedeVerProyectos) && activeTab === 'gobernanza_tab' && (
               <div className="space-y-6">
 
                 {subTabGobernanza === 'comites' && puedeVerComites && (
@@ -1337,6 +1343,12 @@ return (
 {subTabGobernanza === 'auditoria_auto' && isAdmin && (
                   <ConceptMapper />
                 )}
+                {subTabGobernanza === 'proyectos' && puedeVerProyectos && (
+                  <GestionProyectos
+                    usuario={{ email: user?.email, rol: perfilUsuario?.rol }} puedeCrear={puedeCrearProyectos}
+                    showNotification={showNotification} riesgosMatriz={riesgosVigentes}
+                  />
+                )}
               </div>
             )}
 
@@ -1347,7 +1359,7 @@ return (
               (activeTab === 'resultados_tab' && ((subTabResultados === 'informes' && !puedeVerInformes) || (subTabResultados === 'hallazgos' && !puedeVerHallazgos) || (subTabResultados === 'fuentes_mejora' && !puedeVerFuentesMejora))) ||
               (activeTab === 'planes_tab' && ((subTabPlanes === 'planes' && !puedeVerModuloPlanes) || (subTabPlanes === 'reporte360' && !puedeVerTableroPlanes) || (subTabPlanes === 'incidentes' && !puedeVerIncidentes))) ||
               (activeTab === 'plan_anual_tab' && ((subTabPlanificar === 'plan_anual' && !puedeVerCronograma) || (subTabPlanificar === 'programas' && !puedeVerProgramas))) ||
-              (activeTab === 'gobernanza_tab' && !((subTabGobernanza === 'comites' && puedeVerComites) || (subTabGobernanza === 'trazabilidad' && puedeVerTrazabilidad) || (subTabGobernanza === 'auditoria_auto' && isAdmin)))) && (
+              (activeTab === 'gobernanza_tab' && !((subTabGobernanza === 'comites' && puedeVerComites) || (subTabGobernanza === 'trazabilidad' && puedeVerTrazabilidad) || (subTabGobernanza === 'auditoria_auto' && isAdmin) || (subTabGobernanza === 'proyectos' && puedeVerProyectos)))) && (
               <div role="status" className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                 <p className="text-3xl" aria-hidden="true">🔒</p>
                 <h2 className="mt-2 text-lg font-black text-slate-800">No tienes acceso a este módulo</h2>
