@@ -17,7 +17,8 @@ const Pluma = () => (
 );
 
 /** Botón de pluma y recuadro con qué es, cómo diligenciarlo, por qué se pide y dónde lo dice el manual. */
-function useGuia(etiqueta, clave) {
+// resultado: qué significa el valor calculado que ve el usuario (solo en indicadores); va antes de la ayuda general.
+function useGuia(etiqueta, clave, resultado) {
   const contexto = useContext(ContextoGuia);
   const guia = buscarGuia(contexto, clave || etiqueta);
   const [abierta, setAbierta] = useState(false);
@@ -39,6 +40,7 @@ function useGuia(etiqueta, clave) {
     ),
     panel: abierta && (
       <div id={id} role="note" className="mb-2 space-y-1 rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-[11px] leading-snug text-slate-700">
+        {resultado && <p className="rounded-md border border-blue-300 bg-white p-2 text-slate-800"><b className="text-[#0044cc]">Qué significa tu resultado:</b> {resultado}</p>}
         <p><b className="text-slate-900">Qué es:</b> {guia.que}</p>
         <p><b className="text-slate-900">{guia.esIndicador ? 'Cómo se calcula y se lee:' : 'Cómo diligenciarlo:'}</b> {guia.como}</p>
         <p><b className="text-slate-900">{guia.esIndicador ? 'Para qué sirve:' : 'Por qué se pide:'}</b> {guia.porque}</p>
@@ -49,8 +51,8 @@ function useGuia(etiqueta, clave) {
 }
 
 /** Pluma de ayuda para casillas que no usan Campo (casillas de verificación). */
-export function GuiaEnLinea({ clave, etiqueta }) {
-  const { boton, panel } = useGuia(etiqueta || clave, clave);
+export function GuiaEnLinea({ clave, etiqueta, resultado }) {
+  const { boton, panel } = useGuia(etiqueta || clave, clave, resultado);
   if (!boton) return null;
   return <span className="inline-block align-middle">{boton}{panel && <span className="mt-1 block">{panel}</span>}</span>;
 }

@@ -2,7 +2,7 @@
 // Formato 1 (Estructura inicial, apartados 1–5) y Formato 2 (Formulación, apartados 6–11).
 import { useState } from 'react';
 import { BLOQUES_MODELO_NEGOCIO, BLOQUES_PROPUESTA_VALOR, FASES_CICLO, LETRAS_PESTEL, TIPOS_INGENIERIA, apartadosDeEtapa } from '../../utils/proyectos/metodologia.js';
-import { UNIDADES_PERIODO, alertasFinancieras, ingresoPeriodo, resumenFinanciero, textoAniosYMeses } from '../../utils/proyectos/financiero.js';
+import { UNIDADES_PERIODO, alertasFinancieras, ingresoPeriodo, interpretarIndicadores, resumenFinanciero, textoAniosYMeses } from '../../utils/proyectos/financiero.js';
 import { escribirCifra, leerCifra, moneda, porcentaje, simboloMoneda } from '../../utils/proyectos/formato.js';
 import EditorApartado, { AreaTexto, InsigniaApartado, ListaEditable } from './EditorApartado.jsx';
 import { Campo, GuiaEnLinea, Seccion, claseCampo } from './ui.jsx';
@@ -47,10 +47,10 @@ function MetodologiaFinanciera() {
   );
 }
 
-function Indicador({ titulo, valor, detalle }) {
+function Indicador({ titulo, valor, detalle, interpretacion }) {
   return (
     <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
-      <div className="text-[11px] text-slate-500"><span className="font-black uppercase tracking-wide">{titulo}</span> <GuiaEnLinea clave={`Indicador ${titulo}`} etiqueta={titulo} /></div>
+      <div className="text-[11px] text-slate-500"><span className="font-black uppercase tracking-wide">{titulo}</span> <GuiaEnLinea clave={`Indicador ${titulo}`} etiqueta={titulo} resultado={interpretacion?.[titulo]} /></div>
       <p className="mt-1 text-lg font-black text-slate-800 [overflow-wrap:anywhere]">{valor}</p>
       {detalle && <p className="mt-1 text-[11px] text-slate-500">{detalle}</p>}
     </div>
@@ -62,6 +62,7 @@ function ResultadoFinanciero({ datos, resultado: r, codigo }) {
   const periodos = valor => `${valor.toLocaleString('es-CO', { maximumFractionDigits: 2 })} periodos`;
   const recuperacion = (periodo, tiempo) => (periodo === null ? 'No se recupera en el horizonte' : textoAniosYMeses(tiempo) || periodos(periodo));
   const alertas = alertasFinancieras(datos);
+  const interpretacion = interpretarIndicadores(datos, r, codigo);
   const horizonte = textoAniosYMeses(r.horizonte);
   const lectura = [
     r.van !== null && (r.van >= 0 ? `El VAN es positivo: el proyecto genera ${moneda(r.van, codigo)} por encima de la rentabilidad exigida.` : `El VAN es negativo: faltan ${moneda(-r.van, codigo)} para alcanzar la rentabilidad exigida.`),
@@ -73,13 +74,13 @@ function ResultadoFinanciero({ datos, resultado: r, codigo }) {
   return (
     <div className="space-y-3 rounded-xl bg-slate-50 p-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Indicador titulo="VAN" valor={moneda(r.van, codigo)} detalle="Σ flujo neto ÷ (1 + tasa)^periodo" />
-        <Indicador titulo="TIR" valor={r.tir === null ? 'No existe' : `${porcentaje(r.tir)}${unidad ? ` por ${unidad}` : ''}`}
+        <Indicador interpretacion={interpretacion} titulo="VAN" valor={moneda(r.van, codigo)} detalle="Σ flujo neto ÷ (1 + tasa)^periodo" />
+        <Indicador interpretacion={interpretacion} titulo="TIR" valor={r.tir === null ? 'No existe' : `${porcentaje(r.tir)}${unidad ? ` por ${unidad}` : ''}`}
           detalle={r.tir === null ? 'Los flujos no cambian de signo.' : r.tirAnual !== null && datos.unidadPeriodo !== 'anio' ? `${porcentaje(r.tirAnual)} efectivo anual` : 'Tasa que hace el VAN igual a 0'} />
-        <Indicador titulo="ROI" valor={r.roi === null ? 'Sin egresos' : porcentaje(r.roi)} detalle="(total ingresos − total egresos) ÷ total egresos" />
-        <Indicador titulo="ROI descontado" valor={r.roiDescontado === null ? 'Falta la tasa' : porcentaje(r.roiDescontado)} detalle="Igual que el ROI, con ingresos y egresos a valor presente" />
-        <Indicador titulo="Recuperación simple" valor={recuperacion(r.pri, r.priTiempo)} detalle={r.pri === null ? null : `${periodos(r.pri)} · sin descontar`} />
-        <Indicador titulo="Recuperación descontada (PRD)" valor={recuperacion(r.prd, r.prdTiempo)} detalle={r.prd === null ? null : `${periodos(r.prd)} · con la tasa de descuento`} />
+        <Indicador interpretacion={interpretacion} titulo="ROI" valor={r.roi === null ? 'Sin egresos' : porcentaje(r.roi)} detalle="(total ingresos − total egresos) ÷ total egresos" />
+        <Indicador interpretacion={interpretacion} titulo="ROI descontado" valor={r.roiDescontado === null ? 'Falta la tasa' : porcentaje(r.roiDescontado)} detalle="Igual que el ROI, con ingresos y egresos a valor presente" />
+        <Indicador interpretacion={interpretacion} titulo="Recuperación simple" valor={recuperacion(r.pri, r.priTiempo)} detalle={r.pri === null ? null : `${periodos(r.pri)} · sin descontar`} />
+        <Indicador interpretacion={interpretacion} titulo="Recuperación descontada (PRD)" valor={recuperacion(r.prd, r.prdTiempo)} detalle={r.prd === null ? null : `${periodos(r.prd)} · con la tasa de descuento`} />
       </div>
       <p className="text-xs font-bold text-slate-600">Total ingresos {moneda(r.totalIngresos, codigo)} · Total egresos {moneda(r.totalEgresos, codigo)} · Flujo neto {moneda(r.totalIngresos - r.totalEgresos, codigo)}{horizonte ? ` · Horizonte ${horizonte}` : ''}</p>
       {!datos.unidadPeriodo && <p className="text-xs font-bold text-amber-700">Elige la duración de cada periodo para ver la recuperación en años y meses.</p>}

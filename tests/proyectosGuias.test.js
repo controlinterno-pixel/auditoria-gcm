@@ -57,7 +57,7 @@ test('cada ayuda dice qué, cómo, por qué y dónde (o que el manual no lo exig
 
 test('cada indicador del análisis financiero tiene su pluma con qué mide, cómo se calcula y para qué sirve', () => {
   const fuente = readFileSync(new URL('../src/components/proyectos/FormulacionProyecto.jsx', import.meta.url), 'utf8');
-  const indicadores = [...fuente.matchAll(/<Indicador titulo="([^"]+)"/g)].map(coincidencia => coincidencia[1]);
+  const indicadores = [...fuente.matchAll(/<Indicador interpretacion={interpretacion} titulo="([^"]+)"/g)].map(coincidencia => coincidencia[1]);
   assert.equal(indicadores.length, 6);
   indicadores.forEach(titulo => {
     const guia = buscarGuia('financiero', `Indicador ${titulo}`);

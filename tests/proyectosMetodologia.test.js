@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { aplicarAccion, crearProyecto } from '../api/_lib/proyectosAcciones.js';
-import { van, tir, periodoRecuperacionDescontado, periodoRecuperacionSimple, ingresoPeriodo, roi, roiDescontado, aniosYMeses, textoAniosYMeses, tasaEfectivaAnual, alertasFinancieras, resumenFinanciero } from '../src/utils/proyectos/financiero.js';
+import { van, tir, periodoRecuperacionDescontado, periodoRecuperacionSimple, ingresoPeriodo, roi, roiDescontado, aniosYMeses, textoAniosYMeses, tasaEfectivaAnual, alertasFinancieras, resumenFinanciero, interpretarIndicadores } from '../src/utils/proyectos/financiero.js';
 import { FINANCIERO_EJEMPLO, INGRESOS_EJEMPLO } from '../scripts/datosFinancierosEjemplo.js';
 import { DOCUMENTO, codigoEstrategico, erroresRaci, estadoDocumento, estrategiaInteresado, nombreArchivoDocumento } from '../src/utils/proyectos/metodologia.js';
 
@@ -177,6 +177,37 @@ test('el proyecto Ejemplo tiene cifras coherentes y su análisis de sensibilidad
   assert.ok(FINANCIERO_EJEMPLO.sensibilidad.includes(`TIR ${r.tir.toLocaleString('es-CO', { maximumFractionDigits: 2 })} % mensual`));
   assert.ok(FINANCIERO_EJEMPLO.sensibilidad.includes(`ROI ${r.roi.toLocaleString('es-CO', { maximumFractionDigits: 1 })} %`));
   assert.ok(FINANCIERO_EJEMPLO.sensibilidad.includes(`recuperación en ${textoAniosYMeses(r.priTiempo)} (${textoAniosYMeses(r.prdTiempo)} a valor presente)`));
+});
+
+test('la pluma de cada indicador explica el resultado con sus cifras y cambia según el caso', () => {
+  const titulos = ['VAN', 'TIR', 'ROI', 'ROI descontado', 'Recuperación simple', 'Recuperación descontada (PRD)'];
+  const base = interpretarIndicadores(FINANCIERO_EJEMPLO);
+  assert.deepEqual(Object.keys(base), titulos);
+  assert.match(base.VAN, /^Tu VAN es \$\s46\.779\.879: .*el 55 % de la inversión\. Es viable por este criterio, con un margen amplio\.$/);
+  assert.match(base.TIR, /4,2 % por mes \(63,6 % efectivo anual\), 2,99 puntos por encima de la tasa exigida de 1,2 % \(15,4 % efectivo anual\)\. .*3,5 veces.*viable con holgura/);
+  assert.match(base.ROI, /por cada \$\s1 de egresos vuelven \$\s1,26/);
+  assert.match(base['Recuperación simple'], /de \$\s85\.000\.000 en 1 año y 7 meses.*Quedan 1 año y 5 meses de ganancia dentro del horizonte de 3 años/);
+  assert.match(base['Recuperación descontada (PRD)'], /en 1 año y 9 meses\. Son 2 meses más que la recuperación simple/);
+
+  const conIngresos = factor => interpretarIndicadores({ ...FINANCIERO_EJEMPLO, flujos: FINANCIERO_EJEMPLO.flujos.map(flujo => ({ ...flujo, ingresos: flujo.ingresos * factor })) });
+  const estrecho = conIngresos(0.86);
+  assert.match(estrecho.VAN, /margen estrecho/);
+  assert.match(estrecho.TIR, /Supera el mínimo por poco/);
+  assert.match(estrecho.ROI, /retorno bajo/);
+  assert.match(estrecho['Recuperación descontada (PRD)'], /cerca del final del horizonte de 3 años \(quedan 3 meses\)/);
+  const inviable = conIngresos(0.8);
+  assert.match(inviable.VAN, /^Tu VAN es -\$\s14\.236\.857: .*No es viable por este criterio: la brecha es moderada/);
+  assert.match(inviable.TIR, /1,1 puntos por debajo.*no es viable/);
+  assert.match(inviable.ROI, /Ojo: a valor presente el resultado es negativo/);
+  assert.match(inviable['ROI descontado'], /coherente con el VAN negativo/);
+  assert.match(inviable['Recuperación simple'], /\(queda 1 mes\)/);
+  assert.match(inviable['Recuperación descontada (PRD)'], /no se recupera en los 3 años proyectados, aunque sin descontar sí se recupera en 2 años y 11 meses/);
+
+  const sinTasa = interpretarIndicadores({ flujos: [{ periodo: 0, egresos: 1000 }, { periodo: 1, ingresos: 600 }, { periodo: 2, ingresos: 600 }] });
+  assert.match(sinTasa.VAN, /^Aún no se puede calcular/);
+  assert.match(sinTasa.TIR, /Registra la tasa de descuento/);
+  assert.match(sinTasa['Recuperación simple'], /1,67 periodos \(elige la duración de cada periodo/);
+  assert.match(sinTasa['Recuperación descontada (PRD)'], /^Registra la tasa de descuento/);
 });
 
 test('documentos: se cargan al repositorio con el prefijo del proyecto y se conservan las versiones', () => {
