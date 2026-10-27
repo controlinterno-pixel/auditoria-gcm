@@ -1857,37 +1857,6 @@ const handleRiesgoSubmit = async (e) => {
   };
 
 const renderMatriz = () => {
-    // 📊 Métricas calculadas para la barra superior
-    const totalRiesgosCount = riesgosVigentes.length;
-    const riesgosAltosCriticosCount = riesgosVigentes.filter(r => {
-      const z = getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
-      return z.label === 'Alto' || z.label === 'Extremo';
-    }).length;
-    const totalControlesCount = riesgosVigentes.reduce((acc, r) => {
-      const lista = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
-      return acc + (vigentes(lista).length || (lista.length === 0 && r.descripcionControl ? 1 : 0));
-    }, 0);
-
-    // 🧮 CALCULADORAS DINÁMICAS PARA LA BARRA DE KPIs
-    const todosLosControles = riesgosVigentes.flatMap(r => vigentes(r.controlesDetallados));
-    const eficaciaPromedioGlobal = promedioEficacia(todosLosControles) || { tabla6: 0, sobreMaximo: 0 };
-
-    const avgResidualScore = totalRiesgosCount > 0
-  ? (() => { const conDatos = riesgosVigentes.filter(r => datoRiesgo(r.probabilidadResidual) !== null && datoRiesgo(r.impactoResidual) !== null); return conDatos.length ? conDatos.reduce((acc, r) => acc + (datoRiesgo(r.probabilidadResidual) * datoRiesgo(r.impactoResidual) / 100), 0) / conDatos.length : 0; })()
-  : 0;
-    let nivelPromedioText = 'BAJO';
-    let nivelPromedioColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    if (avgResidualScore > 40) {
-      nivelPromedioText = 'EXTREMO';
-      nivelPromedioColor = 'bg-red-100 text-red-800 border-red-200';
-    } else if (avgResidualScore > 25) {
-      nivelPromedioText = 'ALTO';
-      nivelPromedioColor = 'bg-orange-100 text-orange-800 border-orange-200';
-    } else if (avgResidualScore > 12) {
-      nivelPromedioText = 'MODERADO';
-      nivelPromedioColor = 'bg-amber-100 text-amber-800 border-amber-200';
-    }
-
 // 🔍 Filtrado dinámico en tiempo real
     const riesgosNormalizados = safeRiesgos.map(riesgo => normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS));
     const riesgosFiltrados = riesgosNormalizados.filter(r => {
@@ -1917,6 +1886,40 @@ const renderMatriz = () => {
       return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel && matchEstado && matchCumplimiento;
     });
 
+    // 📊 Las tarjetas de arriba siguen los filtros (proceso, subproceso, clasificación, nivel, búsqueda y
+    // cumplimiento). Los riesgos anulados no cuentan en los indicadores.
+    const riesgosKpi = riesgosFiltrados.filter(r => !estaAnulado(r));
+    const hayFiltrosMatriz = riesgosKpi.length !== riesgosVigentes.length;
+    const totalRiesgosCount = riesgosKpi.length;
+    const riesgosAltosCriticosCount = riesgosKpi.filter(r => {
+      const z = getSeverityZone(r.probabilidadResidual, r.impactoResidual, riesgoEnPorcentaje(r));
+      return z.label === 'Alto' || z.label === 'Extremo';
+    }).length;
+    const totalControlesCount = riesgosKpi.reduce((acc, r) => {
+      const lista = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
+      return acc + (vigentes(lista).length || (lista.length === 0 && r.descripcionControl ? 1 : 0));
+    }, 0);
+
+    // 🧮 CALCULADORAS DINÁMICAS PARA LA BARRA DE KPIs
+    const todosLosControles = riesgosKpi.flatMap(r => vigentes(r.controlesDetallados));
+    const eficaciaPromedioGlobal = promedioEficacia(todosLosControles) || { tabla6: 0, sobreMaximo: 0 };
+
+    const avgResidualScore = totalRiesgosCount > 0
+  ? (() => { const conDatos = riesgosKpi.filter(r => datoRiesgo(r.probabilidadResidual) !== null && datoRiesgo(r.impactoResidual) !== null); return conDatos.length ? conDatos.reduce((acc, r) => acc + (datoRiesgo(r.probabilidadResidual) * datoRiesgo(r.impactoResidual) / 100), 0) / conDatos.length : 0; })()
+  : 0;
+    let nivelPromedioText = 'BAJO';
+    let nivelPromedioColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (avgResidualScore > 40) {
+      nivelPromedioText = 'EXTREMO';
+      nivelPromedioColor = 'bg-red-100 text-red-800 border-red-200';
+    } else if (avgResidualScore > 25) {
+      nivelPromedioText = 'ALTO';
+      nivelPromedioColor = 'bg-orange-100 text-orange-800 border-orange-200';
+    } else if (avgResidualScore > 12) {
+      nivelPromedioText = 'MODERADO';
+      nivelPromedioColor = 'bg-amber-100 text-amber-800 border-amber-200';
+    }
+
     // Solo el catálogo de "Cargos y Procesos" (Configuración); los riesgos fuera de él se ven con "Sin … del catálogo".
     const procesosUnicos = macroprocesosFiltro(MAPA_PROCESOS).sort((a, b) => a.localeCompare(b, 'es'));
     
@@ -1936,7 +1939,7 @@ const renderMatriz = () => {
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Riesgos</p>
               <h3 className="text-3xl font-black text-slate-900 mt-1">{totalRiesgosCount}</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-1">Registrados en la matriz</p>
+              <p className="text-[10px] text-slate-400 font-bold mt-1">{hayFiltrosMatriz ? `Con los filtros · de ${riesgosVigentes.length} en la matriz` : 'Registrados en la matriz'}</p>
             </div>
             <span className="p-3 bg-slate-100 text-slate-700 rounded-2xl text-lg shadow-inner">📋</span>
           </div>
@@ -1947,7 +1950,7 @@ const renderMatriz = () => {
               <div className="flex items-baseline space-x-2 mt-1">
                 <h3 className="text-3xl font-black text-red-600">{riesgosAltosCriticosCount}</h3>
                 <span className="text-[9px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
-                  {totalRiesgosCount > 0 ? Math.round((riesgosAltosCriticosCount / totalRiesgosCount) * 100) : 0}% del total
+                  {totalRiesgosCount > 0 ? Math.round((riesgosAltosCriticosCount / totalRiesgosCount) * 100) : 0}% {hayFiltrosMatriz ? 'de los filtrados' : 'del total'}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-bold mt-1">Requieren atención prioritaria</p>
