@@ -36,3 +36,6 @@ firebase-key.json
 *.pem
 .vercel
 .env*
+
+# Configuración local de MCP (puede llevar claves)
+.mcp.json
