@@ -260,9 +260,9 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
     });
   };
 
-  const actualizarFuentes = async (fuentesActualizadas) => {
+  const actualizarFuentes = async (fuentesActualizadas, fuentesEliminadas = []) => {
     if (onSaveFuentes) {
-      const guardado = await onSaveFuentes(fuentesActualizadas);
+      const guardado = await onSaveFuentes(fuentesActualizadas, fuentesEliminadas);
       if (guardado === false) return false;
     }
 
@@ -365,7 +365,7 @@ export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveF
 
     actualizarFuentes(fuentesActuales.filter((item) => (
       (item.codigo || item.id) !== (fuente.codigo || fuente.id)
-    )));
+    )), [String(fuente.codigo || fuente.id)]);
   };
 
   return (

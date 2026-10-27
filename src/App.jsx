@@ -480,11 +480,17 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
             ? String(plan.idInforme || '') !== String(id) && !idsHallazgosEliminados.has(String(plan.idHallazgo))
             : String(plan.idHallazgo) !== String(id)
         ));
+        // Lo que se borra va explícito: el servidor no borra lo que simplemente no viene en la lista.
+        const idsPlanesEliminados = safePlanes
+          .filter(plan => !planesActualizados.includes(plan))
+          .map(plan => String(plan.id));
         const guardado = await saveToCloud({
           [listType]: updated,
           ...(listType === 'informesAuditoria' ? { informesEliminados: [String(id)] } : {}),
           ...(listType === 'informesAuditoria' ? { hallazgos: hallazgosActualizados } : {}),
+          hallazgosEliminados: [...idsHallazgosEliminados],
           planes: planesActualizados,
+          planesEliminados: idsPlanesEliminados,
         });
         if (!guardado) {
           showNotification('No se pudo eliminar el registro y sus planes vinculados.', 'error');
@@ -497,7 +503,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
         return;
       }
 
-      const guardado = await saveToCloud({ [listType]: updated });
+      const guardado = await saveToCloud({ [listType]: updated, [`${listType}Eliminados`]: [String(id)] });
       if (!guardado) return;
       setTarget(updated);
       showNotification('Registro eliminado.', 'success');
@@ -553,8 +559,8 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
         if (await confirmarEliminacion('Se eliminarán los datos actuales de todos los módulos y se reemplazarán por el archivo de respaldo seleccionado.')) {
           setIsCloudLoaded(false);
           const respaldo = JSON.parse(event.target.result);
-          // Restaurar un respaldo (ya confirmado arriba) reemplaza también la matriz de riesgos.
-          await saveToCloud(Array.isArray(respaldo?.riesgos) ? { ...respaldo, riesgosReemplazoTotal: true } : respaldo);
+          // Restaurar un respaldo (ya confirmado arriba) reemplaza todas las listas, también la matriz de riesgos.
+          await saveToCloud({ ...respaldo, reemplazoTotal: true, ...(Array.isArray(respaldo?.riesgos) ? { riesgosReemplazoTotal: true } : {}) });
           showNotification("Base de datos actualizada.", "success"); setIsCloudLoaded(true);
         }
       } catch { showNotification("Error: Formato JSON no válido.", "error"); }
@@ -569,7 +575,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   const forceUpdateCronograma = async () => {
     if (!(await confirmarEliminacion('Se reemplazará el cronograma actual por los 20 procesos oficiales del Plan Anual. Se conservan los cargos responsables y de apoyo ya asignados.'))) return;
     const cronogramaRestaurado = restaurarCronogramaOficial(defaultCronograma, safeCronograma);
-    if (await saveToCloud({ cronograma: cronogramaRestaurado })) {
+    if (await saveToCloud({ cronograma: cronogramaRestaurado, reemplazoTotal: true })) {
       setCronograma(cronogramaRestaurado);
       showNotification("¡Plan Anual actualizado!", "success");
     }
@@ -1195,8 +1201,8 @@ return (
                     isAdmin={isAdmin}
                     fuentes={fuentesMejora}
                     user={user}
-                    onSaveFuentes={async (fuentesActualizadas) => {
-                      const guardado = await saveToCloud({ fuentesMejora: fuentesActualizadas });
+                    onSaveFuentes={async (fuentesActualizadas, fuentesEliminadas = []) => {
+                      const guardado = await saveToCloud({ fuentesMejora: fuentesActualizadas, fuentesMejoraEliminados: fuentesEliminadas });
                       if (!guardado) {
                         showNotification('No se pudieron guardar las fuentes de mejora.', 'error');
                         return false;

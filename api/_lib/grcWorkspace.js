@@ -1075,6 +1075,49 @@ export async function obtenerPlanesDeInformeTx(transaction, workspace, idInforme
   return { planes: [...planes.values()].filter(delInformeOHallazgo), hallazgos: hallazgosInforme };
 }
 
+// Listas guardadas dentro del documento principal que se fusionan registro a registro (clave de cada uno).
+const LISTAS_FUSIONABLES = {
+  evaluaciones: registro => registro.id,
+  comites: registro => registro.id,
+  incidentes: registro => registro.id,
+  cronograma: registro => registro.id,
+  monitoreo: registro => registro.id,
+  programas: registro => registro.id,
+  fuentesMejora: registro => registro.codigo || registro.id,
+};
+const claveDe = (obtener, registro) => {
+  const clave = registro && typeof registro === 'object' ? obtener(registro) : null;
+  return clave === undefined || clave === null || clave === '' ? null : String(clave);
+};
+
+/**
+ * Une la lista recibida con la guardada: lo recibido actualiza o agrega, lo guardado que no llegó se
+ * conserva (lo pudo crear otra persona después de que el cliente descargó los datos) y solo se quita
+ * lo indicado en `eliminados`. null si algún registro no tiene clave: entonces no se puede fusionar.
+ */
+export function fusionarListaPorClave(recibida, guardada, eliminados, obtenerClave) {
+  const lista = (Array.isArray(recibida) ? recibida : []).filter(Boolean);
+  const anteriores = (Array.isArray(guardada) ? guardada : []).filter(Boolean);
+  if ([...lista, ...anteriores].some(registro => claveDe(obtenerClave, registro) === null)) return null;
+  const borrar = new Set(eliminados.map(String));
+  const vistos = new Set();
+  return [...lista, ...anteriores].filter(registro => {
+    const clave = claveDe(obtenerClave, registro);
+    if (borrar.has(clave) || vistos.has(clave)) return false;
+    vistos.add(clave);
+    return true;
+  });
+}
+
+const listaIdsEliminados = (partialData, campo) => [...new Set(
+  (Array.isArray(partialData[campo]) ? partialData[campo] : []).map(id => String(id ?? '').trim()).filter(Boolean),
+)];
+
+/**
+ * Guarda lo que envía el administrador (POST /api/grc/sync). Guardar una lista nunca borra lo que no
+ * viene en ella: se borra solo lo pedido en `<lista>Eliminados` (botón Eliminar). Restaurar un respaldo
+ * completo (`reemplazoTotal`) sí reemplaza todo.
+ */
 export async function guardarWorkspaceParcial(partialData) {
   const inicio = Date.now();
   const refWorkspace = workspaceRef();
@@ -1113,9 +1156,11 @@ export async function guardarWorkspaceParcial(partialData) {
   // Procesamiento Planes de Acción
   const incluyePlanes = Array.isArray(partialData.planes) || Array.isArray(partialData.planesAccion);
   const planesActualizados = incluyePlanes ? (partialData.planes || partialData.planesAccion) : null;
-  const planesEliminados = [...new Set((Array.isArray(partialData.planesEliminados) ? partialData.planesEliminados : []).map(id => String(id || '').trim()).filter(Boolean))];
+  const planesEliminados = listaIdsEliminados(partialData, 'planesEliminados');
+  const hallazgosEliminados = listaIdsEliminados(partialData, 'hallazgosEliminados');
+  const reemplazoTotal = partialData.reemplazoTotal === true;
 
-  const incluyeHallazgos = Object.hasOwn(partialData, 'hallazgos') && Array.isArray(partialData.hallazgos);
+  const incluyeHallazgos = (Object.hasOwn(partialData, 'hallazgos') && Array.isArray(partialData.hallazgos)) || hallazgosEliminados.length > 0;
   // Registros guardados (clave → datos) desde la subcolección o, si está agrupada, desde sus partes.
   const grupos = crearLectorGrupos(datosWorkspace);
   let documentosSubcolecciones = 0;
@@ -1129,8 +1174,8 @@ export async function guardarWorkspaceParcial(partialData) {
   const planesGuardados = incluyePlanes ? await leerGuardados('planes', refColeccionPlanes) : new Map();
   registrarLecturas('sync-post-guardar', (sinInformesLegados ? 1 : 2) + documentosSubcolecciones + grupos.documentos, inicio);
   let escriturasOmitidas = 0;
-  const hallazgosActualizados = incluyeHallazgos ? partialData.hallazgos : null;
-    
+  const hallazgosActualizados = incluyeHallazgos ? (Array.isArray(partialData.hallazgos) ? partialData.hallazgos : []) : null;
+
   const datosRestantes = { ...partialData };
   delete datosRestantes.informesAuditoria;
   delete datosRestantes.informesEliminados;
@@ -1138,6 +1183,27 @@ export async function guardarWorkspaceParcial(partialData) {
   delete datosRestantes.planes;
   delete datosRestantes.planesEliminados;
   delete datosRestantes.hallazgos;
+  delete datosRestantes.hallazgosEliminados;
+  delete datosRestantes.reemplazoTotal;
+  Object.entries(LISTAS_FUSIONABLES).forEach(([campo, obtenerClave]) => {
+    const eliminados = listaIdsEliminados(partialData, `${campo}Eliminados`);
+    delete datosRestantes[`${campo}Eliminados`];
+    if (!Array.isArray(partialData[campo]) && eliminados.length === 0) return;
+    const recibida = Array.isArray(partialData[campo]) ? partialData[campo] : [];
+    if (reemplazoTotal) {
+      datosRestantes[campo] = recibida;
+      return;
+    }
+    const fusionada = fusionarListaPorClave(recibida, datosWorkspace[campo], eliminados, obtenerClave);
+    if (fusionada) {
+      datosRestantes[campo] = fusionada;
+      return;
+    }
+    // Registros sin identificador (datos antiguos): se guarda la lista recibida, como antes.
+    logger.warn('[SYNC] Lista con registros sin identificador: se reemplaza completa', { campo });
+    const borrar = new Set(eliminados);
+    datosRestantes[campo] = recibida.filter(registro => !borrar.has(claveDe(obtenerClave, registro)));
+  });
   // La marca de la importación de Excel nunca se persiste; con riesgos migrados, la lista ya se guardó en partes.
   delete datosRestantes.riesgosReemplazoTotal;
   if (riesgosEnPartes) delete datosRestantes.riesgos;
@@ -1172,7 +1238,8 @@ export async function guardarWorkspaceParcial(partialData) {
       }
     });
     planesEliminados.forEach(id => operaciones.push({ tipo: 'eliminar', coleccion: 'planes', id, referencia: refColeccionPlanes.doc(id) }));
-    if (incluyePlanes) {
+    // Solo una restauración completa borra los planes que no vienen en la lista.
+    if (incluyePlanes && reemplazoTotal) {
       const idsConservados = new Set(listaPlanes.map(plan => String(plan.id)));
       planesGuardados.forEach((_datos, id) => {
         if (!idsConservados.has(id) && !idsEliminados.has(id)) {
@@ -1184,9 +1251,11 @@ export async function guardarWorkspaceParcial(partialData) {
 
   if (incluyeHallazgos) {
     const idsHallazgos = new Set();
+    const hallazgosABorrar = new Set(hallazgosEliminados);
     hallazgosActualizados.forEach(hallazgo => {
       if (!hallazgo || hallazgo.id === undefined || hallazgo.id === null) return;
       const id = String(hallazgo.id);
+      if (hallazgosABorrar.has(id)) return;
       idsHallazgos.add(id);
       if (escrituraSinCambios(hallazgo, hallazgosGuardados.get(id))) {
         escriturasOmitidas += 1;
@@ -1195,7 +1264,8 @@ export async function guardarWorkspaceParcial(partialData) {
       operaciones.push({ tipo: 'guardar', coleccion: 'hallazgos', id, referencia: refColeccionHallazgos.doc(id), data: hallazgo });
     });
     hallazgosGuardados.forEach((_datos, id) => {
-      if (!idsHallazgos.has(id)) {
+      // Se borra lo pedido con el botón Eliminar; lo ausente solo en una restauración completa.
+      if (hallazgosABorrar.has(id) || (reemplazoTotal && !idsHallazgos.has(id))) {
         operaciones.push({ tipo: 'eliminar', coleccion: 'hallazgos', id, referencia: refColeccionHallazgos.doc(id) });
       }
     });

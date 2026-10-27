@@ -261,7 +261,7 @@ test('sin índice, las escrituras siguen yendo a cada documento de la subcolecci
   assert.equal(db.datos.get(`${RAIZ}/planes_accion/10`).idHallazgo, undefined, 'reemplazo como antes');
 });
 
-test('sync del administrador agrupado: guarda cambios, borra ausentes, omite iguales y lee una parte', async () => {
+test('sync del administrador agrupado: guarda cambios, conserva ausentes, borra lo pedido, omite iguales y lee una parte', async () => {
   const documentos = grupos();
   // Como en producción, cada hallazgo guardado incluye su campo id.
   Object.entries(documentos[PARTE('hallazgos')].registros).forEach(([id, hallazgo]) => { hallazgo.id = id; });
@@ -276,12 +276,16 @@ test('sync del administrador agrupado: guarda cambios, borra ausentes, omite igu
   assert.equal(db.lecturas, 2 + 2, 'principal + informes legados + parte de hallazgos + parte de planes');
   const partePlanes = db.datos.get(PARTE('planes')).registros;
   assert.equal(partePlanes[10].progreso, 95);
-  assert.equal(partePlanes[2], undefined, 'el plan ausente se elimina (igual que en la subcolección)');
+  assert.ok(partePlanes[2], 'el plan que no viene en la lista se conserva (pudo crearlo otra persona)');
   assert.ok(db.datos.get(`${RAIZ}/planes_accion/2`), 'la subcolección de respaldo no se toca');
   assert.equal(db.datos.get(PARTE('informes')).registros.I3.titulo, 'Informe 3');
   assert.deepEqual(db.datos.get(RAIZ).catalogoCargos, ['Auditor']);
   assert.ok(db.datos.get(RAIZ).coleccionesAgrupadas.planes, 'el índice se conserva');
   assert.equal(db.escrituras.filter(ruta => ruta === PARTE('hallazgos')).length, 0, 'hallazgos sin cambios: cero escrituras');
+
+  await modulo.guardarWorkspaceParcial({ planes: [], planesEliminados: ['2'] });
+  assert.equal(db.datos.get(PARTE('planes')).registros[2], undefined, 'el plan pedido con Eliminar se borra');
+  assert.ok(db.datos.get(PARTE('planes')).registros[10], 'los demás se conservan');
 });
 
 test('el cliente no puede escribir el índice de agrupación', async () => {
@@ -427,7 +431,7 @@ test('limpieza: simular no borra y reporta lo que se eliminaría', async () => {
 test('limpieza: un registro antiguo que ya no está en las partes bloquea esa colección hasta confirmarlo', async () => {
   const db = await agrupadoYCopiado();
   // Después de la copia se eliminó el plan 2 (solo en las partes; la subcolección conserva la copia vieja).
-  await cargar(db).guardarWorkspaceParcial({ planes: [plan(10, { idHallazgo: 'H1', idInforme: 'I1' })] });
+  await cargar(db).guardarWorkspaceParcial({ planes: [plan(10, { idHallazgo: 'H1', idInforme: 'I1' })], planesEliminados: ['2'] });
   db.escrituras.length = 0;
 
   const bloqueada = await cargar(db).limpiarColeccionesLegadas({ ejecutar: true, colecciones: ['planes'] });

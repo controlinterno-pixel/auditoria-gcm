@@ -57,7 +57,9 @@ test('confirmar elimina una vez el informe y únicamente sus vínculos', async (
     informesAuditoria: [],
     informesEliminados: ['i1'],
     hallazgos: [{ id: 'h2', idInforme: 'i2' }],
+    hallazgosEliminados: ['h1'],
     planes: [{ id: 'p3', idHallazgo: 'h2', idInforme: 'i2' }],
+    planesEliminados: ['p1', 'p2'],
   });
   assert.ok(effects.findIndex(([type]) => type === 'save') < effects.findIndex(([type]) => type === 'setInformesAuditoria'));
 });
@@ -68,6 +70,8 @@ test('eliminar un hallazgo conserva acciones de otros hallazgos', async () => {
   const data = effects.find(([type]) => type === 'save')[1];
   assert.deepEqual(data.hallazgos, [{ id: 'h2', idInforme: 'i2' }]);
   assert.deepEqual(data.planes.map(item => item.id), ['p2', 'p3']);
+  assert.deepEqual(data.hallazgosEliminados, ['h1'], 'el servidor solo borra lo indicado');
+  assert.deepEqual(data.planesEliminados, ['p1']);
 });
 
 for (const type of ['planes', 'informesAuditoria']) {

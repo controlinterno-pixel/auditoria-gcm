@@ -224,15 +224,20 @@ function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
 }
 
 // true si el guardado cambia o elimina una acción que quedó en estado "No aplica".
-function modificaAccionesNoAplica(planesNuevos, workspaceActual) {
-  if (!Array.isArray(planesNuevos)) return false;
+function modificaAccionesNoAplica(partialData, workspaceActual) {
+  const planesNuevos = Array.isArray(partialData?.planes) ? partialData.planes : [];
   const nuevosPorId = new Map(planesNuevos.map(plan => [String(plan?.id), plan]));
+  const eliminados = new Set((Array.isArray(partialData?.planesEliminados) ? partialData.planesEliminados : []).map(String));
   return (Array.isArray(workspaceActual?.planes) ? workspaceActual.planes : [])
     .filter(plan => plan?.estadoWorkflow === 'No aplica' || plan?.noAplica === true)
     .some(guardado => {
-      const nuevo = nuevosPorId.get(String(guardado.id));
+      const id = String(guardado.id);
+      // Un plan que no viene en la lista ya no se borra; solo cuenta lo pedido con Eliminar o una restauración completa.
+      if (eliminados.has(id)) return true;
+      const nuevo = nuevosPorId.get(id);
+      if (!nuevo) return partialData?.reemplazoTotal === true && Array.isArray(partialData?.planes);
       const campos = ['estadoWorkflow', 'estado', 'progreso', 'accion', 'fecha', 'fechaInicio', 'responsable', 'correoResponsable', 'evidenciaUrl', 'idHallazgo', 'noAplica'];
-      return !nuevo || campos.some(campo => JSON.stringify(nuevo[campo] ?? null) !== JSON.stringify(guardado[campo] ?? null));
+      return campos.some(campo => JSON.stringify(nuevo[campo] ?? null) !== JSON.stringify(guardado[campo] ?? null));
     });
 }
 
@@ -419,12 +424,12 @@ export default async function handler(req, res) {
       }
       const partialData = sanitizarUrls(req.body.partialData);
 
-      const workspaceActual = Array.isArray(partialData.planes)
+      const workspaceActual = Array.isArray(partialData.planes) || Array.isArray(partialData.planesEliminados)
         ? (await leerWorkspaceGrc(null, { origen: 'sync-post-validacion' })).data
         : null;
 
       // Acciones cerradas por un "No aplica" aprobado: definitivas para todos, también para administradores.
-      if (modificaAccionesNoAplica(partialData.planes, workspaceActual)) {
+      if (modificaAccionesNoAplica(partialData, workspaceActual)) {
         logger.warn('Intento de modificar acciones cerradas como No aplica', { usuario: user.email });
         return sendError(res, 'Hay acciones cerradas porque su hallazgo se declaró No aplica (decisión definitiva). No se pueden modificar ni eliminar.', 409);
       }

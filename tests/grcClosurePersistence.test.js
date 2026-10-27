@@ -202,10 +202,52 @@ test('sync conserva cierres fragmentados en cambios ajenos y elimina planes sin 
   assert.equal((await fixture.workspace.leerWorkspaceGrc()).data.planes[0].estadoWorkflow, 'Cerrado');
   const planes = (await fixture.workspace.leerWorkspaceGrc()).data.planes.filter(plan => plan.id !== 1);
   await fixture.workspace.guardarWorkspaceParcial({ planes });
+  assert.deepEqual((await fixture.workspace.leerWorkspaceGrc()).data.planes.map(plan => plan.id).sort(), [1, 2], 'faltar en la lista no borra');
+  await fixture.workspace.guardarWorkspaceParcial({ planes, planesEliminados: ['1'] });
   const final = (await fixture.workspace.leerWorkspaceGrc()).data;
   assert.deepEqual(final.planes.map(plan => plan.id), [2]);
   assert.ok(!fixture.documents.get(ROOT).planes);
   assert.ok(!fixture.documents.has(`${ROOT}/planes_accion/1`));
+});
+
+test('sync del administrador: lo que crearon otros después de su descarga sobrevive; Eliminar borra solo lo pedido', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  const enPantalla = (await fixture.workspace.leerWorkspaceGrc()).data;
+  // Mientras tanto otra persona crea un hallazgo, un comité y una fuente de mejora.
+  fixture.documents.set(`${ROOT}/hallazgos/h9`, { id: 'h9', titulo: 'Creado por un líder' });
+  await fixture.workspace.guardarWorkspaceParcial({ comites: [{ id: 'c1', nombre: 'Comité existente' }], fuentesMejora: [{ codigo: 'F-1' }] });
+  await fixture.workspace.guardarWorkspaceParcial({ comites: [{ id: 'c2', nombre: 'Comité de otro usuario' }], fuentesMejora: [{ codigo: 'F-2' }] });
+
+  // El administrador guarda con la lista vieja que tenía en pantalla.
+  await fixture.workspace.guardarWorkspaceParcial({
+    hallazgos: enPantalla.hallazgos.map(hallazgo => ({ ...hallazgo, titulo: `${hallazgo.titulo || ''} editado` })),
+    comites: [{ id: 'c1', nombre: 'Comité editado' }],
+    fuentesMejora: [{ codigo: 'F-1', estado: 'Editada' }],
+  });
+  let datos = (await fixture.workspace.leerWorkspaceGrc()).data;
+  assert.ok(datos.hallazgos.some(hallazgo => hallazgo.id === 'h9'), 'el hallazgo nuevo de otra persona se conserva');
+  assert.deepEqual(datos.comites.map(comite => [comite.id, comite.nombre]), [['c1', 'Comité editado'], ['c2', 'Comité de otro usuario']]);
+  assert.deepEqual(datos.fuentesMejora.map(fuente => fuente.codigo), ['F-1', 'F-2']);
+
+  // Botón Eliminar: se borra exactamente lo indicado.
+  await fixture.workspace.guardarWorkspaceParcial({
+    hallazgos: datos.hallazgos.filter(hallazgo => hallazgo.id !== 'h9'), hallazgosEliminados: ['h9'],
+    comites: [{ id: 'c2', nombre: 'Comité de otro usuario' }], comitesEliminados: ['c1'],
+    fuentesMejora: [], fuentesMejoraEliminados: ['F-2'],
+  });
+  datos = (await fixture.workspace.leerWorkspaceGrc()).data;
+  assert.equal(datos.hallazgos.some(hallazgo => hallazgo.id === 'h9'), false);
+  assert.deepEqual(datos.comites.map(comite => comite.id), ['c2']);
+  assert.deepEqual(datos.fuentesMejora.map(fuente => fuente.codigo), ['F-1']);
+
+  // Restaurar un respaldo completo sí reemplaza todo.
+  await fixture.workspace.guardarWorkspaceParcial({ hallazgos: [], planes: [], comites: [{ id: 'c7' }], reemplazoTotal: true });
+  datos = (await fixture.workspace.leerWorkspaceGrc()).data;
+  assert.deepEqual(datos.hallazgos, []);
+  assert.deepEqual(datos.planes, []);
+  assert.deepEqual(datos.comites.map(comite => comite.id), ['c7']);
+  assert.equal('reemplazoTotal' in fixture.documents.get(ROOT), false, 'las marcas no se guardan');
+  assert.equal('comitesEliminados' in fixture.documents.get(ROOT), false);
 });
 
 // ============================================================================
@@ -960,10 +1002,12 @@ test('sync: ni un administrador modifica o elimina acciones cerradas como No apl
 return modificaAccionesNoAplica;`)();
   const guardado = { id: 7, idHallazgo: 'h1', accion: 'A', estadoWorkflow: 'No aplica', estado: 'Cerrado', noAplica: true, progreso: 40 };
   const workspace = { planes: [guardado, { id: 8, estadoWorkflow: 'En Ejecución', progreso: 10 }] };
-  assert.equal(modificaAccionesNoAplica([{ ...guardado, docId: 'x', otro: 1 }, { id: 8, progreso: 50 }], workspace), false, 'sin cambios relevantes no bloquea');
-  assert.equal(modificaAccionesNoAplica([{ ...guardado, progreso: 100 }], workspace), true, 'cambiar avance');
-  assert.equal(modificaAccionesNoAplica([{ ...guardado, estadoWorkflow: 'En Ejecución' }], workspace), true, 'reabrir');
-  assert.equal(modificaAccionesNoAplica([{ id: 8 }], workspace), true, 'eliminarla');
+  assert.equal(modificaAccionesNoAplica({ planes: [{ ...guardado, docId: 'x', otro: 1 }, { id: 8, progreso: 50 }] }, workspace), false, 'sin cambios relevantes no bloquea');
+  assert.equal(modificaAccionesNoAplica({ planes: [{ ...guardado, progreso: 100 }] }, workspace), true, 'cambiar avance');
+  assert.equal(modificaAccionesNoAplica({ planes: [{ ...guardado, estadoWorkflow: 'En Ejecución' }] }, workspace), true, 'reabrir');
+  assert.equal(modificaAccionesNoAplica({ planes: [{ id: 8 }], planesEliminados: ['7'] }, workspace), true, 'eliminarla con el botón');
+  assert.equal(modificaAccionesNoAplica({ planes: [{ id: 8 }], reemplazoTotal: true }, workspace), true, 'eliminarla restaurando un respaldo');
+  assert.equal(modificaAccionesNoAplica({ planes: [{ id: 8 }] }, workspace), false, 'que no venga en la lista ya no la borra');
 });
 
 test('vincular riesgo: el auditor de una acción en revisión la vincula sin cambiar su estado', async () => {

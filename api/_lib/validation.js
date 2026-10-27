@@ -18,9 +18,19 @@ const ESQUEMA_SYNC = {
   sedesEmpresa: 'lista-textos',
   informesEliminados: 'lista-textos',
   planesEliminados: 'lista-textos',
+  // Botón Eliminar: lo que se borra va explícito; guardar una lista nunca borra lo que no viene en ella.
+  hallazgosEliminados: 'lista-textos',
+  evaluacionesEliminados: 'lista-textos',
+  comitesEliminados: 'lista-textos',
+  incidentesEliminados: 'lista-textos',
+  cronogramaEliminados: 'lista-textos',
+  monitoreoEliminados: 'lista-textos',
+  programasEliminados: 'lista-textos',
+  fuentesMejoraEliminados: 'lista-textos',
   mapaProcesos: 'objeto',
   catalogosInicializados: 'booleano',
   riesgosReemplazoTotal: 'booleano',
+  reemplazoTotal: 'booleano', // restaurar un respaldo completo: reemplaza todas las listas enviadas
 };
 const MAX_ELEMENTOS = 5000;
 const MAX_TEXTO_ID = 200;
