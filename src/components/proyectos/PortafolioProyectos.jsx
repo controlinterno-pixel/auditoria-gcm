@@ -13,7 +13,7 @@ import { Campo, EstadoVacio, Insignia, Kpi, Seccion, Semaforo, botonPrimario, bo
 import { TONO_ESTADO } from './tonos.js';
 import { usePaginacion } from './useUiProyectos.jsx';
 
-const FILTROS_INICIALES = { texto: '', anio: '', pilar: '', area: '', director: '', metodologia: '', estado: 'activos', semaforo: '' };
+const FILTROS_INICIALES = { texto: '', anio: '', pilar: '', area: '', director: '', metodologia: '', estado: 'activos', semaforo: '', proyecto: '' };
 const ORDEN_SEMAFORO = { rojo: 0, amarillo: 1, verde: 2, gris: 3 };
 
 // Cada indicador del tablero lleva a los proyectos que lo componen.
@@ -46,7 +46,8 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
     directores: [...new Set(conIndicadores.map(p => p.miembros?.director).filter(Boolean))].sort(),
   }), [conIndicadores]);
 
-  const filtrados = useMemo(() => {
+  // Los demás filtros acotan la lista de proyectos; si el elegido deja de cumplirlos, se vuelve a "Todos".
+  const candidatos = useMemo(() => {
     const texto = filtros.texto.trim().toLowerCase();
     return conIndicadores.filter(p => (!texto || `${p.codigo} ${p.codigoEstrategico || ''} ${p.ficha?.nombre} ${p.ficha?.portafolio} ${p.ficha?.programa}`.toLowerCase().includes(texto))
       && traslapa(p, filtros.anio)
@@ -55,8 +56,11 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
       && (!filtros.director || p.miembros?.director === filtros.director)
       && (!filtros.metodologia || p.ficha?.metodologia === filtros.metodologia)
       && (!filtros.estado || (filtros.estado === 'activos' ? ESTADOS_ACTIVOS.includes(p.estado) : p.estado === filtros.estado))
-      && (!filtros.semaforo || p.ind.semaforo.color === filtros.semaforo));
+      && (!filtros.semaforo || p.ind.semaforo.color === filtros.semaforo))
+      .sort((a, b) => String(a.codigoEstrategico || a.codigo).localeCompare(String(b.codigoEstrategico || b.codigo)));
   }, [conIndicadores, filtros]);
+  const proyectoElegido = candidatos.some(p => p.id === filtros.proyecto) ? filtros.proyecto : '';
+  const filtrados = useMemo(() => (proyectoElegido ? candidatos.filter(p => p.id === proyectoElegido) : candidatos), [candidatos, proyectoElegido]);
 
   const t = useMemo(() => {
     const suma = campo => filtrados.reduce((total, p) => total + (p.ind[campo] || 0), 0);
@@ -110,7 +114,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
   const cambiarFiltro = campo => evento => { setFiltros(actual => ({ ...actual, [campo]: evento.target.value })); };
   const alternarKpi = clave => setKpi(actual => (actual === clave ? '' : clave));
   const ordenarPor = campo => setOrden(actual => ({ campo, asc: actual.campo === campo ? !actual.asc : true }));
-  const filtrosActivos = Object.entries(filtros).filter(([clave, valor]) => valor && valor !== FILTROS_INICIALES[clave]);
+  const filtrosActivos = Object.entries({ ...filtros, proyecto: proyectoElegido }).filter(([clave, valor]) => valor && valor !== FILTROS_INICIALES[clave]);
 
   const exportar = () => exportToExcel(tabla.map(p => ({
     Código: p.codigo, 'Código portafolio': p.codigoEstrategico || '', Pilar: PILARES[p.ficha?.pilar] || '', Proyecto: p.ficha?.nombre, Estado: ESTADOS_PROYECTO[p.estado], Metodología: METODOLOGIAS[p.ficha?.metodologia], Área: p.ficha?.area || '',
@@ -145,7 +149,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
       </div>
 
       <Seccion titulo="Filtros" descripcion="Afectan todos los indicadores, gráficos y la tabla.">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-9">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-10">
           <Campo etiqueta="Buscar" className="col-span-2">{props => <input {...props} type="search" className={claseCampo} value={filtros.texto} onChange={cambiarFiltro('texto')} placeholder="Código, nombre, portafolio…" />}</Campo>
           <Campo etiqueta="Año">{props => <select {...props} className={claseCampo} value={filtros.anio} onChange={cambiarFiltro('anio')}><option value="">Todos</option>{opciones.anios.map(a => <option key={a}>{a}</option>)}</select>}</Campo>
           <Campo etiqueta="Pilar">{props => <select {...props} className={claseCampo} value={filtros.pilar} onChange={cambiarFiltro('pilar')}><option value="">Todos</option>{Object.entries(PILARES).map(([v, tx]) => <option key={v} value={v}>{v} · {tx}</option>)}</select>}</Campo>
@@ -154,6 +158,7 @@ export default function PortafolioProyectos({ proyectos, hoy: hoyServidor, carga
           <Campo etiqueta="Metodología">{props => <select {...props} className={claseCampo} value={filtros.metodologia} onChange={cambiarFiltro('metodologia')}><option value="">Todas</option>{Object.entries(METODOLOGIAS).map(([v, tx]) => <option key={v} value={v}>{tx}</option>)}</select>}</Campo>
           <Campo etiqueta="Estado">{props => <select {...props} className={claseCampo} value={filtros.estado} onChange={cambiarFiltro('estado')}><option value="activos">Activos</option><option value="">Todos</option>{Object.entries(ESTADOS_PROYECTO).map(([v, tx]) => <option key={v} value={v}>{tx}</option>)}</select>}</Campo>
           <Campo etiqueta="Nivel de riesgo">{props => <select {...props} className={claseCampo} value={filtros.semaforo} onChange={cambiarFiltro('semaforo')}><option value="">Todos</option><option value="rojo">Crítico</option><option value="amarillo">Con alertas</option><option value="verde">En control</option><option value="gris">Sin evaluar</option></select>}</Campo>
+          <Campo etiqueta="Proyecto">{props => <select {...props} className={claseCampo} value={proyectoElegido} onChange={cambiarFiltro('proyecto')}><option value="">Todos</option>{candidatos.map(p => <option key={p.id} value={p.id}>{p.codigoEstrategico || p.codigo} · {p.ficha?.nombre}</option>)}</select>}</Campo>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
           <label className="flex items-center gap-2 font-bold text-slate-600"><input type="checkbox" checked={incluirArchivados} onChange={evento => setIncluirArchivados(evento.target.checked)} /> Incluir archivados</label>
