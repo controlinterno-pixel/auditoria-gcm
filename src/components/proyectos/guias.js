@@ -9,6 +9,7 @@ export const ContextoGuia = createContext('');
 const MANUAL = 'Manual E-ID-MAN-01';
 const m = (numeral, pagina) => `${MANUAL}, numeral ${numeral} (pág. ${pagina}).`;
 const MODULO = 'No lo exige el manual: es una herramienta del módulo para el seguimiento.';
+const COMPLEMENTO_A11 = 'No lo exige el manual: complementa el apartado 11 (numeral 4.1.3.1, pág. 26), que pide "indicadores como VAN, TIR, PRD".';
 const PMBOK_18 = m('4.2 · Apartado 18 "Ejecución del proyecto" (gestión del cronograma, presupuesto y riesgos)', 32);
 const A1 = m('4.1.2.1 · Apartado 1 "Problema u oportunidad"', 8);
 const A2 = m('4.1.2.1 · Apartado 2 "Alternativas de aprovechamiento o soluciones"', 9);
@@ -154,10 +155,11 @@ const G = {
   'organizacional|Preinversión': ['Personal requerido en la Preinversión.', 'Rol, función y por qué es importante que esté.', 'Estructura de personal por fase.', A101],
   'organizacional|Inversión': ['Personal requerido en la Inversión.', 'Ver arriba.', 'Ver arriba.', A101],
   'organizacional|Operación y cierre': ['Personal requerido en la operación.', 'Ver arriba.', 'Ver arriba.', A101],
-  'financiero|Tasa de descuento por periodo': ['Rentabilidad mínima exigida por periodo.', 'Si los periodos son meses, usa la tasa mensual. Pídela a la Gerencia Financiera.', 'Necesaria para calcular VAN y PRD.', A11],
+  'financiero|Duración de cada periodo': ['Cuánto dura cada fila del flujo de caja.', 'Mes para proyectos cortos o con temporadas; trimestre, semestre o año para proyectos largos. Usa la misma unidad del apartado 8 y de la tasa.', 'Con ella la recuperación se expresa en años y meses y la tasa se compara en efectivo anual.', COMPLEMENTO_A11],
+  'financiero|Tasa de descuento por periodo': ['Rentabilidad mínima exigida por periodo.', 'En la misma unidad de los periodos: si son meses, la tasa mensual. Para pasar una tasa anual a mensual: (1 + anual)^(1/12) − 1; 15,4 % E. A. ≈ 1,2 % mensual. Pídela a la Gerencia Financiera.', 'Necesaria para calcular VAN, PRD y ROI descontado.', A11],
   'financiero|Periodo': ['Número del periodo del flujo de caja.', '0 es la inversión inicial; 1, 2, 3… los periodos siguientes.', 'Flujos de caja proyectados.', A11],
-  'financiero|Ingresos': ['Ingresos del periodo.', 'Toma la proyección del apartado 8.', 'Ver arriba.', A11],
-  'financiero|Egresos': ['Gastos e inversiones del periodo.', 'Inversión, operación y mantenimiento.', 'Ver arriba.', A11],
+  'financiero|Ingresos': ['Ingresos del periodo.', 'Toma la proyección del apartado 8 (mismos periodos y supuestos). Escribe solo los números: el signo y los miles salen solos.', 'Sin ingresos proyectados no hay VAN, TIR, ROI ni recuperación.', A11],
+  'financiero|Egresos': ['Gastos e inversiones del periodo.', 'Periodo 0: la inversión inicial (presupuesto del proyecto). Periodos siguientes: costos de operación (personal, insumos, mantenimiento) y reinversiones previstas.', 'Si se omiten costos de operación, el ROI y la recuperación salen mejores de lo real.', A11],
   'financiero|Descripción': ['Detalle del periodo.', 'Por ejemplo "inversión inicial" o "primer mes de operación".', 'Facilita la revisión.', A11],
   'financiero|Análisis de sensibilidad': ['Qué pasa si cambian las variables clave.', 'Por ejemplo "con 20 % menos visitantes la inversión se recupera en 18 meses".', 'Paso 5 del manual: analizar sensibilidad a cambios.', A11],
 

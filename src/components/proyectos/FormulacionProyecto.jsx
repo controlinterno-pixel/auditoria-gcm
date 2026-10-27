@@ -2,7 +2,7 @@
 // Formato 1 (Estructura inicial, apartados 1–5) y Formato 2 (Formulación, apartados 6–11).
 import { useState } from 'react';
 import { BLOQUES_MODELO_NEGOCIO, BLOQUES_PROPUESTA_VALOR, FASES_CICLO, LETRAS_PESTEL, TIPOS_INGENIERIA, apartadosDeEtapa } from '../../utils/proyectos/metodologia.js';
-import { ingresoPeriodo, resumenFinanciero } from '../../utils/proyectos/financiero.js';
+import { UNIDADES_PERIODO, alertasFinancieras, ingresoPeriodo, resumenFinanciero, textoAniosYMeses } from '../../utils/proyectos/financiero.js';
 import { escribirCifra, leerCifra, moneda, porcentaje, simboloMoneda } from '../../utils/proyectos/formato.js';
 import EditorApartado, { AreaTexto, InsigniaApartado, ListaEditable } from './EditorApartado.jsx';
 import { Campo, Seccion, claseCampo } from './ui.jsx';
@@ -28,6 +28,66 @@ function EntradaMoneda({ etiqueta, valor, onCambio, codigo }) {
 const Selector =({ etiqueta, valor, onCambio, opciones }) => (
   <Campo etiqueta={etiqueta}>{props => <select {...props} className={claseCampo} value={valor ?? ''} onChange={evento => onCambio(evento.target.value)}><option value="">—</option>{Object.entries(opciones).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>}</Campo>
 );
+
+// Apartado 11: pasos del manual (pág. 26) más el ROI y la recuperación en años y meses, que lo complementan.
+function MetodologiaFinanciera() {
+  return (
+    <details className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs text-slate-700">
+      <summary className="cursor-pointer font-black text-[#0055ff]">Cómo diligenciar el análisis financiero</summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-5">
+        <li><b>Duración de cada periodo:</b> elige mes, trimestre, semestre o año. Usa la misma unidad en el apartado 8, en el flujo y en la tasa.</li>
+        <li><b>Periodo 0 = inversión inicial:</b> registra en Egresos todo lo que se paga antes de operar (obra, equipos, diseño, permisos). Debe coincidir con el presupuesto del proyecto.</li>
+        <li><b>Periodos 1, 2, 3…:</b> uno por fila, sin saltar ninguno. En Ingresos, la proyección del apartado 8; en Egresos, los costos de operación (personal, insumos, mantenimiento) y las reinversiones previstas.</li>
+        <li><b>Horizonte:</b> proyecta al menos hasta la vida útil de lo construido o hasta 2 años después de la recuperación esperada; con un horizonte corto el proyecto parece no recuperarse.</li>
+        <li><b>Tasa de descuento:</b> la rentabilidad mínima que exige la Gerencia Financiera, en la unidad del periodo. Si te dan una tasa anual, conviértela: mensual = (1 + anual)^(1/12) − 1.</li>
+        <li><b>Lectura:</b> el proyecto es viable si el VAN es positivo, la TIR supera la tasa y la recuperación descontada ocurre dentro del horizonte. Registra en sensibilidad qué pasa si bajan los ingresos o suben los costos.</li>
+      </ol>
+      <p className="mt-2 text-[11px] text-slate-500">VAN, TIR y PRD los pide el manual E-ID-MAN-01 (apartado 11, pág. 26). El ROI y la recuperación simple son complementos del módulo.</p>
+    </details>
+  );
+}
+
+function Indicador({ titulo, valor, detalle }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{titulo}</p>
+      <p className="mt-1 text-lg font-black text-slate-800 [overflow-wrap:anywhere]">{valor}</p>
+      {detalle && <p className="mt-1 text-[11px] text-slate-500">{detalle}</p>}
+    </div>
+  );
+}
+
+function ResultadoFinanciero({ datos, resultado: r, codigo }) {
+  const unidad = UNIDADES_PERIODO[datos.unidadPeriodo]?.toLowerCase();
+  const periodos = valor => `${valor.toLocaleString('es-CO', { maximumFractionDigits: 2 })} periodos`;
+  const recuperacion = (periodo, tiempo) => (periodo === null ? 'No se recupera en el horizonte' : textoAniosYMeses(tiempo) || periodos(periodo));
+  const alertas = alertasFinancieras(datos);
+  const horizonte = textoAniosYMeses(r.horizonte);
+  const lectura = [
+    r.van !== null && (r.van >= 0 ? `El VAN es positivo: el proyecto genera ${moneda(r.van, codigo)} por encima de la rentabilidad exigida.` : `El VAN es negativo: faltan ${moneda(-r.van, codigo)} para alcanzar la rentabilidad exigida.`),
+    r.tir !== null && datos.tasaDescuento !== '' && datos.tasaDescuento !== undefined && datos.tasaDescuento !== null
+      && `La TIR (${porcentaje(r.tir)}${unidad ? ` por ${unidad}` : ''}) ${r.tir >= Number(datos.tasaDescuento) ? 'supera' : 'no alcanza'} la tasa exigida (${porcentaje(datos.tasaDescuento)}).`,
+    r.roi !== null && `Por cada ${moneda(1, codigo)} de egresos el proyecto devuelve ${(1 + r.roi / 100).toLocaleString('es-CO', { style: 'currency', currency: codigo || 'COP', maximumFractionDigits: 2 })} en el horizonte${r.roiDescontado !== null ? ` (${(1 + r.roiDescontado / 100).toLocaleString('es-CO', { style: 'currency', currency: codigo || 'COP', maximumFractionDigits: 2 })} a valor presente)` : ''}.`,
+    horizonte && (r.prd === null ? `Con la tasa exigida la inversión no se recupera en el horizonte de ${horizonte}.` : `La inversión se recupera a valor presente en ${recuperacion(r.prd, r.prdTiempo)}, dentro del horizonte de ${horizonte}.`),
+  ].filter(Boolean);
+  return (
+    <div className="space-y-3 rounded-xl bg-slate-50 p-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Indicador titulo="VAN" valor={moneda(r.van, codigo)} detalle="Σ flujo neto ÷ (1 + tasa)^periodo" />
+        <Indicador titulo="TIR" valor={r.tir === null ? 'No existe' : `${porcentaje(r.tir)}${unidad ? ` por ${unidad}` : ''}`}
+          detalle={r.tir === null ? 'Los flujos no cambian de signo.' : r.tirAnual !== null && datos.unidadPeriodo !== 'anio' ? `${porcentaje(r.tirAnual)} efectivo anual` : 'Tasa que hace el VAN igual a 0'} />
+        <Indicador titulo="ROI" valor={r.roi === null ? 'Sin egresos' : porcentaje(r.roi)} detalle="(total ingresos − total egresos) ÷ total egresos" />
+        <Indicador titulo="ROI descontado" valor={r.roiDescontado === null ? 'Falta la tasa' : porcentaje(r.roiDescontado)} detalle="Igual que el ROI, con ingresos y egresos a valor presente" />
+        <Indicador titulo="Recuperación simple" valor={recuperacion(r.pri, r.priTiempo)} detalle={r.pri === null ? null : `${periodos(r.pri)} · sin descontar`} />
+        <Indicador titulo="Recuperación descontada (PRD)" valor={recuperacion(r.prd, r.prdTiempo)} detalle={r.prd === null ? null : `${periodos(r.prd)} · con la tasa de descuento`} />
+      </div>
+      <p className="text-xs font-bold text-slate-600">Total ingresos {moneda(r.totalIngresos, codigo)} · Total egresos {moneda(r.totalEgresos, codigo)} · Flujo neto {moneda(r.totalIngresos - r.totalEgresos, codigo)}{horizonte ? ` · Horizonte ${horizonte}` : ''}</p>
+      {!datos.unidadPeriodo && <p className="text-xs font-bold text-amber-700">Elige la duración de cada periodo para ver la recuperación en años y meses.</p>}
+      {alertas.length > 0 && <ul className="list-disc space-y-1 pl-5 text-xs font-bold text-amber-700">{alertas.map(alerta => <li key={alerta}>{alerta}</li>)}</ul>}
+      {lectura.length > 0 && <ul className="list-disc space-y-1 pl-5 text-xs text-slate-700">{lectura.map(linea => <li key={linea}>{linea}</li>)}</ul>}
+    </div>
+  );
+}
 
 function Apartado({ id, props }) {
   const { proyecto, plan } = props;
@@ -219,12 +279,19 @@ function Apartado({ id, props }) {
       );
     case 'financiero':
       return (
-        <EditorApartado key={clave} {...comun} descripcion="Flujos de caja proyectados por periodo (el periodo 0 es la inversión inicial). VAN, TIR y PRD se calculan solos.">
+        <EditorApartado key={clave} {...comun} descripcion="Flujos de caja proyectados por periodo (el periodo 0 es la inversión inicial). VAN, TIR, PRD, ROI y el tiempo de recuperación en años y meses se calculan solos.">
           {(datos, cambiar) => {
             const resultado = resumenFinanciero(datos);
             return (
               <div className="space-y-3">
-                <div className="max-w-xs"><Entrada etiqueta="Tasa de descuento por periodo (%)" tipo="number" valor={datos.tasaDescuento} onCambio={valor => cambiar('tasaDescuento', valor)} /></div>
+                <MetodologiaFinanciera />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Selector etiqueta="Duración de cada periodo" valor={datos.unidadPeriodo} onCambio={valor => cambiar('unidadPeriodo', valor)} opciones={UNIDADES_PERIODO} />
+                  <div>
+                    <Entrada etiqueta="Tasa de descuento por periodo (%)" tipo="number" valor={datos.tasaDescuento} onCambio={valor => cambiar('tasaDescuento', valor)} />
+                    {resultado.tasaAnual !== null && datos.unidadPeriodo !== 'anio' && <p className="mt-1 text-[11px] font-bold text-slate-500">Equivale a {porcentaje(resultado.tasaAnual)} efectivo anual.</p>}
+                  </div>
+                </div>
                 <ListaEditable elementos={datos.flujos || []} onCambiar={flujos => cambiar('flujos', flujos)} textoAgregar="＋ Agregar periodo"
                   nuevo={() => ({ id: nuevoId(), periodo: (datos.flujos || []).length, ingresos: '', egresos: '' })}
                   renderFila={(flujo, actualizar) => (
@@ -235,11 +302,7 @@ function Apartado({ id, props }) {
                       <Entrada etiqueta="Descripción" valor={flujo.descripcion} onCambio={valor => actualizar({ descripcion: valor })} />
                     </div>
                   )} />
-                <div className="grid gap-3 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-3">
-                  <p><b>VAN:</b> {moneda(resultado.van, f.moneda)}</p>
-                  <p><b>TIR:</b> {resultado.tir === null ? 'No existe (los flujos no cambian de signo)' : porcentaje(resultado.tir)}</p>
-                  <p><b>PRD:</b> {resultado.prd === null ? 'No se recupera en el horizonte' : `${resultado.prd.toLocaleString('es-CO', { maximumFractionDigits: 2 })} periodos`}</p>
-                </div>
+                <ResultadoFinanciero datos={datos} resultado={resultado} codigo={f.moneda} />
                 <AreaTexto etiqueta="Análisis de sensibilidad" campo="sensibilidad" datos={datos} cambiar={cambiar} />
               </div>
             );

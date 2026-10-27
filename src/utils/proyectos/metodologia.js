@@ -126,10 +126,13 @@ export const APARTADOS = [
     faltante: (_, plan) => ((datosDe(plan, 'ingenieria').tipos || []).length && lleno(datosDe(plan, 'ingenieria').proceso) ? '' : 'Indica el tipo de proyecto y describe el proceso o la distribución.') },
   { id: 'organizacional', numero: '10.1', titulo: 'Análisis organizacional', etapa: 'factibilidad',
     faltante: (_, plan) => (Object.keys(FASES_CICLO).every(fase => lleno(datosDe(plan, 'organizacional')[fase])) ? '' : 'Describe el personal requerido en Preinversión, Inversión y Operación.') },
-  { id: 'financiero', numero: '11', titulo: 'Análisis financiero (VAN, TIR, PRD)', etapa: 'factibilidad', admiteNoAplica: true,
+  { id: 'financiero', numero: '11', titulo: 'Análisis financiero (VAN, TIR, PRD, ROI)', etapa: 'factibilidad', admiteNoAplica: true,
     faltante: (_, plan) => {
       const datos = datosDe(plan, 'financiero');
+      if (!datos.unidadPeriodo) return 'Indica la duración de cada periodo (mes, trimestre, semestre o año) para expresar la recuperación en años y meses.';
       if (!(Number(datos.tasaDescuento) >= 0) || (datos.flujos || []).length < 2) return 'Registra la tasa de descuento y al menos 2 periodos de flujo de caja.';
+      const repetido = (datos.flujos || []).map(flujo => Number(flujo?.periodo)).find((periodo, i, lista) => lista.indexOf(periodo) !== i);
+      if (repetido !== undefined) return `El periodo ${repetido} está repetido en el flujo de caja.`;
       return resumenFinanciero(datos).van === null ? 'Los flujos no permiten calcular el VAN.' : '';
     } },
   { id: 'interesados', numero: '12', titulo: 'Matriz de interesados', etapa: 'inversion',

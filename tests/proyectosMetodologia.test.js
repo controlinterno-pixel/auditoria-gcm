@@ -3,7 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { aplicarAccion, crearProyecto } from '../api/_lib/proyectosAcciones.js';
-import { van, tir, periodoRecuperacionDescontado, ingresoPeriodo } from '../src/utils/proyectos/financiero.js';
+import { van, tir, periodoRecuperacionDescontado, periodoRecuperacionSimple, ingresoPeriodo, roi, roiDescontado, aniosYMeses, textoAniosYMeses, tasaEfectivaAnual, alertasFinancieras, resumenFinanciero } from '../src/utils/proyectos/financiero.js';
+import { FINANCIERO_EJEMPLO, INGRESOS_EJEMPLO } from '../scripts/datosFinancierosEjemplo.js';
 import { DOCUMENTO, codigoEstrategico, erroresRaci, estadoDocumento, estrategiaInteresado, nombreArchivoDocumento } from '../src/utils/proyectos/metodologia.js';
 
 const usuario = (nombre, extra = {}) => ({ email: `${nombre}@termales.com.co`, rol: 'lider', permisos: ['gobernanza', 'sub_proyectos'], ...extra });
@@ -64,7 +65,7 @@ test('ciclo de vida completo del manual con sus aprobaciones', () => {
   s.seccion('ingenieria', { tipos: ['infraestructura', 'inventado'], proceso: 'Recorrido guiado de 2 horas' });
   s.seccion('organizacional', { preinversion: 'Líder de I+D+i', inversion: 'Director y contratista', operacion: 'Guías' });
   assert.throws(() => s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'planificacion', motivo: 'x' }), /Apartado 11/);
-  s.seccion('financiero', { tasaDescuento: 12, flujos: [{ periodo: 0, egresos: 100000000 }, { periodo: 1, ingresos: 60000000 }, { periodo: 2, ingresos: 60000000 }] });
+  s.seccion('financiero', { unidadPeriodo: 'anio', tasaDescuento: 12, flujos: [{ periodo: 0, egresos: 100000000 }, { periodo: 1, ingresos: 60000000 }, { periodo: 2, ingresos: 60000000 }] });
   assert.deepEqual(s.plan.secciones.ingenieria.datos.tipos, ['infraestructura'], 'solo se guardan opciones válidas');
   s.aprobar('planificacion', COMITE);
   assert.equal(s.proyecto.estado, 'planificacion', 'el Comité I+D+i también aprueba fases');
@@ -140,6 +141,42 @@ test('análisis financiero (apartado 11) con valores conocidos', () => {
   assert.equal(tir([{ periodo: 0, ingresos: 10 }]), null, 'sin inversión no hay TIR');
   assert.equal(periodoRecuperacionDescontado([{ periodo: 0, egresos: 1000 }, { periodo: 1, ingresos: 100 }], 10), null, 'no se recupera');
   assert.equal(ingresoPeriodo({ clientes: 500, precio: 20000, ajuste: -10 }), 9000000);
+});
+
+test('ROI y recuperación en años y meses (complemento del apartado 11)', () => {
+  const flujos = [{ periodo: 0, egresos: 1000 }, { periodo: 1, ingresos: 600 }, { periodo: 2, ingresos: 600 }];
+  assert.equal(roi(flujos), 20); // (1200 − 1000) ÷ 1000
+  assert.equal(Math.round(roiDescontado(flujos, 10) * 100) / 100, 4.13); // (1041,32 − 1000) ÷ 1000
+  assert.equal(roi([{ periodo: 0, ingresos: 5 }]), null, 'sin egresos no hay ROI');
+  assert.equal(roiDescontado(flujos, ''), null, 'sin tasa no hay ROI descontado');
+  assert.equal(Math.round(periodoRecuperacionSimple(flujos) * 100) / 100, 1.67);
+  // 1,92 años → 23,04 meses: el mes 24 cuenta completo.
+  assert.deepEqual(aniosYMeses(1.92, 'anio'), { anios: 2, meses: 0, totalMeses: 24 });
+  assert.equal(textoAniosYMeses(aniosYMeses(14.2, 'mes')), '1 año y 3 meses');
+  assert.equal(textoAniosYMeses(aniosYMeses(3, 'trimestre')), '9 meses');
+  assert.equal(textoAniosYMeses(aniosYMeses(3, 'semestre')), '1 año y 6 meses');
+  assert.equal(aniosYMeses(5, ''), null, 'sin duración del periodo no se convierte');
+  assert.equal(Math.round(tasaEfectivaAnual(1.2, 'mes') * 100) / 100, 15.39);
+  assert.equal(Math.round(tasaEfectivaAnual(12, 'anio') * 1e6) / 1e6, 12, 'una tasa anual queda igual');
+  assert.deepEqual(alertasFinancieras({ unidadPeriodo: 'mes', tasaDescuento: 12, flujos: [{ periodo: 0, ingresos: 5 }, { periodo: 2, egresos: 1 }, { periodo: 2, egresos: 1 }] }), [
+    'El periodo 2 está repetido: suma sus valores en una sola fila.',
+    'Faltan los periodos 1: regístralos aunque su flujo sea 0, o la TIR y la recuperación quedan mal.',
+    'El periodo 0 no tiene egresos: ahí va la inversión inicial.',
+    'La tasa equivale a 289,6 % efectivo anual: revisa que sea la tasa por mes y no la anual.',
+  ]);
+});
+
+test('el proyecto Ejemplo tiene cifras coherentes y su análisis de sensibilidad dice lo que calcula la app', () => {
+  const r = resumenFinanciero(FINANCIERO_EJEMPLO);
+  assert.deepEqual(alertasFinancieras(FINANCIERO_EJEMPLO), []);
+  assert.equal(FINANCIERO_EJEMPLO.flujos[0].egresos, 85000000, 'la inversión inicial es el presupuesto aprobado');
+  // Los ingresos del primer año del flujo son los del apartado 8.
+  INGRESOS_EJEMPLO.periodos.forEach((periodo, i) => assert.equal(FINANCIERO_EJEMPLO.flujos[i + 1].ingresos, ingresoPeriodo(periodo)));
+  const pesos = valor => `$${Math.round(valor).toLocaleString('es-CO')}`;
+  assert.ok(FINANCIERO_EJEMPLO.sensibilidad.includes(`VAN ${pesos(r.van)}`));
+  assert.ok(FINANCIERO_EJEMPLO.sensibilidad.includes(`TIR ${r.tir.toLocaleString('es-CO', { maximumFractionDigits: 2 })} % mensual`));
+  assert.ok(FINANCIERO_EJEMPLO.sensibilidad.includes(`ROI ${r.roi.toLocaleString('es-CO', { maximumFractionDigits: 1 })} %`));
+  assert.ok(FINANCIERO_EJEMPLO.sensibilidad.includes(`recuperación en ${textoAniosYMeses(r.priTiempo)} (${textoAniosYMeses(r.prdTiempo)} a valor presente)`));
 });
 
 test('documentos: se cargan al repositorio con el prefijo del proyecto y se conservan las versiones', () => {

@@ -1,5 +1,6 @@
 // src/utils/proyectos/financiero.js - Apartado 8 (proyección de ingresos) y 11 (análisis financiero) del manual
-// E-ID-MAN-01: VAN, TIR y periodo de recuperación descontado (PRD) a partir de flujos por periodo.
+// E-ID-MAN-01: VAN, TIR y periodo de recuperación descontado (PRD) a partir de flujos por periodo. El ROI y la
+// recuperación en años y meses complementan al manual, que no los exige.
 
 const numero = valor => (valor === '' || valor === null || valor === undefined ? null : Number(valor));
 
@@ -60,12 +61,90 @@ export function periodoRecuperacionDescontado(flujos, tasaPorcentaje) {
   return null;
 }
 
+/** Recuperación simple (PRI): la misma cuenta sin descontar, para comparar con el PRD. */
+export const periodoRecuperacionSimple = flujos => periodoRecuperacionDescontado(flujos, 0);
+
+// Duración de cada periodo del flujo: convierte los periodos a años y meses y la tasa a efectiva anual.
+export const UNIDADES_PERIODO = { mes: 'Mes', trimestre: 'Trimestre', semestre: 'Semestre', anio: 'Año' };
+export const MESES_POR_PERIODO = { mes: 1, trimestre: 3, semestre: 6, anio: 12 };
+const tasaValida = valor => valor !== '' && valor !== null && valor !== undefined && Number.isFinite(Number(valor)) && Number(valor) > -100;
+
+/** Periodos → { anios, meses }. El mes en que se cruza el punto de recuperación cuenta completo. */
+export function aniosYMeses(periodos, unidad) {
+  const meses = MESES_POR_PERIODO[unidad];
+  if (periodos === null || periodos === undefined || !Number.isFinite(periodos) || !meses) return null;
+  const total = Math.ceil(periodos * meses - 1e-9);
+  return { anios: Math.floor(total / 12), meses: total % 12, totalMeses: total };
+}
+export function textoAniosYMeses(tiempo) {
+  if (!tiempo) return null;
+  if (tiempo.totalMeses === 0) return 'Desde el inicio';
+  return [tiempo.anios ? `${tiempo.anios} ${tiempo.anios === 1 ? 'año' : 'años'}` : '', tiempo.meses ? `${tiempo.meses} ${tiempo.meses === 1 ? 'mes' : 'meses'}` : '']
+    .filter(Boolean).join(' y ');
+}
+
+/** Tasa por periodo → efectiva anual: (1 + i)^(12 ÷ meses del periodo) − 1. */
+export function tasaEfectivaAnual(tasaPorcentaje, unidad) {
+  const meses = MESES_POR_PERIODO[unidad];
+  if (!meses || !tasaValida(tasaPorcentaje)) return null;
+  return ((1 + Number(tasaPorcentaje) / 100) ** (12 / meses) - 1) * 100;
+}
+
+/** ROI = (ingresos − egresos) ÷ egresos × 100 en todo el horizonte del flujo. null si no hay egresos. */
+export function roi(flujos) {
+  const lista = Array.isArray(flujos) ? flujos : [];
+  const ingresos = lista.reduce((suma, flujo) => suma + (Number(flujo?.ingresos) || 0), 0);
+  const egresos = lista.reduce((suma, flujo) => suma + (Number(flujo?.egresos) || 0), 0);
+  return egresos > 0 ? ((ingresos - egresos) / egresos) * 100 : null;
+}
+
+/** ROI descontado = (VP ingresos − VP egresos) ÷ VP egresos × 100: el ROI con el valor del dinero en el tiempo. */
+export function roiDescontado(flujos, tasaPorcentaje) {
+  if (!tasaValida(tasaPorcentaje)) return null;
+  const tasa = Number(tasaPorcentaje) / 100;
+  const validos = (Array.isArray(flujos) ? flujos : []).filter(flujo => Number.isInteger(Number(flujo?.periodo)) && Number(flujo.periodo) >= 0);
+  const presente = campo => validos.reduce((suma, flujo) => suma + (Number(flujo[campo]) || 0) / (1 + tasa) ** Number(flujo.periodo), 0);
+  const egresos = presente('egresos');
+  return egresos > 0 ? ((presente('ingresos') - egresos) / egresos) * 100 : null;
+}
+
+/** Datos del flujo que harían que los indicadores no reflejen el proyecto. */
+export function alertasFinancieras(datos = {}) {
+  const flujos = Array.isArray(datos.flujos) ? datos.flujos : [];
+  if (!flujos.length) return [];
+  const periodos = flujos.map(flujo => Number(flujo?.periodo)).filter(periodo => Number.isInteger(periodo) && periodo >= 0);
+  const alertas = [];
+  const repetidos = [...new Set(periodos.filter((periodo, i) => periodos.indexOf(periodo) !== i))];
+  if (repetidos.length) alertas.push(`El periodo ${repetidos.join(', ')} está repetido: suma sus valores en una sola fila.`);
+  const ultimo = Math.max(...periodos, 0);
+  const huecos = Array.from({ length: ultimo + 1 }, (_, i) => i).filter(i => !periodos.includes(i));
+  if (huecos.length) alertas.push(`Faltan los periodos ${huecos.join(', ')}: regístralos aunque su flujo sea 0, o la TIR y la recuperación quedan mal.`);
+  if (!flujos.some(flujo => Number(flujo?.periodo) === 0 && Number(flujo?.egresos) > 0)) alertas.push('El periodo 0 no tiene egresos: ahí va la inversión inicial.');
+  const anual = tasaEfectivaAnual(datos.tasaDescuento, datos.unidadPeriodo);
+  if (anual !== null && anual > 60) {
+    alertas.push(`La tasa equivale a ${anual.toLocaleString('es-CO', { maximumFractionDigits: 1 })} % efectivo anual: revisa que sea la tasa por ${UNIDADES_PERIODO[datos.unidadPeriodo].toLowerCase()} y no la anual.`);
+  }
+  return alertas;
+}
+
 export function resumenFinanciero(datos = {}) {
   const flujos = datos.flujos || [];
+  const prd = periodoRecuperacionDescontado(flujos, datos.tasaDescuento);
+  const pri = periodoRecuperacionSimple(flujos);
+  const tirPeriodo = tir(flujos);
+  const ultimo = flujosNetos(flujos).at(-1)?.periodo;
   return {
     van: van(flujos, datos.tasaDescuento),
-    tir: tir(flujos),
-    prd: periodoRecuperacionDescontado(flujos, datos.tasaDescuento),
+    tir: tirPeriodo,
+    tirAnual: tirPeriodo === null ? null : tasaEfectivaAnual(tirPeriodo, datos.unidadPeriodo),
+    tasaAnual: tasaEfectivaAnual(datos.tasaDescuento, datos.unidadPeriodo),
+    prd,
+    pri,
+    prdTiempo: aniosYMeses(prd, datos.unidadPeriodo),
+    priTiempo: aniosYMeses(pri, datos.unidadPeriodo),
+    horizonte: aniosYMeses(ultimo ?? null, datos.unidadPeriodo),
+    roi: roi(flujos),
+    roiDescontado: roiDescontado(flujos, datos.tasaDescuento),
     totalIngresos: flujos.reduce((suma, flujo) => suma + (Number(flujo?.ingresos) || 0), 0),
     totalEgresos: flujos.reduce((suma, flujo) => suma + (Number(flujo?.egresos) || 0), 0),
   };

@@ -4,6 +4,8 @@
 // aprobación no puede atribuirse a una persona real que no la hizo.
 //   node scripts/proyecto-ejemplo.js --credenciales "C:\llaves-gcm\llave.json" --director correo@termales.com.co
 //   node scripts/proyecto-ejemplo.js --credenciales "C:\llaves-gcm\llave.json" --borrar
+//   node scripts/proyecto-ejemplo.js --credenciales "C:\llaves-gcm\llave.json" --actualizar-financiero
+//     (rehace solo los apartados 8 y 11 del ejemplo que ya existe, con su historial; el resto no se toca)
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
@@ -23,6 +25,7 @@ const { Timestamp } = await import('firebase-admin/firestore');
 const { aplicarAccion, crearProyecto } = await import('../api/_lib/proyectosAcciones.js');
 const { compactarPlan } = await import('../src/utils/proyectos/indicadores.js');
 const { hoyColombia } = await import('../src/utils/proyectos/fechas.js');
+const { FINANCIERO_EJEMPLO, INGRESOS_EJEMPLO } = await import('./datosFinancierosEjemplo.js');
 
 const coleccion = simular ? null : adminDb.collection('proyectos');
 const MARCA = 'esEjemplo';
@@ -42,6 +45,36 @@ async function borrar() {
 }
 
 if (process.argv.includes('--borrar') && !simular) { await borrar(); process.exit(0); }
+
+// Actualiza los apartados 8 y 11 con las mismas reglas del servidor, como si el director los guardara.
+async function actualizarFinanciero() {
+  const snapshot = await coleccion.where(MARCA, '==', true).limit(1).get();
+  if (snapshot.empty) { console.error('No hay proyecto de ejemplo: créalo primero.'); process.exit(1); }
+  const refProyecto = snapshot.docs[0].ref;
+  const refPlan = refProyecto.collection('detalle').doc('plan');
+  const eventos = await adminDb.runTransaction(async transaccion => {
+    const [documento, documentoPlan] = await Promise.all([transaccion.get(refProyecto), transaccion.get(refPlan)]);
+    let proyecto = documento.data();
+    let plan = documentoPlan.data() || {};
+    const director = { email: proyecto.miembros.director, rol: 'lider', permisos: ['gobernanza', 'sub_proyectos'] };
+    const contexto = () => { const ahora = new Date(); return { usuario: director, ahora: ahora.toISOString(), hoy: hoyColombia(ahora), generarId: randomUUID, codigo: proyecto.codigo }; };
+    const nuevos = [];
+    for (const [nombre, datos] of [['ingresos', INGRESOS_EJEMPLO], ['financiero', FINANCIERO_EJEMPLO]]) {
+      const resultado = aplicarAccion(proyecto, plan, 'guardarSeccion', { seccion: nombre, datos, versionBase: plan.secciones?.[nombre]?.version }, contexto());
+      ({ proyecto, plan } = resultado);
+      nuevos.push(...resultado.eventos);
+    }
+    const limpiar = valor => JSON.parse(JSON.stringify(valor));
+    transaccion.set(refProyecto, limpiar(proyecto));
+    transaccion.set(refPlan, limpiar(plan));
+    nuevos.forEach(evento => transaccion.set(refProyecto.collection('historial').doc(), { ...limpiar({
+      ...evento, usuario: director.email, nombreUsuario: '', fechaIso: new Date().toISOString(),
+    }), fecha: Timestamp.now() }));
+    return nuevos.length;
+  });
+  console.table([{ proyecto: snapshot.docs[0].get('codigo'), apartados: '8 y 11', eventosHistorial: eventos }]);
+}
+if (process.argv.includes('--actualizar-financiero') && !simular) { await actualizarFinanciero(); process.exit(0); }
 
 const correoDirector = String(argumento('director') || '').toLowerCase();
 if (!/@termales\.com\.co$/.test(correoDirector)) { console.error('Falta --director correo@termales.com.co (quien verá y editará el proyecto).'); process.exit(1); }
@@ -122,16 +155,11 @@ seccion('pestel', { factores: [
 ] });
 seccion('propuestaValor', { segmento: 'Familias y parejas de 30 a 55 años que visitan las termales entre semana.', tareas: 'Desconectarse, conocer la naturaleza, compartir en familia.', dolores: 'Aglomeraciones y experiencias poco diferenciadas.', motivadores: 'Bienestar, aprendizaje, fotografía de aves.', productos: 'Recorrido guiado de 2 horas con 5 estaciones de interpretación.', calmantes: 'Grupos de máximo 15 personas y horarios entre semana.', detonantes: 'Avistamiento de aves endémicas y bebida caliente al final.', encaje: '10 entrevistas: 8 de 10 pagarían un adicional por el recorrido.' });
 seccion('modeloNegocio', { segmentos: 'Visitantes entre semana', propuesta: 'Experiencia de naturaleza guiada', canales: 'Taquilla, página web y agencias', relaciones: 'Guías y encuesta de satisfacción', recursos: 'Sendero, guías, señalización', aliados: 'Junta de acción comunal, CAR', actividades: 'Mantenimiento, guianza, mercadeo', costos: 'Guías, mantenimiento, señalización', ingresos: 'Tarifa adicional por recorrido' });
-seccion('ingresos', { metodo: 'bottom-up', periodos: [
-  { periodo: 'Diciembre 2026', clientes: 150, precio: 25000, ajuste: 20 }, { periodo: 'Enero 2027', clientes: 220, precio: 25000, ajuste: 25 }, { periodo: 'Febrero 2027', clientes: 160, precio: 25000, ajuste: -10 },
-], supuestos: '6 % de los visitantes entre semana compran el recorrido; mayor demanda en vacaciones.' });
+seccion('ingresos', INGRESOS_EJEMPLO);
 seccion('localizacion', { ubicacion: 'Lote norte junto a la quebrada.', capacidad: '15 personas por grupo, 4 grupos por día.', superficie: '3 km de sendero', criterios: 'Accesibilidad 30 %, impacto ambiental 30 %, costo 20 %, atractivo 20 %: el lote norte obtuvo 4,3 / 5.', restricciones: 'No intervenir la ronda de la quebrada.' });
 seccion('ingenieria', { tipos: ['infraestructura', 'producto'], proceso: 'Reserva → registro en taquilla → charla de seguridad → recorrido de 5 estaciones → cierre con bebida → encuesta.', layout: 'Sendero en anillo con salida y llegada en el parqueadero.', estudios: 'Topografía y capacidad de carga.' });
 seccion('organizacional', { preinversion: 'Líder de I+D+i y biólogo asesor.', inversion: 'Director del proyecto, contratista de obra y diseñador de señalización.', operacion: 'Coordinador de experiencias y 6 guías.' });
-seccion('financiero', { tasaDescuento: 1.2, flujos: [
-  { periodo: 0, descripcion: 'Inversión inicial', egresos: 85000000 }, { periodo: 1, ingresos: 9000000, egresos: 3500000 }, { periodo: 2, ingresos: 13750000, egresos: 3500000 },
-  ...Array.from({ length: 21 }, (_, i) => ({ periodo: i + 3, ingresos: 10000000, egresos: 3500000 })),
-], sensibilidad: 'Con 20 % menos visitantes la inversión se recupera en 18 meses en lugar de 14.' });
+seccion('financiero', FINANCIERO_EJEMPLO);
 aprobar('planificacion', COMITE, 'Formulación completa y viable');
 
 // Inversión · Planificación (EDT, cronograma, riesgos, interesados, organigrama y RACI)

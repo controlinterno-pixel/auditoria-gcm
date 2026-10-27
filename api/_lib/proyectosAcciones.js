@@ -743,7 +743,7 @@ const ESQUEMAS_SECCION = {
   localizacion: { ubicacion: 'largo', criterios: 'largo', superficie: 'texto', capacidad: 'largo', restricciones: 'largo' },
   ingenieria: { tipos: ['multi', 'infraestructura', 'producto', 'administrativo', 'rse'], proceso: 'largo', layout: 'largo', estudios: 'largo' },
   organizacional: { preinversion: 'largo', inversion: 'largo', operacion: 'largo' },
-  financiero: { tasaDescuento: 'numero', flujos: [{ id: 'id', periodo: 'numero', descripcion: 'texto', ingresos: 'numero', egresos: 'numero' }], sensibilidad: 'largo' },
+  financiero: { unidadPeriodo: ['mes', 'trimestre', 'semestre', 'anio'], tasaDescuento: 'numero', flujos: [{ id: 'id', periodo: 'numero', descripcion: 'texto', ingresos: 'numero', egresos: 'numero' }], sensibilidad: 'largo' },
   interesados: { lista: [{ id: 'id', nombre: 'texto', tipo: ['interno', 'externo'], poder: OPCIONES_1_5, interes: OPCIONES_1_5, actitud: ['favor', 'neutral', 'contra'], expectativas: 'largo', mensajes: 'largo', canal: 'texto', frecuencia: 'texto', responsable: 'texto', riesgosAsociados: 'largo' }] },
   organigrama: { roles: [{ id: 'id', fase: FASE, rol: 'texto', persona: 'texto', reportaA: 'texto', nivel: ['estrategico', 'tactico', 'operativo'], funciones: 'largo' }] },
   raci: 'raci',

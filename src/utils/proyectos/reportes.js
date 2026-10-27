@@ -7,7 +7,7 @@ import {
   BLOQUES_MODELO_NEGOCIO, BLOQUES_PROPUESTA_VALOR, CATEGORIAS_LECCION, ESTRATEGIAS_INTERESADO, FASES_CICLO, LETRAS_PESTEL, PILARES, TIPOS_INGENIERIA,
   apartadosDeEtapa, aprobacionDe, elementosRaci, estadoApartado, estrategiaInteresado,
 } from './metodologia.js';
-import { ingresoPeriodo, resumenFinanciero } from './financiero.js';
+import { UNIDADES_PERIODO, ingresoPeriodo, resumenFinanciero, textoAniosYMeses } from './financiero.js';
 
 export const TIPOS_REPORTE = {
   ficha: 'Ficha ejecutiva del proyecto',
@@ -144,8 +144,14 @@ export function construirReporte(tipo, { proyecto, plan, ind, hoy, periodo }) {
         noAplicaO('ingenieria', () => apartadoTexto('ingenieria', '10. Estudios de ingeniería', [['proceso', 'Proceso'], ['layout', 'Layout'], ['estudios', 'Estudios']], (seccion('ingenieria').tipos || []).map(t => TIPOS_INGENIERIA[t]).join(', ')), '10. Estudios de ingeniería'),
         tabla('10.1 Análisis organizacional', ['Fase', 'Personal requerido'], Object.entries(FASES_CICLO).map(([c, n]) => [n, seccion('organizacional')[c] || '—'])),
         noAplicaO('financiero', () => tabla('11. Análisis financiero', ['Indicador', 'Valor'], [
-          ['Tasa de descuento', `${seccion('financiero').tasaDescuento ?? '—'} %`], ['VAN', moneda(financiero.van, codigoMoneda)],
-          ['TIR', financiero.tir === null ? 'No existe' : porcentaje(financiero.tir)], ['PRD (periodos)', financiero.prd === null ? 'No se recupera' : financiero.prd.toFixed(2)],
+          ['Duración de cada periodo', UNIDADES_PERIODO[seccion('financiero').unidadPeriodo] || '—'],
+          ['Tasa de descuento por periodo', `${seccion('financiero').tasaDescuento ?? '—'} %${financiero.tasaAnual !== null && seccion('financiero').unidadPeriodo !== 'anio' ? ` (${porcentaje(financiero.tasaAnual)} E. A.)` : ''}`],
+          ['Total ingresos', moneda(financiero.totalIngresos, codigoMoneda)], ['Total egresos', moneda(financiero.totalEgresos, codigoMoneda)],
+          ['VAN', moneda(financiero.van, codigoMoneda)],
+          ['TIR', financiero.tir === null ? 'No existe' : `${porcentaje(financiero.tir)}${financiero.tirAnual !== null && seccion('financiero').unidadPeriodo !== 'anio' ? ` (${porcentaje(financiero.tirAnual)} E. A.)` : ''}`],
+          ['ROI', porcentaje(financiero.roi)], ['ROI descontado', porcentaje(financiero.roiDescontado)],
+          ['Recuperación simple', financiero.pri === null ? 'No se recupera' : textoAniosYMeses(financiero.priTiempo) || `${financiero.pri.toFixed(2)} periodos`],
+          ['PRD (recuperación descontada)', financiero.prd === null ? 'No se recupera' : `${textoAniosYMeses(financiero.prdTiempo) || ''} (${financiero.prd.toFixed(2)} periodos)`.trim()],
         ]), '11. Análisis financiero'),
         aprobacion('planificacion', 'Aprobación de la Factibilidad'),
       ];
