@@ -14,8 +14,9 @@ export function InsigniaApartado({ id, proyecto, plan }) {
 /**
  * children(datos, cambiar, deshabilitado): el formulario del apartado. cambiar(campo, valor) o cambiar(objeto).
  * Si el apartado se diligencia en la ficha (sin sección propia), pasar seccion = null.
+ * bloqueo(datos): texto que impide guardar mientras falte algo fuera del apartado (p. ej. crear un cargo).
  */
-export default function EditorApartado({ id, seccion = id, proyecto, plan, cap, operar, guardando, descripcion, children }) {
+export default function EditorApartado({ id, seccion = id, proyecto, plan, cap, operar, guardando, descripcion, bloqueo, children }) {
   const apartado = APARTADOS.find(item => item.id === id);
   const guardado = plan?.secciones?.[seccion];
   const [datos, setDatos] = useState(() => structuredClone(guardado?.datos || {}));
@@ -23,6 +24,7 @@ export default function EditorApartado({ id, seccion = id, proyecto, plan, cap, 
   const [justificacion, setJustificacion] = useState(guardado?.datos?.noAplica?.justificacion || '');
   const estado = estadoApartado(id, proyecto, plan);
   const deshabilitado = !cap.gestionar;
+  const motivoBloqueo = !noAplica && bloqueo ? bloqueo(datos) : '';
   const cambiar = (campo, valor) => setDatos(actual => (typeof campo === 'object' ? { ...actual, ...campo } : { ...actual, [campo]: valor }));
 
   const guardar = async evento => {
@@ -52,9 +54,10 @@ export default function EditorApartado({ id, seccion = id, proyecto, plan, cap, 
           </div>
         )}
         {!noAplica && <fieldset disabled={deshabilitado} className="space-y-4">{children(datos, cambiar, deshabilitado)}</fieldset>}
+        {motivoBloqueo && cap.gestionar && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800" role="alert">{motivoBloqueo}</p>}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <p className="text-[11px] text-slate-500">{guardado ? `Última actualización: ${nombreDeCorreo(guardado.actualizadoPor)} · ${fechaHora(guardado.actualizadoEn)}` : 'Sin diligenciar.'}</p>
-          {cap.gestionar && <button type="submit" className={botonPrimario} disabled={guardando || (noAplica && justificacion.trim().length < 10)}>Guardar apartado</button>}
+          {cap.gestionar && <button type="submit" className={botonPrimario} disabled={guardando || Boolean(motivoBloqueo) || (noAplica && justificacion.trim().length < 10)}>Guardar apartado</button>}
         </div>
       </form>
       </ContextoGuia.Provider>

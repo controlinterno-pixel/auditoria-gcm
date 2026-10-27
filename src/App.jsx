@@ -249,6 +249,7 @@ export default function App() {
     setProgramas, fuentesMejora, setFuentesMejora,
     catalogoCargos, setCatalogoCargos, mapaProcesos, setMapaProcesos,
     sedesEmpresa, setSedesEmpresa,
+    organizacionesExternas, setOrganizacionesExternas,
     catalogosInicializados, setCatalogosInicializados,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
@@ -421,15 +422,16 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, informesAuditoria,
     evaluaciones: safeEvaluaciones, comites: safeComites, incidentes: safeIncidentes,
     cronograma: safeCronograma, monitoreo: safeMonitoreo, programas: safeProgramas,
-    fuentesMejora, catalogoCargos, mapaProcesos, sedesEmpresa, catalogosInicializados,
+    fuentesMejora, catalogoCargos, mapaProcesos, sedesEmpresa, organizacionesExternas, catalogosInicializados,
   });
 
-  const guardarCatalogos = async (cargos, procesos, sedes = sedesEmpresa) => {
+  const guardarCatalogos = async (cargos, procesos, sedes = sedesEmpresa, organizaciones = organizacionesExternas) => {
     if (!isAdmin) return false;
     const guardado = await saveToCloud({
       catalogoCargos: cargos,
       mapaProcesos: procesos,
       sedesEmpresa: sedes,
+      organizacionesExternas: organizaciones,
       catalogosInicializados: true,
     });
     if (!guardado) {
@@ -439,6 +441,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     setCatalogoCargos(cargos);
     setMapaProcesos(procesos);
     setSedesEmpresa(sedes);
+    setOrganizacionesExternas(organizaciones);
     setCatalogosInicializados(true);
     return true;
   };
@@ -794,6 +797,7 @@ return (
     catalogoCargos={catalogoCargos}
     mapaProcesos={mapaProcesos}
     sedesEmpresa={sedesEmpresa}
+    organizacionesExternas={organizacionesExternas}
     catalogosInicializados={catalogosInicializados}
   >
     <div className="app-shell flex h-dvh bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
@@ -1195,6 +1199,7 @@ return (
                   catalogoCargos={catalogoCargos}
                   mapaProcesos={mapaProcesos}
                   sedesEmpresa={sedesEmpresa}
+                  organizacionesExternas={organizacionesExternas}
                   catalogosInicializados={catalogosInicializados}
                   onSaveCatalogos={guardarCatalogos}
                   onDeleteCargo={eliminarCargoCatalogo}

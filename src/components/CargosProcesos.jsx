@@ -50,6 +50,7 @@ export default function CargosProcesos({
   catalogoCargos = [],
   mapaProcesos = {},
   sedesEmpresa = [],
+  organizacionesExternas = [],
   catalogosInicializados = false,
   onSaveCatalogos,
   onDeleteCargo,
@@ -66,32 +67,38 @@ export default function CargosProcesos({
   const [macroNombre, setMacroNombre] = useState('');
   const [subprocesosTexto, setSubprocesosTexto] = useState('');
   const [sedeNueva, setSedeNueva] = useState('');
+  const [organizacionNueva, setOrganizacionNueva] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [cargoModificado, setCargoModificado] = useState(false);
   const [macroModificado, setMacroModificado] = useState(false);
   const [sedeModificada, setSedeModificada] = useState(false);
+  const [organizacionModificada, setOrganizacionModificada] = useState(false);
 
   const listaCargos = Array.isArray(catalogoCargos) ? catalogoCargos : CARGOS_VACIOS;
   const mapaSeguro = mapaProcesos && typeof mapaProcesos === 'object' ? mapaProcesos : {};
   const macrosDisponibles = Object.keys(mapaSeguro).sort((a, b) => a.localeCompare(b, 'es'));
   const sedesDisponibles = Array.isArray(sedesEmpresa) ? sedesEmpresa : [];
+  const organizacionesDisponibles = Array.isArray(organizacionesExternas) ? [...organizacionesExternas].sort((a, b) => a.localeCompare(b, 'es')) : [];
   const guardCargo = useUnsavedChangesGuard(modalAbierto && cargoModificado, 'la asignación del cargo');
   const guardMacro = useUnsavedChangesGuard(macroModificado, 'el macroproceso');
   const guardSede = useUnsavedChangesGuard(sedeModificada, 'la sede');
+  const guardOrganizacion = useUnsavedChangesGuard(organizacionModificada, 'la organización');
   const descartarBorradoresCatalogo = () => {
     setCargoModificado(false);
     setMacroModificado(false);
     setSedeModificada(false);
+    setOrganizacionModificada(false);
     setModalAbierto(false);
     setFormulario(formularioVacio);
     setSedeNueva('');
+    setOrganizacionNueva('');
     setMacroNombre(macroSeleccionado);
     setSubprocesosTexto((mapaSeguro[macroSeleccionado] || []).join('\n'));
   };
-  const cambiarVistaCatalogo = siguienteVista => guardSede(() => {
+  const cambiarVistaCatalogo = siguienteVista => guardSede(() => guardOrganizacion(() => {
     descartarBorradoresCatalogo();
     setVistaActiva(siguienteVista);
-  });
+  }));
   const requiereCompletarCatalogo = sedesDisponibles.length === 0 || cargosIniciales.some(cargo => (
     !listaCargos.some(registro => nombreCargoNormalizado(registro.cargo) === nombreCargoNormalizado(cargo))
   ));
@@ -108,11 +115,11 @@ export default function CargosProcesos({
       .sort((a, b) => String(a.cargo || '').localeCompare(String(b.cargo || ''), 'es'));
   }, [listaCargos, busqueda, filtroMacro]);
 
-  const guardarCatalogos = async (cargos, procesos, sedes = sedesDisponibles) => {
+  const guardarCatalogos = async (cargos, procesos, sedes = sedesDisponibles, organizaciones = organizacionesDisponibles) => {
     if (typeof onSaveCatalogos !== 'function') return false;
     setGuardando(true);
     try {
-      return await onSaveCatalogos(cargos, procesos, sedes);
+      return await onSaveCatalogos(cargos, procesos, sedes, organizaciones);
     } catch (error) {
       showNotification(error.message || 'No se pudo guardar el catálogo.', 'error');
       return false;
@@ -168,6 +175,32 @@ export default function CargosProcesos({
     const sedesSiguientes = sedesDisponibles.filter(item => item !== sede);
     if (await guardarCatalogos(listaCargos, mapaSeguro, sedesSiguientes) !== false) {
       showNotification('Sede eliminada del catálogo de opciones.', 'success');
+    }
+  };
+
+  // Organizaciones externas (aliados, proveedores, entidades, comunidad): las eligen los proyectos para sus
+  // interesados y participantes de otras organizaciones.
+  const agregarOrganizacion = async event => {
+    event.preventDefault();
+    const nombre = organizacionNueva.trim().replace(/\s+/g, ' ');
+    if (!nombre) return false;
+    if (organizacionesDisponibles.some(organizacion => nombreSedeNormalizado(organizacion) === nombreSedeNormalizado(nombre))) {
+      showNotification('Esa organización ya está registrada.', 'error');
+      return false;
+    }
+    if (await guardarCatalogos(listaCargos, mapaSeguro, sedesDisponibles, [...organizacionesDisponibles, nombre]) !== false) {
+      setOrganizacionNueva('');
+      setOrganizacionModificada(false);
+      showNotification('Organización agregada al catálogo.', 'success');
+      return true;
+    }
+    return false;
+  };
+
+  const eliminarOrganizacion = async organizacion => {
+    if (!(await confirmarEliminacion(`Se eliminará ${organizacion} del catálogo de organizaciones. Los proyectos que ya la usan conservan su valor.`))) return;
+    if (await guardarCatalogos(listaCargos, mapaSeguro, sedesDisponibles, organizacionesDisponibles.filter(item => item !== organizacion)) !== false) {
+      showNotification('Organización eliminada del catálogo de opciones.', 'success');
     }
   };
 
@@ -309,7 +342,7 @@ export default function CargosProcesos({
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Administración de estructura</p>
             <h1 className="mt-1 text-xl font-black text-white">Cargos y Procesos</h1>
-            <p className="mt-1 text-xs text-slate-300">Directorio de cargos, correos corporativos y asignaciones de proceso.</p>
+            <p className="mt-1 text-xs text-slate-300">Directorio de cargos, correos corporativos, asignaciones de proceso, sedes y organizaciones externas.</p>
           </div>
           {catalogosInicializados && vistaActiva === 'cargos' && (
             <button type="button" onClick={abrirNuevoCargo} className="rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-black text-white hover:bg-blue-500">
@@ -333,6 +366,7 @@ export default function CargosProcesos({
             <button type="button" role="tab" aria-selected={vistaActiva === 'cargos'} aria-current={vistaActiva === 'cargos' ? 'page' : undefined} onClick={() => cambiarVistaCatalogo('cargos')} className={`min-h-11 border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'cargos' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Cargos y correos</button>
             <button type="button" role="tab" aria-selected={vistaActiva === 'procesos'} aria-current={vistaActiva === 'procesos' ? 'page' : undefined} onClick={() => cambiarVistaCatalogo('procesos')} className={`min-h-11 border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'procesos' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Macroprocesos y subprocesos</button>
             <button type="button" role="tab" aria-selected={vistaActiva === 'sedes'} aria-current={vistaActiva === 'sedes' ? 'page' : undefined} onClick={() => cambiarVistaCatalogo('sedes')} className={`min-h-11 border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'sedes' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Sedes</button>
+            <button type="button" role="tab" aria-selected={vistaActiva === 'organizaciones'} aria-current={vistaActiva === 'organizaciones' ? 'page' : undefined} onClick={() => cambiarVistaCatalogo('organizaciones')} className={`min-h-11 border-b-2 px-4 py-2.5 text-xs font-black ${vistaActiva === 'organizaciones' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Organizaciones externas</button>
           </div>
 
           {vistaActiva === 'cargos' ? (
@@ -401,6 +435,32 @@ export default function CargosProcesos({
                   <button type="submit" disabled={guardando} className="ml-auto rounded-lg bg-[#0a3b32] px-4 py-2 text-[10px] font-black text-white disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar estructura'}</button>
                 </div>
               </form>
+            </section>
+          ) : vistaActiva === 'organizaciones' ? (
+            <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+              <form onChangeCapture={() => setOrganizacionModificada(true)} onSubmit={agregarOrganizacion} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="text-xs font-black uppercase tracking-wide text-slate-700">Registrar una organización</h2>
+                <p className="text-[10px] text-slate-500">Entidades, proveedores, aliados o comunidades con las que se relacionan los proyectos. Se eligen como interesados o participantes externos en Gestión de Proyectos.</p>
+                <label className="block text-[10px] font-bold text-slate-600">Nombre de la organización
+                  <input required maxLength="150" value={organizacionNueva} onChange={event => setOrganizacionNueva(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs" placeholder="Ej. Corporación Autónoma Regional de Risaralda (CARDER)" />
+                </label>
+                <button type="submit" disabled={guardando || !organizacionNueva.trim()} className="rounded-lg bg-[#0a3b32] px-4 py-2 text-[10px] font-black text-white disabled:opacity-50">{guardando ? 'Guardando…' : 'Agregar organización'}</button>
+              </form>
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-700">Organizaciones registradas ({organizacionesDisponibles.length})</h2>
+                {organizacionesDisponibles.length === 0 ? (
+                  <p className="text-xs text-slate-500">Aún no hay organizaciones registradas.</p>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {organizacionesDisponibles.map(organizacion => (
+                      <li key={organizacion} className="flex items-center justify-between gap-3 py-2 text-xs">
+                        <span className="min-w-0 font-semibold text-slate-700 [overflow-wrap:anywhere]">{organizacion}</span>
+                        <button type="button" disabled={guardando} onClick={() => eliminarOrganizacion(organizacion)} className="rounded border border-red-200 px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">Eliminar</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </section>
           ) : (
             <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">

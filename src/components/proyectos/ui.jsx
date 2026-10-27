@@ -3,6 +3,7 @@ import { useContext, useEffect, useId, useRef, useState } from 'react';
 import { ContextoGuia, buscarGuia } from './guias.js';
 import { apiService } from '../../services/apiService';
 import { useCatalogos } from '../../context/useCatalogos';
+import { DONDE_CREAR, buscarEnCatalogo } from '../../utils/proyectos/catalogos.js';
 
 export const claseCampo = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#0055ff] focus:ring-2 focus:ring-[#0055ff]/20 disabled:bg-slate-100 disabled:text-slate-500';
 export const claseBoton = 'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0055ff] disabled:cursor-not-allowed disabled:opacity-50';
@@ -214,6 +215,38 @@ export function ListaEvidencias({ evidencias = [], onQuitar }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Casilla que se diligencia desde el catálogo de Cargos y Procesos: tipo 'cargo' (cargos de la empresa) u
+ * 'organizacion' (organizaciones externas). Despliega la lista y la filtra al escribir; si lo escrito no
+ * existe, avisa dónde crearlo.
+ */
+export function CampoCatalogo({ etiqueta, tipo, valor, onCambio, obligatorio }) {
+  const { cargosEmpresa = [], organizacionesExternas = [], catalogosInicializados } = useCatalogos();
+  const idLista = useId();
+  const opciones = tipo === 'organizacion' ? organizacionesExternas : cargosEmpresa;
+  const texto = String(valor ?? '');
+  const encontrado = buscarEnCatalogo(texto, opciones);
+  const nombreCatalogo = tipo === 'organizacion' ? 'organizaciones' : 'cargos';
+  return (
+    <Campo etiqueta={etiqueta} obligatorio={obligatorio}>{props => (
+      <>
+        <input {...props} list={idLista} className={claseCampo} value={texto} autoComplete="off"
+          placeholder={opciones.length ? `Escribe para buscar entre ${opciones.length} ${nombreCatalogo}` : `Sin ${nombreCatalogo} en el catálogo`}
+          onChange={evento => onCambio(evento.target.value)}
+          onBlur={() => { if (encontrado && encontrado !== texto) onCambio(encontrado); }} />
+        <datalist id={idLista}>{opciones.map(opcion => <option key={opcion} value={opcion} />)}</datalist>
+        {catalogosInicializados && (texto.trim() && !encontrado ? (
+          <p className="mt-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800" role="alert">
+            «{texto.trim()}» no está en el catálogo de {nombreCatalogo}. Elige una opción de la lista o créala primero en {DONDE_CREAR[tipo]} y vuelve para continuar.
+          </p>
+        ) : !opciones.length && (
+          <p className="mt-1 text-[11px] font-bold text-amber-800">Aún no hay {nombreCatalogo} creados: créalos en {DONDE_CREAR[tipo]}.</p>
+        ))}
+      </>
+    )}</Campo>
   );
 }
 

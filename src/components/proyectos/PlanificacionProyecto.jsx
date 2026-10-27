@@ -2,7 +2,9 @@
 // (interesados, EDT, organigrama, RACI, riesgos y requisitos del Acta de constitución).
 import { ESTRATEGIAS_INTERESADO, FASES_CICLO, apartadosDeEtapa, elementosRaci, erroresRaci, estadoApartado, estrategiaInteresado } from '../../utils/proyectos/metodologia.js';
 import EditorApartado, { AreaTexto, ListaEditable } from './EditorApartado.jsx';
-import { Campo, Insignia, Seccion, claseCampo } from './ui.jsx';
+import { Campo, CampoCatalogo, Insignia, Seccion, claseCampo } from './ui.jsx';
+import { faltantesEnCatalogo, mensajeFaltantes } from '../../utils/proyectos/catalogos.js';
+import { useCatalogos } from '../../context/useCatalogos';
 
 const nuevoId = () => (globalThis.crypto?.randomUUID?.() || `n${Date.now()}${Math.random().toString(36).slice(2, 6)}`);
 const Entrada = ({ etiqueta, valor, onCambio }) => <Campo etiqueta={etiqueta}>{p => <input {...p} className={claseCampo} value={valor ?? ''} onChange={evento => onCambio(evento.target.value)} />}</Campo>;
@@ -18,6 +20,9 @@ export default function PlanificacionProyecto(props) {
   const clave = id => `${id}-${plan.secciones?.[id]?.version || 'nuevo'}`;
   const elementos = elementosRaci(plan);
   const problemasRaci = erroresRaci(plan);
+  const { cargosEmpresa = [], organizacionesExternas = [], catalogosInicializados } = useCatalogos();
+  // Interesados y participantes deben existir en Cargos y Procesos; si falta alguno, no se guarda hasta crearlo.
+  const bloqueoCatalogo = seccion => datos => mensajeFaltantes(faltantesEnCatalogo(seccion, datos, { cargos: cargosEmpresa, organizaciones: organizacionesExternas, inicializado: catalogosInicializados }));
 
   return (
     <div className="space-y-4">
@@ -35,7 +40,7 @@ export default function PlanificacionProyecto(props) {
         </ul>
       </Seccion>
 
-      <EditorApartado key={clave('interesados')} id="interesados" {...props} descripcion="Personas, áreas y entidades que influyen en el proyecto o se ven afectadas. La estrategia sale de la matriz poder–interés. Actualízala al menos cada mes durante la inversión.">
+      <EditorApartado key={clave('interesados')} id="interesados" {...props} bloqueo={bloqueoCatalogo('interesados')} descripcion="Personas, áreas y entidades que influyen en el proyecto o se ven afectadas. La estrategia sale de la matriz poder–interés. Actualízala al menos cada mes durante la inversión.">
         {(datos, cambiar) => (
           <ListaEditable elementos={datos.lista || []} onCambiar={lista => cambiar('lista', lista)} textoAgregar="＋ Agregar interesado"
             nuevo={() => ({ id: nuevoId(), nombre: '', tipo: 'interno', poder: 3, interes: 3, actitud: 'neutral' })}
@@ -43,8 +48,13 @@ export default function PlanificacionProyecto(props) {
               const estrategia = estrategiaInteresado(interesado);
               return (
                 <div className="grid gap-3 sm:grid-cols-6">
-                  <div className="sm:col-span-2"><Entrada etiqueta="Interesado (área, rol o entidad)" valor={interesado.nombre} onCambio={valor => actualizar({ nombre: valor })} /></div>
-                  <Selector etiqueta="Tipo" valor={interesado.tipo} onCambio={valor => actualizar({ tipo: valor })} opciones={{ interno: 'Interno', externo: 'Externo' }} />
+                  <Selector etiqueta="Tipo" valor={interesado.tipo} onCambio={valor => actualizar({ tipo: valor, nombre: '', contacto: '' })} opciones={{ interno: 'Interno', externo: 'Externo' }} />
+                  {interesado.tipo === 'externo' ? (
+                    <>
+                      <div className="sm:col-span-2"><CampoCatalogo etiqueta="Organización" tipo="organizacion" valor={interesado.nombre} onCambio={valor => actualizar({ nombre: valor })} /></div>
+                      <div className="sm:col-span-3"><Entrada etiqueta="Contacto o rol en la organización" valor={interesado.contacto} onCambio={valor => actualizar({ contacto: valor })} /></div>
+                    </>
+                  ) : <div className="sm:col-span-5"><CampoCatalogo etiqueta="Cargo o área de la empresa" tipo="cargo" valor={interesado.nombre} onCambio={valor => actualizar({ nombre: valor })} /></div>}
                   <Selector etiqueta="Poder / influencia" valor={interesado.poder} onCambio={valor => actualizar({ poder: Number(valor) })} opciones={ESCALA} />
                   <Selector etiqueta="Interés" valor={interesado.interes} onCambio={valor => actualizar({ interes: Number(valor) })} opciones={ESCALA} />
                   <Selector etiqueta="Actitud" valor={interesado.actitud} onCambio={valor => actualizar({ actitud: valor })} opciones={{ favor: 'A favor', neutral: 'Neutral', contra: 'En contra' }} />
@@ -54,26 +64,32 @@ export default function PlanificacionProyecto(props) {
                   <AreaTexto etiqueta="Riesgos asociados" campo="riesgosAsociados" datos={interesado} cambiar={(c, v) => actualizar({ [c]: v })} filas={2} className="sm:col-span-2" />
                   <Entrada etiqueta="Canal" valor={interesado.canal} onCambio={valor => actualizar({ canal: valor })} />
                   <Entrada etiqueta="Frecuencia" valor={interesado.frecuencia} onCambio={valor => actualizar({ frecuencia: valor })} />
-                  <div className="sm:col-span-2"><Entrada etiqueta="Responsable de la relación" valor={interesado.responsable} onCambio={valor => actualizar({ responsable: valor })} /></div>
+                  <div className="sm:col-span-2"><CampoCatalogo etiqueta="Responsable de la relación" tipo="cargo" valor={interesado.responsable} onCambio={valor => actualizar({ responsable: valor })} /></div>
                 </div>
               );
             }} />
         )}
       </EditorApartado>
 
-      <EditorApartado key={clave('organigrama')} id="organigrama" {...props} descripcion="Roles por fase del ciclo de vida, nivel (estratégico, táctico, operativo), a quién reportan y sus funciones. Se anexa al Acta de constitución.">
+      <EditorApartado key={clave('organigrama')} id="organigrama" {...props} bloqueo={bloqueoCatalogo('organigrama')} descripcion="Roles por fase del ciclo de vida, nivel (estratégico, táctico, operativo), a quién reportan y sus funciones. Se anexa al Acta de constitución.">
         {(datos, cambiar) => (
           <div className="space-y-4">
             <ListaEditable elementos={datos.roles || []} onCambiar={roles => cambiar('roles', roles)} textoAgregar="＋ Agregar rol"
               nuevo={() => ({ id: nuevoId(), fase: 'inversion', rol: '', nivel: 'tactico' })}
               renderFila={(rol, actualizar) => (
-                <div className="grid gap-3 sm:grid-cols-5">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Selector etiqueta="Fase" valor={rol.fase} onCambio={valor => actualizar({ fase: valor })} opciones={FASES_CICLO} />
                   <Entrada etiqueta="Rol" valor={rol.rol} onCambio={valor => actualizar({ rol: valor })} />
-                  <Entrada etiqueta="Persona o cargo" valor={rol.persona} onCambio={valor => actualizar({ persona: valor })} />
+                  <Selector etiqueta="Pertenece a" valor={rol.origen || 'empresa'} onCambio={valor => actualizar({ origen: valor, persona: '', organizacion: '' })} opciones={{ empresa: 'La empresa', externa: 'Otra organización' }} />
+                  {rol.origen === 'externa' ? (
+                    <>
+                      <CampoCatalogo etiqueta="Organización" tipo="organizacion" valor={rol.organizacion} onCambio={valor => actualizar({ organizacion: valor })} />
+                      <Entrada etiqueta="Persona o rol en la organización" valor={rol.persona} onCambio={valor => actualizar({ persona: valor })} />
+                    </>
+                  ) : <CampoCatalogo etiqueta="Cargo" tipo="cargo" valor={rol.persona} onCambio={valor => actualizar({ persona: valor })} />}
                   <Entrada etiqueta="Reporta a" valor={rol.reportaA} onCambio={valor => actualizar({ reportaA: valor })} />
                   <Selector etiqueta="Nivel" valor={rol.nivel} onCambio={valor => actualizar({ nivel: valor })} opciones={{ estrategico: 'Estratégico', tactico: 'Táctico', operativo: 'Operativo' }} />
-                  <AreaTexto etiqueta="Funciones" campo="funciones" datos={rol} cambiar={(c, v) => actualizar({ [c]: v })} filas={2} className="sm:col-span-5" />
+                  <AreaTexto etiqueta="Funciones" campo="funciones" datos={rol} cambiar={(c, v) => actualizar({ [c]: v })} filas={2} className="sm:col-span-2 lg:col-span-4" />
                 </div>
               )} />
             {(datos.roles || []).length > 0 && (
@@ -83,7 +99,7 @@ export default function PlanificacionProyecto(props) {
                     <p className="mb-2 text-xs font-black uppercase text-slate-600">{nombre}</p>
                     {['estrategico', 'tactico', 'operativo'].map(nivel => (datos.roles || []).filter(rol => rol.fase === fase && rol.nivel === nivel).map(rol => (
                       <div key={rol.id} className={`mb-1 rounded-lg border bg-white p-2 text-xs ${nivel === 'estrategico' ? 'border-[#0055ff]' : 'border-slate-200'}`} style={{ marginLeft: nivel === 'tactico' ? 12 : nivel === 'operativo' ? 24 : 0 }}>
-                        <b>{rol.rol}</b>{rol.persona ? ` · ${rol.persona}` : ''}{rol.reportaA && <span className="block text-slate-500">Reporta a: {rol.reportaA}</span>}
+                        <b>{rol.rol}</b>{rol.persona ? ` · ${rol.persona}` : ''}{rol.origen === 'externa' && rol.organizacion ? ` (${rol.organizacion})` : ''}{rol.reportaA && <span className="block text-slate-500">Reporta a: {rol.reportaA}</span>}
                       </div>
                     )))}
                   </div>

@@ -380,6 +380,7 @@ export default async function handler(req, res) {
         catalogosInicializados: data.catalogosInicializados === true,
         mapaProcesos: data.mapaProcesos && typeof data.mapaProcesos === 'object' ? data.mapaProcesos : {},
         sedesEmpresa: Array.isArray(data.sedesEmpresa) ? data.sedesEmpresa : [],
+        organizacionesExternas: Array.isArray(data.organizacionesExternas) ? data.organizacionesExternas : [],
         auditoresLista: Array.isArray(data.auditoresLista) ? data.auditoresLista : [],
         catalogoCargos: catalogoCargosSeguro,
         

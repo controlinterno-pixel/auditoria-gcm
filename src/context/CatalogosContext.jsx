@@ -70,6 +70,7 @@ export function CatalogosProvider({
   catalogoCargos = [],
   mapaProcesos = {},
   sedesEmpresa = [],
+  organizacionesExternas = [],
   catalogosInicializados = false,
   children,
 }) {
@@ -90,6 +91,14 @@ export function CatalogosProvider({
     [sedesEmpresa, catalogosInicializados]
   );
 
+  // Organizaciones externas (aliados, proveedores, entidades): interesados y participantes de otras organizaciones.
+  const organizacionesActivas = useMemo(
+    () => catalogosInicializados && Array.isArray(organizacionesExternas)
+      ? [...new Set(organizacionesExternas.map(organizacion => String(organizacion || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'))
+      : [],
+    [organizacionesExternas, catalogosInicializados]
+  );
+
   const mapaProcesosNormalizado = useMemo(() => normalizarMapaProcesos(mapaProcesos), [mapaProcesos]);
   const mapaProcesosActivo = catalogosInicializados ? mapaProcesosNormalizado : MAPA_PROCESOS_VACIO;
 
@@ -97,9 +106,10 @@ export function CatalogosProvider({
     catalogoCargos,
     cargosEmpresa,
     sedesEmpresa: sedesEmpresaActivas,
+    organizacionesExternas: organizacionesActivas,
     mapaProcesos: mapaProcesosActivo,
     catalogosInicializados,
-  }), [catalogoCargos, cargosEmpresa, sedesEmpresaActivas, mapaProcesosActivo, catalogosInicializados]);
+  }), [catalogoCargos, cargosEmpresa, sedesEmpresaActivas, organizacionesActivas, mapaProcesosActivo, catalogosInicializados]);
 
   return <CatalogosContext.Provider value={value}>{children}</CatalogosContext.Provider>;
 }
