@@ -1362,6 +1362,10 @@ return (
                 handleImportExcelRiesgos={handleImportExcelRiesgos}
                 exportToJSON={exportarRespaldoJSON}
                 handleImportJSON={handleImportJSON}
+                prepararEnvioGmail={prepararEnvioGmail}
+                ejecutarDespachoGmailApi={ejecutarDespachoGmailApi}
+                encolarReintentoNotificacion={encolarReintentoNotificacion}
+                showNotification={showNotification}
               />
             )}
 

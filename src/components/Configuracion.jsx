@@ -2,12 +2,17 @@ import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
 import { PERMISO_VER_TODOS_RIESGOS, permisosEfectivos } from '../utils/permisosVista.js';
+import { correoAccesoResuelto } from '../utils/avisoAccesoUsuario.js';
 
 export default function Configuracion({
   forceUpdateCronograma,
   handleImportExcelRiesgos,
   exportToJSON,
-  handleImportJSON
+  handleImportJSON,
+  prepararEnvioGmail,
+  ejecutarDespachoGmailApi,
+  encolarReintentoNotificacion,
+  showNotification,
 }) {
   const { mapaProcesos: MAPA_PROCESOS } = useCatalogos();
   const [usuarios, setUsuarios] = useState([]);
@@ -51,6 +56,8 @@ export default function Configuracion({
   };
 
   const resolverSolicitudAcceso = async (usuario, accion) => {
+    // La ventana de Google se abre aquí, dentro del clic, para que el navegador no la bloquee (igual que en Planes).
+    const correoPreparado = prepararEnvioGmail ? Promise.resolve(prepararEnvioGmail()).catch(() => false) : Promise.resolve(false);
     try {
       const respuesta = await apiService.resolverSolicitudAcceso(usuario.id, accion);
       setUsuarios(prev => prev.map(item => item.id === usuario.id ? {
@@ -59,6 +66,17 @@ export default function Configuracion({
         procesosAsignados: respuesta.procesosAsignados || item.procesosAsignados || [],
         subprocesosAsignados: respuesta.subprocesosAsignados || item.subprocesosAsignados || [],
       } : item));
+
+      const payload = correoAccesoResuelto(usuario, respuesta, window.location.origin);
+      if (!payload.destinatarios) {
+        showNotification?.('Solicitud resuelta, pero el usuario no tiene correo registrado: avísale directamente.', 'error');
+        return;
+      }
+      let enviado = false;
+      if (await correoPreparado && ejecutarDespachoGmailApi) {
+        enviado = Boolean(await ejecutarDespachoGmailApi(payload).catch(() => false));
+      }
+      if (!enviado) encolarReintentoNotificacion?.(payload, { tipo: 'acceso' });
     } catch (error) {
       alert(error?.message || 'No se pudo resolver la solicitud de acceso.');
     }
