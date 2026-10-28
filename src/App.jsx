@@ -1004,6 +1004,7 @@ return (
             {activeTab === 'tablero' && puedeVerMiEspacio && (
               <MiEspacio
                 user={user}
+                perfilUsuario={perfilUsuario}
                 safeProgramas={safeProgramas}
                 safePlanes={safePlanes}
                 safeHallazgos={safeHallazgos}

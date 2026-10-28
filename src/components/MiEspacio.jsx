@@ -1,5 +1,7 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { useCatalogos } from '../context/useCatalogos';
+import { esLiderProceso, filtrarMiEspacioLider, opcionesProcesoLider } from '../utils/alcanceMiEspacio';
+import { permisosEfectivos, puedeVerSubmodulo } from '../utils/permisosVista';
 
 // 🧹 Normalizador estricto
 const normalizeStr = (str) => {
@@ -49,7 +51,7 @@ const homologarProcesoUniversal = (nombreEntrante, listaOficial = []) => {
 };
 
 export default function MiEspacio({
-  user, safeProgramas = [], safePlanes = [], safeHallazgos = [], safeComites = [], safeCronograma = [],
+  user, perfilUsuario, safeProgramas = [], safePlanes = [], safeHallazgos = [], safeComites = [], safeCronograma = [],
   safeRiesgos = [], safeEvaluaciones = [], informesAuditoria = [],
   setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm,
   guardNavigation = callback => callback?.(),
@@ -60,7 +62,8 @@ export default function MiEspacio({
     if (setActiveTab) setActiveTab(tab);
     actualizarSubvista();
   });
-  const procesosOficiales = useMemo(() => Object.keys(mapaProcesos).reduce((acumulado, macro) => {
+  const esLider = esLiderProceso(perfilUsuario);
+  const procesosCatalogo = useMemo(() => Object.keys(mapaProcesos).reduce((acumulado, macro) => {
     acumulado.push(macro);
     const subprocesos = mapaProcesos[macro];
     if (Array.isArray(subprocesos)) {
@@ -70,6 +73,9 @@ export default function MiEspacio({
     }
     return acumulado;
   }, []).sort(), [mapaProcesos]);
+  // El líder de proceso elige solo entre sus macroprocesos y subprocesos habilitados.
+  const procesosOficiales = useMemo(() => (esLider ? opcionesProcesoLider(perfilUsuario, mapaProcesos) : procesosCatalogo),
+    [esLider, perfilUsuario, mapaProcesos, procesosCatalogo]);
 
   // Lógica inteligente para mostrar el nombre ("Primer Nombre + Primer Apellido")
   const getNombreFormateado = () => {
@@ -99,14 +105,23 @@ export default function MiEspacio({
   const usuarioNombre = getNombreFormateado();
   
   // Listas seguras contra valores nulos
-  const programasList = useMemo(() => Array.isArray(safeProgramas) ? safeProgramas : [], [safeProgramas]);
-  const planesList = useMemo(() => Array.isArray(safePlanes) ? safePlanes : [], [safePlanes]);
-  const hallazgosList = useMemo(() => Array.isArray(safeHallazgos) ? safeHallazgos : [], [safeHallazgos]);
-  const cronogramaList = useMemo(() => Array.isArray(safeCronograma) ? safeCronograma : [], [safeCronograma]);
-  const riesgosList = useMemo(() => Array.isArray(safeRiesgos) ? safeRiesgos : [], [safeRiesgos]);
-  const evaluacionesList = useMemo(() => Array.isArray(safeEvaluaciones) ? safeEvaluaciones : [], [safeEvaluaciones]);
-  const informesList = useMemo(() => Array.isArray(informesAuditoria) ? informesAuditoria : [], [informesAuditoria]);
-  const comitesList = useMemo(() => Array.isArray(safeComites) ? safeComites : [], [safeComites]);
+  // El líder de proceso solo ve lo de sus macroprocesos y subprocesos habilitados, de los módulos que tiene marcados.
+  const listas = useMemo(() => {
+    const seguras = {
+      programas: Array.isArray(safeProgramas) ? safeProgramas : [],
+      planes: Array.isArray(safePlanes) ? safePlanes : [],
+      hallazgos: Array.isArray(safeHallazgos) ? safeHallazgos : [],
+      cronograma: Array.isArray(safeCronograma) ? safeCronograma : [],
+      riesgos: Array.isArray(safeRiesgos) ? safeRiesgos : [],
+      evaluaciones: Array.isArray(safeEvaluaciones) ? safeEvaluaciones : [],
+      informes: Array.isArray(informesAuditoria) ? informesAuditoria : [],
+      comites: Array.isArray(safeComites) ? safeComites : [],
+    };
+    return esLider ? filtrarMiEspacioLider(perfilUsuario, mapaProcesos, seguras) : seguras;
+  }, [esLider, perfilUsuario, mapaProcesos, safeProgramas, safePlanes, safeHallazgos, safeCronograma, safeRiesgos, safeEvaluaciones, informesAuditoria, safeComites]);
+  const { programas: programasList, planes: planesList, hallazgos: hallazgosList, cronograma: cronogramaList, riesgos: riesgosList,
+    evaluaciones: evaluacionesList, informes: informesList, comites: comitesList } = listas;
+  const muestraComites = !esLider || puedeVerSubmodulo(permisosEfectivos(perfilUsuario), 'sub_comites');
 
   // Cálculos dinámicos
   const totalVencidos = planesList.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length;
@@ -258,7 +273,7 @@ export default function MiEspacio({
         </div>
 
         {/* Card 4: Sesiones de Comité */}
-        <div 
+        {muestraComites && <div 
           onClick={() => navegarA('gobernanza_tab')}
           className="bg-[#0e0c1a] hover:bg-[#141126] transition-all border border-purple-500/20 p-6 rounded-2xl shadow-lg cursor-pointer flex flex-col justify-between"
         >
@@ -270,7 +285,7 @@ export default function MiEspacio({
             <div className="text-4xl font-black text-white">{comitesList.length}</div>
             <p className="text-[10px] text-slate-400 mt-1 font-medium">Actas oficiales indexadas</p>
           </div>
-        </div>
+        </div>}
 
       </div>
 
