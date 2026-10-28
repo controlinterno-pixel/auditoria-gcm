@@ -11,7 +11,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, disenoBloqueadoParaEjecutor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asignarConsecutivosPlanes, codigoPlan, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, disenoBloqueadoParaEjecutor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -284,6 +284,9 @@ export default function Planes({
     return safePlanes.filter(p => {
       const procesoPlan = hallazgosPorId.get(String(p.idHallazgo))?.proceso || '';
       const strId = p.id.toString();
+      const refPlan = codigoPlan(p).toUpperCase();
+      if (refPlan.includes(textoBuscado)) return true;
+      if (numBuscado !== null && parseInt(refPlan.replace(/\D/g, ''), 10) === numBuscado) return true;
       if (digitosBuscados && strId.endsWith(digitosBuscados)) return true;
       if (numBuscado !== null && strId.length >= 4) {
         const ultimasCifras = parseInt(strId.slice(-4), 10);
@@ -460,7 +463,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     const enlace = `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`;
     if (!programa && revisorNoAplica(plan)) {
       return enviarNotificacionPlanConReintento({
-        ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        ref_consecutivo: codigoPlan(plan),
         asunto: asuntoTareaPlan('ejecutar', plan),
         titulo_informe: 'Acción creada: lista para ejecutar',
         proceso_auditado: `La acción "${plan.accion}" quedó registrada sin revisor (${plan.motivoRevisorNoAplica || 'no aplica'}). Ya puedes ejecutarla; al llegar al 100% pasará al auditor aprobador.`,
@@ -470,9 +473,9 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     }
     const resultados = await Promise.all([
       enviarNotificacionPlanConReintento({
-        ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        ref_consecutivo: codigoPlan(plan),
         // Copia para el ejecutor: no tiene nada que hacer todavía.
-        asunto: `Acción registrada · PLA-${String(plan.id).slice(-4)}: espera ${programa ? 'la evaluación del auditor' : 'la revisión del diseño'}`,
+        asunto: `Acción registrada · ${codigoPlan(plan)}: espera ${programa ? 'la evaluación del auditor' : 'la revisión del diseño'}`,
         titulo_informe: programa ? 'Acción guardada: pendiente de evaluación del auditor' : 'Acción creada: pendiente de revisión',
         proceso_auditado: programa
           ? `La acción "${plan.accion}" quedó guardada. El auditor asignado debe evaluar su diseño; la ejecución se habilitará con un resultado mayor o igual al 80%.`
@@ -481,7 +484,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
         destinatarios: plan.correoResponsable,
       }, correoPreparado),
       enviarNotificacionPlanConReintento({
-        ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        ref_consecutivo: codigoPlan(plan),
         asunto: asuntoTareaPlan(programa ? 'evaluar-diseno' : 'revisar-diseno', plan),
         titulo_informe: programa ? 'Acción requerida: evaluar matriz' : 'Acción requerida: revisar plan de acción',
         proceso_auditado: programa
@@ -505,7 +508,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     }
     let todosEnviados = true;
     for (const { destinatarios, planes: planesEjecutor } of porEjecutor.values()) {
-      const referencias = planesEjecutor.map(plan => `PLA-${String(plan.id).slice(-4)}`);
+      const referencias = planesEjecutor.map(plan => codigoPlan(plan));
       const listado = planesEjecutor.map((plan, indice) => `${referencias[indice]}: "${plan.accion}"`).join('; ');
       const varias = planesEjecutor.length > 1;
       const enviado = await enviarNotificacionPlanConReintento({
@@ -527,14 +530,14 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   };
 
   const notificarEjecucionCompleta = (plan, correoPreparado) => (revisorNoAplica(plan) ? enviarNotificacionPlanConReintento({
-    ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+    ref_consecutivo: codigoPlan(plan),
     asunto: asuntoTareaPlan('aprobar-cierre', plan),
     titulo_informe: 'Aprobar acción: ejecución al 100% (sin revisor)',
     proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Esta acción no tiene revisor; ingrese a Planes de Acción para evaluar las evidencias y cerrarla.`,
     enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
     destinatarios: plan.correoAuditor,
   }, correoPreparado) : enviarNotificacionPlanConReintento({
-    ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+    ref_consecutivo: codigoPlan(plan),
     asunto: asuntoTareaPlan('validar-evidencias', plan),
     titulo_informe: 'Revisar matriz: ejecución al 100%',
     proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Ingrese a Planes de Acción y pulse "Revisar matriz" para validar las evidencias. Si aprueba, la acción pasará al auditor asignado para su dictamen final. El 100% no cierra la acción.`,
@@ -1118,10 +1121,20 @@ const handleNotificarPlan = async (planId) => {
         }
 
         const actualizacionesPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
-        const planesFinales = [
+        const planesFinales = asignarConsecutivosPlanes([
           ...planesCreados,
-          ...safePlanes.map(plan => actualizacionesPorId.get(String(plan.id)) || plan),
-        ];
+          ...safePlanes.map(plan => {
+            const actualizado = actualizacionesPorId.get(String(plan.id));
+            return actualizado ? { ...(plan.ref ? { ref: plan.ref } : {}), ...actualizado } : plan;
+          }),
+        ]);
+        const porIdFinal = new Map(planesFinales.map(plan => [String(plan.id), plan]));
+        for (let i = 0; i < planesCreados.length; i += 1) {
+          planesCreados[i] = porIdFinal.get(String(planesCreados[i].id)) || planesCreados[i];
+        }
+        for (let i = 0; i < planesActualizados.length; i += 1) {
+          planesActualizados[i] = porIdFinal.get(String(planesActualizados[i].id)) || planesActualizados[i];
+        }
         setPlanes(planesFinales);
         handleInformeChange(formInformeId, planesFinales, safeHallazgos);
         const enlaceRevision = `${window.location.origin}/?reviewReportId=${encodeURIComponent(formInformeId)}`;
@@ -1165,7 +1178,7 @@ const handleNotificarPlan = async (planId) => {
               continue;
             }
             const correoRevisorEnviado = await enviarNotificacionPlanConReintento({
-              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+              ref_consecutivo: codigoPlan(plan),
               asunto: `${asuntoTareaPlan(esProgramaInforme ? 'evaluar-diseno' : 'revisar-diseno', plan)} (corregido)`,
               titulo_informe: 'Diseño corregido: pendiente de nueva revisión',
               proceso_auditado: `El responsable ${plan.responsable} corrigió el plan "${plan.accion}". Ingrese para ${esProgramaInforme ? 'evaluar nuevamente el diseño; la ejecución sigue bloqueada hasta aprobar con al menos el 80%' : 'aprobarlo o solicitar otra corrección'}.`,
@@ -1797,7 +1810,10 @@ if (existingActivities.length > 0) {
       if (!hallazgoGuardado) throw new Error('El servidor no confirmó el cambio.');
       const planesGuardados = new Map((respuesta.planes || []).map(plan => [String(plan.id), plan]));
       if (setHallazgos) setHallazgos(prev => (Array.isArray(prev) ? prev : []).map(item => (String(item.id) === String(hallazgoId) ? hallazgoGuardado : item)));
-      if (planesGuardados.size) setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => planesGuardados.get(String(plan.id)) || plan));
+      if (planesGuardados.size) setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => {
+        const actualizado = planesGuardados.get(String(plan.id));
+        return actualizado ? { ...(plan.ref ? { ref: plan.ref } : {}), ...actualizado } : plan;
+      }));
       const estado = estadoNoAplica(hallazgoGuardado);
       setMatrixState(prev => ({
         ...prev,
@@ -2175,9 +2191,10 @@ if (existingActivities.length > 0) {
       }
 
       if (!planGuardado) throw new Error('El servidor no confirmó el guardado de la acción.');
-      const planesActualizados = esNueva
+      const planesActualizados = asignarConsecutivosPlanes(esNueva
         ? [...safePlanes, planGuardado]
-        : safePlanes.map(plan => String(plan.id) === String(planGuardado.id) ? planGuardado : plan);
+        : safePlanes.map(plan => String(plan.id) === String(planGuardado.id) ? { ...(plan.ref ? { ref: plan.ref } : {}), ...planGuardado } : plan));
+      planGuardado = planesActualizados.find(plan => String(plan.id) === String(planGuardado.id)) || planGuardado;
       setPlanes(planesActualizados);
       setGuardandoAccionKey(null);
       // Avance parcial en ejecución: se guarda sin notificar y el ejecutor sigue editando hasta el 100%.
@@ -2216,7 +2233,7 @@ if (existingActivities.length > 0) {
           notificacionEnviada = await notificarEjecucionCompleta(planGuardado, correoPreparado);
         } else if (cambioDiseno && ['Pendiente Revisión Jefatura', ESTADO_EVALUACION_INICIAL].includes(planGuardado.estadoWorkflow)) {
           notificacionEnviada = await enviarNotificacionPlanConReintento({
-            ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
+            ref_consecutivo: codigoPlan(planGuardado),
             asunto: `${asuntoTareaPlan(esFuenteProgramaAuditoria(informeActual) ? 'evaluar-diseno' : 'revisar-diseno', planGuardado)} (corregido)`,
             titulo_informe: 'Diseño corregido: pendiente de nueva revisión',
             proceso_auditado: `La acción "${planGuardado.accion}" fue actualizada y requiere ${esFuenteProgramaAuditoria(informeActual) ? 'una nueva evaluación inicial del auditor asignado, con aprobación desde el 80%, antes de ejecutar' : 'una nueva revisión'}.`,
@@ -2295,10 +2312,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       }
 
       const porId = new Map(planesActualizados.map(item => [String(item.id), item]));
-      setPlanes(prev => (Array.isArray(prev) ? prev : []).map(item => porId.get(String(item.id)) || item));
+      setPlanes(prev => (Array.isArray(prev) ? prev : []).map(item => {
+        const actualizado = porId.get(String(item.id));
+        return actualizado ? { ...(item.ref ? { ref: item.ref } : {}), ...actualizado } : item;
+      }));
       setModalEficaciaCierre({ activo: false, plan: null, conclusion: '', fueEficaz: '', requiereAcciones: 'no', observaciones: '' });
       if (eficaz) {
-        setConfirmacionCierreEficaz({ id: plan.id, accion: plan.accion, cantidad: planesActualizados.length });
+        setConfirmacionCierreEficaz({ id: plan.id, ref: plan.ref, accion: plan.accion, cantidad: planesActualizados.length });
       }
       showNotification(
         eficaz ? `Eficacia registrada. ${planesActualizados.length} acción(es) cerrada(s).` : `Evaluación guardada. ${planesActualizados.length} acción(es) devuelta(s) a ejecución al 90%.`,
@@ -2309,8 +2329,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       const correoPreparado = Boolean(await promesaCorreo);
       for (const planActualizado of planesActualizados) {
         const notificado = await enviarNotificacionPlanConReintento({
-          ref_consecutivo: `PLA-${String(planActualizado.id).slice(-4)}`,
-          asunto: eficaz ? `Acción cerrada · PLA-${String(planActualizado.id).slice(-4)}` : asuntoTareaPlan('corregir-evidencias', planActualizado),
+          ref_consecutivo: codigoPlan(planActualizado),
+          asunto: eficaz ? `Acción cerrada · ${codigoPlan(planActualizado)}` : asuntoTareaPlan('corregir-evidencias', planActualizado),
           titulo_informe: eficaz ? 'Plan de acción cerrado' : 'Evidencia rechazada: requiere ajustes',
           proceso_auditado: eficaz
             ? `La eficacia de la acción "${planActualizado.accion}" fue confirmada. Conclusión: ${conclusion.trim()}`
@@ -2385,12 +2405,15 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
         restaurados.push(...(respuesta?.planes || []));
       }
       const porId = new Map(restaurados.map(plan => [String(plan.id), plan]));
-      setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => porId.get(String(plan.id)) || plan));
+      setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => {
+        const actualizado = porId.get(String(plan.id));
+        return actualizado ? { ...(plan.ref ? { ref: plan.ref } : {}), ...actualizado } : plan;
+      }));
       showNotification(`${restaurados.length === 1 ? 'Acción restaurada' : `${restaurados.length} acciones restauradas`}: siguen con la validación del revisor o la evaluación de eficacia.`, 'success');
       const correoPreparado = Boolean(await promesaCorreo);
       for (const plan of restaurados.filter(item => item.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && item.correoRevisor)) {
         await enviarNotificacionPlanConReintento({
-          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+          ref_consecutivo: codigoPlan(plan),
           asunto: asuntoTareaPlan('validar-evidencias', plan),
           titulo_informe: 'Revisar matriz: ejecución al 100%',
           proceso_auditado: `La acción "${plan.accion}" está al 100% y espera tu validación de evidencias. Ingrese a Planes de Acción y pulse "Revisar matriz". Si aprueba, pasa al auditor para la evaluación de eficacia.`,
@@ -2401,7 +2424,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       // Con menos del 100 % vuelve a ejecución: se avisa al ejecutor para que la termine.
       for (const plan of restaurados.filter(item => item.estadoWorkflow === 'En Ejecución' && item.correoResponsable)) {
         await enviarNotificacionPlanConReintento({
-          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+          ref_consecutivo: codigoPlan(plan),
           asunto: asuntoTareaPlan('ejecutar', plan),
           titulo_informe: 'Continúa la ejecución de la acción',
           proceso_auditado: `La acción "${plan.accion}" vuelve a ejecución al ${Number(plan.progreso) || 0}% con su diseño aprobado (no se vuelve a evaluar). Completa las evidencias y guárdala al 100%: pasará al revisor y luego al auditor para la evaluación de eficacia. No modifiques la descripción de la acción.`,
@@ -2414,7 +2437,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       for (const plan of restaurados.filter(item => item.estadoWorkflow === 'En Revisión (100%)' && item.correoAuditor &&
         normalizarIdentidad(item.correoAuditor) !== normalizarIdentidad(user?.email))) {
         await enviarNotificacionPlanConReintento({
-          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+          ref_consecutivo: codigoPlan(plan),
           asunto: asuntoTareaPlan('aprobar-cierre', plan),
           titulo_informe: 'Acción lista para la evaluación de eficacia',
           proceso_auditado: `La acción "${plan.accion}" está al 100% ${revisorNoAplica(plan) ? '(sin revisor)' : 'con las evidencias validadas por el revisor'}. Ingrese a Planes de Acción y pulse "Evaluar y cerrar acción" para registrar la evaluación de eficacia.`,
@@ -2492,7 +2515,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       }
 
       const actualizadosPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
-      setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => actualizadosPorId.get(String(plan.id)) || plan));
+      setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => {
+        const actualizado = actualizadosPorId.get(String(plan.id));
+        return actualizado ? { ...(plan.ref ? { ref: plan.ref } : {}), ...actualizado } : plan;
+      }));
 
       setMostrarMotivoCorreccion(false);
       setMotivoCorreccion('');
@@ -2535,7 +2561,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           }
           try {
             const enviado = await enviarNotificacionPlanConReintento({
-              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+              ref_consecutivo: codigoPlan(plan),
               asunto: asuntoTareaPlan(pasaAlAprobador ? 'aprobar-cierre'
                 : validacionPendienteRevisor ? 'validar-evidencias'
                   : decision === 'aprobar' ? 'ejecutar'
@@ -2709,7 +2735,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             type="button" 
                             key={`s-plan-${p.id}`} 
                             onClick={() => {
-                              setBusquedaRapida(`PLA-${p.id.toString().slice(-4)}`); // Solo rellena el input
+                              setBusquedaRapida(codigoPlan(p)); // Solo rellena el input
                               setShowSearchDropdown(false); // Cierra la lista
                             }} 
                             className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2"
@@ -2717,7 +2743,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             <span className="text-xl shrink-0">📋</span>
                             <div className="truncate w-full">
                               <p className="text-[11px] font-black text-slate-800 font-mono">
-                                PLA-{p.id.toString().slice(-4)} 
+                                {codigoPlan(p)} 
                                 <span className="text-[8px] bg-slate-100 text-slate-500 ml-2 px-1.5 py-0.5 rounded font-sans uppercase tracking-wider">{hallazgoAsociado.proceso || 'General'}</span>
                               </p>
                               <p className="text-[9px] text-slate-500 truncate" title={p.accion}>{p.accion}</p>
@@ -2800,7 +2826,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             {tareasCicloPrograma.map(({ plan, etapa, enEspera }) => (
               <li key={`ciclo-${plan.id}`} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-600">PLA-{String(plan.id).slice(-4)} · {informesAuditoria.find(informe => String(informe.id) === String(plan.idInforme))?.ref || plan.idInforme}</p>
+                  <p className="text-xs font-semibold text-slate-600">{codigoPlan(plan)} · {informesAuditoria.find(informe => String(informe.id) === String(plan.idInforme))?.ref || plan.idInforme}</p>
                   <h4 className={`mt-1 text-sm font-semibold ${enEspera || etapa.clave === 'correccion' ? 'text-amber-900' : 'text-[#0A3B32]'}`}>{etapa.titulo}</h4>
                   <p className="mt-1 break-words text-sm text-slate-800">{plan.accion}</p>
                   <p className="mt-1 max-w-prose text-xs leading-relaxed text-slate-600">{etapa.descripcion}</p>
@@ -2850,7 +2876,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               </div>
               <div className="flex flex-wrap gap-2 w-full md:w-auto">
                 {planesVencidosNotificables.slice(0, 3).map(plan => {
-                  const asunto = encodeURIComponent(`❌ URGENTE: Plan de Acción VENCIDO (PLA-${plan.id.toString().slice(-4)})`);
+                  const asunto = encodeURIComponent(`❌ URGENTE: Plan de Acción VENCIDO (${codigoPlan(plan)})`);
                   const cuerpo = encodeURIComponent(`Estimado/a Líder del Proceso,\n\nLe informamos que el siguiente plan de acción bajo su responsabilidad se encuentra actualmente VENCIDO en nuestra plataforma:\n\n📌 Acción requerida: "${plan.accion}"\n📅 Fecha límite original: ${plan.fecha}\n\nPor favor, ingrese de inmediato a la plataforma para actualizar el avance o cargar los soportes correspondientes, ya que este retraso afecta los indicadores de cumplimiento de la compañía.\n\nCordialmente,\nAuditoría GCM`);
                   return (
                     <a 
@@ -2861,7 +2887,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-2 transition-all hover:scale-105"
                       title={`Clic para enviar correo a ${plan.responsable} usando Gmail`}
                     >
-                      <span>📧 Reclamar PLA-{plan.id.toString().slice(-4)}</span>
+                      <span>📧 Reclamar {codigoPlan(plan)}</span>
                     </a>
                   )
                 })}
@@ -2886,7 +2912,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               </div>
               <div className="flex flex-wrap gap-2 w-full md:w-auto">
                 {planesEnAlerta.map(plan => {
-                  const asunto = encodeURIComponent(`⚠️ Recordatorio Preventivo: Vencimiento Próximo de Plan de Acción (PLA-${plan.id.toString().slice(-4)})`);
+                  const asunto = encodeURIComponent(`⚠️ Recordatorio Preventivo: Vencimiento Próximo de Plan de Acción (${codigoPlan(plan)})`);
                   const cuerpo = encodeURIComponent(`Estimado/a Líder del Proceso,\n\nLe escribimos de manera preventiva para recordarle que el siguiente plan de acción bajo su responsabilidad está a punto de vencer:\n\n📌 Acción requerida: "${plan.accion}"\n📅 Fecha límite: ${plan.fecha}\n\nPor favor, asegúrese de cargar los soportes correspondientes en la plataforma antes de la fecha límite para evitar que el plan pase a estado VENCIDO y afecte sus indicadores.\n\nCordialmente,\nAuditoría GCM`);
                   return (
                     <a 
@@ -2897,7 +2923,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-2 transition-all hover:scale-105"
                       title={`Clic para notificar a ${plan.responsable} usando Gmail`}
                     >
-                      <span>📧 Notificar PLA-{plan.id.toString().slice(-4)}</span>
+                      <span>📧 Notificar {codigoPlan(plan)}</span>
                     </a>
                   )
                 })}
@@ -3150,7 +3176,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     </thead>
     <tbody className="divide-y divide-slate-50">
       {accionesPaginaGrupo.map(p => {
-        const asuntoReclamo = encodeURIComponent(`❌ URGENTE: Plan VENCIDO (PLA-${p.id.toString().slice(-4)})`);
+        const asuntoReclamo = encodeURIComponent(`❌ URGENTE: Plan VENCIDO (${codigoPlan(p)})`);
         const cuerpoReclamo = encodeURIComponent(`Estimado/a ${p.responsable || 'Líder'},\n\nLe recordamos que el plan de acción: "${p.accion}" venció el ${p.fecha}.\n\nPor favor ingrese a la plataforma para actualizar el estado.\n\nAtentamente,\nAuditoría GCM`);
 
         return (
@@ -3162,7 +3188,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }}
               className="py-2.5 font-mono font-black text-slate-700 group-hover/row:text-blue-700 cursor-pointer"
             >
-              PLA-{p.id.toString().slice(-4)}
+              {codigoPlan(p)}
             </td>
             <td 
               onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }}
@@ -3300,7 +3326,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       {planesDetalle.map(plan => (
                         <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido || esEjecucion ? 'border-rose-100 bg-rose-50/40' : esRevision ? 'border-amber-100 bg-amber-50/40' : esAprobacion ? 'border-emerald-100 bg-emerald-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
                           <div className="flex justify-between items-start gap-2">
-                            <span className="font-mono text-[9px] font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>
+                            <span className="font-mono text-[9px] font-black text-slate-500">{codigoPlan(plan)}</span>
                             <span className={`text-[9px] font-black ${esVencido || esEjecucion ? 'text-rose-700' : esRevision ? 'text-amber-700' : esAprobacion ? 'text-emerald-700' : 'text-orange-700'}`}>
                               {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : esEjecucion && planDevueltoAlEjecutor(plan) ? '✎ Devuelta para corregir' : esEjecucion || esRevision || esAprobacion ? plan.estadoWorkflow : `Vence ${plan.fecha || 'sin fecha'}`}
                             </span>
@@ -3569,7 +3595,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   <span>Actividad</span>
                                 </div>
                                 <span className={`px-2.5 py-0.5 rounded-md font-mono font-bold text-[10px] tracking-widest border shadow-sm transition-colors ${String(act.id).startsWith('new-') ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`}>
-                                  PLA-{String(act.id).startsWith('new-') ? 'NUEVO' : String(act.id).slice(-4)}
+                                  {String(act.id).startsWith('new-') ? 'PLA-NUEVO' : codigoPlan(planOriginal || act)}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
@@ -3983,7 +4009,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 ) : (
                                   <div className="space-y-2">
                                     <label htmlFor={`motivo-devolucion-${idAccion}`} className="block text-xs font-bold text-orange-900">
-                                      Motivo de la devolución de PLA-{idAccion.slice(-4)} (obligatorio){esValidacionFinalAccion ? ' · la acción vuelve al ejecutor al 90%' : ''}
+                                      Motivo de la devolución de {codigoPlan(planOriginal || act)} (obligatorio){esValidacionFinalAccion ? ' · la acción vuelve al ejecutor al 90%' : ''}
                                     </label>
                                     <textarea
                                       id={`motivo-devolucion-${idAccion}`}
@@ -4220,7 +4246,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 <p className="text-sm font-black">{accionesPorRestaurar.length === 1 ? 'Una acción quedó' : `${accionesPorRestaurar.length} acciones quedaron`} por error en la evaluación inicial del diseño</p>
                 <p className="mt-1">Su diseño ya estaba aprobado: al registrar el avance o corregir las evidencias se guardó un cambio (por ejemplo, "Corregido" en la descripción, o las casillas de matrices) y la acción volvió a la evaluación del diseño. El diseño aprobado no se vuelve a evaluar: restáuralas para que sigan donde iban.</p>
                 <ul className="mt-2 list-disc space-y-0.5 pl-5">
-                  {accionesPorRestaurar.map(plan => <li key={plan.id}><b>PLA-{String(plan.id).slice(-4)}</b> · {String(plan.accion || '').slice(0, 90)} → {{ 'En Revisión (100%)': 'evaluación de eficacia', 'Pendiente Validación Revisor': 'validación del revisor', 'En Ejecución': `ejecución (${Number(plan.progreso) || 0} %)` }[reenvioErroneoAEvaluacion(plan).destino]}</li>)}
+                  {accionesPorRestaurar.map(plan => <li key={plan.id}><b>{codigoPlan(plan)}</b> · {String(plan.accion || '').slice(0, 90)} → {{ 'En Revisión (100%)': 'evaluación de eficacia', 'Pendiente Validación Revisor': 'validación del revisor', 'En Ejecución': `ejecución (${Number(plan.progreso) || 0} %)` }[reenvioErroneoAEvaluacion(plan).destino]}</li>)}
                 </ul>
                 <button type="button" disabled={restaurandoReenvio} onClick={() => restaurarAcciones(accionesPorRestaurar)} className="mt-3 rounded-lg bg-amber-700 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white hover:bg-amber-800 disabled:opacity-50">
                   {restaurandoReenvio ? 'Restaurando…' : accionesPorRestaurar.length === 1 ? 'Restaurar la acción' : `Restaurar las ${accionesPorRestaurar.length} acciones`}
@@ -4503,7 +4529,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 </tr>
                               ) : planesDelInforme.map((p, pIdx) => (
                                 <tr key={`h-child-plan-${p.id}-${pIdx}`} className="hover:bg-slate-50/60 transition-colors">
-                                  <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().slice(-4)}</td>
+                                  <td className="p-3 font-mono font-black text-slate-900">{codigoPlan(p)}</td>
                                   <td className="p-3">
                                     {/* Mientras el auditor decide el No aplica del hallazgo, la acción conserva su estado pero no se trabaja. */}
                                     {estadoNoAplica(hallazgosPorId.get(String(p.idHallazgo))) === 'Pendiente'
@@ -4642,7 +4668,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                                   }
                                                   
                                                   const notificados = await enviarNotificacionPlanConReintento({
-                                                    ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                    ref_consecutivo: codigoPlan(p),
                                                     asunto: asuntoTareaPlan('corregir-evidencias', p),
                                                     titulo_informe: 'Evidencia de plan rechazada',
                                                     proceso_auditado: `El Auditor rechazó los soportes de la acción: "${p.accion}". Motivo: ${r}. El avance regresa a 90% (En Ejecución) para su corrección; al guardarla de nuevo al 100% vuelve al revisor.`,
@@ -5068,7 +5094,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       
                                       {/* 5. ACCIONES DE MEJORAMIENTO */}
                                       <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontSize: '9.5px', lineHeight: '1.35' }}>
-                                        <div style={{ fontWeight: '900', color: '#2563eb', marginBottom: '3px', fontSize: '10px' }}>PLA-{p.id.toString().slice(-4)}</div>
+                                        <div style={{ fontWeight: '900', color: '#2563eb', marginBottom: '3px', fontSize: '10px' }}>{codigoPlan(p)}</div>
                                         <div style={{ fontWeight: '900', color: '#0f172a' }}>{p.accion}</div>
                                       </td>
                                       
@@ -5198,7 +5224,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     <ul className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
                       {modalEval.planes.map(plan => (
                         <li key={`eval-sel-${plan.id}`} className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs">
-                          <span className="font-mono font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>{' '}
+                          <span className="font-mono font-black text-slate-500">{codigoPlan(plan)}</span>{' '}
                           <span className="font-semibold text-slate-800">{plan.accion}</span>
                           <span className="block text-[10px] text-slate-500">Ejecutor: {plan.responsable || 'Sin asignar'} · {plan.correoResponsable || 'sin correo'}</span>
                         </li>
@@ -5517,7 +5543,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div className="space-y-4 overflow-y-auto p-5 text-xs text-slate-700">
               {verEficacia.planes.map(({ plan, historial }) => (
                 <section key={plan.id} className="rounded-xl border border-slate-200 p-3">
-                  <p className="font-black text-slate-800"><span className="font-mono text-slate-500">PLA-{String(plan.id).slice(-4)}</span> · {plan.accion}</p>
+                  <p className="font-black text-slate-800"><span className="font-mono text-slate-500">{codigoPlan(plan)}</span> · {plan.accion}</p>
                   <ol className="mt-2 space-y-2">
                     {[...historial].reverse().map((evaluacion, indice) => (
                       <li key={`${evaluacion.timestamp || indice}`} className={`rounded-lg border p-2 ${evaluacion.fueEficaz ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
@@ -5566,7 +5592,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   <div role="note" className={`rounded-xl border p-3 text-xs ${conAvance.length ? 'border-amber-300 bg-amber-50 text-amber-950' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
                     <p className="font-black">Este No aplica es para todo el hallazgo: cerrará {accionesHallazgo.length === 1 ? 'su acción' : `sus ${accionesHallazgo.length} acciones`}.</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-5">
-                      {accionesHallazgo.map(plan => <li key={plan.id}>PLA-{String(plan.id).slice(-4)} · {Number(plan.progreso) || 0} % de avance{plan.accion ? ` · ${String(plan.accion).slice(0, 80)}` : ''}</li>)}
+                      {accionesHallazgo.map(plan => <li key={plan.id}>{codigoPlan(plan)} · {Number(plan.progreso) || 0} % de avance{plan.accion ? ` · ${String(plan.accion).slice(0, 80)}` : ''}</li>)}
                     </ul>
                     {conAvance.length > 0 && <p className="mt-1 font-bold">Si solo una acción no aplica, no uses esta opción: el avance registrado en las demás quedaría cerrado como No aplica. Consulta con el auditor cómo ajustarla.</p>}
                   </div>
@@ -5612,7 +5638,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-200">Cierre del plan · Verificación final</p>
                 <h2 id="evaluacion-eficacia-titulo" className="mt-1 text-lg font-black sm:text-xl">Evaluación de eficacia</h2>
                 <p className="mt-1 text-[11px] font-medium text-emerald-100">
-                  PLA-{String(modalEficaciaCierre.plan?.id || '').slice(-4)} · {modalEficaciaCierre.plan?.responsable || 'Responsable no asignado'}
+                  {codigoPlan(modalEficaciaCierre.plan)} · {modalEficaciaCierre.plan?.responsable || 'Responsable no asignado'}
                 </p>
               </div>
               <button
@@ -5633,7 +5659,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 <div className="mt-3 space-y-2">
                   <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 text-sm">
                     <input type="radio" name="alcance-eficacia" value="accion" checked={modalEficaciaCierre.alcance !== 'todas'} onChange={() => setModalEficaciaCierre(prev => ({ ...prev, alcance: 'accion', error: '' }))} className="mt-1 h-4 w-4 shrink-0 accent-emerald-700" />
-                    <span>Solo esta acción: <strong>PLA-{String(modalEficaciaCierre.plan?.id || '').slice(-4)}</strong></span>
+                    <span>Solo esta acción: <strong>{codigoPlan(modalEficaciaCierre.plan)}</strong></span>
                   </label>
                   <label className={`flex min-h-11 items-start gap-3 rounded-lg border border-slate-200 p-3 text-sm ${puedeCerrarTodoInforme(modalEficaciaCierre.plan) ? 'cursor-pointer' : 'text-slate-500'}`}>
                     <input type="radio" name="alcance-eficacia" value="todas" disabled={!puedeCerrarTodoInforme(modalEficaciaCierre.plan)} checked={modalEficaciaCierre.alcance === 'todas'} onChange={() => setModalEficaciaCierre(prev => ({ ...prev, alcance: 'todas', error: '' }))} className="mt-1 h-4 w-4 shrink-0 accent-emerald-700" />
@@ -5647,7 +5673,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 </p>
                 {modalEficaciaCierre.alcance === 'todas' && (
                   <ul className="mt-3 max-h-36 list-inside list-disc space-y-2 overflow-y-auto text-xs text-slate-700">
-                    {pendientesCierreInforme(modalEficaciaCierre.plan).map(item => <li key={item.id} className="break-words">PLA-{String(item.id).slice(-4)} · {item.accion}</li>)}
+                    {pendientesCierreInforme(modalEficaciaCierre.plan).map(item => <li key={item.id} className="break-words">{codigoPlan(item)} · {item.accion}</li>)}
                   </ul>
                 )}
               </fieldset>
@@ -5787,7 +5813,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             </div>
             <div className="space-y-3 p-6">
               <p className="text-xs leading-relaxed text-slate-700">
-                {confirmacionCierreEficaz.cantidad > 1 ? `La eficacia quedó registrada y se cerraron ${confirmacionCierreEficaz.cantidad} acciones del informe.` : <>La eficacia quedó registrada para <strong>PLA-{String(confirmacionCierreEficaz.id).slice(-4)}</strong>{confirmacionCierreEficaz.accion ? ` · ${confirmacionCierreEficaz.accion}` : ''}.</>}
+                {confirmacionCierreEficaz.cantidad > 1 ? `La eficacia quedó registrada y se cerraron ${confirmacionCierreEficaz.cantidad} acciones del informe.` : <>La eficacia quedó registrada para <strong>{codigoPlan(confirmacionCierreEficaz)}</strong>{confirmacionCierreEficaz.accion ? ` · ${confirmacionCierreEficaz.accion}` : ''}.</>}
               </p>
               <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                 <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900">{confirmacionCierreEficaz.cantidad > 1 ? 'Estado de las acciones' : 'Estado de la acción'}</span>
@@ -5819,7 +5845,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   <span>📜</span> Audit Trail / Historial de Trazabilidad
                 </h4>
                 <p className="text-slate-400 text-[10px] font-bold mt-1">
-                  PLA-{historialModal.plan?.id?.toString().slice(-4)} | Control de Cambios Estricto
+                  {codigoPlan(historialModal.plan)} | Control de Cambios Estricto
                 </p>
               </div>
               <button onClick={() => setHistorialModal({ activo: false, plan: null })} className="text-slate-400 hover:text-white font-black text-xl px-2 cursor-pointer">✕</button>

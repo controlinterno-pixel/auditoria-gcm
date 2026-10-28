@@ -2,6 +2,7 @@
 // identificador, no una frase con números sueltos: así la IA puede citar planes, hallazgos y controles concretos.
 import { contextoMatriz } from './contextoIARiesgos.js';
 import { calcularEficaciaControl } from './explicacionControles.js';
+import { codigoPlan } from './programPlanWorkflow.js';
 
 const texto = (valor, max = 160) => {
   const limpio = String(valor ?? '').replace(/\s+/g, ' ').trim();
@@ -46,7 +47,7 @@ function datosPlanes({ planes, hallazgos, hoy }) {
       avancePromedio: planes.length ? Math.round(planes.reduce((suma, plan) => suma + (Number(plan.progreso) || 0), 0) / planes.length) : 0,
     },
     planesVencidosMasAntiguos: vencidos.slice(0, 12).map(plan => ({
-      plan: `PLA-${String(plan.id).slice(-4)}`,
+      plan: codigoPlan(plan),
       accion: texto(plan.accion || plan.descripcion),
       responsable: plan.responsable || 'Sin responsable',
       proceso: procesoDePlan(plan, hallazgos),

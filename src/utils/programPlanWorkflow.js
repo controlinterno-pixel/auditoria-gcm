@@ -197,8 +197,59 @@ export function tareaPendientePlan(plan, { esPrograma = false } = {}) {
   return null;
 }
 
+/** Formato de consecutivo lógico de una acción (`PLA-0001`, `PLA-0002`, ...). */
+export const formatearConsecutivoPlan = numero => `PLA-${String(Math.max(1, Number(numero) || 1)).padStart(4, '0')}`;
+
+/**
+ * Asigna consecutivos lógicos únicos (`PLA-0001`, `PLA-0002`...) en orden de creación a las acciones que aún
+ * no tengan un `ref` propio, respetando y sin repetir ningún `PLA-NNNN` ya asignado.
+ */
+export function asignarConsecutivosPlanes(planes = []) {
+  if (!Array.isArray(planes) || planes.length === 0) return [];
+  const ocupados = new Set();
+  let mayorExistente = 0;
+  planes.forEach(plan => {
+    const coincidencia = /^PLA-(\d+)$/i.exec(String(plan?.ref || '').trim());
+    if (coincidencia) {
+      const numero = Number(coincidencia[1]);
+      if (Number.isFinite(numero) && numero > 0) {
+        ocupados.add(numero);
+        if (numero > mayorExistente) mayorExistente = numero;
+      }
+    }
+  });
+  const sinRef = planes
+    .map((plan, indice) => ({ plan, indice }))
+    .filter(({ plan }) => plan && typeof plan === 'object' && !String(plan.ref || '').trim())
+    .sort((a, b) => {
+      const numA = Number(a.plan.id);
+      const numB = Number(b.plan.id);
+      if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) return numA - numB;
+      return String(a.plan.id ?? '').localeCompare(String(b.plan.id ?? ''), 'es', { numeric: true }) || (a.indice - b.indice);
+    });
+  if (sinRef.length === 0) return planes;
+  const refPorIndice = new Map();
+  let siguiente = 1;
+  sinRef.forEach(({ indice }) => {
+    while (ocupados.has(siguiente)) siguiente += 1;
+    ocupados.add(siguiente);
+    refPorIndice.set(indice, formatearConsecutivoPlan(siguiente));
+    siguiente += 1;
+  });
+  return planes.map((plan, indice) => (refPorIndice.has(indice) ? { ...plan, ref: refPorIndice.get(indice) } : plan));
+}
+
+/** Código visible de una acción: su consecutivo lógico (`ref`), o `PLA-XXXX` para acciones sueltas sin `ref`. */
+export const codigoPlan = plan => {
+  const ref = String(plan?.ref || '').trim();
+  if (ref) return ref;
+  const id = String(plan?.id ?? '').trim();
+  if (!id || id.startsWith('new-')) return 'PLA-NUEVO';
+  return `PLA-${id.slice(-4)}`;
+};
+
 /** Asunto de correo que dice la tarea: "Validar evidencias · PLA-0004". */
-export const asuntoTareaPlan = (clave, plan) => `${TAREAS_PLAN[clave]?.verbo || 'Plan de acción'} · PLA-${String(plan?.id ?? '').slice(-4)}`;
+export const asuntoTareaPlan = (clave, plan) => `${TAREAS_PLAN[clave]?.verbo || 'Plan de acción'} · ${codigoPlan(plan)}`;
 
 // Campos que no son de diseño: avance, soportes, riesgos vinculados y las casillas de matrices (vacío = "No aplica").
 const CAMPOS_NO_DISENO = ['progreso', 'evidenciaUrl', 'riesgosVinculados'];

@@ -23,6 +23,7 @@ import { analizarControlEnRiesgo, explicarRiesgoDetallado, pruebasDeCampoDelRies
 import { explicarAltosExtremos, explicarControlesMatriz, explicarResidualPromedio, explicarTotalRiesgos, nivelResidualPromedio } from '../utils/explicacionKpiMatriz.js';
 import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '../utils/cumplimientoManual.js';
 import { planesVinculadosAlRiesgo } from '../utils/planesDelRiesgo.js';
+import { codigoPlan } from '../utils/programPlanWorkflow.js';
 import { sinProcesoDelCatalogo } from '../utils/ubicacionCatalogo.js';
 import { PERMISO_VER_TODOS_RIESGOS, permisosEfectivos } from '../utils/permisosVista.js';
 import { ALCANCES_RIESGO, alcanceDe, esTransversal, expandirUbicacion, subprocesosSinControl, textoAlcance } from '../utils/alcanceRiesgo.js';
@@ -3566,7 +3567,7 @@ const renderMatriz = () => {
                         <ul className="space-y-0.5 text-[10px] text-emerald-800">
                           {vinculados.map(plan => (
                             <li key={plan.id} className="flex items-start gap-1">
-                              <span>🔗 <b>PLA-{String(plan.id).slice(-4)}</b> · {String(plan.accion || '').slice(0, 90)} <span className="text-slate-500">({plan.estadoWorkflow || plan.estado || 'Sin estado'})</span></span>
+                              <span>🔗 <b>{codigoPlan(plan)}</b> · {String(plan.accion || '').slice(0, 90)} <span className="text-slate-500">({plan.estadoWorkflow || plan.estado || 'Sin estado'})</span></span>
                               <button type="button" disabled={guardandoVinculo} onClick={() => cambiarVinculo(plan.id, 'desvincular')} className="ml-auto shrink-0 text-[10px] font-bold text-red-600 hover:underline disabled:opacity-50">Quitar</button>
                             </li>
                           ))}
@@ -3578,7 +3579,7 @@ const renderMatriz = () => {
                         <select value={planParaVincular} onChange={e => setPlanParaVincular(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-slate-300 p-1.5 text-[10px]">
                           <option value="">Vincular una acción de Planes{delProceso.length && !verTodasLasAcciones ? ' (de su proceso)' : ''}…</option>
                           {opciones.map(plan => (
-                            <option key={plan.id} value={plan.id}>PLA-{String(plan.id).slice(-4)} · {String(plan.accion || '').slice(0, 70)} ({plan.estadoWorkflow || plan.estado || 'Sin estado'})</option>
+                            <option key={plan.id} value={plan.id}>{codigoPlan(plan)} · {String(plan.accion || '').slice(0, 70)} ({plan.estadoWorkflow || plan.estado || 'Sin estado'})</option>
                           ))}
                         </select>
                         <button type="button" disabled={!planParaVincular || guardandoVinculo} onClick={() => cambiarVinculo(planParaVincular, 'vincular')} className="shrink-0 rounded-lg bg-[#0A3B32] px-2 text-[10px] font-bold text-white disabled:opacity-40">{guardandoVinculo ? 'Guardando…' : 'Vincular'}</button>

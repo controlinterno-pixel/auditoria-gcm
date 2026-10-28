@@ -1,7 +1,7 @@
 // src/hooks/useGrcData.js
-import { useState, useEffect } from 'react';
 import { onAuthStateChanged, onIdTokenChanged, signOut } from 'firebase/auth';
 import { doc, getDocFromServer, onSnapshot } from 'firebase/firestore';
+import { useCallback, useEffect, useState } from 'react';
 import { apiService, suscribirRevisionPropia } from '../services/apiService';
 import { auth, db } from '../services/firebase';
 import { registrarDatosServidor } from '../services/grcStorageService';
@@ -14,6 +14,7 @@ import {
   defaultRiesgos, defaultHallazgos,
   defaultPlanes, defaultEvaluaciones, defaultMonitoreo 
 } from '../constants/defaultData';
+import { asignarConsecutivosPlanes } from '../utils/programPlanWorkflow.js';
 
 export function useGrcData() {
   const [user, setUser] = useState(null);
@@ -27,7 +28,14 @@ export function useGrcData() {
   // Entidades principales de base de datos
   const [riesgos, setRiesgos] = useState([]);
   const [hallazgos, setHallazgos] = useState([]);
-  const [planes, setPlanes] = useState([]);
+  const [planesRaw, setPlanesRaw] = useState([]);
+  const setPlanes = useCallback(actualizador => {
+    setPlanesRaw(prev => {
+      const siguiente = typeof actualizador === 'function' ? actualizador(prev) : actualizador;
+      return asignarConsecutivosPlanes(Array.isArray(siguiente) ? siguiente : []);
+    });
+  }, []);
+  const planes = planesRaw;
   const [incidentes, setIncidentes] = useState([]);
   const [evaluaciones, setEvaluaciones] = useState([]);
   const [cronograma, setCronograma] = useState([]);

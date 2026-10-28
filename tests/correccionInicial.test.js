@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ESTADO_AJUSTES_INICIALES, accionesEnCorreccionInicial } from '../src/utils/programPlanWorkflow.js';
+import { ESTADO_AJUSTES_INICIALES, accionesEnCorreccionInicial, asignarConsecutivosPlanes, codigoPlan } from '../src/utils/programPlanWorkflow.js';
 
 const planes = [
   { id: 1, estadoWorkflow: 'En Ejecución', correoResponsable: 'ejecutor@termales.com.co' },
@@ -29,4 +29,14 @@ test('la matriz oculta las demás acciones, los otros hallazgos, "Sí/No aplica"
   assert.match(fuente, /if \(idsEnCorreccionInicial && !\(node\.actividades \|\| \[\]\)\.some\(/);
   assert.match(fuente, /\{!modoRevisionMatriz && !idsEnCorreccionInicial && \(\s*<button type="button" onClick=\{\(\) => handleAddActivity/);
   assert.equal((fuente.match(/\(!modoRevisionMatriz\) && !idsEnCorreccionInicial && !\['Aprobado', 'Pendiente'\]/g) || []).length, 2);
+});
+
+test('consecutivo lógico único de acciones: numera todas en orden de creación sin repetirse nunca', () => {
+  const numeradas = asignarConsecutivosPlanes([
+    { id: 1790000006125, accion: 'Segunda creada (mismos 4 últimos dígitos)' },
+    { id: 1770000006125, accion: 'Primera creada' },
+    { id: 1795000000001, ref: 'PLA-0002', accion: 'Ya tenía ref asignado' },
+  ]);
+  assert.deepEqual(numeradas.map(plan => codigoPlan(plan)), ['PLA-0003', 'PLA-0001', 'PLA-0002']);
+  assert.equal(new Set(numeradas.map(plan => codigoPlan(plan))).size, 3, 'ningún código se repite');
 });

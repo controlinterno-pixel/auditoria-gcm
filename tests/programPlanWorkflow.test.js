@@ -569,8 +569,8 @@ test('notificación de creación: ejecutor informado y auditor asignado recibe t
   const text = read('../src/components/Planes.jsx');
   const fn = text.slice(text.indexOf('  const notificarRegistroPlan ='), text.indexOf('  // Un plan al 100%'));
   const payloads = [];
-  const notify = new Function('asuntoTareaPlan', 'esPlanProgramaAuditoria', 'enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarRegistroPlan;`)(
-    workflow.asuntoTareaPlan, () => true, async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
+  const notify = new Function('asuntoTareaPlan', 'codigoPlan', 'esPlanProgramaAuditoria', 'enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarRegistroPlan;`)(
+    workflow.asuntoTareaPlan, workflow.codigoPlan, () => true, async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
   );
   assert.equal(await notify(plan(), true), true);
   assert.deepEqual(payloads.map(item => item.destinatarios), ['ejecutor@example.test', 'auditor@example.test']);
@@ -584,8 +584,8 @@ for (const puntaje of [79, 80, 100]) {
     const text = read('../src/components/Planes.jsx');
     const fn = text.slice(text.indexOf('  const notificarResultadoEvaluacionInicial ='), text.indexOf('  const notificarEjecucionCompleta ='));
     const payloads = [];
-    const notify = new Function('enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarResultadoEvaluacionInicial;`)(
-      async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
+    const notify = new Function('codigoPlan', 'enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarResultadoEvaluacionInicial;`)(
+      workflow.codigoPlan, async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
     );
     const planes = [plan(), plan({ id: 2, accion: 'Segunda acción', correoResponsable: 'otroejecutor@example.test' })];
     assert.equal(await notify({ id: 'i1' }, planes, puntaje, 'Dictamen técnico', true, soporte), true);
@@ -603,8 +603,9 @@ test('aviso al 100% lleva al revisor a la matriz, no a la evidencia ni al cierre
   const text = read('../src/components/Planes.jsx');
   const fn = text.slice(text.indexOf('  const notificarEjecucionCompleta ='), text.indexOf('  // Un plan al 100%'));
   const payloads = [];
-  const notify = new Function('asuntoTareaPlan', 'enviarNotificacionPlanConReintento', 'window', 'revisorNoAplica', 'ESTADO_PENDIENTE_VALIDACION_REVISOR', `${fn}\nreturn notificarEjecucionCompleta;`)(
+  const notify = new Function('asuntoTareaPlan', 'codigoPlan', 'enviarNotificacionPlanConReintento', 'window', 'revisorNoAplica', 'ESTADO_PENDIENTE_VALIDACION_REVISOR', `${fn}\nreturn notificarEjecucionCompleta;`)(
     workflow.asuntoTareaPlan,
+    workflow.codigoPlan,
     async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
     item => item?.revisorNoAplica === true, 'Pendiente Validación Revisor',
   );
@@ -671,7 +672,7 @@ for (const decision of ['aprobar', 'corregir']) {
     const before = plan({ progreso: 100, estadoWorkflow: 'Pendiente Validación Revisor' });
     const after = { ...before, estadoWorkflow: decision === 'aprobar' ? 'En Revisión (100%)' : 'En Ejecución', progreso: decision === 'aprobar' ? 100 : 90 };
     const bindings = {
-    esAdministradorTotal, puedeVerTodo, asuntoTareaPlan: workflow.asuntoTareaPlan,
+    esAdministradorTotal, puedeVerTodo, asuntoTareaPlan: workflow.asuntoTareaPlan, codigoPlan: workflow.codigoPlan,
       revisionInformeId: 'i1', guardandoDecisionRevision: false, motivoCorreccion: 'Soporte incompleto',
       user: { email: 'revisor@example.test' }, planesEnriquecidos: [before],
       ESTADO_PENDIENTE_VALIDACION_REVISOR: 'Pendiente Validación Revisor', esPlanProgramaAuditoria: () => true,
@@ -807,8 +808,8 @@ test('evaluación inicial: un solo correo por ejecutor con todas sus acciones', 
   const text = read('../src/components/Planes.jsx');
   const fn = text.slice(text.indexOf('  const notificarResultadoEvaluacionInicial ='), text.indexOf('  const notificarEjecucionCompleta ='));
   const payloads = [];
-  const notificar = new Function('enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarResultadoEvaluacionInicial;`)(
-    async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
+  const notificar = new Function('codigoPlan', 'enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarResultadoEvaluacionInicial;`)(
+    workflow.codigoPlan, async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
   );
   const planes = [
     plan({ id: 1001, accion: 'Uno' }), plan({ id: 1002, accion: 'Dos' }),

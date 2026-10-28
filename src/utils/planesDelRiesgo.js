@@ -2,8 +2,9 @@
 // del riesgo y las acciones del módulo de Planes que lo vinculan ("Matriz de riesgos: Sí aplica" + riesgo
 // elegido). Sin dependencias, para que lo usen el cálculo, los dictámenes y el Excel.
 
+import { codigoPlan } from './programPlanWorkflow.js';
+
 const planNoCuenta = plan => !plan || plan.estadoWorkflow === 'No aplica' || plan.noAplica === true || plan.estado === 'Anulado';
-const codigoPlan = plan => `PLA-${String(plan.id).slice(-4)}`;
 
 /** Acciones del módulo de Planes vinculadas al riesgo (sin las declaradas No aplica ni las anuladas). */
 export function planesVinculadosAlRiesgo(riesgo, planes = []) {

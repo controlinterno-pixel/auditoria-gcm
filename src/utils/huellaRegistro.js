@@ -15,9 +15,9 @@ export const LISTAS_CON_HUELLA = {
   fuentesMejora: registro => registro.codigo || registro.id,
 };
 
-// Campos que no forman parte del contenido: el id (la lectura lo agrega desde el nombre del documento)
-// y la huella de partida que envía el cliente.
-const CAMPOS_FUERA_DE_HUELLA = new Set(['id', 'docId', 'huellaBase']);
+// Campos que no forman parte del contenido: el id (la lectura lo agrega desde el nombre del documento),
+// el consecutivo derivado en memoria (ref) y la huella de partida que envía el cliente.
+const CAMPOS_FUERA_DE_HUELLA = new Set(['id', 'docId', 'huellaBase', 'ref']);
 
 /** Serialización estable: no depende del orden de las llaves; los campos sin valor no cuentan. */
 export const serializarRegistro = (valor, nivel = 0) => {
