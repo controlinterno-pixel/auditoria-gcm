@@ -1,7 +1,7 @@
 // src/services/grcStorageService.js
 import { apiService } from './apiService';
 import { cargarXLSX } from '../utils/xlsxLoader';
-import { LISTAS_CON_HUELLA, claveRegistro, serializarRegistro } from '../utils/huellaRegistro.js';
+import { LISTAS_CON_HUELLA, claveRegistro, huellaRegistro, serializarRegistro } from '../utils/huellaRegistro.js';
 
 // Copia de cada registro tal como llegó del servidor (lista → clave → { serial, huella }).
 const copiasServidor = new Map();
@@ -17,6 +17,24 @@ export function registrarDatosServidor(data) {
       .map(([clave, registro]) => [clave, { serial: serializarRegistro(registro), huella: huellas[clave] || null }])));
   });
 }
+
+/**
+ * Registros que el servidor guardó por otro endpoint ("Guardar acción", decisiones, No aplica, restaurar): pasan a ser
+ * la versión conocida, con la misma huella que calcula el servidor sobre lo guardado. Así un "Guardar matriz" posterior
+ * no los toma como cambios de otra persona.
+ */
+export function registrarGuardadosDelServidor(porLista = {}) {
+  Object.entries(porLista).forEach(([lista, registros]) => {
+    const obtener = LISTAS_CON_HUELLA[lista];
+    const copias = copiasServidor.get(lista);
+    if (!obtener || !copias || !Array.isArray(registros)) return;
+    registros.forEach(registro => {
+      const clave = claveRegistro(obtener, registro);
+      if (clave !== null) copias.set(clave, { serial: serializarRegistro(registro), huella: huellaRegistro(registro) });
+    });
+  });
+}
+apiService.observarGuardados?.(registrarGuardadosDelServidor);
 
 /**
  * Deja en cada lista solo los registros nuevos o cambiados (el servidor conserva los demás) y marca cada

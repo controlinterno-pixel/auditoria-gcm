@@ -74,6 +74,22 @@ const avisarRevisionPropia = response => {
   });
 };
 
+// Aviso de registros guardados por endpoints distintos de /api/grc/sync ("Guardar acción", decisiones del revisor o
+// del aprobador, No aplica, restaurar): el módulo de guardado renueva con ellos la versión conocida de cada registro.
+// Sin esto, el siguiente "Guardar matriz y sincronizar" tomaba esos cambios propios como de "otra persona" (409).
+let observadorGuardados = null;
+const LISTAS_EN_RESPUESTA = { planes: ['planes', 'planesActualizados', 'planesNuevos', 'plan'], hallazgos: ['hallazgos', 'hallazgo'] };
+const avisarRegistrosGuardados = (endpoint, metodo, data) => {
+  if (!observadorGuardados || metodo === 'GET' || !data || typeof data !== 'object') return;
+  const ruta = String(endpoint).split('?')[0];
+  if (!ruta.startsWith('/api/grc/') || ruta === '/api/grc/sync') return;
+  const porLista = Object.fromEntries(Object.entries(LISTAS_EN_RESPUESTA).map(([lista, campos]) => [lista,
+    campos.flatMap(campo => (Array.isArray(data[campo]) ? data[campo] : data[campo] && typeof data[campo] === 'object' ? [data[campo]] : []))]));
+  if (Object.values(porLista).some(registros => registros.length)) {
+    try { observadorGuardados(porLista); } catch { /* el aviso nunca rompe el guardado */ }
+  }
+};
+
 async function request(endpoint, options = {}, reintentosMaximos = 3, sesionRenovada = false) {
   const defaultHeaders = {
     'Content-Type': 'application/json',
@@ -163,6 +179,7 @@ async function request(endpoint, options = {}, reintentosMaximos = 3, sesionReno
 
       // La propagación de cambios la hace el servidor actualizando sistema/semaforo (no hay endpoint SSE).
       if (aplicadoLocalmente) avisarRevisionPropia(response);
+      avisarRegistrosGuardados(endpoint, configBase.method, data);
       return data; // ✅ Éxito total. Entregamos los datos y salimos.
 
     } catch (error) {
@@ -317,6 +334,8 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
 };
 
 export const apiService = {
+  /** Recibe { planes: [...], hallazgos: [...] } con lo que guardaron los endpoints distintos de /api/grc/sync. */
+  observarGuardados: fn => { observadorGuardados = typeof fn === 'function' ? fn : null; },
   getCatalogosPublicos: () => request('/api/public/catalogos', { cache: 'no-store' }),
 
   eliminarCargoCatalogo: (id) => request('/api/grc/catalogo-cargos', {

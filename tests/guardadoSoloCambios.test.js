@@ -61,3 +61,21 @@ return { saveToCloud, registrarDatosServidor };`)(apiService, async () => ({}), 
   assert.match(avisos[0][0], /Otra persona modificó/);
   assert.equal(avisos[0][1], 'error');
 });
+
+test('lo guardado por otro endpoint ("Guardar acción", decisiones) renueva la huella: la matriz no choca consigo misma', async () => {
+  const enviados = [];
+  let observador = null;
+  const apiService = { saveGrcData: async datos => { enviados.push(datos); return {}; }, observarGuardados: fn => { observador = fn; } };
+  const { saveToCloud, registrarDatosServidor } = new Function('apiService', 'cargarXLSX', ...Object.keys(huella), `${fuente}
+return { saveToCloud, registrarDatosServidor };`)(apiService, async () => ({}), ...Object.values(huella));
+  assert.equal(typeof observador, 'function', 'el módulo de guardado se suscribe a los guardados del servidor');
+  registrarDatosServidor({ planes: [{ id: 1, accion: 'A', progreso: 40 }], huellasRegistros: huella.huellasDeDatos({ planes: [{ id: 1, accion: 'A', progreso: 40 }] }) });
+  // "Guardar acción" devolvió la acción al 60 %.
+  const guardada = { id: 1, accion: 'A', progreso: 60 };
+  observador({ planes: [guardada], hallazgos: [] });
+  assert.equal(await saveToCloud({ planes: [{ ...guardada, sede: 'Hotel' }] }), true);
+  assert.equal(enviados[0].planes[0].huellaBase, huella.huellaRegistro(guardada), 'viaja la huella de lo guardado, no la de la carga');
+  // Si no cambió nada más, no viaja.
+  assert.equal(await saveToCloud({ planes: [{ ...guardada, sede: 'Hotel' }] }), true);
+  assert.deepEqual(enviados[1].planes, []);
+});

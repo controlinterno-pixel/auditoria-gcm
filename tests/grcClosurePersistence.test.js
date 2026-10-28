@@ -1310,3 +1310,20 @@ test('PLA-8642: el ejecutor escribió "Corregido" al corregir evidencias (90 %):
   assert.equal(fin.code, 200, JSON.stringify(fin));
   assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'Pendiente Validación Revisor');
 });
+
+test('después de "Guardar acción", guardar la matriz no se toma como cambio de otra persona', async () => {
+  const { huellaRegistro } = await import('../src/utils/huellaRegistro.js');
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { estadoWorkflow: 'En Ejecución', progreso: 40 }));
+  const huellaAlCargar = huellaRegistro(fixture.documents.get(`${ROOT}/planes_accion/1`));
+  comoEjecutor(fixture);
+  const individual = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 60 }], nuevas: [] } });
+  assert.equal(individual.code, 200, JSON.stringify(individual));
+  const devuelto = individual.body.planesActualizados[0];
+  // La pantalla calcula la huella sobre lo que devolvió el servidor: es la misma que él calcula sobre lo guardado.
+  assert.equal(huellaRegistro(devuelto), huellaRegistro(fixture.documents.get(`${ROOT}/planes_accion/1`)));
+  // Con la huella renovada, "Guardar matriz" pasa; con la de antes del guardado individual, se bloqueaba (409).
+  await assert.rejects(() => fixture.workspace.guardarWorkspaceParcial({ planes: [{ ...devuelto, sede: 'Hotel', huellaBase: huellaAlCargar }] }), /modificó/);
+  await fixture.workspace.guardarWorkspaceParcial({ planes: [{ ...devuelto, sede: 'Hotel', huellaBase: huellaRegistro(devuelto) }] });
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).sede, 'Hotel');
+});
