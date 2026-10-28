@@ -1260,3 +1260,25 @@ test('No aplica: quien ejecuta y además figura como auditor no se lo aprueba a 
   assert.equal(aprobado.code, 200, JSON.stringify(aprobado));
   assert.equal(aprobado.body.hallazgo.noAplica.estado, 'Aprobado');
 });
+
+test('evaluación inicial: todas las acciones marcadas quedan evaluadas con la misma calificación; las no marcadas siguen pendientes', async () => {
+  const criterios = Object.fromEntries(['c1', 'c2', 'c3', 'c4', 'c5'].map(key => [key, 90]));
+  const adjuntoEvaluacion = { nombre: 'Evaluacion.pdf', tamano: 100, url: 'https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/evaluacion.pdf' };
+  const pendiente = id => action(id, { estadoWorkflow: workflow.ESTADO_EVALUACION_INICIAL, progreso: 0, evaluacionHolistica: null });
+  const plan = (fixture, id) => fixture.documents.get(`${ROOT}/planes_accion/${id}`);
+
+  const ambas = storeFixture({ fragmented: true });
+  ambas.documents.set(`${ROOT}/planes_accion/1`, pendiente(1));
+  ambas.documents.set(`${ROOT}/planes_accion/2`, pendiente(2));
+  const todas = await ambas.close({ decision: 'evaluar-diseno', idInforme: 'i1', idsPlanes: [1, 2], criterios, justificacion: '', adjuntoEvaluacion });
+  assert.equal(todas.code, 200, JSON.stringify(todas));
+  assert.deepEqual([plan(ambas, 1).estadoWorkflow, plan(ambas, 2).estadoWorkflow], ['En Ejecución', 'En Ejecución']);
+  assert.deepEqual([plan(ambas, 1).evaluacionHolistica.puntaje, plan(ambas, 2).evaluacionHolistica.puntaje], [90, 90], 'misma calificación');
+
+  const una = storeFixture({ fragmented: true });
+  una.documents.set(`${ROOT}/planes_accion/1`, pendiente(1));
+  una.documents.set(`${ROOT}/planes_accion/2`, pendiente(2));
+  assert.equal((await una.close({ decision: 'evaluar-diseno', idInforme: 'i1', idsPlanes: [1], criterios, justificacion: '', adjuntoEvaluacion })).code, 200);
+  assert.equal(plan(una, 1).estadoWorkflow, 'En Ejecución');
+  assert.equal(plan(una, 2).estadoWorkflow, workflow.ESTADO_EVALUACION_INICIAL, 'la no marcada sigue pendiente');
+});
