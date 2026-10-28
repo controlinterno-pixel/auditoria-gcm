@@ -1,0 +1,1191 @@
+[
+  {
+    "id": "TC001",
+    "title": "Inicia sesión y accede al workspace principal",
+    "description": "Verifica que un usuario autenticado puede iniciar sesión y aterrizar en el espacio principal de la aplicación.",
+    "category": "Login",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the main application workspace is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Acceso exitoso al espacio principal",
+    "description": "Verifica que un usuario autenticado puede iniciar sesión y llegar al workspace principal con navegación disponible.",
+    "category": "Reporte 360 de Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the main workspace is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sidebar navigation is available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Cambio entre etapas y apertura de detalle de un plan",
+    "description": "Verifica que el analista GRC puede cambiar entre etapas de planes de acción y abrir el detalle de un plan existente.",
+    "category": "Reporte 360 de Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Planes de Acción from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the Ejecutar stage"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the Corregir stage"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the Revisar stage"
+      },
+      {
+        "type": "action",
+        "description": "Switch to the Aprobar stage"
+      },
+      {
+        "type": "action",
+        "description": "Open a plan detail"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected plan detail is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the stage-specific plan content is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Carga Inicio con Mi Espacio GRC y panel ejecutivo",
+    "description": "Verifica que un usuario autenticado puede abrir Inicio y ver el espacio personal junto con indicadores ejecutivos.",
+    "category": "Inicio (Mi Espacio GRC y GRC Dashboard)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the Inicio section in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Mi Espacio GRC"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify personal workspace summary panels are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify executive dashboard indicators are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Consulta de Inicio con paneles y KPIs",
+    "description": "Verifica que el usuario puede abrir Inicio y revisar el espacio GRC con paneles y métricas principales.",
+    "category": "Reporte 360 de Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Inicio from the sidebar"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the GRC dashboard content is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify key KPI panels are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Muestra indicadores y gráficas del dashboard GRC",
+    "description": "Verifica que el usuario puede abrir el dashboard GRC y ver tarjetas KPI junto con visualizaciones de riesgo.",
+    "category": "Inicio (Mi Espacio GRC y GRC Dashboard)",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the Inicio section in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open GRC Dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify KPI cards are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify risk charts are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Generación y revisión del Reporte 360",
+    "description": "Verifica que el usuario puede configurar el alcance del reporte, revisar la vista previa y descargar el PDF del Reporte 360.",
+    "category": "Reporte 360 de Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Planes de Acción from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Reporte 360"
+      },
+      {
+        "type": "action",
+        "description": "Choose a report scope"
+      },
+      {
+        "type": "action",
+        "description": "Select one or more source types"
+      },
+      {
+        "type": "action",
+        "description": "Select reports to include"
+      },
+      {
+        "type": "action",
+        "description": "Download the PDF report"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the report preview is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the PDF download is initiated"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Consultar matriz de riesgos y filtrar la lista desde un punto del heat map",
+    "description": "Verifies that an authenticated user can open the risk matrix, select a heat map cell, and see the risk list update with the applied filter.",
+    "category": "Riesgos",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Riesgos from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Matriz de Riesgos"
+      },
+      {
+        "type": "action",
+        "description": "Select a heat map cell"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the risk heat map is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the filtered risk list is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "Exploración de auditorías operativas",
+    "description": "Verifica que el auditor puede revisar el cronograma anual, los programas de auditoría y el trabajo de campo dentro del módulo de auditorías.",
+    "category": "Reporte 360 de Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Auditorías from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open the annual schedule view"
+      },
+      {
+        "type": "action",
+        "description": "Open the audit programs view"
+      },
+      {
+        "type": "action",
+        "description": "Open the fieldwork view"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the audit schedule and program information is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the fieldwork information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Consulta el cronograma anual de auditorías",
+    "description": "Verifica que un auditor interno puede abrir el cronograma anual y revisar la planificación anual.",
+    "category": "Auditorías",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the Auditorías section in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Cronograma Anual"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the annual audit schedule is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Revisar planes de acción por etapa",
+    "description": "Verifies that an authenticated user can switch between workflow stages and review the plans shown in each stage.",
+    "category": "Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Planes de Acción from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Switch to Ejecutar"
+      },
+      {
+        "type": "action",
+        "description": "Switch to Corregir"
+      },
+      {
+        "type": "action",
+        "description": "Switch to Revisar"
+      },
+      {
+        "type": "action",
+        "description": "Switch to Aprobar"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify plans are displayed for the selected stage"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Consulta de matriz de riesgos y filtros",
+    "description": "Verifica que el gestor de riesgos puede explorar la matriz, refinar la lista con filtros y revisar el apetito de riesgo.",
+    "category": "Reporte 360 de Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Riesgos from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open the risk matrix view"
+      },
+      {
+        "type": "action",
+        "description": "Select a cell in the heat map"
+      },
+      {
+        "type": "action",
+        "description": "Apply a risk filter"
+      },
+      {
+        "type": "action",
+        "description": "Open the risk appetite view"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the filtered risk list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the risk appetite information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Consulta programas de auditoría y trabajo de campo",
+    "description": "Verifica que un auditor interno puede revisar los programas de auditoría y las evaluaciones de trabajo de campo desde el módulo de auditorías.",
+    "category": "Auditorías",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the Auditorías section in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Programas de Auditoría"
+      },
+      {
+        "type": "action",
+        "description": "Open Trabajo de Campo"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify audit programs are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify field work evaluations are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC014",
+    "title": "Abrir el detalle de un plan de acción",
+    "description": "Verifies that an authenticated user can open a plan detail view and review the plan information.",
+    "category": "Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Planes de Acción from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open a plan detail"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify plan information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC015",
+    "title": "Selección y limpieza de fuentes del Reporte 360",
+    "description": "Verifica que el usuario puede filtrar fuentes del reporte, revisar los informes asociados y limpiar o ampliar la selección.",
+    "category": "Reporte 360 de Planes de Acción",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Planes de Acción from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Reporte 360"
+      },
+      {
+        "type": "action",
+        "description": "Select one or more source types"
+      },
+      {
+        "type": "action",
+        "description": "Select reports to include"
+      },
+      {
+        "type": "action",
+        "description": "Clear the selected reports"
+      },
+      {
+        "type": "action",
+        "description": "Select all reports"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated report preview is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the associated report list is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC016",
+    "title": "Cierre de sesión desde configuración",
+    "description": "Verifica que el usuario puede cerrar sesión y regresar a la pantalla de acceso.",
+    "category": "Configuración y Perfil",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Configuración from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Choose Cerrar Sesión"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the login screen is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC017",
+    "title": "Consulta de comités en Gobernanza & IA",
+    "description": "Verifica que un usuario puede abrir Gobernanza & IA y revisar las sesiones de comité disponibles.",
+    "category": "Gobernanza & IA",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Gobernanza & IA from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Comités"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify committee sessions are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC018",
+    "title": "Revisión de configuración de usuarios y permisos",
+    "description": "Verifica que el administrador puede abrir Configuración y revisar las opciones de administración de usuarios y permisos.",
+    "category": "Configuración y Perfil",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Configuración from the sidebar"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user and permission settings are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC019",
+    "title": "Consulta de trazabilidad",
+    "description": "Verifica que un usuario puede abrir la trazabilidad y revisar el registro de eventos y seguimiento disponible.",
+    "category": "Gobernanza & IA",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Gobernanza & IA from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Trazabilidad"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the traceability log is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC020",
+    "title": "Revisar el apetito de riesgo",
+    "description": "Verifies that an authenticated user can open the risk appetite view and review its guidance content.",
+    "category": "Riesgos",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Riesgos from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Apetito de Riesgo"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the risk appetite information is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC021",
+    "title": "Consulta de auditoría automatizada",
+    "description": "Verifica que un usuario puede abrir la vista de auditoría automatizada y revisar la información disponible.",
+    "category": "Gobernanza & IA",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Gobernanza & IA from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Auditoría Automatizada"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the automated audit information is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC022",
+    "title": "Consultar hallazgos",
+    "description": "Verifies that an authenticated user can open findings and review the findings list.",
+    "category": "Informes y Hallazgos",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Informes y Hallazgos from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Hallazgos"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify findings are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC023",
+    "title": "Consultar informes de auditoría",
+    "description": "Verifies that an authenticated user can open audit reports and review issued report records.",
+    "category": "Informes y Hallazgos",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Informes y Hallazgos from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Informes de Auditoría"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify audit report records are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC024",
+    "title": "Acceso al perfil personal desde configuración",
+    "description": "Verifica que el usuario puede abrir su perfil personal desde la configuración y revisar su información.",
+    "category": "Configuración y Perfil",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open Configuración from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Ir a mi perfil"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify personal profile information is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC025",
+    "title": "Navega repetidamente entre submódulos de auditorías",
+    "description": "Verifica que el usuario puede cambiar entre las vistas de auditorías sin romper la navegación de la SPA.",
+    "category": "Auditorías",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the Auditorías section in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Cronograma Anual"
+      },
+      {
+        "type": "action",
+        "description": "Open Programas de Auditoría"
+      },
+      {
+        "type": "action",
+        "description": "Open Trabajo de Campo"
+      },
+      {
+        "type": "action",
+        "description": "Open Cronograma Anual"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the annual audit schedule remains accessible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC026",
+    "title": "Consultar fuentes de mejora",
+    "description": "Verifies that an authenticated user can open the improvement sources view and review the available records.",
+    "category": "Informes y Hallazgos",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Informes y Hallazgos from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Fuentes de Mejora"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify improvement source records are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC027",
+    "title": "Consultar incidentes y eventos de pérdida",
+    "description": "Verifies that an authenticated user can open incidents and review incident and loss-event records.",
+    "category": "Informes y Hallazgos",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Informes y Hallazgos from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Incidentes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify incident and loss-event records are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC028",
+    "title": "Consultar cargos y procesos",
+    "description": "Verifies that an authenticated user can open positions and processes and review the available records.",
+    "category": "Informes y Hallazgos",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open Informes y Hallazgos from the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Open Cargos y Procesos"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify positions and processes are displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC029",
+    "title": "Bloquea el acceso con credenciales inválidas",
+    "description": "Verifica que un usuario con credenciales inválidas ve una validación de acceso y no entra a la aplicación.",
+    "category": "Login",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email field with invalid@example.com"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password field with invalid-password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a login error message is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the main application workspace is not displayed"
+      }
+    ],
+    "priority": "Low"
+  }
+]
