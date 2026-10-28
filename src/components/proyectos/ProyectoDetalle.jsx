@@ -22,6 +22,7 @@ const EntregablesProyecto = lazy(() => import('./EntregablesProyecto.jsx'));
 const RiesgosProyecto = lazy(() => import('./RiesgosProyecto.jsx'));
 const CambiosProyecto = lazy(() => import('./CambiosProyecto.jsx'));
 const ReunionesProyecto = lazy(() => import('./ReunionesProyecto.jsx'));
+const AvanceSitio = lazy(() => import('./AvanceSitio.jsx'));
 const PresupuestoProyecto = lazy(() => import('./PresupuestoProyecto.jsx'));
 const ReportesProyecto = lazy(() => import('./ReportesProyecto.jsx'));
 const HistorialProyecto = lazy(() => import('./HistorialProyecto.jsx'));
@@ -40,6 +41,7 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
     ...(metodologia !== 'agil' ? [['cronograma', 'Cronograma y EDT']] : []),
     ['tareas', 'Tareas'],
     ...(metodologia !== 'predictiva' ? [['agil', 'Backlog y sprints']] : []),
+    ['avanceSitio', 'Avance en sitio'],
     ['entregables', 'Entregables'],
     ['riesgos', 'Riesgos e incidencias'],
     ['cambios', 'Cambios'],
@@ -88,7 +90,7 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
             <Insignia tono="azul">{METODOLOGIAS[metodologia]}</Insignia>
             {proyecto.archivado && <Insignia>Archivado</Insignia>}
             <Semaforo semaforo={indicadores?.semaforo} conTexto />
-            {cap.roles?.length > 0 && <span>Tu rol: <b>{cap.roles.join(', ')}</b></span>}
+            {cap.roles?.length > 0 && <span>Tu rol: <b>{cap.roles.map(rol => (rol === 'reportaAvance' ? 'reporta avance en sitio' : rol)).join(', ')}</b></span>}
             {!cap.roles?.length && <span>Acceso de consulta</span>}
           </div>
         </div>
@@ -115,6 +117,7 @@ export default function ProyectoDetalle({ id, usuario, onVolver, onCambio, showN
           {pestana === 'cronograma' && <CronogramaProyecto {...props} />}
           {pestana === 'tareas' && <TareasProyecto {...props} />}
           {pestana === 'agil' && <AgilProyecto {...props} />}
+          {pestana === 'avanceSitio' && <AvanceSitio {...props} />}
           {pestana === 'entregables' && <EntregablesProyecto {...props} />}
           {pestana === 'riesgos' && <RiesgosProyecto {...props} />}
           {pestana === 'cambios' && <CambiosProyecto {...props} />}

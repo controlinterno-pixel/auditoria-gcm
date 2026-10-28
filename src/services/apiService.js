@@ -509,13 +509,17 @@ export const apiService = {
     try {
       const appName = metadata.appName || 'controlInterno';
       const fileFieldName = metadata.fieldName || 'file';
-      const archivoPreparado = metadata.conservarOriginal ? archivo : await prepararArchivoAntesDeSubir(archivo);
+      // comprimirFoto: fotos de celular (4–8 MB) se reducen a 1600 px para que la línea de tiempo cargue rápido.
+      const archivoPreparado = metadata.conservarOriginal ? archivo
+        : metadata.comprimirFoto && archivo.type?.startsWith('image/')
+          ? await fetch(await comprimirImagen(archivo, 1600, 0.75)).then(res => res.blob()).then(blob => new File([blob], sanitizarNombreArchivo(archivo.name).replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }))
+          : await prepararArchivoAntesDeSubir(archivo);
 
       const formData = new FormData();
       formData.append('appName', appName);
 
       Object.keys(metadata).forEach((key) => {
-        if (key !== 'fieldName' && key !== 'appName' && key !== 'conservarOriginal') {
+        if (key !== 'fieldName' && key !== 'appName' && key !== 'conservarOriginal' && key !== 'comprimirFoto') {
           formData.append(key, metadata[key]);
         }
       });

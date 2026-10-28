@@ -72,6 +72,7 @@ export function capacidades(usuario, proyecto) {
     ver,
     gestionar,
     aportar: abierto && (gestionar || roles.has('equipo')),
+    reportarAvance: abierto && (gestionar || roles.has('reportaAvance')),
     decidir: abierto && (admin || roles.has('patrocinador') || roles.has('comite') || roles.has('aprobador') || roles.has('director')),
     autorizarEstado: abierto && (admin || roles.has('patrocinador') || roles.has('comite')),
     comentar: abierto && ver && (admin || roles.size > 0),
@@ -650,6 +651,47 @@ function guardarReunion(proyecto, plan, datos, ctx, cap) {
   };
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// Avance en sitio: reportes fotográficos de lo que se ve en obra, publicados al subirlos (no se editan; un
+// reporte equivocado lo oculta el director con motivo y queda en el historial).
+// ---------------------------------------------------------------------------------------------------------
+const MAX_REPORTES_SITIO = 500;
+const MAX_FOTOS_REPORTE = 12;
+
+function registrarAvanceSitio(proyecto, plan, datos, ctx, cap) {
+  exigir(cap.reportarAvance, 'Solo el director o las personas autorizadas en "Reportan avance en sitio" suben reportes de avance.');
+  const entrada = datos.reporte || {};
+  const reporte = {
+    fecha: entrada.fecha || '', titulo: texto(entrada.titulo, 120), descripcion: textoLargo(entrada.descripcion), frente: texto(entrada.frente, 80),
+    idTarea: entrada.idTarea ? String(entrada.idTarea) : '', avanceFisico: numeroONulo(entrada.avanceFisico), fotos: evidencias(entrada.fotos).slice(0, MAX_FOTOS_REPORTE),
+  };
+  if (!esFecha(reporte.fecha)) rechazar('Indica la fecha en que se tomaron las fotos.');
+  if (reporte.fecha > ctx.hoy) rechazar('La fecha del reporte no puede ser futura: registra lo que ya se ve en sitio.');
+  if (!reporte.titulo) rechazar('Escribe qué muestra el reporte (por ejemplo "Vaciado de la placa del mirador").');
+  if (!reporte.fotos.length) rechazar('Adjunta al menos una foto del avance.');
+  if (reporte.idTarea && !(plan.tareas || []).some(tarea => String(tarea.id) === reporte.idTarea)) rechazar('La actividad elegida no existe en el cronograma.');
+  if (reporte.avanceFisico !== null && !(Number.isInteger(reporte.avanceFisico) && reporte.avanceFisico >= 0 && reporte.avanceFisico <= 100)) rechazar('El avance físico debe ser un número entero entre 0 y 100.');
+  if ((plan.avancesSitio || []).length >= MAX_REPORTES_SITIO) rechazar(`El proyecto ya tiene ${MAX_REPORTES_SITIO} reportes de avance en sitio.`);
+  const registro = sello({ ...reporte, id: ctx.generarId(), codigo: siguienteCodigo(plan, 'avanceSitio', 'AS'), reportadoPor: ctx.usuario.email, creadoEn: ctx.ahora }, ctx);
+  return {
+    proyecto, plan: { ...plan, avancesSitio: [...(plan.avancesSitio || []), registro] },
+    eventos: [evento('reportar-avance-sitio', 'avanceSitio', registro.codigo, { despues: { fecha: registro.fecha, titulo: registro.titulo, fotos: registro.fotos.length, avanceFisico: registro.avanceFisico } })],
+  };
+}
+
+function ocultarAvanceSitio(proyecto, plan, datos, ctx, cap) {
+  exigir(cap.gestionar, 'Solo el director del proyecto o un administrador ocultan reportes de avance.');
+  const anterior = registroVigente(plan.avancesSitio, datos.id, datos.versionBase, 'El reporte');
+  const motivo = texto(datos.motivo, 300);
+  if (motivo.length < 10) rechazar('Explica por qué se oculta el reporte (al menos 10 caracteres).');
+  if (anterior.oculto) rechazar('El reporte ya está oculto.');
+  const sellado = sello({ ...anterior, oculto: { motivo, por: ctx.usuario.email, fecha: ctx.ahora } }, ctx);
+  return {
+    proyecto, plan: { ...plan, avancesSitio: reemplazar(plan.avancesSitio, sellado) },
+    eventos: [evento('ocultar-avance-sitio', 'avanceSitio', sellado.codigo, { despues: { motivo } })],
+  };
+}
+
 function actualizarCompromiso(proyecto, plan, datos, ctx, cap) {
   const reunion = (plan.reuniones || []).find(item => String(item.id) === String(datos.idReunion));
   if (!reunion) rechazar('La reunión no existe.', 404);
@@ -857,6 +899,7 @@ const ACCIONES = {
   guardarEntregable, presentarEntregable, decidirEntregable,
   guardarRiesgo, guardarCambio, decidirCambio,
   guardarReunion, actualizarCompromiso,
+  registrarAvanceSitio, ocultarAvanceSitio,
   registrarCosto, anularCosto, estimarCostoFinal,
 };
 export const NOMBRES_ACCIONES = Object.keys(ACCIONES);

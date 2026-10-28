@@ -18,6 +18,7 @@ const FORMULARIOS = {
   'FormulacionProyecto.jsx': ['alternativas', 'entorno', 'aspectos', 'cronogramaFases', 'objetivos', 'pestel', 'propuestaValor', 'modeloNegocio', 'ingresos', 'localizacion', 'ingenieria', 'organizacional', 'financiero'],
   'PlanificacionProyecto.jsx': ['interesados', 'organigrama', 'raci'],
   'CierreProyecto.jsx': ['transferencia', 'lecciones', 'actaCierre'],
+  'AvanceSitio.jsx': ['avanceSitio'],
 };
 // Casillas que se arman con datos del proyecto (bloques del CANVA, fases) y se revisan aparte.
 const ETIQUETAS_DINAMICAS = /\$\{/;

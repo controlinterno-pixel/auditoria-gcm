@@ -109,6 +109,7 @@ export function rolesEnProyecto(proyecto, correo) {
   (miembros.equipo || []).forEach(correoMiembro => normalizarCorreo(correoMiembro) === email && roles.add('equipo'));
   (miembros.aprobadores || []).forEach(correoMiembro => normalizarCorreo(correoMiembro) === email && roles.add('aprobador'));
   (miembros.lectores || []).forEach(correoMiembro => normalizarCorreo(correoMiembro) === email && roles.add('lector'));
+  (miembros.reportanAvance || []).forEach(correoMiembro => normalizarCorreo(correoMiembro) === email && roles.add('reportaAvance'));
   return roles;
 }
 
@@ -116,6 +117,7 @@ export function rolesEnProyecto(proyecto, correo) {
 export const correosConAcceso = miembros => [...new Set([
   miembros?.director, miembros?.patrocinador, miembros?.responsableArea,
   ...(miembros?.equipo || []), ...(miembros?.aprobadores || []), ...(miembros?.lectores || []), ...(miembros?.comite || []),
+  ...(miembros?.reportanAvance || []),
 ].map(normalizarCorreo).filter(Boolean))];
 
 const listaCorreos = valor => [...new Set((Array.isArray(valor) ? valor : String(valor || '').split(','))
@@ -193,9 +195,11 @@ export function validarMiembros(datos = {}) {
     aprobadores: listaCorreos(datos.aprobadores),
     lectores: listaCorreos(datos.lectores),
     comite: listaCorreos(datos.comite),
+    // Residentes, interventoría o supervisores que suben fotos de avance en sitio (sin gestionar el proyecto).
+    reportanAvance: listaCorreos(datos.reportanAvance),
   };
   if (!miembros.director) errores.push('Indica el correo del director del proyecto.');
-  const todos = [miembros.director, miembros.patrocinador, miembros.responsableArea, ...miembros.equipo, ...miembros.aprobadores, ...miembros.lectores, ...miembros.comite].filter(Boolean);
+  const todos = [miembros.director, miembros.patrocinador, miembros.responsableArea, ...miembros.equipo, ...miembros.aprobadores, ...miembros.lectores, ...miembros.comite, ...miembros.reportanAvance].filter(Boolean);
   const invalidos = todos.filter(correo => !CORREO_VALIDO.test(correo));
   if (invalidos.length) errores.push(`Estos correos no son de @termales.com.co: ${[...new Set(invalidos)].join(', ')}.`);
   if (miembros.patrocinador && miembros.patrocinador === miembros.director) errores.push('El patrocinador debe ser una persona distinta del director (es quien autoriza sus solicitudes).');

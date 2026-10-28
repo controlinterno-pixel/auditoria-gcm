@@ -31,6 +31,7 @@ export default function FormularioProyecto({ proyecto, usuario, onGuardar, onCer
     aprobadores: listaATexto(proyecto?.miembros?.aprobadores),
     lectores: listaATexto(proyecto?.miembros?.lectores),
     comite: listaATexto(proyecto?.miembros?.comite),
+    reportanAvance: listaATexto(proyecto?.miembros?.reportanAvance),
   }));
   const [configuracion, setConfiguracion] = useState(() => ({
     aprobarCambiosEstado: proyecto?.configuracion?.aprobarCambiosEstado !== false,
@@ -136,6 +137,7 @@ export default function FormularioProyecto({ proyecto, usuario, onGuardar, onCer
             {campoCorreo('equipo', 'Equipo de trabajo', 'Ejecutan y actualizan las tareas que se les asignen.', { multiple: true })}
             {campoCorreo('aprobadores', 'Aprobadores', 'Revisan tareas, entregables y cambios.', { multiple: true })}
             {campoCorreo('lectores', 'Lectores', 'Solo consultan.', { multiple: true })}
+            {campoCorreo('reportanAvance', 'Reportan avance en sitio', 'Suben fotos de avance (residente, interventoría, supervisor); no modifican el cronograma.', { multiple: true })}
           </>
         )}
         {paso === 'plan' && (
