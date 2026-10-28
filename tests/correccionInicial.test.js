@@ -22,9 +22,9 @@ test('solo las acciones devueltas asignadas al ejecutor (auditor o revisor)', ()
   assert.deepEqual(accionesEnCorreccionInicial(planes, ''), []);
 });
 
-test('la matriz oculta las demás acciones, los otros hallazgos, "Sí/No aplica" y "Agregar acción" en corrección', () => {
+test('la matriz oculta las demás acciones, los otros hallazgos, "Sí/No aplica" y "Agregar acción" en corrección (incluso si el ejecutor es admin)', () => {
   const fuente = readFileSync(new URL('../src/components/Planes.jsx', import.meta.url), 'utf8');
-  assert.match(fuente, /if \(isAdmin \|\| modoRevisionMatriz \|\| modoConsultaPlan \|\| !formInformeId\) return null;/, 'administrador, revisión y consulta ven todo');
+  assert.match(fuente, /if \(modoRevisionMatriz \|\| modoConsultaPlan \|\| !formInformeId\) return null;/, 'revisión y consulta ven todo, pero el ejecutor (también admin) ve solo lo que corrige');
   assert.match(fuente, /if \(idsEnCorreccionInicial && !idsEnCorreccionInicial\.has\(String\(act\.id\)\)\) return null;/);
   assert.match(fuente, /if \(idsEnCorreccionInicial && !\(node\.actividades \|\| \[\]\)\.some\(/);
   assert.match(fuente, /\{!modoRevisionMatriz && !idsEnCorreccionInicial && \(\s*<button type="button" onClick=\{\(\) => handleAddActivity/);

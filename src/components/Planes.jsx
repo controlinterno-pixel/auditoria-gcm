@@ -2452,14 +2452,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     }
   };
 
-  // Corrección del diseño inicial (programas de auditoría): si el ejecutor tiene acciones devueltas por el
-  // auditor, el plan solo le muestra esas; las aprobadas y las de otros quedan ocultas y bloqueadas.
+  // Corrección de acciones devueltas (por auditor o revisor en diseño, validación de evidencias o evaluación final de eficacia):
+  // si el ejecutor abre una acción devuelta específica, solo se muestra esa acción; si abre el plan sin acción específica,
+  // se muestran únicamente las acciones devueltas asignadas a su correo. Las demás quedan ocultas para no confundirlo.
   const idsEnCorreccionInicial = (() => {
-    if (isAdmin || modoRevisionMatriz || modoConsultaPlan || !formInformeId) return null;
+    if (modoRevisionMatriz || modoConsultaPlan || !formInformeId) return null;
     const guardados = Object.values(matrixState || {}).flatMap(nodo => (Array.isArray(nodo?.actividades) ? nodo.actividades : []))
       .map(actividad => safePlanes.find(plan => String(plan.id) === String(actividad.id)));
     const ids = accionesEnCorreccionInicial(guardados, user?.email).map(plan => String(plan.id));
-    return ids.length ? new Set(ids) : null;
+    if (!ids.length) return null;
+    if (editPlan) {
+      return ids.includes(String(editPlan.id)) ? new Set([String(editPlan.id)]) : (isAdmin ? null : new Set(ids));
+    }
+    return new Set(ids);
   })();
   const accionesOcultasEnCorreccion = idsEnCorreccionInicial
     ? Object.values(matrixState || {}).flatMap(nodo => (Array.isArray(nodo?.actividades) ? nodo.actividades : [])).filter(actividad => !idsEnCorreccionInicial.has(String(actividad.id))).length
@@ -3356,6 +3361,15 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               } else abrirEvaluacionAccion(plan);
                               return;
                             }
+                            if (esEjecucion && planDevueltoAlEjecutor(plan)) {
+                              setMatrixDirty(false);
+                              setModoRevisionMatriz(false); setModoConsultaPlan(false);
+                              setDetallePanelPlanes(null);
+                              setEditPlan(plan);
+                              setVistaActiva('nuevo');
+                              if (typeof scrollToForm === 'function') scrollToForm();
+                              return;
+                            }
                             const hallazgo = safeHallazgos.find(item => String(item.id) === String(plan.idHallazgo));
                             const informeId = String(plan.idInforme || hallazgo?.idInforme || '');
                             setEditPlan(null);
@@ -3366,7 +3380,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               document.getElementById(`plan-completo-${informeId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }, 80);
                           }} className={`mt-2 text-[10px] font-black underline underline-offset-2 ${esEjecucion ? 'text-rose-700 hover:text-rose-900' : 'text-blue-700 hover:text-blue-900'}`}>
-                            {esAprobacion ? ({ 'aprobar-cierre': 'Evaluar eficacia y cerrar', 'restaurar-estado': 'Restaurar y continuar' }[tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea] || 'Evaluar diseño') : 'Abrir matriz'}
+                            {esAprobacion ? ({ 'aprobar-cierre': 'Evaluar eficacia y cerrar', 'restaurar-estado': 'Restaurar y continuar' }[tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea] || 'Evaluar diseño') : esEjecucion && planDevueltoAlEjecutor(plan) ? 'Corregir acción' : 'Abrir matriz'}
                           </button>
                         </article>
                       ))}
