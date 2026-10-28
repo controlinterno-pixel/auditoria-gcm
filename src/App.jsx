@@ -250,6 +250,7 @@ export default function App() {
     catalogoCargos, setCatalogoCargos, mapaProcesos, setMapaProcesos,
     sedesEmpresa, setSedesEmpresa,
     organizacionesExternas, setOrganizacionesExternas,
+    rolesProyecto, setRolesProyecto,
     catalogosInicializados, setCatalogosInicializados,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
@@ -422,16 +423,17 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, informesAuditoria,
     evaluaciones: safeEvaluaciones, comites: safeComites, incidentes: safeIncidentes,
     cronograma: safeCronograma, monitoreo: safeMonitoreo, programas: safeProgramas,
-    fuentesMejora, catalogoCargos, mapaProcesos, sedesEmpresa, organizacionesExternas, catalogosInicializados,
+    fuentesMejora, catalogoCargos, mapaProcesos, sedesEmpresa, organizacionesExternas, ...(Array.isArray(rolesProyecto) ? { rolesProyecto } : {}), catalogosInicializados,
   });
 
-  const guardarCatalogos = async (cargos, procesos, sedes = sedesEmpresa, organizaciones = organizacionesExternas) => {
+  const guardarCatalogos = async (cargos, procesos, sedes = sedesEmpresa, organizaciones = organizacionesExternas, roles = rolesProyecto) => {
     if (!isAdmin) return false;
     const guardado = await saveToCloud({
       catalogoCargos: cargos,
       mapaProcesos: procesos,
       sedesEmpresa: sedes,
       organizacionesExternas: organizaciones,
+      ...(Array.isArray(roles) ? { rolesProyecto: roles } : {}),
       catalogosInicializados: true,
     });
     if (!guardado) {
@@ -442,6 +444,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     setMapaProcesos(procesos);
     setSedesEmpresa(sedes);
     setOrganizacionesExternas(organizaciones);
+    if (Array.isArray(roles)) setRolesProyecto(roles);
     setCatalogosInicializados(true);
     return true;
   };
@@ -798,6 +801,7 @@ return (
     mapaProcesos={mapaProcesos}
     sedesEmpresa={sedesEmpresa}
     organizacionesExternas={organizacionesExternas}
+    rolesProyecto={rolesProyecto}
     catalogosInicializados={catalogosInicializados}
   >
     <div className="app-shell flex h-dvh bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
@@ -1200,6 +1204,7 @@ return (
                   mapaProcesos={mapaProcesos}
                   sedesEmpresa={sedesEmpresa}
                   organizacionesExternas={organizacionesExternas}
+                  rolesProyecto={rolesProyecto}
                   catalogosInicializados={catalogosInicializados}
                   onSaveCatalogos={guardarCatalogos}
                   onDeleteCargo={eliminarCargoCatalogo}

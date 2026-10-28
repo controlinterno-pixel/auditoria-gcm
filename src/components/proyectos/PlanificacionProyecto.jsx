@@ -5,6 +5,7 @@ import EditorApartado, { AreaTexto, ListaEditable } from './EditorApartado.jsx';
 import { Campo, CampoCatalogo, Insignia, Seccion, claseCampo } from './ui.jsx';
 import { faltantesEnCatalogo, mensajeFaltantes } from '../../utils/proyectos/catalogos.js';
 import { useCatalogos } from '../../context/useCatalogos';
+import { NIVELES_ROL, ORIGENES_ROL, buscarRol } from '../../utils/proyectos/rolesProyecto.js';
 
 const nuevoId = () => (globalThis.crypto?.randomUUID?.() || `n${Date.now()}${Math.random().toString(36).slice(2, 6)}`);
 const Entrada = ({ etiqueta, valor, onCambio }) => <Campo etiqueta={etiqueta}>{p => <input {...p} className={claseCampo} value={valor ?? ''} onChange={evento => onCambio(evento.target.value)} />}</Campo>;
@@ -13,6 +14,7 @@ const Selector = ({ etiqueta, valor, onCambio, opciones }) => (
 );
 const ESCALA = { 1: '1 · Muy bajo', 2: '2 · Bajo', 3: '3 · Medio', 4: '4 · Alto', 5: '5 · Muy alto' };
 const TONO_ESTRATEGIA = { cerca: 'rojo', satisfecho: 'amarillo', informado: 'azul', monitorear: 'gris' };
+const OTRO_ROL = '__otro';
 const DONDE = { edt: 'pestaña Cronograma y EDT', riesgosProyecto: 'pestaña Riesgos e incidencias', acta: 'ficha del proyecto (Editar ficha)' };
 
 export default function PlanificacionProyecto(props) {
@@ -20,7 +22,7 @@ export default function PlanificacionProyecto(props) {
   const clave = id => `${id}-${plan.secciones?.[id]?.version || 'nuevo'}`;
   const elementos = elementosRaci(plan);
   const problemasRaci = erroresRaci(plan);
-  const { cargosEmpresa = [], organizacionesExternas = [], catalogosInicializados } = useCatalogos();
+  const { cargosEmpresa = [], organizacionesExternas = [], rolesProyecto = [], catalogosInicializados } = useCatalogos();
   // Interesados y participantes deben existir en Cargos y Procesos; si falta alguno, no se guarda hasta crearlo.
   const bloqueoCatalogo = seccion => datos => mensajeFaltantes(faltantesEnCatalogo(seccion, datos, { cargos: cargosEmpresa, organizaciones: organizacionesExternas, inicializado: catalogosInicializados }));
 
@@ -76,10 +78,34 @@ export default function PlanificacionProyecto(props) {
           <div className="space-y-4">
             <ListaEditable elementos={datos.roles || []} onCambiar={roles => cambiar('roles', roles)} textoAgregar="＋ Agregar rol"
               nuevo={() => ({ id: nuevoId(), fase: 'inversion', rol: '', nivel: 'tactico' })}
-              renderFila={(rol, actualizar) => (
+              renderFila={(rol, actualizar) => {
+                // Rol del catálogo (Cargos y Procesos → Roles de proyecto) o "Otro" escrito a mano; los roles
+                // antiguos que no están en el catálogo se muestran como "Otro" con su texto.
+                const delCatalogo = rol.rolLibre ? null : buscarRol(rol.rol, rolesProyecto);
+                const libre = rol.rolLibre || Boolean(String(rol.rol || '').trim() && !delCatalogo);
+                const elegirRol = valor => {
+                  if (valor === OTRO_ROL) { actualizar({ rol: '', rolLibre: true }); return; }
+                  const elegido = buscarRol(valor, rolesProyecto);
+                  if (!elegido) { actualizar({ rol: '', rolLibre: false }); return; }
+                  const origen = elegido.origen === 'externa' ? 'externa' : 'empresa';
+                  actualizar({ rol: elegido.nombre, rolLibre: false, nivel: elegido.nivel || rol.nivel, origen, ...(origen !== (rol.origen || 'empresa') ? { persona: '', organizacion: '' } : {}) });
+                };
+                const otrosRoles = [...new Set((datos.roles || []).filter(otro => otro.id !== rol.id).map(otro => String(otro.rol || '').trim()).filter(Boolean))];
+                const opcionesReporte = rol.reportaA && !otrosRoles.includes(rol.reportaA) ? [...otrosRoles, rol.reportaA] : otrosRoles;
+                return (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Selector etiqueta="Fase" valor={rol.fase} onCambio={valor => actualizar({ fase: valor })} opciones={FASES_CICLO} />
-                  <Entrada etiqueta="Rol" valor={rol.rol} onCambio={valor => actualizar({ rol: valor })} />
+                  <Campo etiqueta="Rol" ayuda={delCatalogo ? [delCatalogo.descripcion, delCatalogo.referencia && `📘 ${delCatalogo.referencia}`].filter(Boolean).join(' ') : undefined}>{p => (
+                    <select {...p} className={claseCampo} value={libre ? OTRO_ROL : delCatalogo?.nombre || ''} onChange={evento => elegirRol(evento.target.value)}>
+                      <option value="">—</option>
+                      {Object.entries(NIVELES_ROL).map(([nivel, nombreNivel]) => {
+                        const delNivel = rolesProyecto.filter(item => item.nivel === nivel);
+                        return delNivel.length ? <optgroup key={nivel} label={nombreNivel}>{delNivel.map(item => <option key={item.id} value={item.nombre}>{item.nombre}{item.origen === 'externa' ? ` (${ORIGENES_ROL.externa.toLowerCase()})` : ''}</option>)}</optgroup> : null;
+                      })}
+                      <option value={OTRO_ROL}>Otro (especificar)</option>
+                    </select>
+                  )}</Campo>
+                  {libre && <Entrada etiqueta="Nombre del rol" valor={rol.rol} onCambio={valor => actualizar({ rol: valor, rolLibre: true })} />}
                   <Selector etiqueta="Pertenece a" valor={rol.origen || 'empresa'} onCambio={valor => actualizar({ origen: valor, persona: '', organizacion: '' })} opciones={{ empresa: 'La empresa', externa: 'Otra organización' }} />
                   {rol.origen === 'externa' ? (
                     <>
@@ -87,11 +113,17 @@ export default function PlanificacionProyecto(props) {
                       <Entrada etiqueta="Persona o rol en la organización" valor={rol.persona} onCambio={valor => actualizar({ persona: valor })} />
                     </>
                   ) : <CampoCatalogo etiqueta="Cargo" tipo="cargo" valor={rol.persona} onCambio={valor => actualizar({ persona: valor })} />}
-                  <Entrada etiqueta="Reporta a" valor={rol.reportaA} onCambio={valor => actualizar({ reportaA: valor })} />
+                  <Campo etiqueta="Reporta a">{p => (
+                    <select {...p} className={claseCampo} value={rol.reportaA || ''} onChange={evento => actualizar({ reportaA: evento.target.value })}>
+                      <option value="">{otrosRoles.length ? 'No reporta a otro rol' : 'Agrega otros roles para elegir'}</option>
+                      {opcionesReporte.map(nombre => <option key={nombre} value={nombre}>{nombre}</option>)}
+                    </select>
+                  )}</Campo>
                   <Selector etiqueta="Nivel" valor={rol.nivel} onCambio={valor => actualizar({ nivel: valor })} opciones={{ estrategico: 'Estratégico', tactico: 'Táctico', operativo: 'Operativo' }} />
                   <AreaTexto etiqueta="Funciones" campo="funciones" datos={rol} cambiar={(c, v) => actualizar({ [c]: v })} filas={2} className="sm:col-span-2 lg:col-span-4" />
                 </div>
-              )} />
+                );
+              }} />
             {(datos.roles || []).length > 0 && (
               <div className="grid gap-3 sm:grid-cols-3" aria-label="Organigrama por fase">
                 {Object.entries(FASES_CICLO).map(([fase, nombre]) => (

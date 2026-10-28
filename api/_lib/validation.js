@@ -17,6 +17,7 @@ const ESQUEMA_SYNC = {
   auditoresLista: 'lista',
   sedesEmpresa: 'lista-textos',
   organizacionesExternas: 'lista-textos',
+  rolesProyecto: 'lista-objetos',
   informesEliminados: 'lista-textos',
   planesEliminados: 'lista-textos',
   // Botón Eliminar: lo que se borra va explícito; guardar una lista nunca borra lo que no viene en ella.

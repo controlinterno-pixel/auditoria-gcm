@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { CatalogosContext } from './catalogosContextValue';
 import { MAPA_PROCESOS as MAPA_PROCESOS_BASE } from '../constants/diccionariosGRC';
+import { rolesVigentes } from '../utils/proyectos/rolesProyecto';
 
 const MAPA_PROCESOS_VACIO = {};
 const normalizarNombreProceso = valor => String(valor || '')
@@ -71,6 +72,7 @@ export function CatalogosProvider({
   mapaProcesos = {},
   sedesEmpresa = [],
   organizacionesExternas = [],
+  rolesProyecto = null,
   catalogosInicializados = false,
   children,
 }) {
@@ -99,6 +101,9 @@ export function CatalogosProvider({
     [organizacionesExternas, catalogosInicializados]
   );
 
+  // Roles del organigrama de los proyectos (activos); sin catálogo guardado, los del manual.
+  const rolesActivos = useMemo(() => rolesVigentes(rolesProyecto), [rolesProyecto]);
+
   const mapaProcesosNormalizado = useMemo(() => normalizarMapaProcesos(mapaProcesos), [mapaProcesos]);
   const mapaProcesosActivo = catalogosInicializados ? mapaProcesosNormalizado : MAPA_PROCESOS_VACIO;
 
@@ -107,9 +112,10 @@ export function CatalogosProvider({
     cargosEmpresa,
     sedesEmpresa: sedesEmpresaActivas,
     organizacionesExternas: organizacionesActivas,
+    rolesProyecto: rolesActivos,
     mapaProcesos: mapaProcesosActivo,
     catalogosInicializados,
-  }), [catalogoCargos, cargosEmpresa, sedesEmpresaActivas, organizacionesActivas, mapaProcesosActivo, catalogosInicializados]);
+  }), [catalogoCargos, cargosEmpresa, sedesEmpresaActivas, organizacionesActivas, rolesActivos, mapaProcesosActivo, catalogosInicializados]);
 
   return <CatalogosContext.Provider value={value}>{children}</CatalogosContext.Provider>;
 }

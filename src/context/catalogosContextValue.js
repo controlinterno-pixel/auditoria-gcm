@@ -5,6 +5,7 @@ export const CatalogosContext = createContext({
   cargosEmpresa: [],
   sedesEmpresa: [],
   organizacionesExternas: [],
+  rolesProyecto: [],
   mapaProcesos: {},
   catalogosInicializados: false,
 });

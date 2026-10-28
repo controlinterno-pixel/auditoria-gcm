@@ -41,6 +41,8 @@ export function useGrcData() {
   const [mapaProcesos, setMapaProcesos] = useState({});
   const [sedesEmpresa, setSedesEmpresa] = useState([]);
   const [organizacionesExternas, setOrganizacionesExternas] = useState([]);
+  // null = nunca se guardó el catálogo de roles: rigen los del manual.
+  const [rolesProyecto, setRolesProyecto] = useState(null);
   const [catalogosInicializados, setCatalogosInicializados] = useState(false);
 
   // 1. Estado y validación de perfil/rol de usuario (único listener de autenticación de la app)
@@ -203,6 +205,7 @@ export function useGrcData() {
         setMapaProcesos(data.mapaProcesos && typeof data.mapaProcesos === 'object' ? data.mapaProcesos : {});
         setSedesEmpresa(Array.isArray(data.sedesEmpresa) ? data.sedesEmpresa : []);
         setOrganizacionesExternas(Array.isArray(data.organizacionesExternas) ? data.organizacionesExternas : []);
+        setRolesProyecto(Array.isArray(data.rolesProyecto) ? data.rolesProyecto : null);
         setCatalogosInicializados(data.catalogosInicializados === true);
       } catch (error) {
         console.error("🔥 Error de seguridad/red obteniendo datos:", error);
@@ -342,6 +345,7 @@ export function useGrcData() {
     mapaProcesos, setMapaProcesos,
     sedesEmpresa, setSedesEmpresa,
     organizacionesExternas, setOrganizacionesExternas,
+    rolesProyecto, setRolesProyecto,
     catalogosInicializados, setCatalogosInicializados,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites

@@ -35,11 +35,11 @@ export function ajustarEjemploACatalogo({ cargos = [], organizaciones = [] } = {
     { nombre: organizacion('autoridad'), contacto: 'Subdirección de gestión ambiental', tipo: 'externo', poder: 5, interes: 2, actitud: 'neutral', expectativas: 'Cumplimiento de la normativa ambiental en el bosque.', riesgosAsociados: 'Demora en el permiso de intervención.', canal: 'Oficio', frecuencia: 'Por trámite', responsable: cargo('juridica') },
   ] };
   const organigrama = { roles: [
-    { fase: 'preinversion', rol: 'Aprobación de la factibilidad', origen: 'empresa', persona: cargo('juridica'), nivel: 'estrategico' },
+    { fase: 'preinversion', rol: 'Gerencia Administrativa y Judicial', origen: 'empresa', persona: cargo('juridica'), nivel: 'estrategico', funciones: 'Aprueba la Prefactibilidad y la Factibilidad' },
     { fase: 'inversion', rol: 'Patrocinador', origen: 'empresa', persona: cargo('gerencia'), nivel: 'estrategico' },
     { fase: 'inversion', rol: 'Director del proyecto', origen: 'empresa', persona: cargo('director'), reportaA: 'Patrocinador', nivel: 'tactico', funciones: 'Planificar, controlar y reportar' },
-    { fase: 'inversion', rol: 'Residente de obra', origen: 'externa', organizacion: organizacion('contratista'), persona: 'Ingeniero residente', reportaA: 'Director del proyecto', nivel: 'operativo' },
-    { fase: 'operacion', rol: 'Coordinador de experiencias', origen: 'empresa', persona: cargo('operaciones'), nivel: 'tactico' },
+    { fase: 'inversion', rol: 'Contratista', origen: 'externa', organizacion: organizacion('contratista'), persona: 'Ingeniero residente', reportaA: 'Director del proyecto', nivel: 'operativo', funciones: 'Adecuación del sendero y señalización' },
+    { fase: 'operacion', rol: 'Área de operación', origen: 'empresa', persona: cargo('operaciones'), reportaA: 'Patrocinador', nivel: 'operativo', funciones: 'Recibe y opera el recorrido guiado' },
   ] };
   return { interesados, organigrama, faltan };
 }
