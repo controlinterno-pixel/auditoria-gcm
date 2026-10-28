@@ -124,7 +124,7 @@ export default function TareasProyecto(props) {
                     <td className="p-2"><button type="button" className="text-left font-bold text-[#0055ff] hover:underline" onClick={() => setAbierta(tarea)}>{tarea.titulo}</button></td>
                     <td className="p-2">{nombreDeCorreo(tarea.responsable)}</td>
                     <td className="p-2"><Insignia tono={TONO_ESTADO[tarea.estado]}>{ESTADOS_TAREA[tarea.estado]}</Insignia></td>
-                    <td className="p-2 font-bold">{tarea.avance} %</td>
+                    <td className="p-2 whitespace-nowrap font-bold">{tarea.avance} %</td>
                     <td className="p-2">{fecha(tarea.inicio)}</td>
                     <td className={`p-2 ${vencida(tarea) ? 'font-black text-red-600' : ''}`}>{fecha(tarea.fin)}</td>
                     <td className="p-2">{PRIORIDADES[tarea.prioridad]}</td>

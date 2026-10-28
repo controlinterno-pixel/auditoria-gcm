@@ -848,13 +848,13 @@ return (
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
                     <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2 text-white truncate max-w-[120px]">Ejecución Plan Anual</td><td className="py-2 text-center text-slate-200">{kpiPlanAnual}%</td><td className="py-2 text-center text-slate-500">85%</td><td className="py-2 text-right">{kpiPlanAnual >= 85 ? '✅' : (kpiPlanAnual >= 60 ? '⚠️' : '🚨')}</td>
+                      <td className="py-2 text-white truncate max-w-[120px]">Ejecución Plan Anual</td><td className="py-2 whitespace-nowrap text-center text-slate-200">{kpiPlanAnual}%</td><td className="py-2 text-center text-slate-500">85%</td><td className="py-2 text-right">{kpiPlanAnual >= 85 ? '✅' : (kpiPlanAnual >= 60 ? '⚠️' : '🚨')}</td>
                     </tr>
                     <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2 text-white truncate max-w-[120px]">Salud de Controles</td><td className="py-2 text-center text-slate-200">{efectividadControlesGlobal}%</td><td className="py-2 text-center text-slate-500">80%</td><td className="py-2 text-right">{efectividadControlesGlobal >= 80 ? '✅' : (efectividadControlesGlobal >= 60 ? '⚠️' : '🚨')}</td>
+                      <td className="py-2 text-white truncate max-w-[120px]">Salud de Controles</td><td className="py-2 whitespace-nowrap text-center text-slate-200">{efectividadControlesGlobal}%</td><td className="py-2 text-center text-slate-500">80%</td><td className="py-2 text-right">{efectividadControlesGlobal >= 80 ? '✅' : (efectividadControlesGlobal >= 60 ? '⚠️' : '🚨')}</td>
                     </tr>
                     <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2 text-white truncate max-w-[120px]">Oportunidad Planes</td><td className="py-2 text-center text-slate-200">{kpiOportunidad}%</td><td className="py-2 text-center text-slate-500">85%</td><td className="py-2 text-right">{kpiOportunidad >= 85 ? '✅' : (kpiOportunidad >= 60 ? '⚠️' : '🚨')}</td>
+                      <td className="py-2 text-white truncate max-w-[120px]">Oportunidad Planes</td><td className="py-2 whitespace-nowrap text-center text-slate-200">{kpiOportunidad}%</td><td className="py-2 text-center text-slate-500">85%</td><td className="py-2 text-right">{kpiOportunidad >= 85 ? '✅' : (kpiOportunidad >= 60 ? '⚠️' : '🚨')}</td>
                     </tr>
                   </tbody>
                 </table>

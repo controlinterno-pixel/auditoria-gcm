@@ -255,27 +255,28 @@ const descargarCronogramaPDF = () => {
                    <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400 px-2 py-1 rounded-full uppercase notranslate" translate="no">⚙️ {avgCumplimiento}% Auditado</span>
                  </div>
                  <div className="overflow-x-auto flex-1 p-2">
-                   <table className="w-full text-xs text-left divide-y divide-slate-100">
+                   {/* Ancho mínimo: en pantallas angostas la tabla se desplaza en vez de partir números y títulos. */}
+                   <table className="w-full min-w-[860px] text-xs text-left divide-y divide-slate-100">
                      <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                        <tr>
-                         <th className="p-3">
-                           <div>Identificación</div>
+                         <th className="p-3 w-24 min-w-[6rem]">
+                           <div className="whitespace-nowrap">Identificación</div>
                            <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                          </th>
-                         <th className="p-3 w-24">
-                           <div>Año / Periodo</div>
+                         <th className="p-3 w-32 min-w-[8rem]">
+                           <div className="whitespace-nowrap">Año / Periodo</div>
                            <FilterInput colKey="periodo" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                          </th>
-                         <th className="p-3 w-48">
-                           <div>Área / Proceso</div>
+                         <th className="p-3 w-48 min-w-[11rem]">
+                           <div className="whitespace-nowrap">Área / Proceso</div>
                            <FilterInput colKey="proceso" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                          </th>
-                         <th className="p-3">
-                           <div>Enfoque Técnico y Alcance</div>
+                         <th className="p-3 min-w-[18rem]">
+                           <div className="whitespace-nowrap">Enfoque Técnico y Alcance</div>
                            <FilterInput colKey="enfoque" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                          </th>
-                         <th className="p-3 text-center">% Acumulado.</th>
-                         {isAdmin && <th className="p-3 text-center">Acción</th>}
+                         <th className="p-3 w-24 min-w-[6rem] whitespace-nowrap text-center">% Acumulado</th>
+                         {isAdmin && <th className="p-3 w-24 whitespace-nowrap text-center">Acción</th>}
                        </tr>
                      </thead>
                      <tbody className="divide-y divide-slate-100 bg-white">
@@ -290,11 +291,11 @@ const descargarCronogramaPDF = () => {
                            </tr>,
                            ...itemsPorAnioGroup[anio].map((c, index) => (
                              <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
-                               <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
-                               <td className="p-3 font-medium text-slate-600"><span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black mr-1 shadow-sm">{getAnio(c)}</span>{c.periodo}</td>
+                               <td className="p-3 whitespace-nowrap text-slate-400 font-mono">0{c.codigo}</td>
+                               <td className="p-3 font-medium text-slate-600 [overflow-wrap:normal] [word-break:normal]"><span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black mr-1 shadow-sm">{getAnio(c)}</span>{c.periodo}</td>
                                <td className="p-3 font-black text-slate-800">{c.proceso}</td>
                                <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
-                               <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
+                               <td className="p-3 whitespace-nowrap text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
                                {isAdmin && (
                                  <td className="p-3 text-center whitespace-nowrap">
                                    <button type="button" onClick={() => { setCronogramaModificado(false); setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm(); }} aria-label={`Editar cronograma ${c.codigo}`} className="min-h-11 min-w-11 text-orange-500 hover:text-orange-700 mx-1 text-sm transition-colors">✏️</button>

@@ -2864,7 +2864,7 @@ const renderMatriz = () => {
                             <tr key={factor.atributo}>
                               <td className="p-2.5 font-bold text-slate-800">{indice + 1}. {factor.atributo}</td>
                               <td className="p-2.5 text-slate-600">{factor.valor}</td>
-                              <td className="p-2.5 text-right font-mono font-bold text-emerald-700">+{factor.puntos}%</td>
+                              <td className="p-2.5 whitespace-nowrap text-right font-mono font-bold text-emerald-700">+{factor.puntos}%</td>
                             </tr>
                           )),
                           ...desglose.informativos.map((atributo, indice) => (
