@@ -62,3 +62,18 @@ test('la barra y el panel usan la misma regla y reconocen varios ejecutores o re
   assert.match(app, /esAuditorDelPlan && tareaPendientePlan\(p, \{ esPrograma: esInformePrograma\(informe, fuentesMejora\) \}\)\?\.rol === 'auditor'/);
   assert.match(app, /String\(lista \|\| ''\)\.split\(','\)/);
 });
+
+test('al 100 % el auditor cierra con la evaluación de eficacia, nunca con la del diseño (también en programas)', async () => {
+  const { pendienteEvaluacionInicial } = await import('../src/utils/programPlanWorkflow.js');
+  const antiguo = { estadoWorkflow: 'Pendiente Aprobación Auditor', progreso: 100 };
+  assert.equal(pendienteEvaluacionInicial(antiguo), false, 'estado antiguo al 100 %: no es diseño');
+  assert.equal(tareaPendientePlan(antiguo, { esPrograma: true }).tarea, 'aprobar-cierre');
+  assert.equal(pendienteEvaluacionInicial({ estadoWorkflow: 'Pendiente Aprobación Auditor', progreso: 0 }), true, 'sin ejecutar sí es diseño');
+  assert.equal(tareaPendientePlan({ estadoWorkflow: 'En Revisión (100%)', progreso: 100 }, { esPrograma: true }).tarea, 'aprobar-cierre');
+  const planes = readFileSync(new URL('../src/components/Planes.jsx', import.meta.url), 'utf8');
+  assert.match(planes, /tareaPendientePlan\(plan, \{ esPrograma: esPlanProgramaAuditoria\(plan\) \}\)\?\.tarea === 'evaluar-diseno' && esPlanProgramaAuditoria\(plan\)\) \{/, 'el panel abre la evaluación según la tarea');
+  assert.match(planes, /'Aprobar cierre · evaluación de eficacia'/);
+  assert.match(planes, /\['En Revisión \(100%\)', 'Pendiente Aprobación Auditor'\]\.includes\(plan\?\.estadoWorkflow\) && Number\(plan\?\.progreso\) === 100/);
+  const servidor = readFileSync(new URL('../api/_grc/review-plans.js', import.meta.url), 'utf8');
+  assert.match(servidor, /\['En Revisión \(100%\)', 'Pendiente Aprobación Auditor'\]\.includes\(plan\.estadoWorkflow\)/, 'el servidor acepta el cierre con eficacia');
+});

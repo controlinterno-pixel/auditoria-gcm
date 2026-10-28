@@ -70,6 +70,8 @@ export function esInformePrograma(informe, fuentes = []) {
 }
 
 export function pendienteEvaluacionInicial(plan) {
+  // "Pendiente Aprobación Auditor" es un estado antiguo: al 100 % es el cierre (evaluación de eficacia), no el diseño.
+  if (plan?.estadoWorkflow === 'Pendiente Aprobación Auditor' && Number(plan?.progreso) >= 100) return false;
   return [
     ESTADO_EVALUACION_INICIAL, 'Pendiente Revisión Jefatura',
     'Pendiente Aprobación Auditor', 'Borrador',

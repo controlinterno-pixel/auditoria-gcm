@@ -11,7 +11,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asuntoTareaPlan, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asuntoTareaPlan, tareaPendientePlan, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -547,7 +547,8 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
 
   // Un plan al 100% sigue pendiente del auditor aunque su fase guardada sea antigua.
   const enRevisionAuditor = plan => (
-    (plan?.estadoWorkflow === 'En Revisión (100%)' && Number(plan?.progreso) === 100) ||
+    // "Pendiente Aprobación Auditor" al 100 % es el estado antiguo del mismo paso: cierre con evaluación de eficacia.
+    (['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(plan?.estadoWorkflow) && Number(plan?.progreso) === 100) ||
     (!esPlanProgramaAuditoria(plan) && plan?.estadoWorkflow === 'En Ejecución' && Number(plan?.progreso) >= 100)
   );
   const planCerrado = plan => plan.estadoWorkflow === 'Cerrado' || (!plan.estadoWorkflow && plan.estado === 'Cerrado');
@@ -3235,6 +3236,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             </span>
                           </div>
                           <h4 className="text-xs font-black text-slate-800 mt-1.5 break-words">{plan.accion || 'Acción sin descripción'}</h4>
+                          {esAprobacion && (() => {
+                            // El auditor tiene dos tareas distintas: el diseño (inicio, programas) y el cierre con eficacia (todas las fuentes).
+                            const tarea = tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea;
+                            return tarea ? <p className={`mt-1.5 inline-block rounded-md border px-2 py-0.5 text-[10px] font-black ${tarea === 'aprobar-cierre' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-blue-200 bg-blue-50 text-blue-800'}`}>{tarea === 'aprobar-cierre' ? 'Aprobar cierre · evaluación de eficacia' : 'Evaluar diseño · evaluación inicial'}</p> : null;
+                          })()}
                           {esEjecucion && planDevueltoAlEjecutor(plan) && motivoDevolucion(plan) && (
                             <p className="mt-1.5 rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] text-orange-900 break-words"><span className="font-black">Motivo: </span>{motivoDevolucion(plan)}</p>
                           )}
@@ -3246,7 +3252,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           </dl>
                           <button type="button" onClick={() => {
                             if (esAprobacion) {
-                              if (esPlanProgramaAuditoria(plan) && pendienteEvaluacionInicial(plan)) {
+                              // Decide la tarea real: al 100 % siempre es el cierre con la evaluación de eficacia.
+                              if (tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea === 'evaluar-diseno' && esPlanProgramaAuditoria(plan)) {
                                 const informe = informesAuditoria.find(item => String(item.id) === String(plan.idInforme));
                                 iniciarEvaluacionIntegral(informe, planesEnriquecidos.filter(item => String(item.idInforme) === String(plan.idInforme)));
                               } else abrirEvaluacionAccion(plan);
@@ -3262,7 +3269,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               document.getElementById(`plan-completo-${informeId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }, 80);
                           }} className={`mt-2 text-[10px] font-black underline underline-offset-2 ${esEjecucion ? 'text-rose-700 hover:text-rose-900' : 'text-blue-700 hover:text-blue-900'}`}>
-                            {esAprobacion ? 'Evaluar aprobación' : 'Abrir matriz'}
+                            {esAprobacion ? (tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea === 'aprobar-cierre' ? 'Evaluar eficacia y cerrar' : 'Evaluar diseño') : 'Abrir matriz'}
                           </button>
                         </article>
                       ))}

@@ -164,7 +164,8 @@ async function decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alc
       return { error: 'not-auditor' };
     }
     if (seleccionados.some(plan => Number(plan.progreso) !== 100 ||
-        !(plan.estadoWorkflow === 'En Revisión (100%)' || (!esPrograma && plan.estadoWorkflow === 'En Ejecución')))) {
+        // "Pendiente Aprobación Auditor" al 100 % es un estado antiguo del mismo paso: se cierra con eficacia.
+        !(['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(plan.estadoWorkflow) || (!esPrograma && plan.estadoWorkflow === 'En Ejecución')))) {
       return { error: 'not-in-review' };
     }
     if (conjunta) {
