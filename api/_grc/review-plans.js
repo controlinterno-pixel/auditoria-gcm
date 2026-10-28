@@ -127,6 +127,19 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
       return { error: 'not-auditor' };
     }
     if (seleccionados.some(plan => !pendienteEvaluacionInicial(plan))) return { error: 'not-pending' };
+    // Una sola evaluación para todo el informe: deben ir todas sus acciones pendientes de la evaluación inicial
+    // (salvo las devueltas por error, que se restauran).
+    const { planes: planesInforme } = await obtenerPlanesDeInformeTx(transaction, workspace, idInforme);
+    const seleccion = new Set(seleccionados.map(plan => String(plan.id)));
+    // Solo cuentan las de este auditor: las acciones del informe asignadas a otro auditor las evalúa él.
+    const delAuditor = plan => esAuditorAsignado({
+      ...plan,
+      correoAuditor: plan.correoAuditor || informe.correoAuditor || informe.correoAuditorResponsable,
+      auditorAsignado: plan.auditorAsignado || informe.auditorResponsable || informe.auditor,
+    }, user, perfil);
+    if (planesInforme.some(plan => pendienteEvaluacionInicial(plan) && !reenvioErroneoAEvaluacion(plan) && delAuditor(plan) && !seleccion.has(String(plan.id)))) {
+      return { error: 'incomplete-package' };
+    }
     const ahora = new Date();
     const aprobado = puntaje >= 80;
     const evaluacion = {
@@ -160,6 +173,7 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
     'invalid-selection': ['Las acciones no pertenecen al informe seleccionado.', 400],
     'not-auditor': ['Solo el auditor asignado, distinto del ejecutor, puede evaluar estas acciones.', 403],
     'not-pending': ['Las acciones ya no están pendientes de evaluación inicial. Actualiza la vista.', 409],
+    'incomplete-package': ['La evaluación inicial del diseño incluye todas las acciones pendientes del informe. Actualiza la vista y vuelve a evaluar.', 409],
   };
   if (resultado.error) return sendError(res, ...errores[resultado.error]);
   await notificarSemaforo(res);

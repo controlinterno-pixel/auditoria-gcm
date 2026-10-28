@@ -601,7 +601,8 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
   };
 
   const iniciarEvaluacionIntegral = (informe, planes) => {
-    const pendientes = planes.filter(plan => pendienteEvaluacionInicial(plan) && esAuditorAsignado(plan, user?.email, perfilUsuario));
+    // La evaluación inicial del diseño es una sola para todas las acciones pendientes del informe (no por acción).
+    const pendientes = planes.filter(plan => pendienteEvaluacionInicial(plan) && !reenvioErroneoAEvaluacion(plan) && esAuditorAsignado(plan, user?.email, perfilUsuario));
     if (!paqueteListoParaEvaluacion(informe, pendientes) || !esAuditorAsignadoEvaluador(informe, pendientes)) return;
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
     setJustificacion('');
@@ -613,16 +614,8 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       planes: pendientes,
       totalActividades: pendientes.length,
       isReadOnly: false,
-      // Por defecto se evalúan todas; el auditor puede desmarcar para evaluar solo algunas.
-      seleccion: pendientes.map(plan => String(plan.id)),
     });
   };
-
-  const alternarSeleccionEvaluacion = (idPlan) => setModalEval(prev => {
-    const actual = Array.isArray(prev.seleccion) ? prev.seleccion : prev.planes.map(plan => String(plan.id));
-    const id = String(idPlan);
-    return { ...prev, seleccion: actual.includes(id) ? actual.filter(valor => valor !== id) : [...actual, id] };
-  });
 
   const abrirEvaluacionAccion = async plan => {
     const autorizado = esAuditorAsignado(plan, user?.email, perfilUsuario);
@@ -1461,18 +1454,14 @@ const handleNotificarPlan = async (planId) => {
       showNotification(error.message, 'error');
       return;
     }
-    const seleccionEval = Array.isArray(modalEval.seleccion) ? modalEval.seleccion : modalEval.planes.map(plan => String(plan.id));
-    const planesSeleccionados = modalEval.planes.filter(plan => seleccionEval.includes(String(plan.id)));
+    // Una sola evaluación para todas las acciones pendientes del informe.
+    const planesSeleccionados = modalEval.planes;
     if (planesSeleccionados.length === 0) {
-      showNotification('Selecciona al menos una acción para evaluar.', 'error');
+      showNotification('No hay acciones pendientes de evaluación inicial en este informe.', 'error');
       return;
     }
-    const pendientesSinEvaluar = modalEval.planes.length - planesSeleccionados.length;
-    const alcanceTexto = planesSeleccionados.length === modalEval.planes.length
-      ? 'todas las acciones'
-      : `${planesSeleccionados.length} de ${modalEval.planes.length} acciones`;
-    const avisoRestantes = pendientesSinEvaluar ? ` Las ${pendientesSinEvaluar} restantes seguirán pendientes de evaluación.` : '';
-    if (!window.confirm(`¿Confirmar evaluación de ${alcanceTexto} con un score de ${puntajeHolistico}%?${avisoRestantes}`)) return;
+    const pendientesSinEvaluar = 0;
+    if (!window.confirm(`¿Confirmar la evaluación de las ${planesSeleccionados.length} acciones del informe con un score de ${puntajeHolistico}%?`)) return;
 
     setGuardandoEvaluacionInicial(true);
     try {
@@ -5191,36 +5180,20 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               {!modalEval.isReadOnly && modalEval.planes.length > 0 && (() => {
-                const seleccion = Array.isArray(modalEval.seleccion) ? modalEval.seleccion : modalEval.planes.map(plan => String(plan.id));
-                const todas = seleccion.length === modalEval.planes.length;
                 return (
-                  <fieldset className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <legend className="text-xs font-black text-slate-800">Acciones a evaluar <span className="font-semibold text-slate-500">({seleccion.length} de {modalEval.planes.length})</span></legend>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => setModalEval(prev => ({ ...prev, seleccion: prev.planes.map(plan => String(plan.id)) }))} disabled={todas} className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Todas</button>
-                        <button type="button" onClick={() => setModalEval(prev => ({ ...prev, seleccion: [] }))} disabled={seleccion.length === 0} className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Ninguna</button>
-                      </div>
-                    </div>
-                    <p className="mb-3 text-[11px] text-slate-500">Evalúa todo el paquete o solo algunas acciones. Las que no marques quedan pendientes para otra evaluación, con su propio puntaje y soporte.</p>
+                  <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4" aria-labelledby="titulo-acciones-evaluadas">
+                    <h3 id="titulo-acciones-evaluadas" className="mb-1 text-xs font-black text-slate-800">Acciones evaluadas <span className="font-semibold text-slate-500">({modalEval.planes.length})</span></h3>
+                    <p className="mb-3 text-[11px] text-slate-500">Esta evaluación del diseño es una sola para todas las acciones pendientes del informe: la calificación, la justificación y el soporte quedan iguales en cada una.</p>
                     <ul className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
-                      {modalEval.planes.map(plan => {
-                        const marcado = seleccion.includes(String(plan.id));
-                        return (
-                          <li key={`eval-sel-${plan.id}`}>
-                            <label className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition-colors ${marcado ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-                              <input type="checkbox" checked={marcado} onChange={() => alternarSeleccionEvaluacion(plan.id)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700" />
-                              <span className="min-w-0 text-xs">
-                                <span className="font-mono font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>{' '}
-                                <span className="font-semibold text-slate-800">{plan.accion}</span>
-                                <span className="block text-[10px] text-slate-500">Ejecutor: {plan.responsable || 'Sin asignar'} · {plan.correoResponsable || 'sin correo'}</span>
-                              </span>
-                            </label>
-                          </li>
-                        );
-                      })}
+                      {modalEval.planes.map(plan => (
+                        <li key={`eval-sel-${plan.id}`} className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs">
+                          <span className="font-mono font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>{' '}
+                          <span className="font-semibold text-slate-800">{plan.accion}</span>
+                          <span className="block text-[10px] text-slate-500">Ejecutor: {plan.responsable || 'Sin asignar'} · {plan.correoResponsable || 'sin correo'}</span>
+                        </li>
+                      ))}
                     </ul>
-                  </fieldset>
+                  </section>
                 );
               })()}
 

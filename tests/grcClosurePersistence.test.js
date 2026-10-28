@@ -442,7 +442,7 @@ test('revisor aprueba solo sus acciones pendientes del informe, incluidas las vi
   sinListados(fixture);
 });
 
-test('evaluación de diseño lee solo las acciones seleccionadas', async () => {
+test('evaluación de diseño: lee las acciones del informe por consulta, nunca colecciones completas', async () => {
   const fixture = storeFixture({ fragmented: true });
   fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, {
     estadoWorkflow: workflow.ESTADO_EVALUACION_INICIAL, progreso: 0, evaluacionHolistica: null,
@@ -454,7 +454,8 @@ test('evaluación de diseño lee solo las acciones seleccionadas', async () => {
   });
   assert.equal(response.code, 200, JSON.stringify(fixture.errors) + JSON.stringify(response));
   assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'En Ejecución');
-  assert.ok(!fixture.reads.some(path => path.includes('?')), fixture.reads.join(', '));
+  // Para confirmar que la evaluación incluye todas las acciones pendientes del informe se consultan solo las de ese informe.
+  assert.ok(fixture.reads.filter(path => path.includes('?')).every(path => /\?(idInforme|idHallazgo)$/.test(path)), fixture.reads.join(', '));
   sinListados(fixture);
 });
 
@@ -1261,7 +1262,7 @@ test('No aplica: quien ejecuta y además figura como auditor no se lo aprueba a 
   assert.equal(aprobado.body.hallazgo.noAplica.estado, 'Aprobado');
 });
 
-test('evaluación inicial: todas las acciones marcadas quedan evaluadas con la misma calificación; las no marcadas siguen pendientes', async () => {
+test('evaluación inicial: todas las acciones del informe quedan evaluadas con la misma calificación; no se evalúa solo una parte', async () => {
   const criterios = Object.fromEntries(['c1', 'c2', 'c3', 'c4', 'c5'].map(key => [key, 90]));
   const adjuntoEvaluacion = { nombre: 'Evaluacion.pdf', tamano: 100, url: 'https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/evaluacion.pdf' };
   const pendiente = id => action(id, { estadoWorkflow: workflow.ESTADO_EVALUACION_INICIAL, progreso: 0, evaluacionHolistica: null });
@@ -1278,9 +1279,8 @@ test('evaluación inicial: todas las acciones marcadas quedan evaluadas con la m
   const una = storeFixture({ fragmented: true });
   una.documents.set(`${ROOT}/planes_accion/1`, pendiente(1));
   una.documents.set(`${ROOT}/planes_accion/2`, pendiente(2));
-  assert.equal((await una.close({ decision: 'evaluar-diseno', idInforme: 'i1', idsPlanes: [1], criterios, justificacion: '', adjuntoEvaluacion })).code, 200);
-  assert.equal(plan(una, 1).estadoWorkflow, 'En Ejecución');
-  assert.equal(plan(una, 2).estadoWorkflow, workflow.ESTADO_EVALUACION_INICIAL, 'la no marcada sigue pendiente');
+  assert.equal((await una.close({ decision: 'evaluar-diseno', idInforme: 'i1', idsPlanes: [1], criterios, justificacion: '', adjuntoEvaluacion })).code, 409, 'solo una parte: se rechaza');
+  assert.deepEqual([plan(una, 1).estadoWorkflow, plan(una, 2).estadoWorkflow], [workflow.ESTADO_EVALUACION_INICIAL, workflow.ESTADO_EVALUACION_INICIAL], 'no cambió nada');
 });
 
 test('PLA-8642: el ejecutor escribió "Corregido" al corregir evidencias (90 %): se restaura a ejecución, sin evaluar el diseño', async () => {

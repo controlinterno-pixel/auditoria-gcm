@@ -738,14 +738,17 @@ test('revisor decide todas, una a una o aprueba unas y devuelve otras', async ()
   assert.ok(todas.data().planes.every(p => p.estadoWorkflow === 'En Revisión (100%)'));
 });
 
-test('auditor evalúa el diseño de acciones individuales; las demás siguen pendientes', async () => {
+test('la evaluación inicial del diseño es una sola para todas las acciones pendientes del informe', async () => {
   const h = harness({ planes: [plan({ id: 1 }), plan({ id: 2 })] });
-  assert.equal((await evaluate(h, 90, { idsPlanes: [1] })).code, 200);
-  assert.equal(h.data().planes[0].estadoWorkflow, 'En Ejecución');
-  assert.equal(h.data().planes[1].estadoWorkflow, workflow.ESTADO_EVALUACION_INICIAL);
-  assert.equal((await evaluate(h, 60, { idsPlanes: [2] })).code, 200);
-  assert.equal(h.data().planes[1].estadoWorkflow, workflow.ESTADO_AJUSTES_INICIALES);
-  assert.equal(h.data().planes[0].estadoWorkflow, 'En Ejecución');
+  const parcial = await evaluate(h, 90, { idsPlanes: [1] });
+  assert.equal(parcial.code, 409, 'no se evalúa acción por acción');
+  assert.match(JSON.stringify(parcial), /incluye todas las acciones pendientes del informe/);
+  assert.equal(h.data().planes[0].estadoWorkflow, workflow.ESTADO_EVALUACION_INICIAL, 'no cambió nada');
+  assert.equal((await evaluate(h, 90, { idsPlanes: [1, 2] })).code, 200);
+  assert.deepEqual(h.data().planes.map(item => item.estadoWorkflow), ['En Ejecución', 'En Ejecución']);
+  const ui = read('../src/components/Planes.jsx');
+  assert.ok(!/alternarSeleccionEvaluacion/.test(ui), 'la ventana ya no tiene casillas por acción');
+  assert.match(ui, /Esta evaluación del diseño es una sola para todas las acciones pendientes del informe/);
 });
 
 test('devuelta por el aprobador: el ejecutor edita solo esa; las cerradas quedan bloqueadas', async () => {
