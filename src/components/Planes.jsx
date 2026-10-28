@@ -11,7 +11,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asuntoTareaPlan, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -461,6 +461,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     if (!programa && revisorNoAplica(plan)) {
       return enviarNotificacionPlanConReintento({
         ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        asunto: asuntoTareaPlan('ejecutar', plan),
         titulo_informe: 'Acción creada: lista para ejecutar',
         proceso_auditado: `La acción "${plan.accion}" quedó registrada sin revisor (${plan.motivoRevisorNoAplica || 'no aplica'}). Ya puedes ejecutarla; al llegar al 100% pasará al auditor aprobador.`,
         enlace_pdf: enlace,
@@ -470,6 +471,8 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     const resultados = await Promise.all([
       enviarNotificacionPlanConReintento({
         ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        // Copia para el ejecutor: no tiene nada que hacer todavía.
+        asunto: `Acción registrada · PLA-${String(plan.id).slice(-4)}: espera ${programa ? 'la evaluación del auditor' : 'la revisión del diseño'}`,
         titulo_informe: programa ? 'Acción guardada: pendiente de evaluación del auditor' : 'Acción creada: pendiente de revisión',
         proceso_auditado: programa
           ? `La acción "${plan.accion}" quedó guardada. El auditor asignado debe evaluar su diseño; la ejecución se habilitará con un resultado mayor o igual al 80%.`
@@ -479,6 +482,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       }, correoPreparado),
       enviarNotificacionPlanConReintento({
         ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+        asunto: asuntoTareaPlan(programa ? 'evaluar-diseno' : 'revisar-diseno', plan),
         titulo_informe: programa ? 'Acción requerida: evaluar matriz' : 'Acción requerida: revisar plan de acción',
         proceso_auditado: programa
           ? `Se registró la acción "${plan.accion}". Como auditor asignado, ingrese a Planes de Acción y pulse "Evaluar matriz" para evaluar el diseño antes de su ejecución. Mayor o igual al 80% aprueba y habilita al ejecutor; menos del 80% requiere correcciones.`
@@ -506,7 +510,7 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
       const varias = planesEjecutor.length > 1;
       const enviado = await enviarNotificacionPlanConReintento({
         ref_consecutivo: referencias.join(', '),
-        asunto: aprobado ? 'Diseño aprobado: ejecución habilitada' : 'Diseño no aprobado: corregir matriz',
+        asunto: `${aprobado ? 'Ejecutar acción' : 'Corregir diseño'} · ${referencias.join(', ')}`,
         titulo_informe: aprobado
           ? (varias ? `Ya puedes ejecutar tus ${planesEjecutor.length} acciones` : 'Ya puedes ejecutar tu acción')
           : 'Corrige la matriz y reenvíala al auditor',
@@ -524,14 +528,14 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
 
   const notificarEjecucionCompleta = (plan, correoPreparado) => (revisorNoAplica(plan) ? enviarNotificacionPlanConReintento({
     ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-    asunto: 'Acción al 100%: aprobación del auditor requerida',
+    asunto: asuntoTareaPlan('aprobar-cierre', plan),
     titulo_informe: 'Aprobar acción: ejecución al 100% (sin revisor)',
     proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Esta acción no tiene revisor; ingrese a Planes de Acción para evaluar las evidencias y cerrarla.`,
     enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
     destinatarios: plan.correoAuditor,
   }, correoPreparado) : enviarNotificacionPlanConReintento({
     ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-    asunto: 'Acción al 100%: revisión de evidencias requerida',
+    asunto: asuntoTareaPlan('validar-evidencias', plan),
     titulo_informe: 'Revisar matriz: ejecución al 100%',
     proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Ingrese a Planes de Acción y pulse "Revisar matriz" para validar las evidencias. Si aprueba, la acción pasará al auditor asignado para su dictamen final. El 100% no cierra la acción.`,
     enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
@@ -711,8 +715,10 @@ const [accionesPorPaginaDashboard, setAccionesPorPaginaDashboard] = useState(20)
     const etapa = etapaAccionPrograma(plan);
     if (!etapa) return [];
     const correo = normalizarIdentidad(user?.email);
-    const ejecutor = Boolean(correo && correo === normalizarIdentidad(plan.correoResponsable));
-    const revisor = Boolean(correo && correo === normalizarIdentidad(plan.correoRevisor));
+    // Puede haber varios ejecutores o revisores separados por coma.
+    const enLista = lista => Boolean(correo && String(lista || '').split(',').some(item => normalizarIdentidad(item) === correo));
+    const ejecutor = enLista(plan.correoResponsable);
+    const revisor = enLista(plan.correoRevisor);
     if (etapa.clave === 'evaluacion') {
       return ejecutor ? [{ plan, etapa, enEspera: true }] : [];
     }
@@ -1166,6 +1172,7 @@ const handleNotificarPlan = async (planId) => {
             }
             const correoRevisorEnviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+              asunto: `${asuntoTareaPlan(esProgramaInforme ? 'evaluar-diseno' : 'revisar-diseno', plan)} (corregido)`,
               titulo_informe: 'Diseño corregido: pendiente de nueva revisión',
               proceso_auditado: `El responsable ${plan.responsable} corrigió el plan "${plan.accion}". Ingrese para ${esProgramaInforme ? 'evaluar nuevamente el diseño; la ejecución sigue bloqueada hasta aprobar con al menos el 80%' : 'aprobarlo o solicitar otra corrección'}.`,
               enlace_pdf: enlaceRevision,
@@ -2202,6 +2209,7 @@ if (existingActivities.length > 0) {
         } else if (cambioDiseno && ['Pendiente Revisión Jefatura', ESTADO_EVALUACION_INICIAL].includes(planGuardado.estadoWorkflow)) {
           notificacionEnviada = await enviarNotificacionPlanConReintento({
             ref_consecutivo: `PLA-${String(planGuardado.id).slice(-4)}`,
+            asunto: `${asuntoTareaPlan(esFuenteProgramaAuditoria(informeActual) ? 'evaluar-diseno' : 'revisar-diseno', planGuardado)} (corregido)`,
             titulo_informe: 'Diseño corregido: pendiente de nueva revisión',
             proceso_auditado: `La acción "${planGuardado.accion}" fue actualizada y requiere ${esFuenteProgramaAuditoria(informeActual) ? 'una nueva evaluación inicial del auditor asignado, con aprobación desde el 80%, antes de ejecutar' : 'una nueva revisión'}.`,
             enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(idInformeReal)}`,
@@ -2294,12 +2302,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       for (const planActualizado of planesActualizados) {
         const notificado = await enviarNotificacionPlanConReintento({
           ref_consecutivo: `PLA-${String(planActualizado.id).slice(-4)}`,
+          asunto: eficaz ? `Acción cerrada · PLA-${String(planActualizado.id).slice(-4)}` : asuntoTareaPlan('corregir-evidencias', planActualizado),
           titulo_informe: eficaz ? 'Plan de acción cerrado' : 'Evidencia rechazada: requiere ajustes',
           proceso_auditado: eficaz
             ? `La eficacia de la acción "${planActualizado.accion}" fue confirmada. Conclusión: ${conclusion.trim()}`
             : `La eficacia de la acción "${planActualizado.accion}" no fue demostrada. La acción vuelve a ejecución (90%). Observación: ${observaciones.trim()}. Siguiente paso: el ejecutor corrige, carga las evidencias y guarda al 100%; luego el revisor valida y el auditor aprobador hace una nueva evaluación de eficacia para cerrarla.`,
           enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(planActualizado.idInforme || plan.idInforme)}`,
-          destinatarios: [planActualizado.correoResponsable, planActualizado.correoRevisor].filter(Boolean).join(', '),
+          destinatarios: eficaz ? [planActualizado.correoResponsable, planActualizado.correoRevisor].filter(Boolean).join(', ') : planActualizado.correoResponsable,
         }, correoPreparado);
         if (!notificado) todasNotificadas = false;
       }
@@ -2456,11 +2465,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           try {
             const enviado = await enviarNotificacionPlanConReintento({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-              asunto: pasaAlAprobador
-                ? 'Ejecución validada: aprobación final requerida'
-                : validacionPendienteRevisor
-                  ? 'Diseño aprobado: validación final del revisor requerida'
-                  : decision === 'aprobar' ? 'Diseño del plan aprobado' : 'Corrección solicitada para el plan de acción',
+              asunto: asuntoTareaPlan(pasaAlAprobador ? 'aprobar-cierre'
+                : validacionPendienteRevisor ? 'validar-evidencias'
+                  : decision === 'aprobar' ? 'ejecutar'
+                    : esValidacionFinal ? 'corregir-evidencias' : 'corregir-diseno', plan),
               titulo_informe: pasaAlAprobador
                 ? 'Ejecución al 100% validada por el revisor'
                 : validacionPendienteRevisor
@@ -4512,10 +4520,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                                   
                                                   const notificados = await enviarNotificacionPlanConReintento({
                                                     ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                    asunto: asuntoTareaPlan('corregir-evidencias', p),
                                                     titulo_informe: 'Evidencia de plan rechazada',
-                                                    proceso_auditado: `El Auditor rechazó los soportes de la acción: "${p.accion}". Motivo: ${r}. El avance regresa a 90% (En Ejecución) para su corrección.`,
-                                                    enlace_pdf: window.location.origin,
-                                                    destinatarios: [p.correoResponsable, p.correoRevisor].filter(Boolean).join(', ')
+                                                    proceso_auditado: `El Auditor rechazó los soportes de la acción: "${p.accion}". Motivo: ${r}. El avance regresa a 90% (En Ejecución) para su corrección; al guardarla de nuevo al 100% vuelve al revisor.`,
+                                                    enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(p.idInforme || '')}`,
+                                                    destinatarios: p.correoResponsable
                                                   });
                                                   alert(notificados ? 'Rechazo aplicado y responsables notificados.' : 'Rechazo aplicado. La notificación quedó pendiente para reintento.');
                                                 }

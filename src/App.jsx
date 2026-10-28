@@ -9,7 +9,7 @@ import {
 } from './services/appUpdate';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
-import { esInformePrograma, pendienteEvaluacionInicial, planDevueltoAlEjecutor, ESTADO_AJUSTES_INICIALES } from './utils/programPlanWorkflow.js';
+import { esInformePrograma, tareaPendientePlan } from './utils/programPlanWorkflow.js';
 import { noAplicaPendiente } from './utils/noAplicaHallazgo.js';
 
 import Configuracion from './components/Configuracion';
@@ -677,27 +677,26 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     return Boolean(hallazgo && idInforme && informesIds.has(String(idInforme)));
   });
 
-  // 1. Tareas que el usuario debe EJECUTAR (Subir evidencias y avance)
-  const misPlanesEjecucion = planesConOrigen.filter(p => {
-    const correoEjecutor = (p.correoResponsable || '').trim().toLowerCase();
+  // A quién le toca cada acción y qué debe hacer: la misma regla de los correos (tareaPendientePlan).
+  const tareaDePlan = p => {
+    const hallazgo = hallazgosPorId.get(String(p.idHallazgo));
+    const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo?.idInforme || p.idInforme));
+    return tareaPendientePlan(p, { esPrograma: esInformePrograma(informe, fuentesMejora) });
+  };
+  const correoEn = lista => String(lista || '').split(',').some(correo => correo.trim().toLowerCase() === userEmailLower.trim());
+
+  // 1. Tareas que el usuario debe EJECUTAR o CORREGIR (puede haber varios ejecutores separados por coma)
+  const misPlanesEjecucion = planesConOrigen.filter(p => (
     // Mientras el auditor decide un "No aplica" propuesto, las acciones del hallazgo no se ejecutan.
-    return correoEjecutor === userEmailLower.trim() && !noAplicaPendiente(hallazgosPorId.get(String(p.idHallazgo))) &&
-      (['En Ejecución', ESTADO_AJUSTES_INICIALES].includes(p.estadoWorkflow) || planDevueltoAlEjecutor(p));
-  });
+    correoEn(p.correoResponsable) && !noAplicaPendiente(hallazgosPorId.get(String(p.idHallazgo))) && tareaDePlan(p)?.rol === 'ejecutor'
+  ));
   // Las devueltas por el revisor o el auditor (diseño o evidencias) tienen su propia alerta "Corregir".
-  const misTareasCorreccion = misPlanesEjecucion.filter(planDevueltoAlEjecutor).length;
+  const misTareasCorreccion = misPlanesEjecucion.filter(p => String(tareaDePlan(p)?.tarea).startsWith('corregir')).length;
   const misTareasEjecucion = misPlanesEjecucion.length - misTareasCorreccion;
 
 
-  // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
-  const misPlanesRevision = planesConOrigen.filter(p => {
-    const correoRevisor = (p.correoRevisor || '').trim().toLowerCase();
-    const hallazgo = safeHallazgos.find(item => String(item.id) === String(p.idHallazgo));
-    const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo?.idInforme || p.idInforme));
-    return correoRevisor === userEmailLower.trim() &&
-      (p.estadoWorkflow === 'Pendiente Validación Revisor' ||
-        (p.estadoWorkflow === 'Pendiente Revisión Jefatura' && !esInformePrograma(informe, fuentesMejora)));
-  });
+  // 2. Tareas que el usuario debe REVISAR (diseño) o VALIDAR (evidencias al 100 %)
+  const misPlanesRevision = planesConOrigen.filter(p => correoEn(p.correoRevisor) && tareaDePlan(p)?.rol === 'revisor');
   const misTareasRevision = misPlanesRevision.length;
 
   // 3. Tareas que el usuario debe APROBAR (Como Auditor)
@@ -719,10 +718,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     const esAuditorDelPlan = correosAuditor.length > 0
       ? correosAuditor.includes(normalizarIdentidad(userEmailLower))
       : Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
-    return esAuditorDelPlan &&
-           ((esInformePrograma(informe, fuentesMejora) && pendienteEvaluacionInicial(p)) ||
-            ['En Revisión (100%)', 'Pendiente Aprobación Auditor'].includes(p.estadoWorkflow) ||
-            (!esInformePrograma(informe, fuentesMejora) && p.estadoWorkflow === 'En Ejecución' && Number(p.progreso) >= 100));
+    return esAuditorDelPlan && tareaPendientePlan(p, { esPrograma: esInformePrograma(informe, fuentesMejora) })?.rol === 'auditor';
   });
   // Hallazgos con "No aplica" propuesto por el ejecutor, pendientes de la decisión de este auditor.
   const misNoAplicaPorAprobar = safeHallazgos.filter(hallazgo => {

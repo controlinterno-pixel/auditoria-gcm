@@ -569,8 +569,8 @@ test('notificación de creación: ejecutor informado y auditor asignado recibe t
   const text = read('../src/components/Planes.jsx');
   const fn = text.slice(text.indexOf('  const notificarRegistroPlan ='), text.indexOf('  // Un plan al 100%'));
   const payloads = [];
-  const notify = new Function('esPlanProgramaAuditoria', 'enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarRegistroPlan;`)(
-    () => true, async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
+  const notify = new Function('asuntoTareaPlan', 'esPlanProgramaAuditoria', 'enviarNotificacionPlanConReintento', 'window', `${fn}\nreturn notificarRegistroPlan;`)(
+    workflow.asuntoTareaPlan, () => true, async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
   );
   assert.equal(await notify(plan(), true), true);
   assert.deepEqual(payloads.map(item => item.destinatarios), ['ejecutor@example.test', 'auditor@example.test']);
@@ -603,7 +603,8 @@ test('aviso al 100% lleva al revisor a la matriz, no a la evidencia ni al cierre
   const text = read('../src/components/Planes.jsx');
   const fn = text.slice(text.indexOf('  const notificarEjecucionCompleta ='), text.indexOf('  // Un plan al 100%'));
   const payloads = [];
-  const notify = new Function('enviarNotificacionPlanConReintento', 'window', 'revisorNoAplica', 'ESTADO_PENDIENTE_VALIDACION_REVISOR', `${fn}\nreturn notificarEjecucionCompleta;`)(
+  const notify = new Function('asuntoTareaPlan', 'enviarNotificacionPlanConReintento', 'window', 'revisorNoAplica', 'ESTADO_PENDIENTE_VALIDACION_REVISOR', `${fn}\nreturn notificarEjecucionCompleta;`)(
+    workflow.asuntoTareaPlan,
     async payload => { payloads.push(payload); return true; }, { location: { origin: 'https://example.test' } },
     item => item?.revisorNoAplica === true, 'Pendiente Validación Revisor',
   );
@@ -668,7 +669,7 @@ for (const decision of ['aprobar', 'corregir']) {
     const before = plan({ progreso: 100, estadoWorkflow: 'Pendiente Validación Revisor' });
     const after = { ...before, estadoWorkflow: decision === 'aprobar' ? 'En Revisión (100%)' : 'En Ejecución', progreso: decision === 'aprobar' ? 100 : 90 };
     const bindings = {
-    esAdministradorTotal, puedeVerTodo,
+    esAdministradorTotal, puedeVerTodo, asuntoTareaPlan: workflow.asuntoTareaPlan,
       revisionInformeId: 'i1', guardandoDecisionRevision: false, motivoCorreccion: 'Soporte incompleto',
       user: { email: 'revisor@example.test' }, planesEnriquecidos: [before],
       ESTADO_PENDIENTE_VALIDACION_REVISOR: 'Pendiente Validación Revisor', esPlanProgramaAuditoria: () => true,
@@ -783,7 +784,9 @@ test('eficacia rechazada: ejecutor -> revisor -> nueva evaluación del aprobador
   assert.equal(workflow.etapaAccionPrograma(h.data().planes[0])?.boton, 'Revisar matriz');
   const textoPlanes = read('../src/components/Planes.jsx');
   assert.match(textoPlanes, /p\.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && esRevisor &&/);
-  assert.match(read('../src/App.jsx'), /p\.estadoWorkflow === 'Pendiente Validación Revisor' \|\|/);
+  // La campana del revisor usa la misma regla: la acción vuelve a ser suya.
+  assert.equal(workflow.tareaPendientePlan(h.data().planes[0], { esPrograma: true })?.rol, 'revisor');
+  assert.match(read('../src/App.jsx'), /correoEn\(p\.correoRevisor\) && tareaDePlan\(p\)\?\.rol === 'revisor'/);
   h.user.email = 'auditor@example.test';
   assert.equal((await h.review({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Cumple', observaciones: '' } })).code, 409);
   h.user.email = 'revisor@example.test';

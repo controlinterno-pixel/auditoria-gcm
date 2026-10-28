@@ -96,6 +96,12 @@ export function disenoInicialBloqueado(plan) {
 }
 
 export function etapaAccionPrograma(plan) {
+  // Devuelta al ejecutor ("Borrador" con motivo): le toca corregir, no está esperando al auditor.
+  if (plan?.estadoWorkflow === 'Borrador' && planDevueltoAlEjecutor(plan)) return {
+    clave: 'correccion', rol: 'ejecutor', titulo: 'Corrige el diseño de la acción',
+    descripcion: `El diseño fue devuelto${motivoDevolucion(plan) ? ` (${motivoDevolucion(plan)})` : ''}. Guarda las correcciones para reenviarlo; todavía no puedes ejecutar.`,
+    boton: 'Corregir matriz',
+  };
   if (pendienteEvaluacionInicial(plan)) return {
     clave: 'evaluacion', rol: 'auditor', titulo: 'Evaluación inicial pendiente',
     descripcion: 'El auditor asignado debe evaluar la matriz. La ejecución sigue bloqueada hasta aprobar con 80% o más.',
@@ -105,6 +111,11 @@ export function etapaAccionPrograma(plan) {
     clave: 'correccion', rol: 'ejecutor', titulo: 'Corrige el diseño de la acción',
     descripcion: 'La evaluación inicial no fue aprobada. Guarda las correcciones para reenviarlas al auditor; todavía no puedes ejecutar.',
     boton: 'Corregir matriz',
+  };
+  if (plan?.estadoWorkflow === 'En Ejecución' && planDevueltoAlEjecutor(plan)) return {
+    clave: 'correccion-evidencias', rol: 'ejecutor', titulo: 'Corrige las evidencias de la acción',
+    descripcion: `Las evidencias fueron devueltas${motivoDevolucion(plan) ? ` (${motivoDevolucion(plan)})` : ''}. Ajusta los soportes y guarda de nuevo al 100%: la acción vuelve al revisor.`,
+    boton: 'Corregir evidencias',
   };
   if (plan?.estadoWorkflow === 'En Ejecución') return {
     clave: 'ejecucion', rol: 'ejecutor', titulo: 'Ejecución habilitada',
@@ -143,3 +154,43 @@ export function accionesEnCorreccionInicial(planes, correo) {
   return (Array.isArray(planes) ? planes : []).filter(plan => plan?.estadoWorkflow === ESTADO_AJUSTES_INICIALES
     && String(plan.correoResponsable || '').split(',').some(item => item.trim().toLowerCase() === usuario));
 }
+
+/**
+ * A quién le toca la acción y qué debe hacer, para todas las etapas (programas de auditoría y demás planes).
+ * La usan las alertas de la barra, el panel de pendientes y el asunto de los correos, para que digan lo mismo.
+ * Devuelve { rol: 'ejecutor' | 'revisor' | 'auditor', tarea, verbo } o null si nadie tiene nada pendiente.
+ */
+export const TAREAS_PLAN = {
+  ejecutar: { rol: 'ejecutor', verbo: 'Ejecutar acción' },
+  'corregir-diseno': { rol: 'ejecutor', verbo: 'Corregir diseño' },
+  'corregir-evidencias': { rol: 'ejecutor', verbo: 'Corregir evidencias' },
+  'revisar-diseno': { rol: 'revisor', verbo: 'Revisar diseño' },
+  'validar-evidencias': { rol: 'revisor', verbo: 'Validar evidencias' },
+  'evaluar-diseno': { rol: 'auditor', verbo: 'Evaluar diseño' },
+  'aprobar-cierre': { rol: 'auditor', verbo: 'Aprobar cierre' },
+};
+
+export function tareaPendientePlan(plan, { esPrograma = false } = {}) {
+  const estado = plan?.estadoWorkflow;
+  const alCien = Number(plan?.progreso) >= 100;
+  const tarea = clave => ({ tarea: clave, ...TAREAS_PLAN[clave] });
+  if (!plan || ['Cerrado', 'No aplica'].includes(estado) || plan.estado === 'Cerrado') return null;
+  if (estado === ESTADO_AJUSTES_INICIALES) return tarea('corregir-diseno');
+  // Devuelto (diseño por el revisor o evidencias por revisor/auditor): le toca al ejecutor corregir.
+  if (estado === 'Borrador') return planDevueltoAlEjecutor(plan) || !esPrograma ? tarea('corregir-diseno') : tarea('evaluar-diseno');
+  if (estado === ESTADO_EVALUACION_INICIAL) return tarea('evaluar-diseno');
+  if (estado === 'Pendiente Revisión Jefatura') return esPrograma ? tarea('evaluar-diseno') : tarea('revisar-diseno');
+  if (estado === 'Pendiente Aprobación Auditor') return alCien ? tarea('aprobar-cierre') : tarea('evaluar-diseno');
+  if (estado === 'Pendiente Validación Revisor') return tarea('validar-evidencias');
+  if (estado === 'En Revisión (100%)') return tarea('aprobar-cierre');
+  if (estado === 'En Ejecución') {
+    if (planDevueltoAlEjecutor(plan)) return tarea('corregir-evidencias');
+    // Datos antiguos: al 100 % sin pasar a revisión, el auditor decide.
+    if (alCien && !esPrograma) return tarea('aprobar-cierre');
+    return tarea('ejecutar');
+  }
+  return null;
+}
+
+/** Asunto de correo que dice la tarea: "Validar evidencias · PLA-0004". */
+export const asuntoTareaPlan = (clave, plan) => `${TAREAS_PLAN[clave]?.verbo || 'Plan de acción'} · PLA-${String(plan?.id ?? '').slice(-4)}`;
