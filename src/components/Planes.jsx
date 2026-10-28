@@ -2393,6 +2393,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           destinatarios: plan.correoRevisor,
         }, correoPreparado);
       }
+      // Ya validada o sin revisor ("No aplica"): queda en la evaluación de eficacia. Si la restauró un administrador,
+      // se avisa al auditor; si fue el propio auditor, ya la tiene en "Planes por aprobar".
+      for (const plan of restaurados.filter(item => item.estadoWorkflow === 'En Revisión (100%)' && item.correoAuditor &&
+        normalizarIdentidad(item.correoAuditor) !== normalizarIdentidad(user?.email))) {
+        await enviarNotificacionPlanConReintento({
+          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+          asunto: asuntoTareaPlan('aprobar-cierre', plan),
+          titulo_informe: 'Acción lista para la evaluación de eficacia',
+          proceso_auditado: `La acción "${plan.accion}" está al 100% ${revisorNoAplica(plan) ? '(sin revisor)' : 'con las evidencias validadas por el revisor'}. Ingrese a Planes de Acción y pulse "Evaluar y cerrar acción" para registrar la evaluación de eficacia.`,
+          enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
+          destinatarios: plan.correoAuditor,
+        }, correoPreparado);
+      }
     } catch (error) {
       showNotification(error?.message || 'No se pudieron restaurar las acciones.', 'error');
     } finally {

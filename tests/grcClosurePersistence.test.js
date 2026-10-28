@@ -1225,3 +1225,20 @@ test('acción devuelta por error a la evaluación del diseño: se reconoce y se 
   fixture.sesion.usuario = { uid: 'u22', email: 'auditor@example.test', rol: 'lider' };
   assert.equal((await fixture.close({ decision: 'restaurar-reenvio', idInforme: 'i1', idsPlanes: [1] })).code, 409, 'ya restaurada no se repite');
 });
+
+test('restaurar una acción sin revisor ("No aplica"): va directo a la evaluación de eficacia del auditor', async () => {
+  const sinRevisor = devueltaPorError({ revisorNoAplica: true, correoRevisor: '', motivoRevisorNoAplica: 'Única persona del proceso' });
+  assert.equal(workflow.reenvioErroneoAEvaluacion(sinRevisor).destino, 'En Revisión (100%)');
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, sinRevisor);
+  fixture.sesion.usuario = { uid: 'u22', email: 'auditor@example.test', rol: 'lider' };
+  const restaurada = await fixture.close({ decision: 'restaurar-reenvio', idInforme: 'i1', idsPlanes: [1] });
+  assert.equal(restaurada.code, 200, JSON.stringify(restaurada));
+  const plan = fixture.documents.get(`${ROOT}/planes_accion/1`);
+  assert.equal(plan.estadoWorkflow, 'En Revisión (100%)', 'sin pasar por un revisor que no existe');
+  assert.equal(workflow.tareaPendientePlan(plan, { esPrograma: true }).tarea, 'aprobar-cierre');
+  // Y el auditor la cierra con la evaluación de eficacia.
+  const cierre = await fixture.close({ decision: 'cerrar', idPlan: 1, evaluacionEficacia: { conclusion: 'Cumple', observaciones: '' } });
+  assert.equal(cierre.code, 200, JSON.stringify(cierre));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'Cerrado');
+});
