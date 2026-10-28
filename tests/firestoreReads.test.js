@@ -124,6 +124,7 @@ enCurso.cleanup();
 {
   const workflowModule = await import('../src/utils/programPlanWorkflow.js');
   const alcanceModule = await import('../api/_lib/assignmentScope.js');
+  const { visibilidadLider } = await import('../src/utils/visibilidadLider.js');
   const syncSource = syncText.replace(/^import [^;]*;\r?\n/gm, '').replace('export default async function handler', 'async function handler');
   const plan = { id: 1, idHallazgo: 'h1', idInforme: 'i1', correoResponsable: 'lider@example.test', proceso: 'Operaciones' };
   const workspaceCompartido = {
@@ -140,7 +141,7 @@ enCurso.cleanup();
   const congelado = JSON.stringify(workspaceCompartido);
   const ejecutarGet = async user => {
     const bindings = {
-    esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara, informeEnProcesos,
+    esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara, informeEnProcesos, visibilidadLider,
       ...workflowModule, ...alcanceModule,
       applyCors: () => false,
       requireAuth: async () => user,
@@ -190,8 +191,8 @@ enCurso.cleanup();
 
   assert.equal(JSON.stringify(workspaceCompartido), congelado, 'no se modifica el objeto compartido de la caché');
 
-  // 6. El líder recibe el informe de cada hallazgo que ve aunque sea de otro proceso (antes salía "huérfano"),
-  // sin abrir los demás hallazgos de ese informe.
+  // 6. El líder recibe el informe de cada hallazgo que ve aunque sea de otro proceso (antes salía "huérfano"); los
+  // demás hallazgos de ese informe llegan solo como contexto (encabezado), para mostrarlos bloqueados.
   const ajeno = {
     planes: [{ id: 7, idHallazgo: 'h2', idInforme: 'i2', correoResponsable: 'lider@example.test', proceso: 'Finanzas' }],
     hallazgos: [{ id: 'h2', idInforme: 'i2', proceso: 'Finanzas' }, { id: 'h3', idInforme: 'i2', proceso: 'Finanzas' }],
@@ -199,7 +200,7 @@ enCurso.cleanup();
     riesgos: [], catalogoCargos: [],
   };
   const bindingsAjeno = {
-    esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara, informeEnProcesos,
+    esAdministradorTotal, puedeVerTodo, parametrosConsulta, riesgosVisiblesPara, informeEnProcesos, visibilidadLider,
     ...workflowModule, ...alcanceModule,
     applyCors: () => false,
     requireAuth: async () => ({ uid: 'l', email: 'lider@example.test', rol: 'lider', procesosAsignados: ['Operaciones'], permisos: [] }),
@@ -216,6 +217,7 @@ enCurso.cleanup();
   const resAjeno = {};
   await handlerAjeno({ method: 'GET', url: '/api/grc/sync' }, resAjeno);
   assert.deepEqual(resAjeno.body.informesAuditoria.map(informe => informe.id), ['i2'], 'llega el informe del hallazgo donde participa');
-  assert.deepEqual(resAjeno.body.hallazgos.map(hallazgo => hallazgo.id), ['h2'], 'no se abren los demás hallazgos de ese informe');
+  assert.deepEqual(resAjeno.body.hallazgos.map(hallazgo => [hallazgo.id, Boolean(hallazgo.soloContexto)]), [['h2', false], ['h3', true]],
+    'los demás hallazgos de ese informe llegan solo como contexto');
 }
 console.log('firestoreReads.test.js: OK (escrituras sin cambios, lectura única del POST, instrumentación, carga inicial sin duplicar, ráfagas, sin duplicado planesAccion)');

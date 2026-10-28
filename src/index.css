@@ -67,6 +67,45 @@
 	.etiqueta-clase { animation: none; }
 }
 
+/* Hallazgos para un líder de proceso: el que lo nombra titila con un borde ámbar suave para que se concentre en
+   él; los de otros procesos de sus informes se ven en gris y bloqueados (solo contexto). */
+.hallazgo-nombrado {
+	outline: 2px solid rgb(245 158 11 / 0.5);
+	outline-offset: -2px;
+	animation: hallazgo-nombrado-brillo 2.4s ease-in-out infinite;
+}
+.hallazgo-nombrado > td {
+	background-color: rgb(255 251 235 / 0.7);
+}
+@keyframes hallazgo-nombrado-brillo {
+	0%, 100% { outline-color: rgb(245 158 11 / 0.35); }
+	50% { outline-color: rgb(217 119 6 / 1); }
+}
+.etiqueta-nombrado {
+	display: inline-block;
+	margin-top: 4px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-family: inherit;
+	font-size: 8px;
+	font-weight: 900;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	color: #fff;
+	background: linear-gradient(90deg, #d97706, #f59e0b);
+	box-shadow: 0 0 10px rgb(245 158 11 / 0.45);
+}
+.hallazgo-bloqueado {
+	filter: grayscale(1);
+	opacity: 0.55;
+	cursor: not-allowed;
+	user-select: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.hallazgo-nombrado { animation: none; outline-color: #d97706; }
+}
+
 .app-content :where(input, select, textarea) {
 	max-inline-size: 100%;
 	min-inline-size: 0;

@@ -110,6 +110,8 @@ export default function Hallazgos({
   handleDeleteItem,
   applyFilters,
   hFiltrados = [],
+  // Líder de proceso: hallazgos de otros procesos en sus informes (solo encabezado); se muestran bloqueados.
+  hallazgosContexto = [],
   searchTerm = '',
   setSearchTerm = () => {},
   columnFilters = {},
@@ -880,7 +882,7 @@ export default function Hallazgos({
                                         setVistaActiva('nuevo');
                                         scrollToForm();
                                      }}
-                                     className="hover:bg-red-50 transition-colors cursor-pointer group/row"
+                                     className={`hover:bg-red-50 transition-colors cursor-pointer group/row ${h.nombradoUsuario ? 'hallazgo-nombrado' : ''}`}
                                      title="Clic para ver detalle o gestionar este hallazgo"
                                    >
                                      <td className="py-2.5 font-mono font-black text-slate-700 align-top group-hover/row:text-red-700">{h.ref}</td>
@@ -1451,6 +1453,11 @@ export default function Hallazgos({
           acc[key].push(h);
           return acc;
         }, {});
+        applyFilters(hallazgosContexto, searchTerm, columnFilters).forEach(h => {
+          const key = h.idInforme || 'sin-informe';
+          if (!hallazgosPorInforme[key]) hallazgosPorInforme[key] = [];
+          hallazgosPorInforme[key].push(h);
+        });
         Object.values(hallazgosPorInforme).forEach(hallazgos => hallazgos.sort((a, b) => 
           String(b.ref || b.id || '').localeCompare(String(a.ref || a.id || ''), 'es', { 
             numeric: true, 
@@ -1655,10 +1662,27 @@ export default function Hallazgos({
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
-                              {hzsDelInforme.map((h, hIdx) => (
-                                <tr key={`h-child-${h.id}-${hIdx}`} id={`hallazgo-historial-${h.id}`} className={`transition-colors duration-700 ${hallazgoDestacado?.id === String(h.id) ? 'bg-emerald-50 outline outline-2 -outline-offset-2 outline-emerald-400' : 'hover:bg-slate-50/60'}`}>
+                              {hzsDelInforme.map((h, hIdx) => h.soloContexto ? (
+                                <tr key={`h-child-${h.id}-${hIdx}`} aria-disabled="true" className="hallazgo-bloqueado" title="Hallazgo de otro proceso: se muestra solo como contexto del informe.">
+                                  <td className="p-3 font-mono font-black text-slate-500">{h.ref}</td>
+                                  <td className="p-3">
+                                    <div className="font-bold text-slate-500 truncate max-w-[150px]" title={h.macroprocesos?.join(', ') || h.proceso}>{h.macroprocesos?.join(', ') || h.proceso}</div>
+                                    {convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso).filter(subproceso => subproceso !== 'General').length > 0 && <div className="text-[8px] text-slate-400 font-bold mt-0.5">↳ {convertirSubprocesosEnLista(h.subprocesos ?? h.subproceso).filter(subproceso => subproceso !== 'General').join(', ')}</div>}
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="font-medium text-slate-500 leading-relaxed">{h.titulo}</div>
+                                    {h.claseObservacion && <div className="mt-1 text-[8px] font-black uppercase tracking-widest text-slate-400">{h.claseObservacion}</div>}
+                                  </td>
+                                  <td className="p-3 text-[10px] font-black text-slate-500">🔒 No asignado a ti</td>
+                                  <td className="p-3 text-center">
+                                    <span className="px-2.5 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest inline-block border border-slate-300 bg-slate-100 text-slate-500">{h.estado || 'Abierto'}</span>
+                                  </td>
+                                </tr>
+                              ) : (
+                                <tr key={`h-child-${h.id}-${hIdx}`} id={`hallazgo-historial-${h.id}`} className={`transition-colors duration-700 ${h.nombradoUsuario ? 'hallazgo-nombrado' : ''} ${hallazgoDestacado?.id === String(h.id) ? 'bg-emerald-50 outline outline-2 -outline-offset-2 outline-emerald-400' : 'hover:bg-slate-50/60'}`}>
                                   <td className="p-3 font-mono">
                                     <div className="font-black text-slate-800">{h.ref}</div>
+                                    {h.nombradoUsuario && <span className="etiqueta-nombrado">★ Te nombraron</span>}
                                     {hallazgoDestacado?.id === String(h.id) && (
                                       <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 font-sans text-[8px] font-black uppercase tracking-wider text-white animate-pulse">✓ Recién guardado</span>
                                     )}

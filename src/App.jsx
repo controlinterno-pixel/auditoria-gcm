@@ -242,7 +242,7 @@ export default function App() {
     user, setUser, authReady, isAdmin, setIsAdmin,
     perfilUsuario,
     isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
-    setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
+    setRiesgos, setHallazgos, planes, setPlanes,
     setIncidentes, setEvaluaciones,
     cronograma, setCronograma, setMonitoreo,
     informesAuditoria, setInformesAuditoria, setComites,
@@ -252,9 +252,13 @@ export default function App() {
     organizacionesExternas, setOrganizacionesExternas,
     rolesProyecto, setRolesProyecto,
     catalogosInicializados, setCatalogosInicializados,
-    safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
+    safePlanes, safeHallazgos: hallazgosRecibidos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();
+  // Líder de proceso: los hallazgos ajenos de sus informes llegan solo como contexto. Se muestran bloqueados en el
+  // historial por informe y no cuentan en tableros, indicadores, Planes ni Mi Espacio.
+  const safeHallazgos = useMemo(() => hallazgosRecibidos.filter(hallazgo => !hallazgo?.soloContexto), [hallazgosRecibidos]);
+  const hallazgosContexto = useMemo(() => hallazgosRecibidos.filter(hallazgo => hallazgo?.soloContexto), [hallazgosRecibidos]);
   const notificacionesPendientesUsuario = reintentosNotificacion.filter(item => item.propietario === String(user?.email || '').trim().toLowerCase());
 
   useEffect(() => {
@@ -1027,7 +1031,7 @@ return (
            {activeTab === 'dashboard_riesgos' && puedeVerDashboard && (
               <DashboardEjecutivo 
                 rFiltrados={rFiltrados} riesgos={riesgosVigentes}
-                hFiltrados={hFiltrados} hallazgos={hallazgos}
+                hFiltrados={hFiltrados} hallazgos={safeHallazgos}
                 pFiltrados={pFiltrados} planes={planes}
                 cFiltrados={cFiltrados} cronograma={cronograma}
                 safeEvaluaciones={safeEvaluaciones}
@@ -1160,6 +1164,7 @@ return (
                     handleDeleteItem={handleDeleteItem} 
                     applyFilters={applyFilters} 
                     hFiltrados={hFiltrados} 
+                    hallazgosContexto={hallazgosContexto}
                     searchTerm={searchTerm}
                     setSearchTerm={setSearchTerm} 
                     columnFilters={columnFilters} 

@@ -9,6 +9,7 @@ import { riesgosVisiblesPara } from '../../src/utils/permisosVista.js';
 import { leerRevisionSemaforo, notificarSemaforo } from '../_lib/semaforo.js';
 import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 import { huellasDeDatos } from '../../src/utils/huellaRegistro.js';
+import { visibilidadLider } from '../../src/utils/visibilidadLider.js';
 
 // La lectura del workspace se comparte desde la caché: la huella de una misma lectura se calcula una vez.
 const huellasPorLectura = new WeakMap();
@@ -30,7 +31,6 @@ function esRolAdministrador(rol) {
   return normalizado === 'admin' || normalizado === 'administrador' || normalizado === 'auditor';
 }
 
-// eslint-disable-next-line no-unused-vars
 function normalizarProceso(valor) {
   return String(valor || '')
     .trim()
@@ -369,6 +369,17 @@ export default async function handler(req, res) {
         idsInformesDeContexto.has(String(informe.id)) && !idsInformesPermitidos.has(String(informe.id))
       ));
       informesPermitidos = [...informesPermitidos, ...informesDeContexto];
+
+      // Líder de proceso: completo lo de su alcance (macroprocesos y subprocesos autorizados), lo que creó y donde
+      // fue nombrado; los demás hallazgos de esos informes llegan solo con su encabezado (soloContexto).
+      if (normalizarProceso(user.rol) === 'lider') {
+        const visibles = visibilidadLider({
+          informes: informesTodos, hallazgos: hallazgosData, planes: planesData, perfil: user, mapaProcesos: data.mapaProcesos,
+        });
+        informesPermitidos = visibles.informes;
+        hallazgosPermitidos = visibles.hallazgos;
+        planesPermitidos = visibles.planes;
+      }
 
       // ============================================================================
       // EMPAQUETADO FINAL SEGURO
