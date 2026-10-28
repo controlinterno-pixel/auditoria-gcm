@@ -77,3 +77,12 @@ test('al 100 % el auditor cierra con la evaluación de eficacia, nunca con la de
   const servidor = readFileSync(new URL('../api/_grc/review-plans.js', import.meta.url), 'utf8');
   assert.match(servidor, /\['En Revisión \(100%\)', 'Pendiente Aprobación Auditor'\]\.includes\(plan\.estadoWorkflow\)/, 'el servidor acepta el cierre con eficacia');
 });
+
+test('en Planes de Acción se ven las dos evaluaciones: la inicial del diseño y la de eficacia del cierre', () => {
+  const planes = readFileSync(new URL('../src/components/Planes.jsx', import.meta.url), 'utf8');
+  assert.match(planes, /⚖️ Evaluación inicial del diseño de acciones/);
+  assert.match(planes, /⚖️ Evaluación de eficacia \(cierre\)/);
+  assert.match(planes, /Ver evaluación de eficacia/);
+  // Incluye las evaluaciones anteriores sin eficacia demostrada (historialEficacia), no solo la última.
+  assert.match(planes, /Array\.isArray\(plan\.historialEficacia\) && plan\.historialEficacia\.length/);
+});

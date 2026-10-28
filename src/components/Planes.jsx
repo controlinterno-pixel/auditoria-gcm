@@ -2366,6 +2366,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   // Acciones de programa devueltas por error a la evaluación inicial estando al 100 % (casillas de matrices de vacío a
   // "No aplica"): el auditor asignado o un administrador las restauran a la validación del revisor o a la eficacia.
   const [restaurandoReenvio, setRestaurandoReenvio] = useState(false);
+  // Consulta de la evaluación de eficacia (cierre) de las acciones de un informe.
+  const [verEficacia, setVerEficacia] = useState(null);
   const accionesPorRestaurar = planesEnriquecidos.filter(plan => reenvioErroneoAEvaluacion(plan) &&
     (isAdmin || esAuditorAsignado(plan, user?.email, perfilUsuario)));
   const restaurarAcciones = async planes => {
@@ -4685,6 +4687,35 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                             );
                           })()}
 
+                          {/* ⚖️ SEGUNDA EVALUACIÓN: EFICACIA (CIERRE). Aplica a todas las fuentes. */}
+                          {(() => {
+                            const historialDe = plan => (Array.isArray(plan.historialEficacia) && plan.historialEficacia.length
+                              ? plan.historialEficacia : plan.evaluacionEficaciaCierre ? [plan.evaluacionEficaciaCierre] : []);
+                            const evaluadas = planesPaqueteCompleto.filter(plan => historialDe(plan).length > 0);
+                            const cerradas = evaluadas.filter(plan => historialDe(plan).at(-1)?.fueEficaz);
+                            if (!planesPaqueteCompleto.length) return null;
+                            return (
+                              <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row justify-between items-center shadow-sm gap-3">
+                                <div className="text-center md:text-left">
+                                  <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Evaluación de eficacia (cierre)</p>
+                                  {evaluadas.length ? (
+                                    <p className="text-[9px] font-bold mt-0.5 text-emerald-700">
+                                      {cerradas.length} de {planesPaqueteCompleto.length} {planesPaqueteCompleto.length === 1 ? 'acción cerrada' : 'acciones cerradas'} con eficacia demostrada{evaluadas.length > cerradas.length ? ` · ${evaluadas.length - cerradas.length} sin eficacia demostrada (devueltas a ejecución)` : ''}.
+                                    </p>
+                                  ) : (
+                                    <p className="text-[9px] text-slate-500 font-medium mt-0.5">Ninguna acción tiene todavía evaluación de eficacia: la registra el auditor aprobador cuando la acción llega al 100 % validada.</p>
+                                  )}
+                                </div>
+                                {evaluadas.length > 0 && (
+                                  <button type="button" onClick={() => setVerEficacia({ planes: evaluadas.map(plan => ({ plan, historial: historialDe(plan) })) })}
+                                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2.5 rounded-xl text-xs font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center">
+                                    <span>👁️</span> Ver evaluación de eficacia
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+
       {envioEvaluacionPendiente && createPortal(
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-envio-evaluacion">
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
@@ -5447,6 +5478,37 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           </div>
         </div>
       )}
+      {verEficacia && createPortal(
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-ver-eficacia"
+          onKeyDown={evento => { if (evento.key === 'Escape') setVerEficacia(null); }}>
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between bg-[#0A3B32] px-5 py-4 text-white">
+              <h3 id="titulo-ver-eficacia" className="text-sm font-black">⚖️ Evaluación de eficacia (cierre)</h3>
+              <button type="button" autoFocus onClick={() => setVerEficacia(null)} aria-label="Cerrar" className="min-h-11 min-w-11 text-lg font-black text-emerald-100 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-4 overflow-y-auto p-5 text-xs text-slate-700">
+              {verEficacia.planes.map(({ plan, historial }) => (
+                <section key={plan.id} className="rounded-xl border border-slate-200 p-3">
+                  <p className="font-black text-slate-800"><span className="font-mono text-slate-500">PLA-{String(plan.id).slice(-4)}</span> · {plan.accion}</p>
+                  <ol className="mt-2 space-y-2">
+                    {[...historial].reverse().map((evaluacion, indice) => (
+                      <li key={`${evaluacion.timestamp || indice}`} className={`rounded-lg border p-2 ${evaluacion.fueEficaz ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
+                        <p className="font-black">{evaluacion.fueEficaz ? '✅ Eficaz: acción cerrada' : '↩️ Sin eficacia demostrada: devuelta a ejecución al 90 %'}{indice === 0 ? ' · evaluación vigente' : ''}</p>
+                        <p className="text-[11px] text-slate-500">{evaluacion.fecha || evaluacion.timestamp} · {evaluacion.usuario || 'auditor'}{evaluacion.alcance === 'todas' ? ' · evaluación conjunta del informe' : ''}</p>
+                        {evaluacion.conclusion && <p className="mt-1"><b>Conclusión:</b> {evaluacion.conclusion}</p>}
+                        {evaluacion.observaciones && <p className="mt-1"><b>Observaciones:</b> {evaluacion.observaciones}</p>}
+                        {evaluacion.requiereAccionesAdicionales && <p className="mt-1 font-bold text-amber-800">Requiere acciones adicionales.</p>}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
      {/* 🛑 MODAL SUTIL PARA JUSTIFICACIÓN "NO APLICA" */}
       {modalNoAplica?.activo && (
         <div role="dialog" aria-modal="true" aria-labelledby="no-aplica-titulo" onKeyDown={event => { if (event.key === 'Escape') cerrarModalNoAplica(); }} className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
