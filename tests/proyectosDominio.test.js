@@ -162,3 +162,11 @@ test('las casillas de dinero muestran el símbolo y los miles, y guardan el núm
   assert.equal(leerCifra('0'), 0);
   assert.equal(leerCifra(''), '', 'una casilla vacía sigue vacía, no se vuelve 0');
 });
+
+test('Gantt: avance esperado hoy según las fechas de la actividad', async () => {
+  const { avanceEsperado } = await import('../src/utils/proyectos/cronograma.js');
+  assert.equal(avanceEsperado('2026-10-01', '2026-10-10', '2026-09-30'), 0, 'aún no empieza');
+  assert.equal(avanceEsperado('2026-10-01', '2026-10-10', '2026-10-05'), 50, '5 de 10 días');
+  assert.equal(avanceEsperado('2026-10-01', '2026-10-10', '2026-10-10'), 100, 'el último día debe estar terminada');
+  assert.equal(avanceEsperado('', '2026-10-10', '2026-10-05'), null);
+});

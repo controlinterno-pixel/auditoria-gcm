@@ -160,3 +160,11 @@ export function compararConLineaBase(tareas, lineaBase) {
     };
   });
 }
+
+/** Avance que una actividad debería llevar hoy según sus fechas (días transcurridos ÷ duración), o null si faltan fechas. */
+export function avanceEsperado(inicio, fin, hoy) {
+  if (!esFecha(inicio) || !esFecha(fin) || !esFecha(hoy)) return null;
+  if (hoy < inicio) return 0;
+  if (hoy >= fin) return 100;
+  return Math.round(((diasEntre(inicio, hoy) + 1) / (diasEntre(inicio, fin) + 1)) * 100);
+}
