@@ -146,7 +146,7 @@ export default function Incidentes({
         </div>
       )}
       
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border rounded-xl overflow-x-auto shadow-sm">
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-900 text-white font-bold">
             <tr>

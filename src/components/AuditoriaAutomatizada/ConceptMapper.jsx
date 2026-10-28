@@ -1329,7 +1329,7 @@ if (empleado.usoHistoricoAnterior) {
                 </div>
               )}
               <h4 className="text-xs font-bold text-slate-700 uppercase mt-4">Desglose de Transacciones (Período {empleadoDiagonal.periodo}):</h4>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-100 text-slate-700 uppercase font-bold">
                     <tr>

@@ -5641,7 +5641,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                         {log.detalleCambios && log.detalleCambios.length > 0 && (
                           <div className="mt-3">
                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Campos Modificados:</span>
-                            <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-x-auto">
                               <table className="w-full text-left text-[10px]">
                                 <thead className="bg-slate-100 text-slate-500">
                                   <tr>

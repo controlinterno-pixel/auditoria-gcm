@@ -2847,7 +2847,7 @@ const renderMatriz = () => {
                 <h4 className="font-black text-slate-500 uppercase tracking-wider text-[9px] mb-2">
                   📊 Desglose según Numeral 8.3.4 (Tabla 6 del Manual):
                 </h4>
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="border border-slate-200 rounded-xl overflow-x-auto">
                   <table className="w-full text-left border-collapse text-[11px]">
                     <thead className="bg-slate-100 border-b border-slate-200 text-slate-600 font-bold">
                       <tr>

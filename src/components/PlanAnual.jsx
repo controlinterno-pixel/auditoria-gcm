@@ -255,8 +255,8 @@ const descargarCronogramaPDF = () => {
                    <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400 px-2 py-1 rounded-full uppercase notranslate" translate="no">⚙️ {avgCumplimiento}% Auditado</span>
                  </div>
                  <div className="overflow-x-auto flex-1 p-2">
-                   {/* Ancho mínimo: en pantallas angostas la tabla se desplaza en vez de partir números y títulos. */}
-                   <table className="w-full min-w-[860px] text-xs text-left divide-y divide-slate-100">
+                   {/* Columnas cortas con ancho mínimo: en pantallas angostas la tabla se desplaza en vez de partir números y títulos. */}
+                   <table className="w-full text-xs text-left divide-y divide-slate-100">
                      <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                        <tr>
                          <th className="p-3 w-24 min-w-[6rem]">

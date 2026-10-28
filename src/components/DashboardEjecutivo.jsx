@@ -885,7 +885,7 @@ return (
               <span className="bg-red-500/20 text-red-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{planesVencidosList.length}</span>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
+          <div className="flex-1 overflow-auto max-h-[220px] scrollbar-thin">
             <table className="w-full text-left text-[10px]">
               <thead className="text-slate-500 border-b border-slate-800">
                 <tr><th className="pb-2 font-bold">Plan</th><th className="pb-2 font-bold">Proceso</th><th className="pb-2 font-bold">Vencimiento</th><th className="pb-2 font-bold">Responsable</th></tr>
@@ -927,7 +927,7 @@ return (
               <span className="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{proximasAuditorias.length}</span>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
+          <div className="flex-1 overflow-auto max-h-[220px] scrollbar-thin">
              <table className="w-full text-left text-[10px]">
               <thead className="text-slate-500 border-b border-slate-800">
                 <tr><th className="pb-2 font-bold">Auditoría</th><th className="pb-2 font-bold">Proceso</th><th className="pb-2 font-bold">Periodo</th><th className="pb-2 font-bold">Auditor</th></tr>

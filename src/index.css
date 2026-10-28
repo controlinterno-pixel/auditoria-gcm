@@ -6,6 +6,14 @@
 	overflow-wrap: anywhere;
 }
 
+/* En las tablas "anywhere" deja que el navegador encoja una columna hasta una letra: las demás columnas
+   partían palabras y cifras a la mitad ("IDENTI FICACI ÓN", "10 / 0%"). Aquí solo se corta lo que no cabe en
+   la celda, y si la tabla no cabe se desplaza dentro de su contenedor con barra horizontal. Solo aplica a las
+   tablas dentro de un contenedor desplazable: las demás conservan "anywhere" para no salirse de la pantalla. */
+.app-content :is(.overflow-x-auto, .overflow-auto, .overflow-x-scroll) table {
+	overflow-wrap: break-word;
+}
+
 .app-content :where(input, select, textarea) {
 	max-inline-size: 100%;
 	min-inline-size: 0;

@@ -3968,7 +3968,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
                     <h4 className="text-xs font-bold text-slate-700 uppercase mb-3 flex items-center gap-1.5">
                       📊 Desglose de Conceptos Pagados en el ERP:
                     </h4>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
                       <table className="w-full text-xs text-left">
                         <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
                           <tr>
@@ -3996,7 +3996,7 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
                     <h4 className="text-xs font-bold text-slate-700 uppercase mb-3 flex items-center gap-1.5">
                       📊 Desglose de Transacciones Históricas:
                     </h4>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="border border-slate-200 rounded-xl overflow-x-auto">
                       <table className="w-full text-xs text-left">
                         <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
                           <tr>
