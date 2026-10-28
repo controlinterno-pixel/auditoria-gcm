@@ -629,16 +629,18 @@ test('rechazo del revisor devuelve al 90% y conserva la evaluación inicial', as
   assert.deepEqual(h.data().planes[0].evaluacionHolistica, initial);
 });
 
-test('modificar diseño aprobado exige reevaluación, sin perder avance e historial', async () => {
+test('diseño aprobado: el ejecutor no lo cambia ni reabre la evaluación (el administrador sí, ver prueba de acción al 100 %)', async () => {
   const h = harness();
   await evaluate(h, 80);
+  const accionAprobada = h.data().planes[0].accion;
   h.user.email = 'ejecutor@example.test';
   await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 35 }] });
-  await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, accion: 'Nuevo diseño' }] });
-  assert.equal(h.data().planes[0].estadoWorkflow, workflow.ESTADO_EVALUACION_INICIAL);
-  assert.equal(h.data().planes[0].progreso, 35);
+  // Corrigiendo la ejecución escribe "Corregido" en la descripción: se ignora y sigue en ejecución.
+  await h.update({ idInforme: 'i1', actualizaciones: [{ id: 1, accion: `${accionAprobada}. Corregido`, progreso: 60 }] });
+  assert.equal(h.data().planes[0].estadoWorkflow, 'En Ejecución');
+  assert.equal(h.data().planes[0].accion, accionAprobada, 'el diseño aprobado no cambia');
+  assert.equal(h.data().planes[0].progreso, 60, 'el avance sí se guarda');
   assert.equal(h.data().planes[0].historialEvaluaciones.length, 1);
-  assert.equal(h.data().planes[0].evaluacionHolistica, null);
 });
 
 test('error de Gmail conserva el guardado y encola exactamente el mensaje pendiente', async () => {

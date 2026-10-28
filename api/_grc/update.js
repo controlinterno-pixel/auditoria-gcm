@@ -1,5 +1,5 @@
 import { applyCors } from '../_lib/cors.js';
-import { esInformePrograma, disenoInicialBloqueado, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, ESTADO_AJUSTES_INICIALES, estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, disenoInicialBloqueado, disenoBloqueadoParaEjecutor, CAMPOS_DISENO_PLAN, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, ESTADO_AJUSTES_INICIALES, estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica } from '../../src/utils/programPlanWorkflow.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
@@ -232,6 +232,10 @@ export default async function handler(req, res) {
             camposEditablesPlan.filter(campo => Object.hasOwn(peticion, campo))
               .map(campo => [campo, peticion[campo]])
           );
+          // Diseño aprobado: el ejecutor solo registra avance y evidencias. Lo que llegue distinto del diseño (y las
+          // casillas de matrices) se ignora, para que corregir evidencias nunca reabra la evaluación del diseño.
+          const disenoBloqueado = disenoBloqueadoParaEjecutor(anterior, { esPrograma, admin });
+          if (disenoBloqueado) [...CAMPOS_DISENO_PLAN, ...CAMPOS_MATRIZ_PLAN].forEach(campo => { delete cambios[campo]; });
           if (Object.hasOwn(cambios, 'accion') && !normalizar(cambios.accion)) return { error: 'invalid-action' };
           if (Object.hasOwn(cambios, 'riesgosVinculados') || cambios.matrizRiesgos === 'No aplica') {
             const vinculados = normalizarRiesgosVinculados(cambios.riesgosVinculados, cambios.matrizRiesgos ?? anterior.matrizRiesgos);

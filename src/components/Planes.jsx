@@ -11,7 +11,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, disenoBloqueadoParaEjecutor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -1249,7 +1249,7 @@ const handleNotificarPlan = async (planId) => {
         const planOriginal = safePlanes.find(plan => String(plan.id) === String(act.id));
         const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
         const camposDiseno = ['accion', 'sede', 'responsable', 'correoResponsable', 'revisor', 'correoRevisor', 'auditorAsignado', 'correoAuditor', 'fechaInicio', 'fecha', 'tipoAccion', 'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal'];
-        const cambiaDisenoPrograma = esProgramaInforme && !isNew && camposDiseno.some(campo => (
+        const cambiaDisenoPrograma = esProgramaInforme && !isNew && !disenoBloqueadoParaEjecutor(planOriginal, { esPrograma: true, admin: isAdmin }) && camposDiseno.some(campo => (
           /^matriz/.test(campo)
             ? (planOriginal?.[campo] || 'No aplica') !== (act[campo] || 'No aplica')
             : JSON.stringify(planOriginal?.[campo] ?? '') !== JSON.stringify(act[campo] ?? '')
@@ -2075,7 +2075,9 @@ if (existingActivities.length > 0) {
     const camposDiseno = camposGuardables.filter(campo => !['progreso', 'evidenciaUrl', 'riesgosVinculados'].includes(campo));
     // Matrices vacías en acciones antiguas equivalen a "No aplica" (lo que muestra y envía el formulario).
     const comparable = (campo, valor) => (/^matriz/.test(campo) ? (valor || 'No aplica') : (valor ?? null));
-    const cambioDiseno = Boolean(planOriginal && camposDiseno.some(campo => (
+    // Diseño aprobado: el servidor ignora los cambios de diseño del ejecutor; aquí tampoco cuentan como diseño corregido.
+    const disenoCerrado = disenoBloqueadoParaEjecutor(planOriginal, { esPrograma: esFuenteProgramaAuditoria(informeActual), admin: isAdmin });
+    const cambioDiseno = !disenoCerrado && Boolean(planOriginal && camposDiseno.some(campo => (
       JSON.stringify(comparable(campo, planOriginal[campo])) !== JSON.stringify(comparable(campo, cambios[campo]))
     ))) || Boolean(planOriginal && (
       correoNormalizado(actividad.correoResponsable) !== correoNormalizado(planOriginal.correoResponsable) ||
@@ -2405,6 +2407,17 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           proceso_auditado: `La acción "${plan.accion}" está al 100% y espera tu validación de evidencias. Ingrese a Planes de Acción y pulse "Revisar matriz". Si aprueba, pasa al auditor para la evaluación de eficacia.`,
           enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
           destinatarios: plan.correoRevisor,
+        }, correoPreparado);
+      }
+      // Con menos del 100 % vuelve a ejecución: se avisa al ejecutor para que la termine.
+      for (const plan of restaurados.filter(item => item.estadoWorkflow === 'En Ejecución' && item.correoResponsable)) {
+        await enviarNotificacionPlanConReintento({
+          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+          asunto: asuntoTareaPlan('ejecutar', plan),
+          titulo_informe: 'Continúa la ejecución de la acción',
+          proceso_auditado: `La acción "${plan.accion}" vuelve a ejecución al ${Number(plan.progreso) || 0}% con su diseño aprobado (no se vuelve a evaluar). Completa las evidencias y guárdala al 100%: pasará al revisor y luego al auditor para la evaluación de eficacia. No modifiques la descripción de la acción.`,
+          enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
+          destinatarios: plan.correoResponsable,
         }, correoPreparado);
       }
       // Ya validada o sin revisor ("No aplica"): queda en la evaluación de eficacia. Si la restauró un administrador,
@@ -4205,9 +4218,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             {accionesPorRestaurar.length > 0 && (
               <div role="alert" className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-xs text-amber-950">
                 <p className="text-sm font-black">{accionesPorRestaurar.length === 1 ? 'Una acción quedó' : `${accionesPorRestaurar.length} acciones quedaron`} por error en la evaluación inicial del diseño</p>
-                <p className="mt-1">Ya estaban al 100 % con el diseño aprobado; al guardar el avance, el sistema tomó las casillas de matrices como un cambio de diseño. Restáuralas para seguir con la validación del revisor y la evaluación de eficacia (no hay que volver a evaluar el diseño).</p>
+                <p className="mt-1">Su diseño ya estaba aprobado: al registrar el avance o corregir las evidencias se guardó un cambio (por ejemplo, "Corregido" en la descripción, o las casillas de matrices) y la acción volvió a la evaluación del diseño. El diseño aprobado no se vuelve a evaluar: restáuralas para que sigan donde iban.</p>
                 <ul className="mt-2 list-disc space-y-0.5 pl-5">
-                  {accionesPorRestaurar.map(plan => <li key={plan.id}><b>PLA-{String(plan.id).slice(-4)}</b> · {String(plan.accion || '').slice(0, 90)} → {reenvioErroneoAEvaluacion(plan).destino === 'En Revisión (100%)' ? 'evaluación de eficacia' : 'validación del revisor'}</li>)}
+                  {accionesPorRestaurar.map(plan => <li key={plan.id}><b>PLA-{String(plan.id).slice(-4)}</b> · {String(plan.accion || '').slice(0, 90)} → {{ 'En Revisión (100%)': 'evaluación de eficacia', 'Pendiente Validación Revisor': 'validación del revisor', 'En Ejecución': `ejecución (${Number(plan.progreso) || 0} %)` }[reenvioErroneoAEvaluacion(plan).destino]}</li>)}
                 </ul>
                 <button type="button" disabled={restaurandoReenvio} onClick={() => restaurarAcciones(accionesPorRestaurar)} className="mt-3 rounded-lg bg-amber-700 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white hover:bg-amber-800 disabled:opacity-50">
                   {restaurandoReenvio ? 'Restaurando…' : accionesPorRestaurar.length === 1 ? 'Restaurar la acción' : `Restaurar las ${accionesPorRestaurar.length} acciones`}

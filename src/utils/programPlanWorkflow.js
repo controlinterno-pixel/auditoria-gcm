@@ -205,28 +205,50 @@ const CAMPOS_MATRIZ = ['matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'mat
 const REENVIO_A_EVALUACION = /reenviado a revisi[oó]n/i;
 
 /**
- * Acción de programa que el sistema devolvió por error a la evaluación inicial del diseño: estaba al 100 %, el
- * ejecutor solo guardó avance o soportes y las casillas de matrices pasaron de vacío a "No aplica". Devuelve a dónde
- * restaurarla ({ destino, motivo }) o null. Destino: validación del revisor o, si ya la había validado (o no hay
- * revisor), la evaluación de eficacia del auditor ("En Revisión (100%)").
+ * Acción de programa que volvió a la evaluación inicial del diseño cuando su diseño ya estaba aprobado: el ejecutor,
+ * al registrar avance o corregir evidencias, guardó un cambio de diseño (p. ej. añadió "Corregido" a la descripción)
+ * o el sistema tomó como cambio las casillas de matrices (de vacío a "No aplica"). El diseño aprobado no se vuelve a
+ * evaluar: devuelve a dónde restaurarla ({ destino, motivo }) o null. Al 100 %: validación del revisor o, si ya la
+ * había validado (o no hay revisor), la evaluación de eficacia; con menos avance, ejecución.
  */
 export function reenvioErroneoAEvaluacion(plan) {
-  if (plan?.estadoWorkflow !== ESTADO_EVALUACION_INICIAL || Number(plan?.progreso) !== 100) return null;
+  if (plan?.estadoWorkflow !== ESTADO_EVALUACION_INICIAL) return null;
   const historial = Array.isArray(plan.historialCambios) ? plan.historialCambios : [];
   const indice = historial.map(evento => REENVIO_A_EVALUACION.test(String(evento?.accion || ''))).lastIndexOf(true);
   if (indice === -1) return null;
+  const anteriores = historial.slice(0, indice).map(evento => String(evento?.accion || ''));
+  // La última decisión sobre el diseño antes del reenvío fue aprobarlo (no un "Diseño no aprobado" que se corrigió).
+  const ultimaDecision = [...anteriores].reverse().find(accion => /Diseño (no )?aprobado/i.test(accion));
+  if (!ultimaDecision || /Diseño no aprobado/i.test(ultimaDecision)) return null;
   const detalle = Array.isArray(historial[indice].detalleCambios) ? historial[indice].detalleCambios : [];
   const soloSinDiseno = detalle.length > 0 && detalle.every(({ campo, antes, despues }) => (
     CAMPOS_NO_DISENO.includes(campo) || (CAMPOS_MATRIZ.includes(campo) && (antes || 'No aplica') === (despues || 'No aplica'))
   ));
-  const disenoAprobadoAntes = historial.slice(0, indice).some(evento => /Diseño aprobado/i.test(String(evento?.accion || '')));
-  if (!soloSinDiseno || !disenoAprobadoAntes) return null;
-  const anteriores = historial.slice(0, indice).map(evento => String(evento?.accion || ''));
+  const ejecutores = String(plan.correoResponsable || '').split(',').map(normalizar).filter(Boolean);
+  const loHizoElEjecutor = ejecutores.includes(normalizar(historial[indice].usuario));
+  // Un cambio de diseño hecho por un administrador sí se vuelve a evaluar.
+  if (!soloSinDiseno && !loHizoElEjecutor) return null;
   const ultimaValidacion = anteriores.map(accion => /validada por el revisor/i.test(accion)).lastIndexOf(true);
   const ultimaDevolucion = anteriores.map(accion => /devuelt|rechazad/i.test(accion)).lastIndexOf(true);
   const yaValidada = revisorNoAplica(plan) || (ultimaValidacion !== -1 && ultimaValidacion > ultimaDevolucion);
   return {
-    destino: yaValidada ? 'En Revisión (100%)' : 'Pendiente Validación Revisor',
-    motivo: 'El sistema devolvió la acción a la evaluación inicial al guardar el avance (solo cambiaron las casillas de matrices de vacío a "No aplica"); el diseño ya estaba aprobado.',
+    destino: Number(plan.progreso) !== 100 ? 'En Ejecución' : yaValidada ? 'En Revisión (100%)' : 'Pendiente Validación Revisor',
+    motivo: soloSinDiseno
+      ? 'El sistema devolvió la acción a la evaluación inicial al guardar el avance (solo cambiaron las casillas de matrices de vacío a "No aplica"); el diseño ya estaba aprobado.'
+      : 'El ejecutor modificó el diseño mientras registraba la ejecución; el diseño ya estaba aprobado y no se vuelve a evaluar.',
   };
+}
+
+// Datos del diseño de una acción (lo que evalúa el auditor en programas o el revisor en las otras fuentes).
+export const CAMPOS_DISENO_PLAN = ['accion', 'sede', 'fechaInicio', 'fecha', 'tipoAccion'];
+
+/**
+ * Con el diseño ya aprobado, el ejecutor solo registra avance y evidencias: sus cambios de diseño se ignoran y nunca
+ * reabren la evaluación del diseño (corregir evidencias devueltas no vuelve a pedirla). El administrador sí puede
+ * cambiarlo. En otras fuentes sin revisor el diseño nunca se revisó: el ejecutor lo sigue ajustando.
+ */
+export function disenoBloqueadoParaEjecutor(plan, { esPrograma = false, admin = false } = {}) {
+  // Solo en ejecución: en las etapas de revisión la acción ya está cerrada para el ejecutor (bloqueadaParaEjecutor).
+  if (admin || !plan || plan.estadoWorkflow !== 'En Ejecución') return false;
+  return esPrograma || !revisorNoAplica(plan);
 }

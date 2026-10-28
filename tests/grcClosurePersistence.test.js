@@ -1282,3 +1282,31 @@ test('evaluación inicial: todas las acciones marcadas quedan evaluadas con la m
   assert.equal(plan(una, 1).estadoWorkflow, 'En Ejecución');
   assert.equal(plan(una, 2).estadoWorkflow, workflow.ESTADO_EVALUACION_INICIAL, 'la no marcada sigue pendiente');
 });
+
+test('PLA-8642: el ejecutor escribió "Corregido" al corregir evidencias (90 %): se restaura a ejecución, sin evaluar el diseño', async () => {
+  const caso = devueltaPorError({ progreso: 90 });
+  caso.historialCambios.splice(1, 0, { accion: 'Evidencias devueltas por el revisor al ejecutor', usuario: 'revisor@example.test' });
+  caso.historialCambios[2] = { accion: 'Diseño corregido y reenviado a revisión por su responsable', usuario: 'ejecutor@example.test', detalleCambios: [
+    { campo: 'accion', antes: 'Acción 1', despues: 'Acción 1. Corregido' },
+  ] };
+  assert.equal(workflow.reenvioErroneoAEvaluacion(caso).destino, 'En Ejecución');
+  // Si el cambio de diseño lo hizo un administrador, sí se vuelve a evaluar.
+  const porAdmin = structuredClone(caso);
+  porAdmin.historialCambios[2].usuario = 'admin@example.test';
+  assert.equal(workflow.reenvioErroneoAEvaluacion(porAdmin), null);
+  // Tras un "Diseño no aprobado", el reenvío del ejecutor es la corrección pedida: se evalúa.
+  const corregido = structuredClone(caso);
+  corregido.historialCambios.splice(2, 0, { accion: 'Diseño no aprobado (60%). Devuelto para correcciones.' });
+  assert.equal(workflow.reenvioErroneoAEvaluacion(corregido), null);
+
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, caso);
+  fixture.sesion.usuario = { uid: 'u22', email: 'auditor@example.test', rol: 'lider' };
+  assert.equal((await fixture.close({ decision: 'restaurar-reenvio', idInforme: 'i1', idsPlanes: [1] })).code, 200);
+  assert.deepEqual([fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, fixture.documents.get(`${ROOT}/planes_accion/1`).progreso], ['En Ejecución', 90]);
+  // El ejecutor termina al 100 % y va al revisor, no a la evaluación del diseño (aunque vuelva a escribir en la descripción).
+  comoEjecutor(fixture);
+  const fin = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 100, accion: 'Acción 1. Corregido otra vez' }], nuevas: [] } });
+  assert.equal(fin.code, 200, JSON.stringify(fin));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'Pendiente Validación Revisor');
+});
