@@ -47,7 +47,12 @@ const subprocesosDeRiesgo = (riesgo, macroproceso) => {
   return partesLegadas.length > 1 ? partesLegadas.slice(1) : [];
 };
 
-const riesgoDentroDelAlcancePropietario = (riesgo, procesosAsignados, subprocesosAsignados) => {
+const riesgoDentroDelAlcancePropietario = (riesgo, procesosAsignados, subprocesosAsignados, correo = '') => {
+  // Un riesgo de toda la empresa lo crea cualquier líder con procesos asignados y lo modifica quien lo creó
+  // (o un administrador): abarca procesos ajenos, así que el alcance por proceso no sirve para decidirlo.
+  if (riesgo?.alcance === 'empresa') {
+    return procesosAsignados.length > 0 && Boolean(correo) && normalizarProcesoAlcance(riesgo.creadoPor) === normalizarProcesoAlcance(correo);
+  }
   const macroprocesos = macroprocesosDeRiesgo(riesgo);
   if (procesosAsignados.length === 0 || macroprocesos.length === 0) return false;
   if (subprocesosAsignados.length > 0 && macroprocesos.length > 1
@@ -113,9 +118,11 @@ export default async function handler(req, res) {
       const subprocesosAsignados = obtenerSubprocesosAsignados(user);
       const riesgoSolicitado = {
         ...riesgoData,
+        // Sin creador es un riesgo nuevo: lo crea quien guarda. El guardado conserva siempre el creador original.
+        creadoPor: riesgoData.creadoPor || user.email,
         macroproceso: riesgoData.macroproceso || String(proceso).split('/')[0].trim(),
       };
-      if (!esAdministrador && !riesgoDentroDelAlcancePropietario(riesgoSolicitado, procesosAsignados, subprocesosAsignados)) {
+      if (!esAdministrador && !riesgoDentroDelAlcancePropietario(riesgoSolicitado, procesosAsignados, subprocesosAsignados, user.email)) {
         return sendError(res, 'No tiene permisos para modificar riesgos de otro proceso.', 403);
       }
 
@@ -139,7 +146,7 @@ export default async function handler(req, res) {
       // colección que nadie leía y la edición no aparecía al recargar).
       if (await riesgosMigrados()) {
         const resultado = await guardarRiesgoFragmentado({ ...documentoRiesgo, id }, {
-          autorizar: existente => esAdministrador || riesgoDentroDelAlcancePropietario(existente, procesosAsignados, subprocesosAsignados),
+          autorizar: existente => esAdministrador || riesgoDentroDelAlcancePropietario(existente, procesosAsignados, subprocesosAsignados, user.email),
           validar: existente => {
             // Otra persona guardó este riesgo después de que el usuario lo cargó: no se pisa su cambio.
             // Riesgos guardados antes de existir la marca: se compara la hora del último guardado.
@@ -151,7 +158,8 @@ export default async function handler(req, res) {
             return esAdministrador ? '' : revisarControlesEliminados(existente, documentoRiesgo);
           },
           // Historial con el detalle de lo que cambió respecto a la versión guardada (quién, cuándo, antes y después).
-          completar: (actualizado, existente) => {
+          completar: (actualizadoRecibido, existente) => {
+            const actualizado = { ...actualizadoRecibido, creadoPor: existente?.creadoPor || user.email };
             if (!existente) return actualizado;
             const entrada = entradaDeCambios({ usuario: user.email, cambios: compararRiesgos(existente, actualizado) });
             if (!entrada) return actualizado;
@@ -180,11 +188,12 @@ export default async function handler(req, res) {
           datosRiesgoExistente,
           procesosAsignados,
           subprocesosAsignados,
+          user.email,
         )) {
           return false;
         }
 
-        transaction.set(riesgoRef, documentoRiesgo, { merge: true });
+        transaction.set(riesgoRef, { ...documentoRiesgo, creadoPor: datosRiesgoExistente.creadoPor || user.email }, { merge: true });
         return true;
       });
 
@@ -215,7 +224,7 @@ export default async function handler(req, res) {
       const subprocesosAsignados = obtenerSubprocesosAsignados(user);
       if (await riesgosMigrados()) {
         const eliminadoMatriz = await eliminarRiesgoFragmentado(id, {
-          autorizar: riesgo => esAdministrador || riesgoDentroDelAlcancePropietario(riesgo, procesosAsignados, subprocesosAsignados),
+          autorizar: riesgo => esAdministrador || riesgoDentroDelAlcancePropietario(riesgo, procesosAsignados, subprocesosAsignados, user.email),
         });
         if (eliminadoMatriz === 'not-found') return sendError(res, 'No se encontró el riesgo solicitado.', 404);
         if (!eliminadoMatriz) return sendError(res, 'Solo el propietario del macroproceso o un administrador puede eliminar este riesgo.', 403);
@@ -228,7 +237,7 @@ export default async function handler(req, res) {
         const snapshot = await transaction.get(riesgoRef);
         if (!snapshot.exists) return 'not-found';
         const riesgo = snapshot.data() || {};
-        if (!esAdministrador && !riesgoDentroDelAlcancePropietario(riesgo, procesosAsignados, subprocesosAsignados)) return false;
+        if (!esAdministrador && !riesgoDentroDelAlcancePropietario(riesgo, procesosAsignados, subprocesosAsignados, user.email)) return false;
         transaction.delete(riesgoRef);
         return true;
       });

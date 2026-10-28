@@ -1077,3 +1077,29 @@ test('vincular riesgo: alguien ajeno no puede, ni se vincula una acción No apli
   assert.equal((await fixture.vincular({ idPlan: 1, idRiesgo: '<x>', accion: 'vincular' })).code, 400);
   assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).riesgosVinculados, undefined, 'nada se escribió');
 });
+
+test('riesgo de toda la empresa: cualquier líder lo crea; solo quien lo creó o el administrador lo modifican', async () => {
+  const fixture = escenarioMigracion();
+  await fixture.migrar({ ejecutar: true, confirmacion: 'MIGRAR-RIESGOS' });
+  const base = { ...riesgo(901), proceso: 'Finanzas', macroprocesos: ['Finanzas', 'Operaciones'], alcance: 'empresa', probabilidadInherente: 60, impactoInherente: 60, controlesDetallados: [] };
+  fixture.sesion.usuario = { uid: 'u10', email: 'lider.finanzas@example.test', rol: 'lider', procesosAsignados: ['Finanzas'] };
+  const creado = await fixture.riesgos('POST', base);
+  assert.equal(creado.code, 200, JSON.stringify(creado));
+  assert.equal(creado.body.riesgo.creadoPor, 'lider.finanzas@example.test', 'el servidor registra quién lo creó');
+  const enPantalla = { ...base, creadoPor: creado.body.riesgo.creadoPor, versionRiesgo: creado.body.riesgo.versionRiesgo };
+
+  fixture.sesion.usuario = { uid: 'u11', email: 'lider.operaciones@example.test', rol: 'lider', procesosAsignados: ['Operaciones'] };
+  assert.equal((await fixture.riesgos('POST', { ...enPantalla, descripcion: 'Cambio ajeno' })).code, 403, 'otro líder no lo modifica');
+  assert.equal((await fixture.riesgos('POST', { ...enPantalla, creadoPor: 'lider.operaciones@example.test' })).code, 403, 'ni cambiándose el creador');
+  assert.equal((await fixture.riesgos('DELETE', null, { id: '901' })).code, 403, 'ni lo elimina');
+
+  fixture.sesion.usuario = { uid: 'u10', email: 'lider.finanzas@example.test', rol: 'lider', procesosAsignados: ['Finanzas'] };
+  const editado = await fixture.riesgos('POST', { ...enPantalla, descripcion: 'Editado por quien lo creó' });
+  assert.equal(editado.code, 200, JSON.stringify(editado));
+  assert.equal(editado.body.riesgo.creadoPor, 'lider.finanzas@example.test');
+
+  fixture.sesion.usuario = ADMIN;
+  const porAdmin = await fixture.riesgos('POST', { ...enPantalla, versionRiesgo: editado.body.riesgo.versionRiesgo, descripcion: 'Ajuste del administrador', creadoPor: 'otro@example.test' });
+  assert.equal(porAdmin.code, 200, JSON.stringify(porAdmin));
+  assert.equal(porAdmin.body.riesgo.creadoPor, 'lider.finanzas@example.test', 'el creador no se reemplaza');
+});

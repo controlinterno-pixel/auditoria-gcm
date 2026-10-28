@@ -35,7 +35,8 @@ export function riesgosVisiblesPara(riesgos, { veTodo = false, permisos = [], pr
   if (veTodo || (Array.isArray(permisos) && permisos.includes(PERMISO_VER_TODOS_RIESGOS))) return lista;
   const propios = new Set((Array.isArray(procesosAsignados) ? procesosAsignados : []).map(normalizarProceso).filter(Boolean));
   if (propios.size === 0) return lista;
-  return lista.filter(riesgo => macroprocesosDelRiesgo(riesgo).some(proceso => propios.has(proceso)));
+  // Un riesgo de toda la empresa (transversal) aplica a todos los procesos: lo ven todos.
+  return lista.filter(riesgo => riesgo?.alcance === 'empresa' || macroprocesosDelRiesgo(riesgo).some(proceso => propios.has(proceso)));
 }
 
 // Paquete básico: el que rige para usuarios antiguos sin permisos guardados (y el que Configuración les muestra).

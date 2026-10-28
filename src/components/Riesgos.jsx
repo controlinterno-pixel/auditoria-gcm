@@ -25,6 +25,7 @@ import { CRITERIOS_CUMPLIMIENTO, cumplimientoNumeral9, incumpleCriterio } from '
 import { planesVinculadosAlRiesgo } from '../utils/planesDelRiesgo.js';
 import { sinProcesoDelCatalogo } from '../utils/ubicacionCatalogo.js';
 import { PERMISO_VER_TODOS_RIESGOS, permisosEfectivos } from '../utils/permisosVista.js';
+import { ALCANCES_RIESGO, alcanceDe, esTransversal, expandirUbicacion, subprocesosSinControl, textoAlcance } from '../utils/alcanceRiesgo.js';
 import { explicarControlesRegistrados, explicarEficaciaPromedio, explicarExposicionPorProceso, explicarMayorExposicion, explicarMitigacionPromedio, explicarSeguimientos } from '../utils/explicacionDashboardRiesgos.js';
 import { calcularEficaciaControl, codigoControl, desglosarEficaciaControl, eficaciaSobreMaximo, explicarCalculoResidual, explicarControl, promedioEficacia, tonoDiseno } from '../utils/explicacionControles.js';
 
@@ -59,7 +60,9 @@ const OpcionesSinCatalogo = ({ tipo }) => (
   </option>
 );
 
-const normalizarUbicacionRiesgo = (riesgo, mapaProcesos) => {
+const normalizarUbicacionRiesgo = (riesgoGuardado, mapaProcesos) => {
+  // Transversal (todo el macroproceso o toda la empresa): se completa con el catálogo vigente.
+  const riesgo = expandirUbicacion(riesgoGuardado, mapaProcesos);
   const partesProcesoLegado = String(riesgo.proceso || '').split('/').map(parte => parte.trim()).filter(Boolean);
   const macroprocesosGuardados = convertirCampoProcesoEnLista(riesgo.macroprocesos);
   const candidatosMacroproceso = macroprocesosGuardados.length > 0
@@ -393,6 +396,8 @@ export default function Riesgos({
     || permisosEfectivos(perfilUsuario).includes(PERMISO_VER_TODOS_RIESGOS) || procesosAsignadosUsuario.length === 0;
   const puedeModificarRiesgo = riesgo => {
     if (isAdmin) return true;
+    // Toda la empresa: lo modifica quien lo creó (los riesgos nuevos aún no tienen creador).
+    if (alcanceDe(riesgo) === 'empresa') return procesosAsignadosUsuario.length > 0 && (!riesgo.creadoPor || String(riesgo.creadoPor).toLowerCase() === String(user?.email || '').toLowerCase());
     const ubicacionRiesgo = normalizarUbicacionRiesgo(riesgo, MAPA_PROCESOS);
     const macroprocesosRiesgo = ubicacionRiesgo.macroprocesos
       .filter(macroproceso => macroproceso !== 'Sin proceso')
@@ -460,6 +465,7 @@ export default function Riesgos({
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas');
   const [filtroNivel, setFiltroNivel] = useState('Todos');
   const [filtroEstadoRiesgo, setFiltroEstadoRiesgo] = useState('Activos');
+  const [filtroAlcance, setFiltroAlcance] = useState('Todos');
   // Filtro de cumplimiento del numeral 9 ('sin-plan' | 'sin-seguimiento' | 'reprobados'), abierto desde el Dashboard.
   const [filtroCumplimiento, setFiltroCumplimiento] = useState(null);
   const [mitigacionAbierta, setMitigacionAbierta] = useState(null);
@@ -497,6 +503,15 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   const [subprocesosPorMacroprocesoSeleccionados, setSubprocesosPorMacroprocesoSeleccionados] = useState(
     () => crearRelacionSubprocesosInicial(macroprocesosSeleccionados)
   );
+  const [alcanceRiesgo, setAlcanceRiesgo] = useState('especifico');
+  // "Todo el macroproceso" exige poder elegir todos sus subprocesos (o ser administrador).
+  // Subprocesos que abarca el riesgo del formulario ("Macroproceso › Subproceso"): opciones de "Subproceso que lo
+  // ejecuta" en cada control y base para avisar cuáles quedan sin control propio.
+  const subprocesosDelFormulario = (alcanceRiesgo === 'empresa'
+    ? Object.entries(MAPA_PROCESOS)
+    : macroprocesosSeleccionados.map(macroproceso => [macroproceso, alcanceRiesgo === 'macroproceso' ? MAPA_PROCESOS[macroproceso] || [] : subprocesosPorMacroprocesoSeleccionados[macroproceso] || []])
+  ).flatMap(([macroproceso, subprocesos]) => subprocesos.map(subproceso => `${macroproceso} › ${subproceso}`));
+  const cubreTodoElMacroproceso = macroproceso => isAdmin || obtenerSubprocesosPermitidos(macroproceso).length === (MAPA_PROCESOS[macroproceso] || []).length;
   const macroprocesosDisponibles = [...new Set([...listadoMacros, ...macroprocesosSeleccionados])].filter(nombre => (
     nombre && (isAdmin || soloLecturaRiesgo || procesosAsignadosUsuario.includes(normalizarTextoProceso(nombre)))
   )).sort((a, b) => a.localeCompare(b, 'es'));
@@ -533,6 +548,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     const macrosIniciales = macroprocesoPredeterminado ? [macroprocesoPredeterminado] : [];
     setMacroprocesosSeleccionados(macrosIniciales);
     setSubprocesosPorMacroprocesoSeleccionados(crearRelacionSubprocesosInicial(macrosIniciales));
+    setAlcanceRiesgo('especifico');
     setFormularioModificado(false);
     setEditRiesgo(null);
     // Un riesgo nuevo arranca en blanco: no hereda líder, sedes ni textos del último riesgo abierto o guardado.
@@ -573,6 +589,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         }));
         setMacroprocesosSeleccionados(macrosPromovidos);
         setSubprocesosPorMacroprocesoSeleccionados(relacionPromovida);
+        setAlcanceRiesgo('especifico');
         if (data.causaInmediata) setCausaInmediata(data.causaInmediata);
         if (data.sede) setSedeForm(Array.isArray(data.sede) ? data.sede : [data.sede]);
         if (data.responsable) setResponsablesMultiples(Array.isArray(data.responsable) ? data.responsable : [data.responsable]);
@@ -1179,6 +1196,7 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     }));
     setMacroprocesosSeleccionados(macrosEditables);
     setSubprocesosPorMacroprocesoSeleccionados(relacionEditable);
+    setAlcanceRiesgo(alcanceDe(riesgo));
 
     setCategoria(riesgo.categoria);
     // El selector solo tiene las 7 del manual: una variante guardada se muestra (y se guarda) como la del manual.
@@ -1230,10 +1248,17 @@ const handleRiesgoSubmit = async (e) => {
       return;
     }
 
-    const macroprocesosCanonicos = [...new Set(macroprocesosSeleccionados.map(macroprocesoSeleccionado => (
+    const macroprocesosMarcados = [...new Set(macroprocesosSeleccionados.map(macroprocesoSeleccionado => (
       resolverNombreCatalogo(macroprocesoSeleccionado, Object.keys(MAPA_PROCESOS))
     )).filter(Boolean))];
-    const relacionSubprocesosCanonica = Object.fromEntries(macroprocesosCanonicos.map(macroprocesoCanonico => {
+    if (alcanceRiesgo === 'macroproceso' && macroprocesosMarcados.some(macroproceso => !cubreTodoElMacroproceso(macroproceso))) {
+      showNotification('Para que el riesgo aplique a todo un macroproceso necesitas tener asignados todos sus subprocesos. Márcalos uno por uno o pide al administrador que lo registre.', 'error');
+      return;
+    }
+    const macroprocesosCanonicos = alcanceRiesgo === 'empresa' ? Object.keys(MAPA_PROCESOS) : macroprocesosMarcados;
+    const relacionSubprocesosCanonica = alcanceRiesgo !== 'especifico'
+      ? Object.fromEntries(macroprocesosCanonicos.map(macroproceso => [macroproceso, [...(MAPA_PROCESOS[macroproceso] || [])]]))
+      : Object.fromEntries(macroprocesosCanonicos.map(macroprocesoCanonico => {
       const subprocesosPermitidos = obtenerSubprocesosPermitidos(macroprocesoCanonico);
       const subprocesosElegidos = subprocesosPorMacroprocesoSeleccionados[macroprocesoCanonico] || [];
       const subprocesosCanonicos = [...new Set(subprocesosElegidos.map(subproceso => (
@@ -1280,6 +1305,7 @@ const handleRiesgoSubmit = async (e) => {
         subproceso: subprocesoPrincipal,
         subprocesos: subprocesosCanonicos,
         subprocesosPorMacroproceso: relacionSubprocesosCanonica,
+        alcance: alcanceRiesgo,
         categoria,
         clasificacionRiesgo,
         normativa,
@@ -1886,7 +1912,8 @@ const renderMatriz = () => {
       const matchNivel = filtroNivel === 'Todos' || zonaFiltro.label === etiquetaNivel;
       const matchEstado = filtroEstadoRiesgo === 'Todos' || (filtroEstadoRiesgo === 'Anulados' ? estaAnulado(r) : !estaAnulado(r));
       const matchCumplimiento = !filtroCumplimiento || incumpleCriterio(r, filtroCumplimiento, evaluaciones, planesDeAccion);
-      return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel && matchEstado && matchCumplimiento;
+      const matchAlcance = filtroAlcance === 'Todos' || (filtroAlcance === 'transversales' ? esTransversal(r) : alcanceDe(r) === filtroAlcance);
+      return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel && matchEstado && matchCumplimiento && matchAlcance;
     });
 
     // 📊 Las tarjetas de arriba siguen los filtros (proceso, subproceso, clasificación, nivel, búsqueda y
@@ -1925,6 +1952,7 @@ const renderMatriz = () => {
       filtroNivel !== 'Todos' && `nivel ${filtroNivel.includes(':') ? `${filtroNivel.split(':')[1]} ${filtroNivel.startsWith('inh') ? 'inherente' : 'residual'}` : filtroNivel}`,
       searchTerm && `búsqueda "${searchTerm}"`,
       filtroCumplimiento && CRITERIOS_CUMPLIMIENTO[filtroCumplimiento]?.titulo.toLowerCase(),
+      filtroAlcance !== 'Todos' && (filtroAlcance === 'transversales' ? 'riesgos transversales' : `alcance ${ALCANCES_RIESGO[filtroAlcance].toLowerCase()}`),
     ].filter(Boolean).join(' · ');
     const anuladosFiltroMatriz = riesgosFiltrados.length - riesgosKpi.length;
 
@@ -2056,6 +2084,17 @@ const renderMatriz = () => {
             </select>
 
             <select
+              value={filtroAlcance}
+              onChange={e => setFiltroAlcance(e.target.value)}
+              aria-label="Filtrar por alcance del riesgo"
+              className={`text-xs p-2 border rounded-xl font-bold focus:ring-2 focus:ring-[#0A3B32] ${filtroAlcance === 'Todos' ? 'border-slate-200 bg-white text-slate-700' : 'border-[#0A3B32] bg-emerald-50 text-[#0A3B32]'}`}
+            >
+              <option value="Todos">Todos los alcances</option>
+              <option value="transversales">Solo transversales</option>
+              {Object.entries(ALCANCES_RIESGO).map(([valor, texto]) => <option key={valor} value={valor}>{texto}</option>)}
+            </select>
+
+            <select
               value={filtroEstadoRiesgo}
               onChange={e => setFiltroEstadoRiesgo(e.target.value)}
               aria-label="Filtrar por estado del riesgo"
@@ -2142,8 +2181,9 @@ const renderMatriz = () => {
                           <span className="text-slate-400 text-xs">🏢</span>
                         </div>
                         <p className="text-[10px] font-bold text-slate-500 mt-0.5 line-clamp-1">
-                          {r.macroprocesos.join(', ') || 'Gestión Operativa'}
+                          {esTransversal(r) ? textoAlcance(r, MAPA_PROCESOS) : r.macroprocesos.join(', ') || 'Gestión Operativa'}
                         </p>
+                        {esTransversal(r) && <span className="inline-block mt-1 mr-1 text-[8px] font-black uppercase text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200" title={`Aplica a ${r.subprocesos.length} subprocesos`}>Transversal</span>}
                         {estaAnulado(r) ? (
                           <span className="inline-block mt-1 text-[8px] font-black uppercase text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300" title={r.anulacion ? `${r.anulacion.tipoMotivo}: ${r.anulacion.motivo} — ${r.anulacion.usuario}, ${fechaEntradaHistorial(r.anulacion)}` : 'Anulado'}>
                             Anulado
@@ -3099,6 +3139,27 @@ const renderMatriz = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
+              <fieldset className="md:col-span-2 lg:col-span-3 rounded-lg border border-slate-300 bg-white p-2">
+                <legend className="px-1 text-[10px] font-black text-slate-500 uppercase tracking-wider">Alcance del riesgo</legend>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[
+                    ['especifico', 'Los macroprocesos y subprocesos que marque.'],
+                    ['macroproceso', 'Todos los subprocesos de los macroprocesos marcados, también los que se creen después.'],
+                    ['empresa', 'Transversal: aplica a todos los procesos de la empresa. Lo modifican quien lo crea y el administrador.'],
+                  ].map(([valor, explicacion]) => (
+                    <label key={valor} className={`flex cursor-pointer items-start gap-2 rounded-lg border p-2 text-[10px] ${alcanceRiesgo === valor ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200'} `}>
+                      <input type="radio" name="alcance-riesgo" value={valor} checked={alcanceRiesgo === valor} onChange={() => setAlcanceRiesgo(valor)} className="mt-0.5 accent-emerald-700" />
+                      <span><b className="block text-slate-800">{ALCANCES_RIESGO[valor]}</b><span className="text-slate-500">{explicacion}</span></span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              {alcanceRiesgo === 'empresa' ? (
+                <p className="md:col-span-2 lg:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-[11px] text-emerald-900">
+                  Aplica a los <b>{Object.keys(MAPA_PROCESOS).length} macroprocesos</b> y <b>{Object.values(MAPA_PROCESOS).flat().length} subprocesos</b> del catálogo de Cargos y Procesos. Lo ven todos los usuarios con acceso a la matriz y lo modifican quien lo creó y el administrador; asigna en cada control el subproceso que lo ejecuta.
+                </p>
+              ) : (
               <div className="md:col-span-2 lg:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <fieldset disabled={macroprocesosDisponibles.length === 0} className="rounded-lg border border-slate-300 bg-white p-2 disabled:bg-slate-100">
                   <legend className="px-1 text-[10px] font-black text-slate-500 uppercase tracking-wider">Macroprocesos / Procesos</legend>
@@ -3119,6 +3180,14 @@ const renderMatriz = () => {
                 </fieldset>
                 {!isAdmin && macroprocesosDisponibles.length === 0 && <p className="text-[10px] text-amber-800">Puedes consultar la matriz completa. Solicita que te asignen un macroproceso para crear riesgos.</p>}
 
+                {alcanceRiesgo === 'macroproceso' ? (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-[10px] text-emerald-900">
+                    <p className="mb-1 font-black uppercase tracking-wider">Todos los subprocesos</p>
+                    {macroprocesosSeleccionados.length === 0 ? <p>Marca uno o más macroprocesos.</p> : macroprocesosSeleccionados.map(macroproceso => (
+                      <p key={macroproceso}><b>{macroproceso}:</b> {(MAPA_PROCESOS[macroproceso] || []).length} subprocesos{cubreTodoElMacroproceso(macroproceso) ? '' : <span className="font-bold text-red-700"> — no tienes asignados todos sus subprocesos</span>}</p>
+                    ))}
+                  </div>
+                ) : (
                 <fieldset disabled={macroprocesosSeleccionados.length === 0} className="rounded-lg border border-slate-300 bg-white p-2 disabled:bg-slate-100">
                   <legend className="px-1 text-[10px] font-black text-slate-500 uppercase tracking-wider">Subprocesos por macroproceso</legend>
                   <div className="max-h-40 space-y-3 overflow-y-auto">
@@ -3149,7 +3218,9 @@ const renderMatriz = () => {
                     {macroprocesosSeleccionados.length === 0 && <p className="text-[10px] text-slate-400">Selecciona uno o más macroprocesos para ver sus subprocesos.</p>}
                   </div>
                 </fieldset>
+                )}
               </div>
+              )}
 
               <div>
                 <LabelConPalomita idCampo="categoria" onAbrirAyuda={setAyudaModal} />
@@ -3327,8 +3398,11 @@ const renderMatriz = () => {
 
           {/* BLOQUE DINÁMICO CON LAS 5 CASILLAS METODOLÓGICAS */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex justify-between items-center border-b pb-2">
+            <div className="flex flex-wrap justify-between items-center gap-y-1 border-b pb-2">
               <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">4. Evaluación de Solidez de Controles (5 Variables)</h3>
+              {subprocesosDelFormulario.length > 1 && subprocesosSinControl(subprocesosDelFormulario, controles).length > 0 && (
+                <span className="basis-full order-last text-[10px] font-bold text-amber-800">Sin control propio: {subprocesosSinControl(subprocesosDelFormulario, controles).join('; ')}. Agrega un control para cada uno o deja alguno como común (sin subproceso).</span>
+              )}
               <button type="button" onClick={() => setControles([...controles, { descripcion: '', tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro' }])} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-colors">➕ Agregar Control</button>
             </div>
 {controles.map((ctrl, idx) => estaAnulado(ctrl) ? (
@@ -3395,6 +3469,17 @@ const renderMatriz = () => {
                   </div>
                 </div>
                 
+                {subprocesosDelFormulario.length > 1 && (
+                  <div>
+                    <label htmlFor={`ejecutor-control-${idx}`} className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Subproceso que lo ejecuta</label>
+                    <select id={`ejecutor-control-${idx}`} value={ctrl.subprocesoEjecutor || ''} onChange={e => { const nuevos = [...controles]; nuevos[idx] = { ...nuevos[idx], subprocesoEjecutor: e.target.value }; setControles(nuevos); }}
+                      className="w-full text-xs p-2 border bg-white rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
+                      <option value="">Común a todos los subprocesos del riesgo</option>
+                      {[...new Set([...subprocesosDelFormulario, ...(ctrl.subprocesoEjecutor ? [ctrl.subprocesoEjecutor] : [])])].map(opcion => <option key={opcion} value={opcion}>{opcion}</option>)}
+                    </select>
+                    <p className="mt-0.5 text-[10px] text-slate-500">El líder de ese subproceso responde por el control (manual E-GE-MAN-001, numeral 8.3.2).</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Tipo</label>
