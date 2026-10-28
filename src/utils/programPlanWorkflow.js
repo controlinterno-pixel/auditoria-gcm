@@ -132,3 +132,14 @@ export function calcularPuntajeDiseno(criterios) {
   ))) throw new Error('Los cinco criterios deben ser números entre 0 y 100.');
   return Math.round(Object.entries(pesos).reduce((total, [clave, peso]) => total + criterios[clave] * peso, 0));
 }
+
+/**
+ * Acciones que el ejecutor debe corregir tras la evaluación inicial del diseño (devueltas por el auditor y
+ * asignadas a su correo). Si hay alguna, el plan solo le muestra esas: las aprobadas quedan ocultas y bloqueadas.
+ */
+export function accionesEnCorreccionInicial(planes, correo) {
+  const usuario = String(correo || '').trim().toLowerCase();
+  if (!usuario) return [];
+  return (Array.isArray(planes) ? planes : []).filter(plan => plan?.estadoWorkflow === ESTADO_AJUSTES_INICIALES
+    && String(plan.correoResponsable || '').split(',').some(item => item.trim().toLowerCase() === usuario));
+}

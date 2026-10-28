@@ -11,7 +11,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -2346,6 +2346,19 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     });
   };
 
+  // Corrección del diseño inicial (programas de auditoría): si el ejecutor tiene acciones devueltas por el
+  // auditor, el plan solo le muestra esas; las aprobadas y las de otros quedan ocultas y bloqueadas.
+  const idsEnCorreccionInicial = (() => {
+    if (isAdmin || modoRevisionMatriz || modoConsultaPlan || !formInformeId) return null;
+    const guardados = Object.values(matrixState || {}).flatMap(nodo => (Array.isArray(nodo?.actividades) ? nodo.actividades : []))
+      .map(actividad => safePlanes.find(plan => String(plan.id) === String(actividad.id)));
+    const ids = accionesEnCorreccionInicial(guardados, user?.email).map(plan => String(plan.id));
+    return ids.length ? new Set(ids) : null;
+  })();
+  const accionesOcultasEnCorreccion = idsEnCorreccionInicial
+    ? Object.values(matrixState || {}).flatMap(nodo => (Array.isArray(nodo?.actividades) ? nodo.actividades : [])).filter(actividad => !idsEnCorreccionInicial.has(String(actividad.id))).length
+    : 0;
+
   // Sin `ids` decide todas las pendientes del revisor; con `ids`, solo esas (p. ej. una sola acción).
   const resolverDecisionRevision = async (decision, { ids = null, motivo = null } = {}) => {
     if (!revisionInformeId || guardandoDecisionRevision) return;
@@ -3327,8 +3340,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
           {formInformeId && (
 <form id="matrix-master-form" onChangeCapture={() => setMatrixDirty(true)} onSubmit={handleMasterMatrixSubmit} className="space-y-6">
+{idsEnCorreccionInicial && (
+  <div role="status" className="rounded-2xl border-2 border-orange-300 bg-orange-50 p-4 text-xs text-orange-950">
+    <p className="text-sm font-black uppercase tracking-wide">✎ Corrige {idsEnCorreccionInicial.size === 1 ? 'la acción devuelta' : `las ${idsEnCorreccionInicial.size} acciones devueltas`} por el auditor</p>
+    <p className="mt-1">Solo se muestra{idsEnCorreccionInicial.size === 1 ? '' : 'n'} {idsEnCorreccionInicial.size === 1 ? 'la acción' : 'las acciones'} que no {idsEnCorreccionInicial.size === 1 ? 'aprobó' : 'aprobaron'} en la evaluación inicial del diseño. Ajústala{idsEnCorreccionInicial.size === 1 ? '' : 's'} según el motivo, guarda y reenvía el diseño al auditor.{accionesOcultasEnCorreccion > 0 ? ` Las otras ${accionesOcultasEnCorreccion === 1 ? 'acción del plan queda oculta y bloqueada' : `${accionesOcultasEnCorreccion} acciones del plan quedan ocultas y bloqueadas`}: no cambian.` : ''}</p>
+  </div>
+)}
 {safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
                 const node = matrixState[h.id] || { aplica: true, actividades: [] };
+                // En corrección del diseño inicial solo se muestran los hallazgos con acciones devueltas.
+                if (idsEnCorreccionInicial && !(node.actividades || []).some(actividad => idsEnCorreccionInicial.has(String(actividad.id)))) return null;
                 return (
                   <div key={`matrix-card-${h.id}`} className={`border rounded-2xl p-5 shadow-sm space-y-4 transition-all ${node.aplica ? 'border-blue-200 bg-slate-50/50' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
                     
@@ -3357,12 +3378,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           {node.estadoNoAplica === 'Aprobado' ? '🔒 No aplica · definitivo' : '⏳ No aplica · en revisión del auditor'}
                         </span>
                       )}
-                      {(!modoRevisionMatriz) && !['Aprobado', 'Pendiente'].includes(node.estadoNoAplica) && aplicaBloqueadaParaUsuario(h.id) && (
+                      {(!modoRevisionMatriz) && !idsEnCorreccionInicial && !['Aprobado', 'Pendiente'].includes(node.estadoNoAplica) && aplicaBloqueadaParaUsuario(h.id) && (
                         <span className="shrink-0 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-600" title="Con el diseño aprobado, solo el ejecutor trabaja estas acciones">
                           🔒 {node.aplica ? 'Sí aplica' : 'No aplica'}
                         </span>
                       )}
-                      {(!modoRevisionMatriz) && !['Aprobado', 'Pendiente'].includes(node.estadoNoAplica) && !aplicaBloqueadaParaUsuario(h.id) && (
+                      {(!modoRevisionMatriz) && !idsEnCorreccionInicial && !['Aprobado', 'Pendiente'].includes(node.estadoNoAplica) && !aplicaBloqueadaParaUsuario(h.id) && (
                         <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
                           <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
                           <button type="button" onClick={() => handleToggleAplica(h.id, false)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>No Aplica</button>
@@ -3373,6 +3394,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     {node.aplica && (
                       <div className="space-y-5">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => {
+  // Corrección del diseño inicial: las acciones aprobadas o de otros no se muestran ni se editan.
+  if (idsEnCorreccionInicial && !idsEnCorreccionInicial.has(String(act.id))) return null;
   const actividadNueva = String(act.id).startsWith('new-');
   const planOriginal = actividadNueva ? null : safePlanes.find(plan => String(plan.id) === String(act.id));
   const informeDeActividad = informesAuditoria.find(informe => (
@@ -3883,7 +3906,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           </Fragment>
   );
 })}
-                {!modoRevisionMatriz && (
+                {!modoRevisionMatriz && !idsEnCorreccionInicial && (
                   <button type="button" onClick={() => handleAddActivity(h.id)} className="bg-white border-2 border-dashed border-slate-300 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase">➕ Agregar Otra Actividad</button>
                 )}
                       </div>
