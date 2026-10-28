@@ -35,6 +35,11 @@ const CAMPOS_EDITABLES_PLAN = [
 // Riesgos de la matriz a los que aplica la acción ("Matriz de riesgos: Sí aplica"). Es un dato informativo
 // (cuenta para el numeral 9 del riesgo): vincular o desvincular no es un cambio de diseño ni reenvía a revisión.
 const CAMPOS_INFORMATIVOS_PLAN = ['riesgosVinculados'];
+// "¿Esta acción actualiza alguna de estas matrices?": en acciones antiguas el dato no existe y el formulario envía
+// "No aplica". Vacío y "No aplica" son lo mismo: si no, guardar el avance contaba como cambio de diseño y una acción
+// de programa al 100 % volvía a la evaluación inicial.
+const CAMPOS_MATRIZ_PLAN = ['matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal'];
+const valorComparable = (campo, valor) => (CAMPOS_MATRIZ_PLAN.includes(campo) ? (valor || 'No aplica') : (valor ?? null));
 const MAX_RIESGOS_VINCULADOS = 50;
 /** Lista de ids de riesgo limpia, sin duplicados; null si el formato no es válido. */
 function normalizarRiesgosVinculados(valor, matrizRiesgos) {
@@ -240,7 +245,7 @@ export default async function handler(req, res) {
           }
 
           const camposCambiados = Object.keys(cambios).filter(campo => (
-            JSON.stringify(anterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
+            JSON.stringify(valorComparable(campo, anterior[campo])) !== JSON.stringify(valorComparable(campo, cambios[campo]))
           ));
           const atascadoAlCien = anterior.estadoWorkflow === 'En Ejecución' && Number(anterior.progreso) === 100;
           if (camposCambiados.length === 0 && !atascadoAlCien) continue;

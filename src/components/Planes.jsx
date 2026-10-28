@@ -1250,7 +1250,9 @@ const handleNotificarPlan = async (planId) => {
         const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
         const camposDiseno = ['accion', 'sede', 'responsable', 'correoResponsable', 'revisor', 'correoRevisor', 'auditorAsignado', 'correoAuditor', 'fechaInicio', 'fecha', 'tipoAccion', 'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal'];
         const cambiaDisenoPrograma = esProgramaInforme && !isNew && camposDiseno.some(campo => (
-          JSON.stringify(planOriginal?.[campo] ?? '') !== JSON.stringify(act[campo] ?? '')
+          /^matriz/.test(campo)
+            ? (planOriginal?.[campo] || 'No aplica') !== (act[campo] || 'No aplica')
+            : JSON.stringify(planOriginal?.[campo] ?? '') !== JSON.stringify(act[campo] ?? '')
         ));
         
        let workflowCalculado = act.estadoWorkflow || 'Pendiente Revisión Jefatura';
@@ -2059,8 +2061,10 @@ if (existingActivities.length > 0) {
     };
     // El vínculo con la matriz de riesgos es informativo: no es un cambio de diseño.
     const camposDiseno = camposGuardables.filter(campo => !['progreso', 'evidenciaUrl', 'riesgosVinculados'].includes(campo));
+    // Matrices vacías en acciones antiguas equivalen a "No aplica" (lo que muestra y envía el formulario).
+    const comparable = (campo, valor) => (/^matriz/.test(campo) ? (valor || 'No aplica') : (valor ?? null));
     const cambioDiseno = Boolean(planOriginal && camposDiseno.some(campo => (
-      JSON.stringify(planOriginal[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
+      JSON.stringify(comparable(campo, planOriginal[campo])) !== JSON.stringify(comparable(campo, cambios[campo]))
     ))) || Boolean(planOriginal && (
       correoNormalizado(actividad.correoResponsable) !== correoNormalizado(planOriginal.correoResponsable) ||
       correoNormalizado(actividad.correoRevisor) !== correoNormalizado(planOriginal.correoRevisor) ||
@@ -4400,7 +4404,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 <tr key={`h-child-plan-${p.id}-${pIdx}`} className="hover:bg-slate-50/60 transition-colors">
                                   <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().slice(-4)}</td>
                                   <td className="p-3">
-                                    <span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border bg-slate-100 text-slate-700">{p.estadoWorkflow}</span>
+                                    {/* Mientras el auditor decide el No aplica del hallazgo, la acción conserva su estado pero no se trabaja. */}
+                                    {estadoNoAplica(hallazgosPorId.get(String(p.idHallazgo))) === 'Pendiente'
+                                      ? <span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border border-amber-300 bg-amber-50 text-amber-800" title={`Estado guardado: ${p.estadoWorkflow}`}>No aplica · en revisión del auditor</span>
+                                      : <span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border bg-slate-100 text-slate-700">{p.estadoWorkflow}</span>}
                                     {bloqueadaParaEjecutor(p, user?.email) && !accionCerrada(p) && (
                                       <span className="mt-1 block w-fit rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-[9px] font-black uppercase text-sky-800">🔒 Ejecutada 100% · pendiente por revisar</span>
                                     )}

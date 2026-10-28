@@ -8,7 +8,7 @@ import {
   guardarInformesGrc, guardarPlanesGrc, guardarRegistrosGrc, leerInformeTx, leerWorkspaceGrcLigero,
   obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, obtenerPlanesDeInformeTx, obtenerPlanesTx,
 } from '../_lib/grcWorkspace.js';
-import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, estadoAlCien, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 import { validarAdjuntoEvaluacion } from '../../src/utils/evaluationAttachment.js';
 
 const ESTADO_VALIDACION_REVISOR = 'Pendiente Validación Revisor';
@@ -86,7 +86,8 @@ async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justi
       ...plan,
       evaluacionHolistica: evaluacion,
       historialEvaluaciones: [evaluacion, ...(plan.historialEvaluaciones || (plan.evaluacionHolistica ? [plan.evaluacionHolistica] : []))],
-      estadoWorkflow: aprobado ? 'En Ejecución' : ESTADO_AJUSTES_INICIALES,
+      // Diseño aprobado de una acción que ya estaba al 100 %: pasa a validar sus evidencias, no a ejecutar de nuevo.
+      estadoWorkflow: aprobado ? (Number(plan.progreso) === 100 ? estadoAlCien(plan) : 'En Ejecución') : ESTADO_AJUSTES_INICIALES,
       estado: 'En Proceso',
       aprobadoPorCorreo: aprobado ? user.email : '',
       aprobadoEn: aprobado ? ahora.toISOString() : '',

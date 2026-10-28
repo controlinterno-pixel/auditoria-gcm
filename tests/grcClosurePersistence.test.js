@@ -1155,3 +1155,29 @@ test('ejecución al 100 %: el revisor devuelve las evidencias 3 veces y solo al 
   assert.equal((await fixture.close({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [1] })).code, 200);
   assert.equal(plan().estadoWorkflow, 'En Revisión (100%)', 'ahora sí llega al auditor aprobador');
 });
+
+test('acción antigua sin matrices: guardar el 100 % con "No aplica" no cuenta como cambio de diseño', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  // Programa de auditoría, diseño aprobado, sin los campos de matrices (creada antes de que existieran).
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { estadoWorkflow: 'En Ejecución', progreso: 60 }));
+  comoEjecutor(fixture);
+  const guardado = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{
+    id: 1, progreso: 100, matrizRiesgos: 'No aplica', matrizAspectos: 'No aplica', matrizPeligros: 'No aplica', matrizLegal: 'No aplica',
+  }], nuevas: [] } });
+  assert.equal(guardado.code, 200, JSON.stringify(guardado));
+  const plan = fixture.documents.get(`${ROOT}/planes_accion/1`);
+  assert.equal(plan.estadoWorkflow, 'Pendiente Validación Revisor', 'va al revisor, no vuelve a la evaluación inicial del diseño');
+  assert.equal(plan.progreso, 100);
+});
+
+test('diseño aprobado de una acción que ya estaba al 100 %: pasa a validación del revisor', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { estadoWorkflow: workflow.ESTADO_EVALUACION_INICIAL, progreso: 100, evaluacionHolistica: null }));
+  const response = await fixture.close({
+    decision: 'evaluar-diseno', idInforme: 'i1', idsPlanes: [1],
+    criterios: Object.fromEntries(['c1', 'c2', 'c3', 'c4', 'c5'].map(key => [key, 100])), justificacion: '',
+    adjuntoEvaluacion: { nombre: 'Evaluacion.pdf', tamano: 100, url: 'https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/evaluacion.pdf' },
+  });
+  assert.equal(response.code, 200, JSON.stringify(response));
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'Pendiente Validación Revisor');
+});
