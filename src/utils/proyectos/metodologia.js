@@ -5,6 +5,10 @@
 import { esFecha } from './fechas.js';
 import { resumenFinanciero } from './financiero.js';
 
+// Roles que todo organigrama debe tener para firmar el Acta de constitución.
+const ROLES_OBLIGATORIOS = ['Patrocinador', 'Director del proyecto'];
+const nombreRol = texto => String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().replace(/\s+/g, ' ').toLowerCase();
+
 // Mismos valores que modelo.js (se repiten para no crear una importación circular con requisitosTransicion).
 const TIPOS_CONTENEDOR = ['fase', 'paquete', 'epica'];
 
@@ -145,7 +149,14 @@ export const APARTADOS = [
       return '';
     } },
   { id: 'organigrama', numero: '14', titulo: 'Organigrama del proyecto por ciclo de vida', etapa: 'inversion',
-    faltante: (_, plan) => ((datosDe(plan, 'organigrama').roles || []).some(rol => rol.fase === 'inversion' && lleno(rol.rol)) ? '' : 'Registra al menos los roles de la fase de Inversión.') },
+    faltante: (_, plan) => {
+      const roles = datosDe(plan, 'organigrama').roles || [];
+      if (!roles.some(rol => rol.fase === 'inversion' && lleno(rol.rol))) return 'Registra al menos los roles de la fase de Inversión.';
+      // El Acta de constitución es el contrato entre patrocinador y director (manual, pág. 31): ambos deben estar asignados.
+      const asignado = nombre => roles.some(rol => nombreRol(rol.rol) === nombreRol(nombre) && lleno(rol.persona));
+      const faltan = ROLES_OBLIGATORIOS.filter(nombre => !asignado(nombre));
+      return faltan.length ? `Falta en el organigrama, con su cargo asignado: ${faltan.join(' y ')} (los exige el Acta de constitución, manual pág. 31).` : '';
+    } },
   { id: 'raci', numero: '15', titulo: 'Matriz RACI', etapa: 'inversion', faltante: (_, plan) => erroresRaci(plan)[0] || '' },
   { id: 'riesgosProyecto', numero: '16', titulo: 'Gestión de riesgos', etapa: 'inversion',
     faltante: (_, plan) => ((plan?.riesgos || []).some(riesgo => riesgo.tipo === 'riesgo') ? '' : 'Registra la matriz de riesgos del proyecto (pestaña Riesgos).') },

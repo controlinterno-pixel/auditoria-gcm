@@ -77,7 +77,10 @@ test('ciclo de vida completo del manual con sus aprobaciones', () => {
   s.hacer(DIRECTOR, 'establecerLineaBase', { motivo: 'Cronograma aprobado' });
   s.hacer(DIRECTOR, 'guardarRiesgo', { riesgo: { tipo: 'riesgo', descripcion: 'Lluvias', probabilidad: 4, impacto: 3, estado: 'abierto' } });
   s.seccion('interesados', { lista: [{ nombre: 'Junta de acción comunal', tipo: 'externo', poder: 4, interes: 5, actitud: 'neutral' }] });
-  s.seccion('organigrama', { roles: [{ fase: 'inversion', rol: 'Director del proyecto', persona: 'director' }] });
+  s.seccion('organigrama', { roles: [{ fase: 'inversion', rol: 'Director del proyecto', persona: 'director' }, { fase: 'inversion', rol: 'Patrocinador' }] });
+  // Sin el patrocinador con su cargo no se firma el Acta (contrato entre patrocinador y director, pág. 31).
+  assert.throws(() => s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'ejecucion', motivo: 'x' }), /Falta en el organigrama, con su cargo asignado: Patrocinador \(los exige el Acta de constitución/);
+  s.seccion('organigrama', { roles: [{ fase: 'inversion', rol: 'Director del proyecto', persona: 'director' }, { fase: 'inversion', rol: 'patrocinador', persona: 'Gerente General' }] });
   assert.throws(() => s.hacer(DIRECTOR, 'solicitarEstado', { destino: 'ejecucion', motivo: 'x' }), /Apartado 15 \(Matriz RACI\)/);
   s.seccion('raci', { roles: ['Director', 'Contratista'], filas: { [`T:${fase.id}`]: { Director: 'A', Contratista: 'R' }, 'T:inexistente': { Director: 'A' } } });
   assert.deepEqual(Object.keys(s.plan.secciones.raci.datos.filas), [`T:${fase.id}`], 'la RACI solo guarda elementos de la EDT');
