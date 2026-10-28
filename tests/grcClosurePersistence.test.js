@@ -1103,3 +1103,55 @@ test('riesgo de toda la empresa: cualquier líder lo crea; solo quien lo creó o
   assert.equal(porAdmin.code, 200, JSON.stringify(porAdmin));
   assert.equal(porAdmin.body.riesgo.creadoPor, 'lider.finanzas@example.test', 'el creador no se reemplaza');
 });
+
+// Ciclo revisor ↔ ejecutor: cada devolución vuelve al ejecutor y cada corrección vuelve al revisor, las veces
+// que haga falta; solo con la aprobación del revisor la acción llega al auditor aprobador.
+const comoRevisor = fixture => {
+  fixture.sesion.usuario = { uid: 'u20', email: 'revisor@example.test', rol: 'lider' };
+  fixture.documents.set('usuarios/u20', { rol: 'lider', permisos: ['planes', 'sub_seguimiento_planes'], procesosAsignados: ['Operaciones'] });
+};
+const comoEjecutor = fixture => {
+  fixture.sesion.usuario = { uid: 'u21', email: 'ejecutor@example.test', rol: 'lider' };
+  fixture.documents.set('usuarios/u21', { rol: 'lider', permisos: ['planes', 'sub_seguimiento_planes'], procesosAsignados: ['Operaciones'] });
+};
+
+test('diseño: el revisor lo devuelve 3 veces, el ejecutor corrige cada vez y al aprobarlo pasa a ejecución', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/informes/i1`, { ...fixture.documents.get(`${ROOT}/informes/i1`), tipoFuente: 'Auditoría interna' });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { estadoWorkflow: 'Pendiente Revisión Jefatura', progreso: 0 }));
+  const plan = () => fixture.documents.get(`${ROOT}/planes_accion/1`);
+  for (let vuelta = 1; vuelta <= 3; vuelta += 1) {
+    comoRevisor(fixture);
+    const devolucion = await fixture.close({ decision: 'corregir', idInforme: 'i1', idsPlanes: [1], motivo: `Ajuste ${vuelta}` });
+    assert.equal(devolucion.code, 200, JSON.stringify(devolucion));
+    assert.equal(plan().estadoWorkflow, 'Borrador', `vuelta ${vuelta}: vuelve al ejecutor`);
+    assert.equal(plan().motivoRechazo, `Ajuste ${vuelta}`);
+    comoEjecutor(fixture);
+    const correccion = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 1, accion: `Acción corregida ${vuelta}` }], nuevas: [] } });
+    assert.equal(correccion.code, 200, JSON.stringify(correccion));
+    assert.equal(plan().estadoWorkflow, 'Pendiente Revisión Jefatura', `vuelta ${vuelta}: vuelve al revisor`);
+  }
+  comoRevisor(fixture);
+  assert.equal((await fixture.close({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [1] })).code, 200);
+  assert.equal(plan().estadoWorkflow, 'En Ejecución');
+  assert.equal(plan().historialCambios.filter(evento => /Corrección solicitada por el revisor/.test(evento.accion)).length, 3, 'las tres devoluciones quedan en el historial');
+});
+
+test('ejecución al 100 %: el revisor devuelve las evidencias 3 veces y solo al validarlas llega al aprobador', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { estadoWorkflow: 'Pendiente Validación Revisor', progreso: 100 }));
+  const plan = () => fixture.documents.get(`${ROOT}/planes_accion/1`);
+  for (let vuelta = 1; vuelta <= 3; vuelta += 1) {
+    comoRevisor(fixture);
+    const devolucion = await fixture.close({ decision: 'corregir', idInforme: 'i1', idsPlanes: [1], motivo: `Falta evidencia ${vuelta}` });
+    assert.equal(devolucion.code, 200, JSON.stringify(devolucion));
+    assert.deepEqual([plan().estadoWorkflow, plan().progreso], ['En Ejecución', 90], `vuelta ${vuelta}: vuelve al ejecutor al 90 %`);
+    comoEjecutor(fixture);
+    const reenvio = await fixture.update({ coleccion: 'planes', registro: { idInforme: 'i1', actualizaciones: [{ id: 1, progreso: 100 }], nuevas: [] } });
+    assert.equal(reenvio.code, 200, JSON.stringify(reenvio));
+    assert.equal(plan().estadoWorkflow, 'Pendiente Validación Revisor', `vuelta ${vuelta}: vuelve al revisor, no al aprobador`);
+  }
+  comoRevisor(fixture);
+  assert.equal((await fixture.close({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [1] })).code, 200);
+  assert.equal(plan().estadoWorkflow, 'En Revisión (100%)', 'ahora sí llega al auditor aprobador');
+});
