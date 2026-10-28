@@ -723,6 +723,8 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   // Hallazgos con "No aplica" propuesto por el ejecutor, pendientes de la decisión de este auditor.
   const misNoAplicaPorAprobar = safeHallazgos.filter(hallazgo => {
     if (!noAplicaPendiente(hallazgo)) return false;
+    // Quien lo propuso no lo decide: no le aparece como pendiente de aprobar.
+    if (String(hallazgo.noAplica?.propuestoPor || '').trim().toLowerCase() === userEmailLower.trim()) return false;
     const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo.idInforme));
     const correos = [informe?.correoAuditor, informe?.correoAuditorResponsable,
       ...safePlanes.filter(plan => String(plan.idHallazgo) === String(hallazgo.id)).flatMap(plan => [plan.correoAuditor, plan.correoAuditorResponsable])]

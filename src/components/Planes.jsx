@@ -1745,6 +1745,16 @@ if (existingActivities.length > 0) {
     return Boolean(yo) && correos.includes(yo);
   };
   // Correos de los participantes del hallazgo: auditor aprobador (decide) y ejecutores (proponen).
+  // Quien ejecuta alguna acción del hallazgo no se aprueba su propio No aplica, aunque también figure como auditor.
+  const esEjecutorDelHallazgo = hallazgoId => {
+    const yo = String(user?.email || '').trim().toLowerCase();
+    return Boolean(yo) && safePlanes.some(plan => String(plan.idHallazgo) === String(hallazgoId) &&
+      String(plan.correoResponsable || '').split(',').some(correo => correo.trim().toLowerCase() === yo));
+  };
+  const propusoNoAplica = hallazgoId => {
+    const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
+    return String(hallazgo?.noAplica?.propuestoPor || '').trim().toLowerCase() === String(user?.email || '').trim().toLowerCase();
+  };
   const correosDelHallazgo = (hallazgoId, campos) => {
     const hallazgo = safeHallazgos.find(item => String(item.id) === String(hallazgoId));
     const informe = informesAuditoria.find(item => String(item.id) === String(hallazgo?.idInforme || formInformeId));
@@ -1752,7 +1762,9 @@ if (existingActivities.length > 0) {
     const valores = campos.includes('auditor')
       ? [informe?.correoAuditor, informe?.correoAuditorResponsable, ...planesHallazgo.flatMap(plan => [plan.correoAuditor, plan.correoAuditorResponsable])]
       : planesHallazgo.map(plan => plan.correoResponsable);
-    return [...new Set(valores.flatMap(valor => String(valor || '').split(',')).map(valor => valor.trim().toLowerCase()).filter(Boolean))].join(', ');
+    // El aviso de "No aplica propuesto" no se envía a quien lo propuso.
+    const yo = String(user?.email || '').trim().toLowerCase();
+    return [...new Set(valores.flatMap(valor => String(valor || '').split(',')).map(valor => valor.trim().toLowerCase()).filter(valor => valor && !(campos.includes('auditor') && valor === yo)))].join(', ');
   };
   const notificarNoAplica = (hallazgo, accion, justificacion, autorizacionLista) => {
     const referencia = hallazgo.ref || `HAL-${hallazgo.id}`;
@@ -4003,7 +4015,10 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               : `Sus acciones quedaron cerradas como "No aplica": se conservan con su historial y ya no aparecen en tareas ni en vencidos.${safeHallazgos.find(item => String(item.id) === String(h.id))?.noAplica?.observacionAprobacion ? ` Observación del auditor: "${safeHallazgos.find(item => String(item.id) === String(h.id)).noAplica.observacionAprobacion}".` : ''}`}
                           </p>
                         </div>
-                        {!modoRevisionMatriz && node.estadoNoAplica === 'Pendiente' && esAuditorDelHallazgo(h.id) && (
+                        {!modoRevisionMatriz && node.estadoNoAplica === 'Pendiente' && propusoNoAplica(h.id) && (
+                          <p className="shrink-0 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-[10px] font-bold text-amber-800">Lo propusiste tú: lo decide otro auditor.</p>
+                        )}
+                        {!modoRevisionMatriz && node.estadoNoAplica === 'Pendiente' && esAuditorDelHallazgo(h.id) && !propusoNoAplica(h.id) && (
                           <div className="flex shrink-0 gap-2">
                             <button type="button" disabled={enviandoNoAplica} onClick={() => setModalNoAplica({ activo: true, hallazgoId: h.id, justificacionTemporal: '', modo: 'aprobar' })} className="rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-slate-900 disabled:opacity-50">Aprobar No aplica</button>
                             <button type="button" disabled={enviandoNoAplica} onClick={() => setModalNoAplica({ activo: true, hallazgoId: h.id, justificacionTemporal: '', modo: 'rechazar' })} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-700 hover:bg-slate-50 disabled:opacity-50">Rechazar</button>
@@ -5525,7 +5540,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   ? <>Escribe tu observación de aprobación. Al aprobar, el hallazgo queda <strong>cerrado como No aplica de forma definitiva</strong> y sus acciones se bloquean para todos (se conservan con su historial).</>
                   : modalNoAplica.modo === 'rechazar'
                   ? 'Explica por qué el hallazgo sí aplica. El ejecutor verá el motivo y el hallazgo seguirá abierto con sus acciones.'
-                  : esAuditorDelHallazgo(modalNoAplica.hallazgoId)
+                  : esAuditorDelHallazgo(modalNoAplica.hallazgoId) && !esEjecutorDelHallazgo(modalNoAplica.hallazgoId)
                     ? <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Como auditor aprobador, al guardar queda <strong>cerrado como No aplica de forma definitiva</strong>; sus acciones abiertas se cierran y conservan su historial.</>
                     : <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Se enviará al <strong>auditor aprobador para que lo apruebe o rechace</strong>; si la aprueba, la decisión es definitiva.</>}
               </p>
@@ -5565,7 +5580,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
             <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
               <button type="button" onClick={cerrarModalNoAplica} className="min-h-11 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Cancelar</button>
               <button type="button" onClick={confirmarNoAplica} disabled={enviandoNoAplica || modalNoAplica.justificacionTemporal.trim().length < MOTIVO_MINIMO_NO_APLICA} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all disabled:opacity-50">
-                {enviandoNoAplica ? 'Guardando…' : modalNoAplica.modo === 'rechazar' ? 'Rechazar No aplica' : modalNoAplica.modo === 'aprobar' ? 'Aprobar No aplica' : esAuditorDelHallazgo(modalNoAplica.hallazgoId) ? 'Cerrar como No aplica' : 'Enviar al auditor'}
+                {enviandoNoAplica ? 'Guardando…' : modalNoAplica.modo === 'rechazar' ? 'Rechazar No aplica' : modalNoAplica.modo === 'aprobar' ? 'Aprobar No aplica' : esAuditorDelHallazgo(modalNoAplica.hallazgoId) && !esEjecutorDelHallazgo(modalNoAplica.hallazgoId) ? 'Cerrar como No aplica' : 'Enviar al auditor'}
               </button>
             </div>
           </div>

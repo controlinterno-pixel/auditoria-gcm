@@ -1242,3 +1242,21 @@ test('restaurar una acción sin revisor ("No aplica"): va directo a la evaluaci�
   assert.equal(cierre.code, 200, JSON.stringify(cierre));
   assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'Cerrado');
 });
+
+test('No aplica: quien ejecuta y además figura como auditor no se lo aprueba a sí mismo', async () => {
+  const fixture = storeFixture({ fragmented: true });
+  // La misma persona ejecuta la acción 1 y es su auditor; la acción 2 tiene otro auditor.
+  fixture.documents.set(`${ROOT}/planes_accion/1`, action(1, { correoResponsable: 'doble@example.test', correoAuditor: 'doble@example.test', estadoWorkflow: 'En Ejecución', progreso: 0 }));
+  fixture.documents.set(`${ROOT}/planes_accion/2`, action(2, { correoAuditor: 'auditor@example.test', estadoWorkflow: 'En Ejecución', progreso: 0 }));
+  fixture.sesion.usuario = { uid: 'u30', email: 'doble@example.test', rol: 'lider' };
+  const propuesta = await fixture.noAplica({ idHallazgo: 'h1', accion: 'proponer', justificacion: 'El riesgo ya no existe en el proceso' });
+  assert.equal(propuesta.code, 200, JSON.stringify(propuesta));
+  assert.equal(propuesta.body.hallazgo.noAplica.estado, 'Pendiente', 'no se aprueba solo');
+  const propia = await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar', justificacion: 'Lo apruebo yo mismo' });
+  assert.equal(propia.code, 403);
+  assert.match(propia.error, /Tú propusiste este No aplica/);
+  fixture.sesion.usuario = { uid: 'u1', email: 'auditor@example.test' };
+  const aprobado = await fixture.noAplica({ idHallazgo: 'h1', accion: 'aprobar', justificacion: 'Verificado con el líder del proceso' });
+  assert.equal(aprobado.code, 200, JSON.stringify(aprobado));
+  assert.equal(aprobado.body.hallazgo.noAplica.estado, 'Aprobado');
+});

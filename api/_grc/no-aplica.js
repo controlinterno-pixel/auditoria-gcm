@@ -84,13 +84,16 @@ export default async function handler(req, res) {
         if (estadoActual === 'Pendiente') return { error: 'already-pending' };
         if (!esAuditor && !esEjecutor) return { error: 'forbidden-propose' };
         const propuesto = { ...hallazgo, noAplica: { estado: 'Pendiente', justificacion: texto, propuestoPor: user.email, propuestoEn: ahora.toISOString() } };
-        // El auditor aprobador es quien decide: si lo marca él mismo, queda aprobado con su justificación.
-        actualizado = esAuditor
+        // El auditor aprobador es quien decide: si lo marca él mismo, queda aprobado con su justificación. Si además
+        // ejecuta alguna acción del hallazgo, no se lo aprueba a sí mismo: queda pendiente de otro auditor.
+        actualizado = esAuditor && !esEjecutor
           ? { ...aprobar(propuesto, texto, texto), historialCambios: [...historial, { ...marca, accion: `❌ Hallazgo marcado como NO APLICA por el auditor aprobador. Justificación: ${texto}` }] }
           : { ...propuesto, historialCambios: [...historial, { ...marca, accion: `⏳ NO APLICA propuesto por el ejecutor, pendiente de aprobación del auditor. Justificación: ${texto}` }] };
       } else {
         if (estadoActual !== 'Pendiente') return { error: 'not-pending' };
         if (!esAuditor) return { error: 'forbidden-decide' };
+        // Quien propuso el No aplica no lo aprueba ni lo rechaza.
+        if (normalizar(hallazgo.noAplica?.propuestoPor) === normalizar(user.email)) return { error: 'self-decide' };
         const justificacionPropuesta = hallazgo.noAplica?.justificacion || '';
         actualizado = accion === 'aprobar'
           ? { ...aprobar(hallazgo, justificacionPropuesta, texto), historialCambios: [...historial, { ...marca, accion: `❌ Hallazgo marcado como NO APLICA (aprobado por el auditor). Justificación: ${justificacionPropuesta}. Observación del auditor: ${texto}`, motivo: texto }] }
@@ -113,6 +116,7 @@ export default async function handler(req, res) {
       'not-pending': ['No hay una propuesta de No aplica pendiente para este hallazgo.', 409],
       'forbidden-propose': ['Solo el ejecutor de alguna acción del hallazgo (o el auditor aprobador) puede proponer No aplica.', 403],
       'forbidden-decide': ['Solo el auditor aprobador del informe puede aprobar o rechazar el No aplica.', 403],
+      'self-decide': ['Tú propusiste este No aplica: lo debe aprobar o rechazar otro auditor del informe o de sus acciones.', 403],
     };
     if (resultado.error) {
       const [mensaje, estado] = errores[resultado.error];
