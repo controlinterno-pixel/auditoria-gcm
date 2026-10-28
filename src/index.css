@@ -14,6 +14,13 @@
 	overflow-wrap: break-word;
 }
 
+/* Botones: una palabra no se parte a la mitad ("CANCELA / R"); el texto baja de línea entre palabras. Aplica también a
+   las ventanas que se abren fuera del contenido principal. */
+:where(.app-content, [role="dialog"]) button {
+	overflow-wrap: break-word;
+	word-break: normal;
+}
+
 .app-content :where(input, select, textarea) {
 	max-inline-size: 100%;
 	min-inline-size: 0;

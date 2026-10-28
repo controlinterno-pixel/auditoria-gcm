@@ -23,3 +23,8 @@ test('ninguna tabla queda dentro de una caja que recorta lo que no cabe', () => 
   });
   assert.deepEqual(recortadas, [], 'usa overflow-x-auto en el contenedor de la tabla');
 });
+
+test('los botones no parten una palabra a la mitad (también en las ventanas emergentes)', () => {
+  const estilos = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+  assert.match(estilos, /:where\(\.app-content, \[role="dialog"\]\) button \{\s*overflow-wrap: break-word;\s*word-break: normal;/);
+});

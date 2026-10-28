@@ -5377,7 +5377,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                   </button>
                 ) : (
                   <>
-                    <button type="button" onClick={cerrarModalEvaluacionIntegral} className="min-h-11 w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
+                    <button type="button" onClick={cerrarModalEvaluacionIntegral} className="min-h-11 w-full md:w-auto shrink-0 whitespace-nowrap px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
                       Cancelar
                     </button>
                     <button type="button" disabled={guardandoEvaluacionInicial || subiendoEvaluacion || !adjuntoEvaluacion} onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white disabled:opacity-50 ${puntajeHolistico >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
