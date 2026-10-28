@@ -3429,12 +3429,18 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
           {formInformeId && (
 <form id="matrix-master-form" onChangeCapture={() => setMatrixDirty(true)} onSubmit={handleMasterMatrixSubmit} className="space-y-6">
-{idsEnCorreccionInicial && (
-  <div role="status" className="rounded-2xl border-2 border-orange-300 bg-orange-50 p-4 text-xs text-orange-950">
-    <p className="text-sm font-black uppercase tracking-wide">✎ Corrige {idsEnCorreccionInicial.size === 1 ? 'la acción devuelta' : `las ${idsEnCorreccionInicial.size} acciones devueltas`} por el auditor</p>
-    <p className="mt-1">Solo se muestra{idsEnCorreccionInicial.size === 1 ? '' : 'n'} {idsEnCorreccionInicial.size === 1 ? 'la acción' : 'las acciones'} que no {idsEnCorreccionInicial.size === 1 ? 'aprobó' : 'aprobaron'} en la evaluación inicial del diseño. Ajústala{idsEnCorreccionInicial.size === 1 ? '' : 's'} según el motivo, guarda y reenvía el diseño al auditor.{accionesOcultasEnCorreccion > 0 ? ` Las otras ${accionesOcultasEnCorreccion === 1 ? 'acción del plan queda oculta y bloqueada' : `${accionesOcultasEnCorreccion} acciones del plan quedan ocultas y bloqueadas`}: no cambian.` : ''}</p>
-  </div>
-)}
+{idsEnCorreccionInicial && (() => {
+  const planesDevueltos = [...idsEnCorreccionInicial]
+    .map(id => safePlanes.find(plan => String(plan.id) === id))
+    .filter(Boolean);
+  const corrigeEvidencias = planesDevueltos.length > 0 && planesDevueltos.every(plan => plan.estadoWorkflow === 'En Ejecución');
+  return (
+    <div role="status" className="rounded-2xl border-2 border-orange-300 bg-orange-50 p-4 text-xs text-orange-950">
+      <p className="text-sm font-black uppercase tracking-wide">✎ Corrige {idsEnCorreccionInicial.size === 1 ? 'la acción devuelta' : `las ${idsEnCorreccionInicial.size} acciones devueltas`}</p>
+      <p className="mt-1">Solo se muestra{idsEnCorreccionInicial.size === 1 ? '' : 'n'} {idsEnCorreccionInicial.size === 1 ? 'la acción que requiere' : 'las acciones que requieren'} corrección{corrigeEvidencias ? ' de evidencias (ajusta los soportes y guarda de nuevo al 100%)' : ' de diseño (ajústala según el motivo, guarda y reenvíala a revisión)'}.{accionesOcultasEnCorreccion > 0 ? ` Las otras ${accionesOcultasEnCorreccion === 1 ? 'acción del plan queda oculta' : `${accionesOcultasEnCorreccion} acciones del plan quedan ocultas`} para no confundirte: no cambian.` : ''}</p>
+    </div>
+  );
+})()}
 {safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
                 const node = matrixState[h.id] || { aplica: true, actividades: [] };
                 // En corrección del diseño inicial solo se muestran los hallazgos con acciones devueltas.
@@ -3620,6 +3626,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               {soloConsultaRevisorAuditor && !modoRevisionMatriz && (
                                 <p role="status" className="md:col-span-6 rounded-lg border border-slate-300 bg-slate-50 p-3 text-xs font-semibold text-slate-700">
                                   👁 El diseño de esta acción ya fue aprobado. Solo el ejecutor ({planOriginal?.correoResponsable || 'sin correo'}) puede ejecutarla y actualizarla; como {normalizarIdentidad(planOriginal?.correoRevisor).split(',').map(valor => valor.trim()).includes(normalizarIdentidad(user?.email)) ? 'revisor' : 'auditor aprobador'} solo puedes consultarla.
+                                </p>
+                              )}
+                              {!modoRevisionMatriz && !actividadNueva && planDevueltoAlEjecutor(planOriginal) && (motivoDevolucion(planOriginal) || planOriginal?.evaluacionHolistica?.justificacion) && (
+                                <p role="status" className="md:col-span-6 rounded-lg border border-orange-300 bg-orange-50 p-3 text-xs font-semibold text-orange-950">
+                                  ↩ <strong>Motivo de la devolución:</strong> {motivoDevolucion(planOriginal) || planOriginal?.evaluacionHolistica?.justificacion}
                                 </p>
                               )}
                               {!actividadNueva && !puedeEditarCorreo && !enviadaARevision && !soloConsultaRevisorAuditor && (

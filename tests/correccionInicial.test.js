@@ -10,11 +10,14 @@ const planes = [
   { id: 2, estadoWorkflow: ESTADO_AJUSTES_INICIALES, correoResponsable: 'Ejecutor@termales.com.co' },
   { id: 3, estadoWorkflow: ESTADO_AJUSTES_INICIALES, correoResponsable: 'otra@termales.com.co' },
   { id: 4, estadoWorkflow: ESTADO_AJUSTES_INICIALES, correoResponsable: 'otra@termales.com.co, ejecutor@termales.com.co' },
+  { id: 5, estadoWorkflow: 'Borrador', motivoRechazo: 'Falta concretar entregable', correoResponsable: 'ejecutor@termales.com.co' },
+  { id: 6, estadoWorkflow: 'En Ejecución', progreso: 90, historialCambios: [{ accion: 'Evidencias devueltas por el revisor al ejecutor', motivo: 'Falta acta firmada' }], correoResponsable: 'ejecutor@termales.com.co' },
+  { id: 7, estadoWorkflow: 'Pendiente Validación Revisor', progreso: 100, correoResponsable: 'ejecutor@termales.com.co' },
   null,
 ];
 
-test('solo las acciones devueltas asignadas al ejecutor', () => {
-  assert.deepEqual(accionesEnCorreccionInicial(planes, 'ejecutor@termales.com.co').map(plan => plan.id), [2, 4]);
+test('solo las acciones devueltas asignadas al ejecutor (auditor o revisor)', () => {
+  assert.deepEqual(accionesEnCorreccionInicial(planes, 'ejecutor@termales.com.co').map(plan => plan.id), [2, 4, 5, 6]);
   assert.deepEqual(accionesEnCorreccionInicial(planes, 'nadie@termales.com.co'), [], 'sin devueltas: el plan se ve completo');
   assert.deepEqual(accionesEnCorreccionInicial(planes, ''), []);
 });

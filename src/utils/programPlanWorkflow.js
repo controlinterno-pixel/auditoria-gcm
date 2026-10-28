@@ -147,14 +147,15 @@ export function calcularPuntajeDiseno(criterios) {
 }
 
 /**
- * Acciones que el ejecutor debe corregir tras la evaluación inicial del diseño (devueltas por el auditor y
- * asignadas a su correo). Si hay alguna, el plan solo le muestra esas: las aprobadas quedan ocultas y bloqueadas.
+ * Acciones devueltas al ejecutor (por el auditor en la evaluación inicial del diseño, por el revisor al revisar
+ * el diseño o validar las evidencias, o por el aprobador final) y asignadas a su correo. Si hay alguna, el plan
+ * solo le muestra esas para no confundirlo; las demás acciones del plan quedan ocultas y bloqueadas.
  */
 export function accionesEnCorreccionInicial(planes, correo) {
   const usuario = String(correo || '').trim().toLowerCase();
   if (!usuario) return [];
-  return (Array.isArray(planes) ? planes : []).filter(plan => plan?.estadoWorkflow === ESTADO_AJUSTES_INICIALES
-    && String(plan.correoResponsable || '').split(',').some(item => item.trim().toLowerCase() === usuario));
+  return (Array.isArray(planes) ? planes : []).filter(plan => planDevueltoAlEjecutor(plan)
+    && String(plan?.correoResponsable || '').split(',').some(item => item.trim().toLowerCase() === usuario));
 }
 
 /**
