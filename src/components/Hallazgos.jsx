@@ -6,6 +6,7 @@ import { apiService } from '../services/apiService';
 import { useCatalogos } from '../context/useCatalogos';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
+import { estadoNoAplica } from '../utils/noAplicaHallazgo.js';
 
 const convertirResponsablesEnLista = responsables => (
   Array.isArray(responsables)
@@ -1717,6 +1718,13 @@ export default function Hallazgos({
   </div>
 </td>
                                   <td className="p-3 text-center">
+                                    {/* "No aplica" del hallazgo (Planes de Acción): pendiente de la decisión del auditor o aprobado y cerrado. */}
+                                    {estadoNoAplica(h) === 'Pendiente' && (
+                                      <span className="mb-1 block rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-800" title={h.noAplica?.justificacion ? `Justificación: ${h.noAplica.justificacion}` : undefined}>No aplica · en revisión del auditor</span>
+                                    )}
+                                    {estadoNoAplica(h) === 'Aprobado' && (
+                                      <span className="mb-1 block rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-700" title={h.noAplica?.justificacion ? `Justificación: ${h.noAplica.justificacion}` : undefined}>No aplica</span>
+                                    )}
                                     <span className={`px-2.5 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest inline-block mb-2 ${h.estado === 'Cerrado' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                                       {h.estado}
                                     </span>
