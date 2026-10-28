@@ -1181,3 +1181,47 @@ test('diseño aprobado de una acción que ya estaba al 100 %: pasa a validación
   assert.equal(response.code, 200, JSON.stringify(response));
   assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'Pendiente Validación Revisor');
 });
+
+const devueltaPorError = (extra = {}) => action(1, {
+  estadoWorkflow: workflow.ESTADO_EVALUACION_INICIAL, progreso: 100,
+  historialEvaluaciones: [{ tipo: workflow.TIPO_EVALUACION_INICIAL, aprobado: true, puntaje: 100, usuario: 'auditor@example.test' }],
+  historialCambios: [
+    { accion: 'Diseño aprobado (100%). Ejecución habilitada por el auditor asignado.' },
+    { accion: 'Diseño corregido y reenviado a revisión por su responsable', detalleCambios: [
+      { campo: 'progreso', antes: 60, despues: 100 }, { campo: 'matrizRiesgos', antes: '', despues: 'No aplica' }, { campo: 'matrizLegal', antes: '', despues: 'No aplica' },
+    ] },
+  ],
+  ...extra,
+});
+
+test('acción devuelta por error a la evaluación del diseño: se reconoce y se restaura hacia la eficacia', async () => {
+  assert.deepEqual(workflow.reenvioErroneoAEvaluacion(devueltaPorError())?.destino, 'Pendiente Validación Revisor');
+  assert.equal(workflow.tareaPendientePlan(devueltaPorError(), { esPrograma: true }).tarea, 'restaurar-estado');
+  // Si el revisor ya la había validado, vuelve directo a la evaluación de eficacia.
+  const validada = devueltaPorError();
+  validada.historialCambios.splice(1, 0, { accion: 'Ejecución al 100% validada por el revisor y enviada al aprobador' });
+  assert.equal(workflow.reenvioErroneoAEvaluacion(validada).destino, 'En Revisión (100%)');
+  // Un cambio real del diseño no se restaura: se evalúa.
+  const real = devueltaPorError();
+  real.historialCambios[1].detalleCambios.push({ campo: 'accion', antes: 'A', despues: 'B' });
+  assert.equal(workflow.reenvioErroneoAEvaluacion(real), null);
+  assert.equal(workflow.tareaPendientePlan(real, { esPrograma: true }).tarea, 'evaluar-diseno');
+
+  const fixture = storeFixture({ fragmented: true });
+  fixture.documents.set(`${ROOT}/planes_accion/1`, devueltaPorError());
+  comoEjecutor(fixture);
+  assert.equal((await fixture.close({ decision: 'restaurar-reenvio', idInforme: 'i1', idsPlanes: [1] })).code, 403, 'el ejecutor no la restaura');
+  fixture.sesion.usuario = { uid: 'u22', email: 'auditor@example.test', rol: 'lider' };
+  const restaurada = await fixture.close({ decision: 'restaurar-reenvio', idInforme: 'i1', idsPlanes: [1] });
+  assert.equal(restaurada.code, 200, JSON.stringify(restaurada));
+  const plan = fixture.documents.get(`${ROOT}/planes_accion/1`);
+  assert.equal(plan.estadoWorkflow, 'Pendiente Validación Revisor');
+  assert.match(plan.historialCambios.at(-1).accion, /Estado restaurado/);
+  // Sigue el flujo normal: el revisor valida y el auditor cierra con la evaluación de eficacia.
+  comoRevisor(fixture);
+  assert.equal((await fixture.close({ decision: 'aprobar', idInforme: 'i1', idsPlanes: [1] })).code, 200);
+  assert.equal(fixture.documents.get(`${ROOT}/planes_accion/1`).estadoWorkflow, 'En Revisión (100%)');
+  assert.equal(workflow.tareaPendientePlan(fixture.documents.get(`${ROOT}/planes_accion/1`), { esPrograma: true }).tarea, 'aprobar-cierre');
+  fixture.sesion.usuario = { uid: 'u22', email: 'auditor@example.test', rol: 'lider' };
+  assert.equal((await fixture.close({ decision: 'restaurar-reenvio', idInforme: 'i1', idsPlanes: [1] })).code, 409, 'ya restaurada no se repite');
+});

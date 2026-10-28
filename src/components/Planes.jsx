@@ -11,7 +11,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asuntoTareaPlan, tareaPendientePlan, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -2363,6 +2363,43 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     });
   };
 
+  // Acciones de programa devueltas por error a la evaluación inicial estando al 100 % (casillas de matrices de vacío a
+  // "No aplica"): el auditor asignado o un administrador las restauran a la validación del revisor o a la eficacia.
+  const [restaurandoReenvio, setRestaurandoReenvio] = useState(false);
+  const accionesPorRestaurar = planesEnriquecidos.filter(plan => reenvioErroneoAEvaluacion(plan) &&
+    (isAdmin || esAuditorAsignado(plan, user?.email, perfilUsuario)));
+  const restaurarAcciones = async planes => {
+    if (!planes.length || restaurandoReenvio) return;
+    setRestaurandoReenvio(true);
+    const promesaCorreo = prepararEnvioGmail ? Promise.resolve(prepararEnvioGmail()).catch(() => false) : Promise.resolve(true);
+    try {
+      const porInforme = planes.reduce((grupos, plan) => grupos.set(String(plan.idInforme), [...(grupos.get(String(plan.idInforme)) || []), plan]), new Map());
+      const restaurados = [];
+      for (const [idInforme, grupo] of porInforme) {
+        const respuesta = await apiService.restaurarReenvioPlanes(idInforme, grupo.map(plan => plan.id));
+        restaurados.push(...(respuesta?.planes || []));
+      }
+      const porId = new Map(restaurados.map(plan => [String(plan.id), plan]));
+      setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => porId.get(String(plan.id)) || plan));
+      showNotification(`${restaurados.length === 1 ? 'Acción restaurada' : `${restaurados.length} acciones restauradas`}: siguen con la validación del revisor o la evaluación de eficacia.`, 'success');
+      const correoPreparado = Boolean(await promesaCorreo);
+      for (const plan of restaurados.filter(item => item.estadoWorkflow === ESTADO_PENDIENTE_VALIDACION_REVISOR && item.correoRevisor)) {
+        await enviarNotificacionPlanConReintento({
+          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+          asunto: asuntoTareaPlan('validar-evidencias', plan),
+          titulo_informe: 'Revisar matriz: ejecución al 100%',
+          proceso_auditado: `La acción "${plan.accion}" está al 100% y espera tu validación de evidencias. Ingrese a Planes de Acción y pulse "Revisar matriz". Si aprueba, pasa al auditor para la evaluación de eficacia.`,
+          enlace_pdf: `${window.location.origin}/?reviewReportId=${encodeURIComponent(plan.idInforme)}`,
+          destinatarios: plan.correoRevisor,
+        }, correoPreparado);
+      }
+    } catch (error) {
+      showNotification(error?.message || 'No se pudieron restaurar las acciones.', 'error');
+    } finally {
+      setRestaurandoReenvio(false);
+    }
+  };
+
   // Corrección del diseño inicial (programas de auditoría): si el ejecutor tiene acciones devueltas por el
   // auditor, el plan solo le muestra esas; las aprobadas y las de otros quedan ocultas y bloqueadas.
   const idsEnCorreccionInicial = (() => {
@@ -3243,7 +3280,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           {esAprobacion && (() => {
                             // El auditor tiene dos tareas distintas: el diseño (inicio, programas) y el cierre con eficacia (todas las fuentes).
                             const tarea = tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea;
-                            return tarea ? <p className={`mt-1.5 inline-block rounded-md border px-2 py-0.5 text-[10px] font-black ${tarea === 'aprobar-cierre' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-blue-200 bg-blue-50 text-blue-800'}`}>{tarea === 'aprobar-cierre' ? 'Aprobar cierre · evaluación de eficacia' : 'Evaluar diseño · evaluación inicial'}</p> : null;
+                            return tarea ? <p className={`mt-1.5 inline-block rounded-md border px-2 py-0.5 text-[10px] font-black ${tarea === 'aprobar-cierre' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : tarea === 'restaurar-estado' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-blue-200 bg-blue-50 text-blue-800'}`}>{tarea === 'aprobar-cierre' ? 'Aprobar cierre · evaluación de eficacia' : tarea === 'restaurar-estado' ? 'Devuelta por error a la evaluación del diseño' : 'Evaluar diseño · evaluación inicial'}</p> : null;
                           })()}
                           {esEjecucion && planDevueltoAlEjecutor(plan) && motivoDevolucion(plan) && (
                             <p className="mt-1.5 rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] text-orange-900 break-words"><span className="font-black">Motivo: </span>{motivoDevolucion(plan)}</p>
@@ -3256,6 +3293,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           </dl>
                           <button type="button" onClick={() => {
                             if (esAprobacion) {
+                              if (reenvioErroneoAEvaluacion(plan)) { void restaurarAcciones([plan]); return; }
                               // Decide la tarea real: al 100 % siempre es el cierre con la evaluación de eficacia.
                               if (tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea === 'evaluar-diseno' && esPlanProgramaAuditoria(plan)) {
                                 const informe = informesAuditoria.find(item => String(item.id) === String(plan.idInforme));
@@ -3273,7 +3311,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               document.getElementById(`plan-completo-${informeId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }, 80);
                           }} className={`mt-2 text-[10px] font-black underline underline-offset-2 ${esEjecucion ? 'text-rose-700 hover:text-rose-900' : 'text-blue-700 hover:text-blue-900'}`}>
-                            {esAprobacion ? (tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea === 'aprobar-cierre' ? 'Evaluar eficacia y cerrar' : 'Evaluar diseño') : 'Abrir matriz'}
+                            {esAprobacion ? ({ 'aprobar-cierre': 'Evaluar eficacia y cerrar', 'restaurar-estado': 'Restaurar y continuar' }[tareaPendientePlan(plan, { esPrograma: esPlanProgramaAuditoria(plan) })?.tarea] || 'Evaluar diseño') : 'Abrir matriz'}
                           </button>
                         </article>
                       ))}
@@ -4126,6 +4164,18 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
         return (
           <div className="space-y-4 animate-in slide-in-from-left-8 duration-500">
+            {accionesPorRestaurar.length > 0 && (
+              <div role="alert" className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-xs text-amber-950">
+                <p className="text-sm font-black">{accionesPorRestaurar.length === 1 ? 'Una acción quedó' : `${accionesPorRestaurar.length} acciones quedaron`} por error en la evaluación inicial del diseño</p>
+                <p className="mt-1">Ya estaban al 100 % con el diseño aprobado; al guardar el avance, el sistema tomó las casillas de matrices como un cambio de diseño. Restáuralas para seguir con la validación del revisor y la evaluación de eficacia (no hay que volver a evaluar el diseño).</p>
+                <ul className="mt-2 list-disc space-y-0.5 pl-5">
+                  {accionesPorRestaurar.map(plan => <li key={plan.id}><b>PLA-{String(plan.id).slice(-4)}</b> · {String(plan.accion || '').slice(0, 90)} → {reenvioErroneoAEvaluacion(plan).destino === 'En Revisión (100%)' ? 'evaluación de eficacia' : 'validación del revisor'}</li>)}
+                </ul>
+                <button type="button" disabled={restaurandoReenvio} onClick={() => restaurarAcciones(accionesPorRestaurar)} className="mt-3 rounded-lg bg-amber-700 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-white hover:bg-amber-800 disabled:opacity-50">
+                  {restaurandoReenvio ? 'Restaurando…' : accionesPorRestaurar.length === 1 ? 'Restaurar la acción' : `Restaurar las ${accionesPorRestaurar.length} acciones`}
+                </button>
+              </div>
+            )}
             {/* 🎛️ BARRA DE FILTROS Y BÚSQUEDA SUPERIOR CORRESPONDIENTE */}
             <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">

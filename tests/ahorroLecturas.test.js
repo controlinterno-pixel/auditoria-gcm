@@ -47,11 +47,11 @@ test('semáforo sin documento previo parte de 0', async () => {
 test('solo las decisiones que aplican la respuesta completa omiten la recarga', () => {
   const api = read('../src/services/apiService.js');
   const bloque = nombre => api.slice(api.indexOf(`  ${nombre}:`), api.indexOf('}),', api.indexOf(`  ${nombre}:`)) + 3);
-  for (const metodo of ['decidirRevisionPlanes', 'evaluarDisenoPlanes', 'decidirPlanComoAuditor', 'decidirPlanesComoAuditor']) {
+  for (const metodo of ['decidirRevisionPlanes', 'evaluarDisenoPlanes', 'restaurarReenvioPlanes', 'decidirPlanComoAuditor', 'decidirPlanesComoAuditor']) {
     assert.match(bloque(metodo), /aplicadoLocalmente: true/, metodo);
   }
   assert.equal(/aplicadoLocalmente: true/.test(bloque('guardarMatrizPlanes')), false, 'guardar matriz sigue recargando');
-  assert.equal((read('../api/_grc/review-plans.js').match(/notificarSemaforo\(res\)/g) || []).length, 3);
+  assert.equal((read('../api/_grc/review-plans.js').match(/notificarSemaforo\(res\)/g) || []).length, 4);
 });
 
 test('el cliente no recarga en pestañas ocultas y verifica la revisión anterior', () => {

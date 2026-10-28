@@ -170,6 +170,7 @@ export const TAREAS_PLAN = {
   'validar-evidencias': { rol: 'revisor', verbo: 'Validar evidencias' },
   'evaluar-diseno': { rol: 'auditor', verbo: 'Evaluar diseño' },
   'aprobar-cierre': { rol: 'auditor', verbo: 'Aprobar cierre' },
+  'restaurar-estado': { rol: 'auditor', verbo: 'Restaurar acción' },
 };
 
 export function tareaPendientePlan(plan, { esPrograma = false } = {}) {
@@ -180,7 +181,8 @@ export function tareaPendientePlan(plan, { esPrograma = false } = {}) {
   if (estado === ESTADO_AJUSTES_INICIALES) return tarea('corregir-diseno');
   // Devuelto (diseño por el revisor o evidencias por revisor/auditor): le toca al ejecutor corregir.
   if (estado === 'Borrador') return planDevueltoAlEjecutor(plan) || !esPrograma ? tarea('corregir-diseno') : tarea('evaluar-diseno');
-  if (estado === ESTADO_EVALUACION_INICIAL) return tarea('evaluar-diseno');
+  // Devuelta por error a la evaluación inicial estando al 100 %: se restaura, no se vuelve a evaluar el diseño.
+  if (estado === ESTADO_EVALUACION_INICIAL) return reenvioErroneoAEvaluacion(plan) ? tarea('restaurar-estado') : tarea('evaluar-diseno');
   if (estado === 'Pendiente Revisión Jefatura') return esPrograma ? tarea('evaluar-diseno') : tarea('revisar-diseno');
   if (estado === 'Pendiente Aprobación Auditor') return alCien ? tarea('aprobar-cierre') : tarea('evaluar-diseno');
   if (estado === 'Pendiente Validación Revisor') return tarea('validar-evidencias');
@@ -196,3 +198,35 @@ export function tareaPendientePlan(plan, { esPrograma = false } = {}) {
 
 /** Asunto de correo que dice la tarea: "Validar evidencias · PLA-0004". */
 export const asuntoTareaPlan = (clave, plan) => `${TAREAS_PLAN[clave]?.verbo || 'Plan de acción'} · PLA-${String(plan?.id ?? '').slice(-4)}`;
+
+// Campos que no son de diseño: avance, soportes, riesgos vinculados y las casillas de matrices (vacío = "No aplica").
+const CAMPOS_NO_DISENO = ['progreso', 'evidenciaUrl', 'riesgosVinculados'];
+const CAMPOS_MATRIZ = ['matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal'];
+const REENVIO_A_EVALUACION = /reenviado a revisi[oó]n/i;
+
+/**
+ * Acción de programa que el sistema devolvió por error a la evaluación inicial del diseño: estaba al 100 %, el
+ * ejecutor solo guardó avance o soportes y las casillas de matrices pasaron de vacío a "No aplica". Devuelve a dónde
+ * restaurarla ({ destino, motivo }) o null. Destino: validación del revisor o, si ya la había validado (o no hay
+ * revisor), la evaluación de eficacia del auditor ("En Revisión (100%)").
+ */
+export function reenvioErroneoAEvaluacion(plan) {
+  if (plan?.estadoWorkflow !== ESTADO_EVALUACION_INICIAL || Number(plan?.progreso) !== 100) return null;
+  const historial = Array.isArray(plan.historialCambios) ? plan.historialCambios : [];
+  const indice = historial.map(evento => REENVIO_A_EVALUACION.test(String(evento?.accion || ''))).lastIndexOf(true);
+  if (indice === -1) return null;
+  const detalle = Array.isArray(historial[indice].detalleCambios) ? historial[indice].detalleCambios : [];
+  const soloSinDiseno = detalle.length > 0 && detalle.every(({ campo, antes, despues }) => (
+    CAMPOS_NO_DISENO.includes(campo) || (CAMPOS_MATRIZ.includes(campo) && (antes || 'No aplica') === (despues || 'No aplica'))
+  ));
+  const disenoAprobadoAntes = historial.slice(0, indice).some(evento => /Diseño aprobado/i.test(String(evento?.accion || '')));
+  if (!soloSinDiseno || !disenoAprobadoAntes) return null;
+  const anteriores = historial.slice(0, indice).map(evento => String(evento?.accion || ''));
+  const ultimaValidacion = anteriores.map(accion => /validada por el revisor/i.test(accion)).lastIndexOf(true);
+  const ultimaDevolucion = anteriores.map(accion => /devuelt|rechazad/i.test(accion)).lastIndexOf(true);
+  const yaValidada = revisorNoAplica(plan) || (ultimaValidacion !== -1 && ultimaValidacion > ultimaDevolucion);
+  return {
+    destino: yaValidada ? 'En Revisión (100%)' : 'Pendiente Validación Revisor',
+    motivo: 'El sistema devolvió la acción a la evaluación inicial al guardar el avance (solo cambiaron las casillas de matrices de vacío a "No aplica"); el diseño ya estaba aprobado.',
+  };
+}

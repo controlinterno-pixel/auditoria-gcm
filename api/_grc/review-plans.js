@@ -8,7 +8,7 @@ import {
   guardarInformesGrc, guardarPlanesGrc, guardarRegistrosGrc, leerInformeTx, leerWorkspaceGrcLigero,
   obtenerHallazgosTx, obtenerPlanesDeHallazgosTx, obtenerPlanesDeInformeTx, obtenerPlanesTx,
 } from '../_lib/grcWorkspace.js';
-import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, estadoAlCien, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
+import { esInformePrograma, pendienteEvaluacionInicial, calcularPuntajeDiseno, estadoAlCien, reenvioErroneoAEvaluacion, ESTADO_AJUSTES_INICIALES, TIPO_EVALUACION_INICIAL } from '../../src/utils/programPlanWorkflow.js';
 import { validarAdjuntoEvaluacion } from '../../src/utils/evaluationAttachment.js';
 
 const ESTADO_VALIDACION_REVISOR = 'Pendiente Validación Revisor';
@@ -29,6 +29,57 @@ function esAuditorAsignado(plan, user, perfil) {
     .map(normalizar)
     .filter(Boolean);
   return Boolean(auditorAsignado && identidadesUsuario.includes(auditorAsignado));
+}
+
+/**
+ * Restaura acciones de programa que el sistema devolvió por error a la evaluación inicial (ver
+ * reenvioErroneoAEvaluacion): vuelven a la validación del revisor o a la evaluación de eficacia, sin otra
+ * evaluación del diseño. Lo hace el auditor asignado (distinto del ejecutor) o un administrador.
+ */
+async function restaurarReenvio(res, user, { idInforme, idsPlanes }) {
+  if (!idInforme || !Array.isArray(idsPlanes) || !idsPlanes.length || idsPlanes.length > 100) {
+    return sendError(res, 'Selecciona las acciones a restaurar.', 400);
+  }
+  const admin = ['admin', 'administrador'].includes(normalizar(user.rol));
+  const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
+  const perfil = perfilSnap.exists ? perfilSnap.data() : {};
+  const resultado = await adminDb.runTransaction(async transaction => {
+    const workspace = await leerWorkspaceGrcLigero(transaction, { origen: 'review-plans-restaurar-tx' });
+    if (!workspace.workspaceExists) return { error: 'not-found' };
+    const seleccionados = await obtenerPlanesTx(transaction, workspace, idsPlanes);
+    if (seleccionados.some(plan => !plan || String(plan.idInforme) !== String(idInforme))) return { error: 'invalid-selection' };
+    if (!admin && seleccionados.some(plan => !esAuditorAsignado(plan, user, perfil) ||
+        String(plan.correoResponsable || '').split(',').map(normalizar).includes(normalizar(user.email)))) return { error: 'not-auditor' };
+    const restauraciones = seleccionados.map(plan => [plan, reenvioErroneoAEvaluacion(plan)]);
+    if (restauraciones.some(([, restauracion]) => !restauracion)) return { error: 'not-restorable' };
+    const ahora = new Date();
+    const actualizados = restauraciones.map(([plan, { destino, motivo }]) => {
+      const evaluacionAprobada = (Array.isArray(plan.historialEvaluaciones) ? plan.historialEvaluaciones : [])
+        .find(evaluacion => evaluacion?.tipo === TIPO_EVALUACION_INICIAL && evaluacion.aprobado);
+      return {
+        ...plan,
+        estadoWorkflow: destino,
+        estado: 'En Proceso',
+        ...(evaluacionAprobada ? { evaluacionHolistica: evaluacionAprobada, aprobadoPorCorreo: evaluacionAprobada.usuario || '', aprobadoEn: evaluacionAprobada.timestamp || '' } : {}),
+        historialCambios: [...(Array.isArray(plan.historialCambios) ? plan.historialCambios : []), {
+          fecha: ahora.toLocaleString('es-CO', { timeZone: 'America/Bogota' }), timestamp: ahora.toISOString(), usuario: user.email,
+          accion: `Estado restaurado a "${destino}": ${motivo}`,
+        }],
+      };
+    });
+    guardarPlanesGrc(transaction, workspace, actualizados);
+    return { planes: actualizados };
+  });
+  const errores = {
+    'not-found': ['No se encontró la matriz GRC.', 404],
+    'invalid-selection': ['Las acciones no pertenecen al informe seleccionado.', 400],
+    'not-auditor': ['Solo el auditor asignado (distinto del ejecutor) o un administrador restauran estas acciones.', 403],
+    'not-restorable': ['Alguna acción no fue devuelta por error a la evaluación inicial: evalúa su diseño normalmente.', 409],
+  };
+  if (resultado.error) return sendError(res, ...errores[resultado.error]);
+  await notificarSemaforo(res);
+  logger.info('Acciones restauradas tras reenvío erróneo a evaluación inicial', { idInforme, cantidad: resultado.planes.length, usuario: user.email });
+  return sendSuccess(res, resultado);
 }
 
 async function evaluarDiseno(res, user, { idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion }) {
@@ -268,6 +319,7 @@ export default async function handler(req, res) {
 
     const { idInforme, idPlan, idsPlanes, alcance, decision, motivo = '', evaluacionEficacia = null } = req.body || {};
     if (decision === 'evaluar-diseno') return await evaluarDiseno(res, user, req.body);
+    if (decision === 'restaurar-reenvio') return await restaurarReenvio(res, user, req.body);
     if (['cerrar', 'rechazar'].includes(decision)) {
       return await decidirComoAuditor(res, user, { idPlan, idInforme, idsPlanes, alcance, decision, motivo, evaluacionEficacia });
     }

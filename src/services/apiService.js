@@ -424,6 +424,12 @@ export const apiService = {
     body: { idHallazgo, accion, justificacion },
     aplicadoLocalmente: true,
   }),
+  // Acciones devueltas por error a la evaluación inicial: vuelven al revisor o a la evaluación de eficacia.
+  restaurarReenvioPlanes: (idInforme, idsPlanes) => request('/api/grc/review-plans', {
+    method: 'POST',
+    body: { decision: 'restaurar-reenvio', idInforme, idsPlanes },
+    aplicadoLocalmente: true,
+  }),
   evaluarDisenoPlanes: (idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion) => request('/api/grc/review-plans', {
     method: 'POST',
     body: { decision: 'evaluar-diseno', idInforme, idsPlanes, criterios, justificacion, adjuntoEvaluacion },
