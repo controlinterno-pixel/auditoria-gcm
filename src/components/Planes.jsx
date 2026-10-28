@@ -3496,15 +3496,18 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       <span className="px-2 py-0.5 bg-[#f0fdf4] text-[#0A3B32] font-black rounded text-[9px] uppercase tracking-wider">📋 Proceso: {h.proceso || 'No asignado'}</span>
       
       {/* ⚖️ ETIQUETA INTELIGENTE DE RIESGO EMERGENTE */}
-      <span className={`px-2 py-0.5 font-black rounded text-[9px] uppercase tracking-wider border ${
-        h.claseObservacion === 'Riesgo Emergente' || h.isEmergente || h.claseObservacion?.toLowerCase().includes('emergente')
-          ? 'bg-amber-100 text-amber-900 border-amber-400 animate-pulse'
-          : 'bg-amber-50 text-amber-800 border-amber-200'
-      }`}>
-        {h.claseObservacion === 'Riesgo Emergente' || h.isEmergente || h.claseObservacion?.toLowerCase().includes('emergente')
-          ? '⚠️ Riesgo Emergente (Incluir en Matriz)' 
-          : `⚖️ Clase: ${h.claseObservacion || 'Hallazgo'}`}
-      </span>
+      {/* Clase del hallazgo: píldora con borde iluminado y un color por clase (estilos en index.css). */}
+      {(() => {
+        const emergente = h.claseObservacion === 'Riesgo Emergente' || h.isEmergente || h.claseObservacion?.toLowerCase().includes('emergente');
+        const clase = h.claseObservacion || 'Hallazgo';
+        const tono = emergente ? 'emergente' : { 'No Conformidad': 'no-conformidad', 'Oportunidad de Mejora': 'mejora', 'Observación': 'observacion' }[clase] || 'hallazgo';
+        return (
+          <span className={`etiqueta-clase etiqueta-clase--${tono}`}>
+            <span className="etiqueta-clase__punto" aria-hidden="true" />
+            {emergente ? '⚠️ Riesgo Emergente (incluir en matriz)' : <><small>Clase</small>{clase}</>}
+          </span>
+        );
+      })()}
     </div>
     <h4 className="text-xs font-black text-slate-900 mt-2">{h.titulo}</h4>
   </div>

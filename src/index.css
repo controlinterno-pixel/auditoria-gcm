@@ -21,6 +21,52 @@
 	word-break: normal;
 }
 
+/* Clase del hallazgo en la matriz de Planes de Acción: píldora con borde iluminado suave, un color por clase. */
+.etiqueta-clase {
+	--clase-color: #be123c;
+	--clase-fondo: #fff1f2;
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 6px 14px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 900;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	color: var(--clase-color);
+	background: linear-gradient(180deg, #ffffff, var(--clase-fondo));
+	border: 1.5px solid color-mix(in srgb, var(--clase-color) 55%, transparent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--clase-color) 10%, transparent), 0 0 14px color-mix(in srgb, var(--clase-color) 28%, transparent);
+	animation: etiqueta-clase-brillo 3.2s ease-in-out infinite;
+}
+.etiqueta-clase small {
+	font-size: 9px;
+	font-weight: 800;
+	letter-spacing: 0.14em;
+	opacity: 0.7;
+}
+.etiqueta-clase__punto {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--clase-color);
+	box-shadow: 0 0 6px var(--clase-color);
+}
+.etiqueta-clase--hallazgo { --clase-color: #be123c; --clase-fondo: #fff1f2; }
+.etiqueta-clase--no-conformidad { --clase-color: #7e22ce; --clase-fondo: #faf5ff; }
+.etiqueta-clase--mejora { --clase-color: #047857; --clase-fondo: #ecfdf5; }
+.etiqueta-clase--observacion { --clase-color: #b45309; --clase-fondo: #fffbeb; }
+.etiqueta-clase--emergente { --clase-color: #c2410c; --clase-fondo: #fff7ed; }
+@keyframes etiqueta-clase-brillo {
+	0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--clase-color) 10%, transparent), 0 0 10px color-mix(in srgb, var(--clase-color) 22%, transparent); }
+	50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--clase-color) 16%, transparent), 0 0 20px color-mix(in srgb, var(--clase-color) 40%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.etiqueta-clase { animation: none; }
+}
+
 .app-content :where(input, select, textarea) {
 	max-inline-size: 100%;
 	min-inline-size: 0;
