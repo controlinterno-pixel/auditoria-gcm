@@ -3540,6 +3540,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               No se puede guardar: el correo se repite entre {conflictoRoles}. Asigna personas distintas; el auditor se hereda del informe.
                             </div>
                           )}
+                          {/* Acción antigua que ya quedó con la misma persona en dos roles (por ejemplo, el auditor heredado del
+                              informe cambió después): se avisa siempre, aunque nadie esté cambiando los correos. */}
+                          {!modoRevisionMatriz && conflictoRoles && !cambiaAsignacionRoles && !actividadNueva && (
+                            <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-900 md:col-span-6">
+                              ⚠️ Esta acción tiene el mismo correo como {conflictoRoles}: una misma persona no puede ejecutar y aprobar su propio trabajo.
+                              {isAdmin ? ' Corrige la asignación para que sean personas distintas y guarda.' : ' Pide a un administrador que corrija la asignación. Mientras tanto, esa persona no puede decidir sobre lo que ella misma propone.'}
+                            </div>
+                          )}
                           <div
                             className={`relative space-y-4 rounded-xl border-2 border-l-[8px] p-5 pl-6 shadow-[0_2px_8px_-3px_rgba(15,23,42,0.16)] transition-colors ${enviadaARevision
                               ? 'border-sky-300 border-l-sky-600 bg-gradient-to-br from-white via-white to-sky-50/60 ring-1 ring-sky-200'
@@ -4501,6 +4509,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                     <div className="text-[9px] text-slate-500 mt-1 bg-slate-50 p-2 rounded">
                                       👤 Ejecutor: {p.responsable} | 🛡️ Auditor: {p.auditorAsignado}
                                     </div>
+                                    {(() => {
+                                      const conflicto = obtenerConflictoRolesPlan({
+                                        correoResponsable: p.correoResponsable,
+                                        correoRevisor: revisorNoAplica(p) ? '' : p.correoRevisor,
+                                        correoAuditor: p.correoAuditor || informeBase?.correoAuditor || informeBase?.correoAuditorResponsable,
+                                      });
+                                      return conflicto ? <div role="note" className="mt-1 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-[9px] font-black text-rose-800">⚠️ Mismo correo como {conflicto}: corrige la asignación</div> : null;
+                                    })()}
                                   </td>
                                   <td className="p-3">
                                     <ProgressBar progress={p.progreso} />

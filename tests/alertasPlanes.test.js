@@ -86,3 +86,13 @@ test('en Planes de Acción se ven las dos evaluaciones: la inicial del diseño y
   // Incluye las evaluaciones anteriores sin eficacia demostrada (historialEficacia), no solo la última.
   assert.match(planes, /Array\.isArray\(plan\.historialEficacia\) && plan\.historialEficacia\.length/);
 });
+
+test('una acción con la misma persona en dos roles se avisa al escribirla y también si ya quedó guardada así', () => {
+  const planes = readFileSync(new URL('../src/components/Planes.jsx', import.meta.url), 'utf8');
+  assert.match(planes, /conflictoRoles && cambiaAsignacionRoles && \(\s*<div role="alert"[\s\S]{0,200}No se puede guardar: el correo se repite entre/, 'al escribirla: bloquea el guardado');
+  assert.match(planes, /conflictoRoles && !cambiaAsignacionRoles && !actividadNueva && \(/, 'acción antigua: aviso permanente');
+  assert.match(planes, /Mismo correo como \{conflicto\}: corrige la asignación/, 'marca en la tabla del informe');
+  for (const archivo of ['../api/_grc/create.js', '../api/_grc/update.js']) {
+    assert.match(readFileSync(new URL(archivo, import.meta.url), 'utf8'), /return \{ error: 'duplicate-plan-roles' \}/, `${archivo}: el servidor rechaza roles repetidos`);
+  }
+});
