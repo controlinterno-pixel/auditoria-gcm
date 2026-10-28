@@ -1805,7 +1805,10 @@ if (existingActivities.length > 0) {
           : 'No aplica rechazado: el hallazgo sigue aplicando.', 'success');
       return true;
     } catch (error) {
-      showNotification(error?.message || 'No se pudo registrar el No aplica.', 'error');
+      const mensaje = error?.message || 'No se pudo registrar el No aplica.';
+      showNotification(mensaje, 'error');
+      // También dentro del diálogo: la notificación general queda detrás de la ventana.
+      setModalNoAplica(prev => (prev.activo ? { ...prev, error: mensaje } : prev));
       return false;
     } finally {
       setEnviandoNoAplica(false);
@@ -5378,19 +5381,42 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     ? <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Como auditor aprobador, al guardar queda <strong>cerrado como No aplica de forma definitiva</strong>; sus acciones abiertas se cierran y conservan su historial.</>
                     : <>Detalla por qué este hallazgo <strong>no requiere</strong> plan de acción. Se enviará al <strong>auditor aprobador para que lo apruebe o rechace</strong>; si la aprueba, la decisión es definitiva.</>}
               </p>
+              {modalNoAplica.modo === 'proponer' && (() => {
+                // "No aplica" es del hallazgo completo: se advierte qué acciones se cerrarían y cuánto avance llevan.
+                const accionesHallazgo = safePlanes.filter(plan => String(plan.idHallazgo) === String(modalNoAplica.hallazgoId) && plan.estadoWorkflow !== 'Cerrado' && plan.estado !== 'Cerrado');
+                if (!accionesHallazgo.length) return null;
+                const conAvance = accionesHallazgo.filter(plan => Number(plan.progreso) > 0);
+                return (
+                  <div role="note" className={`rounded-xl border p-3 text-xs ${conAvance.length ? 'border-amber-300 bg-amber-50 text-amber-950' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                    <p className="font-black">Este No aplica es para todo el hallazgo: cerrará {accionesHallazgo.length === 1 ? 'su acción' : `sus ${accionesHallazgo.length} acciones`}.</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                      {accionesHallazgo.map(plan => <li key={plan.id}>PLA-{String(plan.id).slice(-4)} · {Number(plan.progreso) || 0} % de avance{plan.accion ? ` · ${String(plan.accion).slice(0, 80)}` : ''}</li>)}
+                    </ul>
+                    {conAvance.length > 0 && <p className="mt-1 font-bold">Si solo una acción no aplica, no uses esta opción: el avance registrado en las demás quedaría cerrado como No aplica. Consulta con el auditor cómo ajustarla.</p>}
+                  </div>
+                );
+              })()}
               <label htmlFor="justificacion-no-aplica" className="block text-xs font-bold text-slate-700">Justificación</label>
               <textarea
                 id="justificacion-no-aplica"
                 autoFocus
                 value={modalNoAplica.justificacionTemporal}
-                onChange={(e) => setModalNoAplica(prev => ({ ...prev, justificacionTemporal: e.target.value }))}
+                onChange={(e) => setModalNoAplica(prev => ({ ...prev, justificacionTemporal: e.target.value, error: '' }))}
                 placeholder="Ej: El hallazgo fue subsanado en campo el día de la visita, según consta en el acta X..."
+                aria-describedby="contador-no-aplica"
                 className="w-full border border-slate-300 rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] focus:border-slate-800 bg-slate-50 focus:bg-white transition-colors resize-y shadow-sm"
               />
+              {/* El aviso va dentro del diálogo: la notificación general queda detrás de esta ventana. */}
+              <p id="contador-no-aplica" className={`text-[11px] font-bold ${modalNoAplica.justificacionTemporal.trim().length >= MOTIVO_MINIMO_NO_APLICA ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {modalNoAplica.justificacionTemporal.trim().length >= MOTIVO_MINIMO_NO_APLICA
+                  ? '✓ Justificación suficiente.'
+                  : `Escribe al menos ${MOTIVO_MINIMO_NO_APLICA} caracteres (llevas ${modalNoAplica.justificacionTemporal.trim().length}).`}
+              </p>
+              {modalNoAplica.error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{modalNoAplica.error}</p>}
             </div>
             <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
               <button type="button" onClick={cerrarModalNoAplica} className="min-h-11 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Cancelar</button>
-              <button type="button" onClick={confirmarNoAplica} disabled={enviandoNoAplica} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all disabled:opacity-50">
+              <button type="button" onClick={confirmarNoAplica} disabled={enviandoNoAplica || modalNoAplica.justificacionTemporal.trim().length < MOTIVO_MINIMO_NO_APLICA} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all disabled:opacity-50">
                 {enviandoNoAplica ? 'Guardando…' : modalNoAplica.modo === 'rechazar' ? 'Rechazar No aplica' : modalNoAplica.modo === 'aprobar' ? 'Aprobar No aplica' : esAuditorDelHallazgo(modalNoAplica.hallazgoId) ? 'Cerrar como No aplica' : 'Enviar al auditor'}
               </button>
             </div>
