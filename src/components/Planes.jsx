@@ -11,7 +11,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asignarConsecutivosPlanes, codigoPlan, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, disenoBloqueadoParaEjecutor, disenoCargadoMatriz, disenoCambiadoEnMatriz, estadoAlGuardarMatriz, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asignarConsecutivosPlanes, codigoPlan, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, disenoBloqueadoParaEjecutor, disenoProgramaAprobado, CAMPOS_DISENO_MATRIZ, disenoCargadoMatriz, disenoCambiadoEnMatriz, estadoAlGuardarMatriz, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -1254,7 +1254,8 @@ const handleNotificarPlan = async (planId) => {
         const isNew = String(act.id).startsWith('new-');
         const planOriginal = safePlanes.find(plan => String(plan.id) === String(act.id));
         const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
-        const cambiaDisenoPrograma = esProgramaInforme && !isNew && !disenoBloqueadoParaEjecutor(planOriginal, { esPrograma: true, admin: isAdmin })
+        // Con el diseño aprobado, ningún guardado lo devuelve a la evaluación inicial (ni siquiera de un administrador).
+        const cambiaDisenoPrograma = esProgramaInforme && !isNew && !disenoProgramaAprobado(planOriginal)
           && disenoCambiadoEnMatriz(act.disenoCargado || disenoCargadoMatriz(planOriginal), act);
 
         // El estado parte del vigente de la acción, no de la copia del formulario (ver estadoAlGuardarMatriz).
@@ -1302,7 +1303,13 @@ const handleNotificarPlan = async (planId) => {
 } else {
           const idx = updatedPlanesList.findIndex(p => String(p.id) === String(act.id));
           if (idx !== -1) {
-            planData.historialCambios = [...(updatedPlanesList[idx].historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: 'Actividad modificada en matriz' }];
+            // Qué cambió (antes y después), para que el historial muestre los cambios hechos desde la matriz.
+            const detalleCambios = [...CAMPOS_DISENO_MATRIZ, 'progreso', 'evidenciaUrl', 'estadoWorkflow']
+              .filter(campo => JSON.stringify(planOriginal?.[campo] ?? '') !== JSON.stringify(planData[campo] ?? ''))
+              .map(campo => ({ campo, antes: planOriginal?.[campo] ?? '', despues: planData[campo] ?? '' }));
+            planData.historialCambios = [...(updatedPlanesList[idx].historialCambios || []), {
+              fecha: ts, usuario: 'Auditor', accion: 'Actividad modificada en matriz', ...(detalleCambios.length ? { detalleCambios } : {}),
+            }];
             if (workflowCalculado === ESTADO_PENDIENTE_VALIDACION_REVISOR && planOriginal.estadoWorkflow !== ESTADO_PENDIENTE_VALIDACION_REVISOR) {
               notificacionesRevision100.push(planData);
             }
@@ -3566,9 +3573,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const puedeEditarAsignacion = !modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && puedeEditarAsignacionPlan(planOriginal, user?.email, isAdmin);
   const puedeEditarCorreo = puedeEditarAsignacion;
   const puedeEditarCorreoAuditor = !actividadNueva && puedeEditarAsignacion;
-  const puedeEditarAvance = !modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && !actividadNueva && !bloqueadaPorAuditor && (isAdmin || (
-    esResponsableActividad && act.estadoWorkflow === 'En Ejecución'
-  ));
+  // El avance lo reporta solo el ejecutor (también si es administrador); el revisor y el aprobador no lo cambian.
+  const puedeEditarAvance = !modoRevisionMatriz && !enviadaARevision && !soloConsultaRevisorAuditor && !actividadNueva && !bloqueadaPorAuditor &&
+    esResponsableActividad && act.estadoWorkflow === 'En Ejecución';
   return (
                           <Fragment key={`act-row-${index}`}>
                           <fieldset disabled={!puedeEditarActividad} className="contents">

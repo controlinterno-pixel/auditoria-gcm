@@ -48,3 +48,45 @@ test('Guardar matriz usa el estado vigente y el diseño cargado', () => {
   assert.match(planes, /return \{ \.\.\.actividad, disenoCargado: disenoCargadoMatriz\(actividad\) \};/);
   assert.doesNotMatch(planes, /let workflowCalculado = act\.estadoWorkflow/, 'el estado ya no sale de la copia del formulario');
 });
+
+// PLA-0073 / PLA-0074 (29/10/2026): con el diseño aprobado, un administrador cambió el ejecutor y guardó la matriz;
+// las acciones volvieron a la evaluación inicial y el aprobador tuvo que evaluar el diseño otra vez.
+import { disenoProgramaAprobado, reenvioErroneoAEvaluacion } from '../src/utils/programPlanWorkflow.js';
+
+test('aprobado el diseño, ningún guardado lo devuelve a la evaluación inicial', () => {
+  for (const estado of ['En Ejecución', 'Pendiente Validación Revisor', 'En Revisión (100%)', 'Cerrado']) {
+    assert.equal(disenoProgramaAprobado({ estadoWorkflow: estado }), true, estado);
+  }
+  for (const estado of [ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES, 'Borrador']) {
+    assert.equal(disenoProgramaAprobado({ estadoWorkflow: estado }), false, `${estado}: el diseño aún se corrige y vuelve a evaluarse`);
+  }
+  const planes = readFileSync(new URL('../src/components/Planes.jsx', import.meta.url), 'utf8');
+  assert.match(planes, /const cambiaDisenoPrograma = esProgramaInforme && !isNew && !disenoProgramaAprobado\(planOriginal\)/);
+  assert.match(planes, /accion: 'Actividad modificada en matriz', \.\.\.\(detalleCambios\.length \? \{ detalleCambios \} : \{\}\)/);
+  const update = readFileSync(new URL('../api/_grc/update.js', import.meta.url), 'utf8');
+  assert.match(update, /const reenviaRevision = esPrograma\s+\? corrigeDisenoInicial && camposCambiados\.length > 0/);
+});
+
+test('las acciones que un guardado de la matriz devolvió a evaluación se pueden restaurar', () => {
+  const aprobado = { accion: 'Diseño aprobado (100%). Ejecución habilitada por el auditor asignado.' };
+  const matriz = { usuario: 'Auditor', accion: 'Actividad modificada en matriz' };
+  const pla0073 = { estadoWorkflow: ESTADO_EVALUACION_INICIAL, progreso: 100, correoResponsable: 'auditor.interno@termales.com.co', historialCambios: [aprobado, matriz] };
+  assert.equal(reenvioErroneoAEvaluacion(pla0073).destino, 'Pendiente Validación Revisor');
+  assert.match(reenvioErroneoAEvaluacion(pla0073).motivo, /guardado de la matriz/);
+  const validada = { ...pla0073, historialCambios: [aprobado, { accion: 'Ejecución al 100% validada por el revisor y enviada al aprobador' }, matriz] };
+  assert.equal(reenvioErroneoAEvaluacion(validada).destino, 'En Revisión (100%)', 'ya validada: a la evaluación de eficacia');
+  const pla0074 = { ...pla0073, progreso: 50 };
+  assert.equal(reenvioErroneoAEvaluacion(pla0074).destino, 'En Ejecución');
+  // Un rechazo del diseño que se está corrigiendo no se restaura: ese sí se vuelve a evaluar.
+  const rechazado = { ...pla0073, historialCambios: [aprobado, { accion: 'Diseño no aprobado (79%). Devuelto para correcciones.' }, matriz] };
+  assert.equal(reenvioErroneoAEvaluacion(rechazado), null);
+  assert.equal(reenvioErroneoAEvaluacion({ ...pla0073, historialCambios: [matriz] }), null, 'nunca aprobado: se evalúa normalmente');
+});
+
+test('el avance lo registra solo el ejecutor, aunque el revisor o el aprobador sean administradores', () => {
+  const planes = readFileSync(new URL('../src/components/Planes.jsx', import.meta.url), 'utf8');
+  assert.match(planes, /const puedeEditarAvance = [^;]*esResponsableActividad && act\.estadoWorkflow === 'En Ejecución';/);
+  assert.doesNotMatch(planes, /const puedeEditarAvance = [^;]*isAdmin/, 'ser administrador ya no habilita el avance');
+  const update = readFileSync(new URL('../api/_grc/update.js', import.meta.url), 'utf8');
+  assert.match(update, /if \(camposCambiados\.includes\('progreso'\) && !esEjecutorDelPlan\) return \{ error: 'progress-owner-only' \};/);
+});

@@ -1202,11 +1202,11 @@ test('acción devuelta por error a la evaluación del diseño: se reconoce y se 
   const validada = devueltaPorError();
   validada.historialCambios.splice(1, 0, { accion: 'Ejecución al 100% validada por el revisor y enviada al aprobador' });
   assert.equal(workflow.reenvioErroneoAEvaluacion(validada).destino, 'En Revisión (100%)');
-  // Un cambio real del diseño no se restaura: se evalúa.
+  // Aprobado el diseño, tampoco un cambio real lo vuelve a evaluar (29/10/2026): se restaura.
   const real = devueltaPorError();
   real.historialCambios[1].detalleCambios.push({ campo: 'accion', antes: 'A', despues: 'B' });
-  assert.equal(workflow.reenvioErroneoAEvaluacion(real), null);
-  assert.equal(workflow.tareaPendientePlan(real, { esPrograma: true }).tarea, 'evaluar-diseno');
+  assert.equal(workflow.reenvioErroneoAEvaluacion(real).destino, 'Pendiente Validación Revisor');
+  assert.equal(workflow.tareaPendientePlan(real, { esPrograma: true }).tarea, 'restaurar-estado');
 
   const fixture = storeFixture({ fragmented: true });
   fixture.documents.set(`${ROOT}/planes_accion/1`, devueltaPorError());
@@ -1290,10 +1290,10 @@ test('PLA-8642: el ejecutor escribió "Corregido" al corregir evidencias (90 %):
     { campo: 'accion', antes: 'Acción 1', despues: 'Acción 1. Corregido' },
   ] };
   assert.equal(workflow.reenvioErroneoAEvaluacion(caso).destino, 'En Ejecución');
-  // Si el cambio de diseño lo hizo un administrador, sí se vuelve a evaluar.
+  // Aprobado el diseño, tampoco el cambio de un administrador lo vuelve a evaluar (PLA-0073, 29/10/2026).
   const porAdmin = structuredClone(caso);
   porAdmin.historialCambios[2].usuario = 'admin@example.test';
-  assert.equal(workflow.reenvioErroneoAEvaluacion(porAdmin), null);
+  assert.equal(workflow.reenvioErroneoAEvaluacion(porAdmin).destino, 'En Ejecución');
   // Tras un "Diseño no aprobado", el reenvío del ejecutor es la corrección pedida: se evalúa.
   const corregido = structuredClone(caso);
   corregido.historialCambios.splice(2, 0, { accion: 'Diseño no aprobado (60%). Devuelto para correcciones.' });

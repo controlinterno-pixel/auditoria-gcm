@@ -253,6 +253,9 @@ export default async function handler(req, res) {
           ));
           const atascadoAlCien = anterior.estadoWorkflow === 'En Ejecución' && Number(anterior.progreso) === 100;
           if (camposCambiados.length === 0 && !atascadoAlCien) continue;
+          // El avance lo reporta solo el ejecutor: ni el revisor ni el aprobador lo cambian, aunque tengan rol administrador.
+          const esEjecutorDelPlan = String(anterior.correoResponsable || '').split(',').map(normalizar).includes(usuarioEmail);
+          if (camposCambiados.includes('progreso') && !esEjecutorDelPlan) return { error: 'progress-owner-only' };
           // Solo cambió el vínculo con la matriz de riesgos: se guarda sin tocar el flujo de aprobación.
           if (!atascadoAlCien && camposCambiados.every(campo => CAMPOS_INFORMATIVOS_PLAN.includes(campo))) {
             const historialPrevio = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
@@ -285,7 +288,12 @@ export default async function handler(req, res) {
               !(corrigeDisenoInicial && anterior.estadoWorkflow === ESTADO_AJUSTES_INICIALES && !cambioProgreso)) {
             return { error: 'progress-forbidden' };
           }
-          const reenviaRevision = (cambioDiseno || ((corrigeDisenoInicial || corrigeDisenoDevuelto) && camposCambiados.length > 0)) && (!admin || esPrograma);
+          // Programas: solo vuelve a evaluación el diseño que aún no se aprueba (p. ej. el que el auditor devolvió y se
+          // corrige). Con el diseño aprobado, los cambios se guardan y la acción sigue su etapa, también si los hace un
+          // administrador (cambiar el ejecutor devolvía PLA-0073 a la evaluación inicial).
+          const reenviaRevision = esPrograma
+            ? corrigeDisenoInicial && camposCambiados.length > 0
+            : (cambioDiseno || (corrigeDisenoDevuelto && camposCambiados.length > 0)) && !admin;
           let estadoWorkflow = anterior.estadoWorkflow;
           const alCien = Number(cambios.progreso ?? anterior.progreso) === 100;
           if (admin && (cambioProgreso || atascadoAlCien)) {
@@ -423,6 +431,7 @@ export default async function handler(req, res) {
         'invalid-action': ['La descripción de la acción no puede quedar vacía.', 400],
         'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
         'progress-forbidden': ['El plan solo se puede modificar durante la ejecución; está bloqueado mientras espera validación del revisor o aprobación final.', 403],
+        'progress-owner-only': ['Solo el ejecutor de la acción puede registrar su avance. El revisor y el aprobador aprueban o devuelven.', 403],
         'design-correction-progress': ['Primero corrige el diseño de la acción y guárdalo: vuelve al revisor. El avance se habilita cuando lo apruebe.', 409],
         'invalid-linked-risks': ['La lista de riesgos vinculados no es válida.', 400],
         'no-aplica-hallazgo': ['Este hallazgo se declaró No aplica (o está en decisión del auditor): no admite acciones nuevas.', 409],

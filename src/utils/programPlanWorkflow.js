@@ -97,6 +97,12 @@ export function disenoInicialBloqueado(plan) {
   return pendienteEvaluacionInicial(plan) || plan?.estadoWorkflow === ESTADO_AJUSTES_INICIALES;
 }
 
+/**
+ * Programas de Auditoría: el diseño ya pasó la evaluación inicial. Desde ahí ningún guardado (del ejecutor ni de un
+ * administrador) lo devuelve a evaluar; la evaluación del diseño solo se repite tras un rechazo que el ejecutor corrige.
+ */
+export const disenoProgramaAprobado = plan => Boolean(plan) && !disenoInicialBloqueado(plan);
+
 export function etapaAccionPrograma(plan) {
   // Devuelta al ejecutor ("Borrador" con motivo): le toca corregir, no está esperando al auditor.
   if (plan?.estadoWorkflow === 'Borrador' && planDevueltoAlEjecutor(plan)) return {
@@ -254,13 +260,15 @@ export const asuntoTareaPlan = (clave, plan) => `${TAREAS_PLAN[clave]?.verbo || 
 // Campos que no son de diseño: avance, soportes, riesgos vinculados y las casillas de matrices (vacío = "No aplica").
 const CAMPOS_NO_DISENO = ['progreso', 'evidenciaUrl', 'riesgosVinculados'];
 const CAMPOS_MATRIZ = ['matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal'];
-const REENVIO_A_EVALUACION = /reenviado a revisi[oó]n/i;
+// También "Guardar matriz" (evento "Actividad modificada en matriz"), que devolvía a evaluación acciones aprobadas.
+const REENVIO_A_EVALUACION = /reenviado a revisi[oó]n|actividad modificada en matriz/i;
 
 /**
  * Acción de programa que volvió a la evaluación inicial del diseño cuando su diseño ya estaba aprobado: el ejecutor,
- * al registrar avance o corregir evidencias, guardó un cambio de diseño (p. ej. añadió "Corregido" a la descripción)
- * o el sistema tomó como cambio las casillas de matrices (de vacío a "No aplica"). El diseño aprobado no se vuelve a
- * evaluar: devuelve a dónde restaurarla ({ destino, motivo }) o null. Al 100 %: validación del revisor o, si ya la
+ * al registrar avance o corregir evidencias, guardó un cambio de diseño (p. ej. añadió "Corregido" a la descripción),
+ * el sistema tomó como cambio las casillas de matrices (de vacío a "No aplica") o un administrador guardó la matriz
+ * (p. ej. cambió el ejecutor, PLA-0073). El diseño aprobado no se vuelve a evaluar, lo cambie quien lo cambie:
+ * devuelve a dónde restaurarla ({ destino, motivo }) o null. Al 100 %: validación del revisor o, si ya la
  * había validado (o no hay revisor), la evaluación de eficacia; con menos avance, ejecución.
  */
 export function reenvioErroneoAEvaluacion(plan) {
@@ -278,8 +286,7 @@ export function reenvioErroneoAEvaluacion(plan) {
   ));
   const ejecutores = String(plan.correoResponsable || '').split(',').map(normalizar).filter(Boolean);
   const loHizoElEjecutor = ejecutores.includes(normalizar(historial[indice].usuario));
-  // Un cambio de diseño hecho por un administrador sí se vuelve a evaluar.
-  if (!soloSinDiseno && !loHizoElEjecutor) return null;
+  const guardadoMatriz = /actividad modificada en matriz/i.test(String(historial[indice].accion || ''));
   const ultimaValidacion = anteriores.map(accion => /validada por el revisor/i.test(accion)).lastIndexOf(true);
   const ultimaDevolucion = anteriores.map(accion => /devuelt|rechazad/i.test(accion)).lastIndexOf(true);
   const yaValidada = revisorNoAplica(plan) || (ultimaValidacion !== -1 && ultimaValidacion > ultimaDevolucion);
@@ -287,7 +294,11 @@ export function reenvioErroneoAEvaluacion(plan) {
     destino: Number(plan.progreso) !== 100 ? 'En Ejecución' : yaValidada ? 'En Revisión (100%)' : 'Pendiente Validación Revisor',
     motivo: soloSinDiseno
       ? 'El sistema devolvió la acción a la evaluación inicial al guardar el avance (solo cambiaron las casillas de matrices de vacío a "No aplica"); el diseño ya estaba aprobado.'
-      : 'El ejecutor modificó el diseño mientras registraba la ejecución; el diseño ya estaba aprobado y no se vuelve a evaluar.',
+      : guardadoMatriz
+        ? 'Un guardado de la matriz devolvió la acción a la evaluación inicial; el diseño ya estaba aprobado y no se vuelve a evaluar.'
+        : loHizoElEjecutor
+          ? 'El ejecutor modificó el diseño mientras registraba la ejecución; el diseño ya estaba aprobado y no se vuelve a evaluar.'
+          : 'Se modificó el diseño ya aprobado; el diseño aprobado no se vuelve a evaluar.',
   };
 }
 
