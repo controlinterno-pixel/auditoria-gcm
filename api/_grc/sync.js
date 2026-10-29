@@ -459,11 +459,12 @@ export default async function handler(req, res) {
           Array.isArray(partialData.planesEliminados) &&
           partialData.planesEliminados.length > 0
         );
-        if (!esAdministradorPleno || !soloEliminacion) {
+        // Cambiamos 'esAdministradorPleno' por 'isAdmin' para permitir que Auditores también puedan eliminar
+        if (!isAdmin || !soloEliminacion) {
           logger.warn('Intento de modificar acciones cerradas como No aplica', { usuario: user.email });
           return sendError(res, 'Hay acciones cerradas porque su hallazgo se declaró No aplica (decisión definitiva). Solo un administrador puede eliminarlas.', 409);
         }
-        logger.info('Administrador elimina plan(es) No aplica', { usuario: user.email, eliminados: partialData.planesEliminados });
+        logger.info('Administrador/Auditor elimina plan(es) No aplica', { usuario: user.email, eliminados: partialData.planesEliminados });
       }
 
       if (hayConflictosDeRolesEnPlanesActualizados(partialData.planes, workspaceActual)) {
