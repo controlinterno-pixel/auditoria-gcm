@@ -304,3 +304,29 @@ export function disenoBloqueadoParaEjecutor(plan, { esPrograma = false, admin = 
   if (admin || !plan || plan.estadoWorkflow !== 'En Ejecución') return false;
   return esPrograma || !revisorNoAplica(plan);
 }
+
+// 🧮 "Guardar matriz y sincronizar". Los campos del diseño se comparan contra lo que se cargó en el formulario: así
+// los valores que la matriz completa al abrirse (auditor heredado del informe, valores por defecto) no cuentan como
+// una corrección del diseño, y solo cuenta lo que la persona cambió.
+export const CAMPOS_DISENO_MATRIZ = ['accion', 'sede', 'responsable', 'correoResponsable', 'revisor', 'correoRevisor',
+  'auditorAsignado', 'correoAuditor', 'fechaInicio', 'fecha', 'tipoAccion', 'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal'];
+const valorDisenoMatriz = (campo, valor) => (/^matriz/.test(campo) ? valor || 'No aplica' : JSON.stringify(valor ?? ''));
+export const disenoCargadoMatriz = actividad => Object.fromEntries(
+  CAMPOS_DISENO_MATRIZ.map(campo => [campo, valorDisenoMatriz(campo, actividad?.[campo])]));
+export const disenoCambiadoEnMatriz = (cargado, actividad) => CAMPOS_DISENO_MATRIZ.some(campo => (
+  (cargado?.[campo] ?? valorDisenoMatriz(campo, undefined)) !== valorDisenoMatriz(campo, actividad?.[campo])));
+
+/**
+ * Estado con que "Guardar matriz" deja una acción. Parte del estado vigente de la acción (lo dejan las evaluaciones,
+ * revisiones y correcciones), nunca de la copia que tenía el formulario: una matriz abierta antes de un rechazo del
+ * diseño no lo deshace al guardar (PLA-0075, 29/10/2026).
+ */
+export function estadoAlGuardarMatriz({ planVigente, actividad, esPrograma = false, cambiaDiseno = false } = {}) {
+  if (!planVigente) return estadoInicialPlan(esPrograma, actividad);
+  if (cambiaDiseno) return ESTADO_EVALUACION_INICIAL;
+  const estado = planVigente.estadoWorkflow || actividad?.estadoWorkflow || 'Pendiente Revisión Jefatura';
+  const progreso = Math.min(Math.max(parseInt(actividad?.progreso || 0, 10) || 0, 0), 100);
+  if (progreso === 100 && estado === 'En Ejecución') return estadoAlCien(actividad);
+  if (progreso < 100 && ['Pendiente Validación Revisor', 'En Revisión (100%)'].includes(estado)) return 'En Ejecución';
+  return estado;
+}

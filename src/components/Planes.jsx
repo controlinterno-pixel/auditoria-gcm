@@ -11,7 +11,7 @@ import { apiService } from '../services/apiService';
 import { TIPOS_FUENTE_HISTORIAL, resolverCategoriaFuente } from '../constants/diccionariosGRC';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.js';
 import {
-  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asignarConsecutivosPlanes, codigoPlan, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, disenoBloqueadoParaEjecutor, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
+  estadoAlCien, estadoInicialPlan, motivoRevisorNoAplicaValido, revisorNoAplica, esInformePrograma, pendienteEvaluacionInicial, disenoInicialBloqueado, etapaAccionPrograma, calcularPuntajeDiseno, puedeEditarAsignacionPlan, bloqueadaParaEjecutor, bloqueadaParaRevisorOAuditor, accionCerrada, planDevueltoAlEjecutor, motivoDevolucion, accionesEnCorreccionInicial, asignarConsecutivosPlanes, codigoPlan, asuntoTareaPlan, tareaPendientePlan, reenvioErroneoAEvaluacion, disenoBloqueadoParaEjecutor, disenoCargadoMatriz, disenoCambiadoEnMatriz, estadoAlGuardarMatriz, ESTADO_EVALUACION_INICIAL, ESTADO_AJUSTES_INICIALES } from '../utils/programPlanWorkflow.js';
 import { EVALUATION_ATTACHMENT_ACCEPT, validarArchivoEvaluacion, validarAdjuntoEvaluacion } from '../utils/evaluationAttachment.js';
 
 const normalizarIdentidad = valor => String(valor || '')
@@ -1254,26 +1254,13 @@ const handleNotificarPlan = async (planId) => {
         const isNew = String(act.id).startsWith('new-');
         const planOriginal = safePlanes.find(plan => String(plan.id) === String(act.id));
         const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
-        const camposDiseno = ['accion', 'sede', 'responsable', 'correoResponsable', 'revisor', 'correoRevisor', 'auditorAsignado', 'correoAuditor', 'fechaInicio', 'fecha', 'tipoAccion', 'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal'];
-        const cambiaDisenoPrograma = esProgramaInforme && !isNew && !disenoBloqueadoParaEjecutor(planOriginal, { esPrograma: true, admin: isAdmin }) && camposDiseno.some(campo => (
-          /^matriz/.test(campo)
-            ? (planOriginal?.[campo] || 'No aplica') !== (act[campo] || 'No aplica')
-            : JSON.stringify(planOriginal?.[campo] ?? '') !== JSON.stringify(act[campo] ?? '')
-        ));
-        
-       let workflowCalculado = act.estadoWorkflow || 'Pendiente Revisión Jefatura';
+        const cambiaDisenoPrograma = esProgramaInforme && !isNew && !disenoBloqueadoParaEjecutor(planOriginal, { esPrograma: true, admin: isAdmin })
+          && disenoCambiadoEnMatriz(act.disenoCargado || disenoCargadoMatriz(planOriginal), act);
 
-        // LÓGICA DE MÁQUINA DE ESTADOS 3 NIVELES
-        if (isNew) {
-          workflowCalculado = estadoInicialPlan(esProgramaInforme, act);
-        } else if (cambiaDisenoPrograma) {
-          workflowCalculado = ESTADO_EVALUACION_INICIAL;
-        } else if (progresoEntero === 100 && workflowCalculado === 'En Ejecución') {
-          // Sin revisor, el 100 % pasa directo al auditor aprobador.
-          workflowCalculado = estadoAlCien(act);
-        } else if (progresoEntero < 100 && [ESTADO_PENDIENTE_VALIDACION_REVISOR, 'En Revisión (100%)'].includes(workflowCalculado)) {
-          workflowCalculado = 'En Ejecución';
-        }
+        // El estado parte del vigente de la acción, no de la copia del formulario (ver estadoAlGuardarMatriz).
+        const workflowCalculado = estadoAlGuardarMatriz({
+          planVigente: isNew ? null : planOriginal, actividad: act, esPrograma: esProgramaInforme, cambiaDiseno: cambiaDisenoPrograma,
+        });
 
         // 🛡️ Salvaguardas para extraer datos correctamente, asegurando que no queden valores en blanco que rompan el sistema.
         const hallazgoReal = safeHallazgos.find(h => String(h.id) === String(hallazgoId));
@@ -1672,16 +1659,20 @@ if (existingActivities.length > 0) {
           aplica: !noAplicaActivo,
           estadoNoAplica: estadoNoAplicaHallazgo,
           justificacionNoAplica: justificacionNoAplica(h), 
-          actividades: existingActivities.map(p => ({ 
-            ...p, 
-            correoConfirmacion: p.correoResponsable,
-            responsable: p.responsable || h.responsable || '',
-            revisor: p.revisor || '',
-            correoRevisor: p.correoRevisor || '',
-            correoRevisorConfirmacion: p.correoRevisor || '',
-            auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
-            correoAuditor: p.correoAuditor || correoAuditorHeredado,
-          })) 
+          actividades: existingActivities.map(p => {
+            const actividad = {
+              ...p,
+              correoConfirmacion: p.correoResponsable,
+              responsable: p.responsable || h.responsable || '',
+              revisor: p.revisor || '',
+              correoRevisor: p.correoRevisor || '',
+              correoRevisorConfirmacion: p.correoRevisor || '',
+              auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
+              correoAuditor: p.correoAuditor || correoAuditorHeredado,
+            };
+            // Diseño tal como se cargó: "Guardar matriz" solo cuenta como corrección lo que la persona cambie.
+            return { ...actividad, disenoCargado: disenoCargadoMatriz(actividad) };
+          }) 
         };
       } else {
         newState[h.id] = {
