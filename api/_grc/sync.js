@@ -1,4 +1,4 @@
-// api/grc/sync.js - Sincronización GRC con Row-Level Security Optimizada
+﻿// api/grc/sync.js - Sincronización GRC con Row-Level Security Optimizada
 import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
@@ -451,10 +451,19 @@ export default async function handler(req, res) {
         ? (await leerWorkspaceGrc(null, { origen: 'sync-post-validacion' })).data
         : null;
 
-      // Acciones cerradas por un "No aplica" aprobado: definitivas para todos, también para administradores.
+      // Acciones cerradas por un "No aplica" aprobado: el admin total puede eliminarlas;
+      // editar sus campos sigue siendo definitivo para todos.
       if (modificaAccionesNoAplica(partialData, workspaceActual)) {
-        logger.warn('Intento de modificar acciones cerradas como No aplica', { usuario: user.email });
-        return sendError(res, 'Hay acciones cerradas porque su hallazgo se declaró No aplica (decisión definitiva). No se pueden modificar ni eliminar.', 409);
+        const soloEliminacion = (
+          !Array.isArray(partialData.planes) &&
+          Array.isArray(partialData.planesEliminados) &&
+          partialData.planesEliminados.length > 0
+        );
+        if (!esAdministradorPleno || !soloEliminacion) {
+          logger.warn('Intento de modificar acciones cerradas como No aplica', { usuario: user.email });
+          return sendError(res, 'Hay acciones cerradas porque su hallazgo se declaró No aplica (decisión definitiva). Solo un administrador puede eliminarlas.', 409);
+        }
+        logger.info('Administrador elimina plan(es) No aplica', { usuario: user.email, eliminados: partialData.planesEliminados });
       }
 
       if (hayConflictosDeRolesEnPlanesActualizados(partialData.planes, workspaceActual)) {
