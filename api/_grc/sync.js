@@ -454,17 +454,19 @@ export default async function handler(req, res) {
       // Acciones cerradas por un "No aplica" aprobado: el admin total puede eliminarlas;
       // editar sus campos sigue siendo definitivo para todos.
       if (modificaAccionesNoAplica(partialData, workspaceActual)) {
+        // SOLUCIÓN DEFINITIVA: Permitir que 'planes' llegue como un array vacío [] (comportamiento de saveToCloud)
         const soloEliminacion = (
-          !Array.isArray(partialData.planes) &&
+          (!Array.isArray(partialData.planes) || partialData.planes.length === 0) &&
           Array.isArray(partialData.planesEliminados) &&
           partialData.planesEliminados.length > 0
         );
-        // Cambiamos 'esAdministradorPleno' por 'isAdmin' para permitir que Auditores también puedan eliminar
-        if (!isAdmin || !soloEliminacion) {
+        
+        // Restauramos a esAdministradorPleno ya que tu perfil sí cumple este nivel
+        if (!esAdministradorPleno || !soloEliminacion) {
           logger.warn('Intento de modificar acciones cerradas como No aplica', { usuario: user.email });
           return sendError(res, 'Hay acciones cerradas porque su hallazgo se declaró No aplica (decisión definitiva). Solo un administrador puede eliminarlas.', 409);
         }
-        logger.info('Administrador/Auditor elimina plan(es) No aplica', { usuario: user.email, eliminados: partialData.planesEliminados });
+        logger.info('Administrador elimina plan(es) No aplica', { usuario: user.email, eliminados: partialData.planesEliminados });
       }
 
       if (hayConflictosDeRolesEnPlanesActualizados(partialData.planes, workspaceActual)) {
