@@ -810,10 +810,18 @@ const handleNotificarPlan = async (planId) => {
 
     try {
       if (esNoAplica) {
-        // sync.js exige enviar únicamente planesEliminados sin el array 'planes'
-        const guardado = await saveToCloud({ planesEliminados: [plan.id] });
-        if (!guardado) return;
+        // 🚀 SOLUCIÓN AL BUG (Efecto fantasma):
+        // Enviamos `planes: null` explícitamente. Esto fuerza a que `sync.js` lo lea 
+        // estrictamente como `soloEliminacion = true` y no rechace la orden con error 409.
+        const guardado = await saveToCloud({ planesEliminados: [plan.id], planes: null });
+        
+        // Validamos que el servidor haya respondido exitosamente y no con un objeto de error 409.
+        if (!guardado || guardado.error || guardado.success === false || (guardado.message && guardado.message.includes('cerradas'))) {
+          showNotification(guardado?.message || guardado?.error || 'El servidor rechazó la eliminación (Verifica permisos de Admin Total).', 'error');
+          return; // Detiene la ejecución: el plan NO desaparece falsamente de la pantalla.
+        }
 
+        // Solo si el backend eliminó el dato con éxito, lo removemos de la vista.
         setPlanes(prev => prev.filter(p => String(p.id) !== String(plan.id)));
         showNotification('Plan "No aplica" eliminado con éxito.', 'success');
       } else {
