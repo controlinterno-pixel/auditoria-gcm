@@ -795,6 +795,36 @@ const handleNotificarPlan = async (planId) => {
   setPlanes(updated);
   showNotification('Recordatorio registrado en el historial.', 'success');
 };
+// 🗑️ Eliminación segura respetando la regla de negocio para planes "No aplica"
+  const handleEliminarPlanSeguro = async (plan) => {
+    const esNoAplica = plan?.estadoWorkflow === 'No aplica' || plan?.noAplica === true;
+
+    if (esNoAplica && !isAdmin) {
+      alert("❌ Acción denegada: Un plan 'No aplica' no puede ser eliminado por un usuario estándar.");
+      return;
+    }
+
+    if (!(await confirmarEliminacion(`¿Deseas eliminar definitivamente el plan ${codigoPlan(plan)}?`))) {
+      return;
+    }
+
+    try {
+      if (esNoAplica) {
+        // sync.js exige enviar únicamente planesEliminados sin el array 'planes'
+        const guardado = await saveToCloud({ planesEliminados: [plan.id] });
+        if (!guardado) return;
+
+        setPlanes(prev => prev.filter(p => String(p.id) !== String(plan.id)));
+        showNotification('Plan "No aplica" eliminado con éxito.', 'success');
+      } else {
+        // Flujo tradicional para planes en cualquier otro estado
+        await handleDeleteItem('planes', plan.id);
+      }
+    } catch (error) {
+      console.error('Error al eliminar el plan:', error);
+      showNotification(error?.message || 'No fue posible eliminar el plan.', 'error');
+    }
+  };
   // 1. Filtrado Base (Desde el menú lateral)
   const planesFiltradosBase = useMemo(() => planesEnriquecidos.filter(p => {
     if (dashFiltroAnio !== 'Todos' && p.anioTexto !== dashFiltroAnio) return false;
@@ -4699,7 +4729,16 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                           )}
 
                                           {/* ELIMINAR (SOLO ADMIN) */}
-                                          {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 hover:bg-red-100 font-bold px-2 py-1 rounded text-[10px] w-full mt-1 border border-red-200 transition-colors">🗑️ Eliminar</button>}
+                                          {isAdmin && (
+                                            <button 
+                                              type="button" 
+                                              onClick={() => handleEliminarPlanSeguro(p)} 
+                                              className="bg-red-50 text-red-700 hover:bg-red-100 font-bold px-2 py-1 rounded text-[10px] w-full mt-1 border border-red-200 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                                              title={p.estadoWorkflow === 'No aplica' ? 'Eliminar plan cerrado como No aplica' : 'Eliminar plan de acción'}
+                                            >
+                                              <span>🗑️</span> Eliminar
+                                            </button>
+                                          )}
                                         </>
                                       );
                                     })()}
